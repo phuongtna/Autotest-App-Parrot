@@ -1,0 +1,6 @@
+.env
+test_data/accounts.env
+test_data/datatest.js
+reports/
+*.png
+.maestro/tmp/

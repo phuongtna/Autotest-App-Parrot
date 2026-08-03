@@ -1,0 +1,9 @@
+# Smoke test: kiểm tra app mở lên thành công và có màn hình chính.
+# Chạy: maestro test flows/smoke_test.yaml
+appId: ${APP_ID}
+---
+- runFlow: subflows/launch_app.yaml
+- assertVisible:
+    text: ".*"
+    optional: false
+- takeScreenshot: smoke_home_screen

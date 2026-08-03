@@ -1,0 +1,10 @@
+# Subflow dùng chung: xóa state cũ và mở app từ đầu.
+# Được gọi lại (runFlow) từ các flow khác để tránh lặp code.
+# permissions: all: allow -> tự cấp quyền (thông báo, ...) ngay khi mở app,
+# tránh popup hệ thống "Allow ... to send you notifications?" làm flow bị chặn/flaky.
+appId: ${APP_ID}
+---
+- clearState
+- launchApp:
+    permissions:
+      all: allow

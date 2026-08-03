@@ -1,0 +1,51 @@
+# Testcase: Chuyển profile (tài khoản con) thành công.
+# Tài khoản test có 2 profile con: Ngoc và Ha - "Chuyển profile" sẽ toggle qua lại giữa 2 profile này.
+# PHONE_NUMBER/OTP_CODE lấy từ test_data/accounts.env (xem scripts/run_tests.sh).
+#
+# Step: Đăng nhập thành công tài khoản -> hiện đang là profile Ngoc, tại màn Vui học -> chọn "Chuyển profile"
+# Expected: hệ thống hiển thị thông báo "Thay đổi tài khoản con thành công!" và chuyển sang profile Ha
+#
+# Chạy: maestro test flows/profile/switch_profile_success.yaml -e APP_ID=com.inet.parrotedu -e PHONE_NUMBER=0915775115 -e OTP_CODE=888888
+appId: ${APP_ID}
+---
+- runFlow: ../subflows/launch_app.yaml
+
+# Đăng nhập
+- tapOn: "Nhập số điện thoại"
+- inputText: ${PHONE_NUMBER}
+- tapOn: "Đăng nhập"
+- extendedWaitUntil:
+    visible:
+      text: "Xác thực OTP"
+    timeout: 10000
+- tapOn:
+    below: "Đổi số điện thoại"
+    above: "Xác nhận"
+- inputText: ${OTP_CODE}
+- tapOn: "Xác nhận"
+- extendedWaitUntil:
+    visible:
+      text: "Vui học"
+    timeout: 15000
+
+# Vào đúng tab "Vui học" và xác nhận đang ở profile Ngoc
+- tapOn: "Vui học"
+- assertVisible: "Ngoc"
+
+# Chọn "Chuyển profile"
+- tapOn: "Chuyển profile"
+
+# Kiểm tra thông báo hiển thị đúng và đã chuyển sang profile Ha
+- extendedWaitUntil:
+    visible:
+      text: "Thay đổi tài khoản con thành công!"
+    timeout: 10000
+- assertVisible: "Ha"
+- takeScreenshot: switch_profile_success
+
+# Dọn dẹp: chuyển lại về Ngoc để lần chạy test sau ở đúng trạng thái ban đầu
+- tapOn: "Chuyển profile"
+- extendedWaitUntil:
+    visible:
+      text: "Ngoc"
+    timeout: 10000

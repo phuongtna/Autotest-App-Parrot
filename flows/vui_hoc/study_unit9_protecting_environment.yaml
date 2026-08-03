@@ -1,0 +1,108 @@
+# Testcase: Học Unit 9: Protecting the enviroment ở Khối 10, màn "Vui học".
+# Lưu ý: text thật trong app bị thiếu chữ "n" - "enviroment" (không phải "environment").
+# Đăng nhập bằng PHONE/OTP trong test_data/datatest.js (nạp qua runScript).
+#
+# Step:
+# 1. Đăng nhập thành công tài khoản 0915775115
+# 2. Học bằng profile Ngoc (mặc định sau đăng nhập) -> kiểm tra đang ở Khối mấy
+#    TH1: đang ở Khối 10 -> không cần đổi khối
+#    TH2: không thuộc Khối 10 -> chọn đổi khối sang Khối 10
+# 3. Sau khi ở Khối 10 -> quan sát Unit đang hiển thị
+#    TH1: đang là Unit 9: Protecting the enviroment -> giữ nguyên
+#    TH2: không phải Unit 9 -> chọn "Tất cả units" -> scroll tìm Unit 9
+# 4. Sau khi thấy Unit 9 trong danh sách Units - Khối 10 -> quan sát nút/tiến độ
+#    TH1: tiến độ 0/tổng hoặc đã học dở (chưa đủ tổng) -> bấm "Chinh phục"
+#    TH2: tiến độ = tổng (thanh full xanh) -> bấm "Ôn tập"
+#
+# Chạy: maestro test flows/vui_hoc/study_unit9_protecting_environment.yaml -e APP_ID=com.inet.parrotedu
+appId: ${APP_ID}
+---
+- runFlow: ../subflows/launch_app.yaml
+- runScript: ../../test_data/datatest.js
+
+# Đăng nhập
+- tapOn: "Nhập số điện thoại"
+- inputText: ${output.PHONE}
+- tapOn: "Đăng nhập"
+- extendedWaitUntil:
+    visible:
+      text: "Xác thực OTP"
+    timeout: 10000
+- tapOn:
+    below: "Đổi số điện thoại"
+    above: "Xác nhận"
+- inputText: ${output.OTP}
+- tapOn: "Xác nhận"
+- extendedWaitUntil:
+    visible:
+      text: "Vui học"
+    timeout: 15000
+
+# Bước 2: vào tab "Vui học" (mặc định đang học bằng profile Ngoc sau đăng nhập)
+- tapOn: "Vui học"
+
+# TH1/TH2: kiểm tra Khối hiện tại, nếu chưa phải Khối 10 thì đổi sang Khối 10.
+# Dùng "leftOf: Chuyển profile" để mở dropdown chọn khối vì text hiện tại (Khối X) thay đổi tùy trạng thái.
+- runFlow:
+    when:
+      notVisible: "Khối 10"
+    commands:
+      - tapOn:
+          leftOf: "Chuyển profile"
+      - extendedWaitUntil:
+          visible:
+            text: "Chọn khối"
+          timeout: 5000
+      - tapOn: "Khối 10"
+
+- extendedWaitUntil:
+    visible:
+      text: "Khối 10"
+    timeout: 10000
+
+# TH1/TH2: kiểm tra Unit đang hiển thị ở màn chính, nếu không phải Unit 9 thì vào "Tất cả units" và scroll tìm
+- runFlow:
+    when:
+      notVisible: "Unit 9: Protecting the enviroment"
+    commands:
+      - tapOn: "Tất cả units"
+      - extendedWaitUntil:
+          visible:
+            text: "Danh sách Units - Khối 10"
+          timeout: 10000
+      - scrollUntilVisible:
+          element:
+            text: "Unit 9: Protecting the enviroment"
+          direction: DOWN
+          timeout: 20000
+      # scroll thêm 1 bước để chắc chắn cả nút "Chinh phục"/"Ôn tập" của Unit 9 cũng vào khung hình
+      # (card Unit 9 khá cao - ảnh + tiêu đề + mô tả + nút - nên chỉ scroll tới tiêu đề là chưa đủ)
+      - scrollUntilVisible:
+          element:
+            below: "Unit 9: Protecting the enviroment"
+            text: "Chinh phục|Ôn tập"
+          direction: DOWN
+          timeout: 20000
+
+# TH1/TH2: quan sát nút của Unit 9 - nếu đang "Chinh phục" (chưa hoàn thành) thì bấm Chinh phục,
+# nếu đã hoàn thành hết (nút đổi thành "Ôn tập") thì bấm Ôn tập.
+- runFlow:
+    when:
+      visible:
+        below: "Unit 9: Protecting the enviroment"
+        text: "Chinh phục"
+    commands:
+      - tapOn:
+          below: "Unit 9: Protecting the enviroment"
+          text: "Chinh phục"
+- runFlow:
+    when:
+      visible:
+        below: "Unit 9: Protecting the enviroment"
+        text: "Ôn tập"
+    commands:
+      - tapOn:
+          below: "Unit 9: Protecting the enviroment"
+          text: "Ôn tập"
+
+- takeScreenshot: study_unit9_result

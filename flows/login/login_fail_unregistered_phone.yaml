@@ -1,0 +1,24 @@
+# Testcase: Đăng nhập không thành công với số điện thoại chưa đăng ký trên hệ thống.
+# UNREGISTERED_PHONE_NUMBER lấy từ test_data/accounts.env (xem scripts/run_tests.sh).
+#
+# Step: nhập số điện thoại chưa đăng ký -> chọn "Đăng nhập"
+# Expected: hiển thị thông báo lỗi "Số điện thoại chưa được đăng ký", vẫn ở lại màn hình đăng nhập.
+#
+# Chạy: maestro test flows/login/login_fail_unregistered_phone.yaml -e APP_ID=com.inet.parrotedu -e UNREGISTERED_PHONE_NUMBER=0916616666
+appId: ${APP_ID}
+---
+- runFlow: ../subflows/launch_app.yaml
+
+- assertVisible: "Vui lòng đăng nhập để tiếp tục"
+- tapOn: "Nhập số điện thoại"
+- inputText: ${UNREGISTERED_PHONE_NUMBER}
+- tapOn: "Đăng nhập"
+
+# Kiểm tra thông báo lỗi hiển thị đúng và không chuyển sang màn OTP
+- extendedWaitUntil:
+    visible:
+      text: "Số điện thoại chưa được đăng ký"
+    timeout: 10000
+- assertVisible: "Vui lòng đăng nhập để tiếp tục"
+- assertNotVisible: "Xác thực OTP"
+- takeScreenshot: login_fail_unregistered_phone

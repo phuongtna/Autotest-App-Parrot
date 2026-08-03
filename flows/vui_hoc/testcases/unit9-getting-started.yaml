@@ -1,0 +1,58 @@
+name: Unit9_GettingStarted_TramKhoiHanh
+
+precondition:
+  profile: Ngoc
+  grade: 10
+  unit: Unit 9 - Protecting the Environment
+  lesson: Getting Started
+  activity: Trạm khởi hành
+
+flow:
+  - action: open_activity
+    if_completed: retry
+    else: start
+
+  - action: intro
+    next: flashcard
+
+  - action: practice_true_false
+    answer: False
+    expect: Correct
+
+  - action: practice_multiple_choice
+    answer: environment
+    expect: Wrong
+    retry: 2
+
+  - action: practice_fill_character
+    answer:
+      - e
+      - e
+      - i
+    expect: Correct
+
+  - action: practice_sentence_builder
+    answer: practical
+    expect: Correct
+
+  - action: practice_fill_word
+    answer: pset
+    expect: Correct
+
+  - action: practice_matching
+    answer:
+      upset: làm rối loạn
+      deforestation: nạn phá rừng
+      endangered: bị nguy hiểm
+      environmental protection: bảo vệ môi trường
+      practical: thực tế
+
+result:
+  score: "<10"
+  time: ">00:00"
+
+verify:
+  progress:
+    intro_to_flashcard: false
+    flashcard_to_practice: true
+    challenge: false

@@ -59,7 +59,19 @@ automation/
       unsupportedHandler.js      # fallback (vd "SPEAK") - log cảnh báo, bỏ qua, không throw
       index.js                   # registry: type string -> handler
     flowGenerator.js          # entrypoint `npm run generate-flow` - đọc discovery.json, sinh YAML
-  output/                    # gitignore - discovery.json + generated_flow.yaml (ghi đè mỗi lần chạy)
+    maestroBridge.js          # MỚI - Bridge "sống" (tap/input/swipe/wait/isVisible/checkAnswer/
+                               # nextQuestion), dùng cho pipeline Runtime bên dưới - khác hẳn
+                               # flowGenerator.js (sinh YAML tĩnh), không liên quan tới nhau
+  navigation/                 # MỚI - NavigationEngine: điều hướng Book->Unit->Lesson->Exercise
+    navigationEngine.js       # bằng thao tác của MaestroBridge, không hardcode, không gọi CMS
+  runtime/                    # MỚI - điều phối Discovery(chỉ đọc JSON) -> Navigation -> Handler
+    discoveryReader.js         # đọc output/discovery.json (không import automation/discovery/)
+    resultWriter.js             # ghi output/run-result.json
+    handlers/                    # Handler theo QuestionType (khác bridge/handlers/ - contract mới,
+                                  # gọi MaestroBridge trực tiếp thay vì sinh bước Maestro tĩnh)
+    index.js                     # entrypoint `npm run run-e2e`
+  output/                    # gitignore - discovery.json + generated_flow.yaml + run-result.json
+                              # (ghi đè mỗi lần chạy)
 ```
 
 ## Cấu hình
@@ -153,11 +165,14 @@ npm run discover              # random 1 Exercise, in gọn, ghi output/discover
 npm run discover --verbose    # thêm chi tiết: Lesson Item random trong bao nhiêu lựa chọn,
                                # danh sách đầy đủ Answers của từng Question, v.v.
 npm run generate-flow         # đọc discovery.json vừa tạo, sinh output/generated_flow.yaml
+npm run run-e2e                # MỚI - tự lái Maestro thật: Navigation -> trả lời -> ghi
+                                # output/run-result.json (xem mục "Runtime End-to-End" trên)
 ```
 
-Không cần máy ảo Android cho `discover`/`generate-flow` — chỉ gọi CMS API + mở 1 trình duyệt
-Playwright headless để đọc trang Exam thật. Cần máy ảo khi bạn tự chạy `maestro test` với
-file YAML sinh ra (xem cảnh báo cuối log của `generate-flow`).
+`discover` cần máy ảo/thiết bị đang kết nối (đọc trạng thái Hoàn thành trên app, xem mục "Chỉ
+random Unit đã Hoàn thành"). `generate-flow` không cần (chỉ đọc `discovery.json` đã có, sinh
+YAML). `run-e2e` cần máy ảo/thiết bị đang kết nối VÀ app đã mở sẵn, đăng nhập sẵn, đang ở tab
+gốc "Vui học" (xem giả định của `NavigationEngine` ở mục "Runtime End-to-End").
 
 Kết quả `discover` thật (ví dụ, đã chạy nhiều lần, luôn ra Book/Unit/Lesson/Exam khác nhau):
 
@@ -329,4 +344,63 @@ chạy Maestro tách biệt hoàn toàn theo yêu cầu).
 **Giới hạn hiện tại (chưa làm, không giả vờ đã xong):** file sinh ra chỉ gồm bước trả lời
 câu hỏi, CHƯA có bước đăng nhập/điều hướng tới đúng Book/Unit/Lesson/Exercise đã random -
 cần tự mở app và vào đúng màn hình bài tập đó trước khi chạy `maestro test` file sinh ra.
+
+## Runtime End-to-End (NavigationEngine + Bridge sống + Handler)
+
+Song song với pipeline "sinh 1 file YAML rồi tự chạy tay" ở trên, có 1 pipeline THỨ HAI tự lái
+Maestro trực tiếp (`npm run run-e2e`), theo kiến trúc Dependency Injection:
+
+```
+Runtime (runtime/index.js)
+  ↓ inject MaestroBridge
+NavigationEngine (navigation/navigationEngine.js)   Handler (runtime/handlers/*.js)
+  ↓ dùng                                              ↓ dùng
+MaestroBridge (bridge/maestroBridge.js)  <-------------┘
+```
+
+- **`bridge/maestroBridge.js`** - lớp trung gian DUY NHẤT nói chuyện với Maestro/adb. Chỉ cung
+  cấp thao tác chung: `tap`, `input`, `swipe`, `wait` (chờ có thật), `isVisible` (hỏi ngay, đọc
+  `maestro hierarchy`, KHÔNG làm dừng flow nếu không thấy - dùng để rẽ nhánh), `checkAnswer`
+  (bấm "Kiểm tra"), `nextQuestion` (bấm "Tiếp theo"), `assertAnswerResult` (poll "Chính xác"/
+  "Chưa chính xác"). KHÔNG gọi CMS, KHÔNG biết Book/Unit/Lesson/Exercise/QuestionType là gì. Mỗi
+  thao tác (trừ `isVisible`) chạy 1 lượt `maestro test` riêng - chậm hơn 1 file gộp nhiều bước,
+  đổi lại đúng nghĩa "cung cấp thao tác" và đơn giản (đã xác nhận thật: nhiều lượt `maestro test`
+  liên tiếp KHÔNG làm mất trạng thái app, xem mục Unit đã Hoàn thành ở trên).
+- **`navigation/navigationEngine.js`** - nhận `{book, unit, lesson, exercise}` (mỗi cái có
+  `.name`, đọc từ `discovery.json` do Runtime truyền vào) rồi tự điều hướng bằng thao tác của
+  Bridge - không hardcode tên nào, không gọi CMS, không xử lý câu hỏi. **Giả định**: app đã mở,
+  đã đăng nhập, đang ở tab gốc "Vui học" (đăng nhập không thuộc phạm vi NavigationEngine).
+- **`runtime/handlers/*.js`** - mỗi Handler chỉ xử lý ĐÚNG 1 `QuestionType`, nhận `bridge` qua
+  constructor (Dependency Injection), export `static supports(type)` + `execute(question)`.
+  Thêm dạng bài mới = thêm 1 file + đăng ký vào `handlerRegistry.js`.
+- **`runtime/index.js`** (entrypoint `npm run run-e2e`) - đọc `output/discovery.json` (CHỈ đọc
+  file JSON, không import gì trong `discovery/` - Discovery giữ độc lập hoàn toàn) → tạo 1
+  `MaestroBridge` duy nhất, inject cho `NavigationEngine` + `HandlerRegistry` → điều hướng →
+  lặp từng Question, resolve Handler, log `[DISCOVERY]/[NAVIGATION]/[RUNTIME]` → ghi
+  `output/run-result.json` (book/unit/lesson/exercise/questionType/correctAnswer/
+  selectedAnswer/status/duration/timestamp cho từng câu). 1 Handler lỗi (vd chưa implement)
+  không làm hỏng cả lượt chạy - log rõ rồi qua câu tiếp theo.
+
+| Handler (`runtime/handlers/`) | Type CMS | Trạng thái |
+|---|---|---|
+| `trueFalseHandler.js` | `TRUE_FALSE` | Đã xác nhận |
+| `multipleChoiceHandler.js` | `ONE` | Đã xác nhận, xem cảnh báo edge-case trong file |
+| `dragDropHandler.js` | `DRAG_DROP` | Type đã xác nhận, **UI action CHƯA verify** - chỉ throw TODO, KHÔNG đoán (khác bản `bridge/handlers/dragDropHandler.js` cũ có đoán tapOn) |
+| `matchingHandler.js` | `CONNECT` | Type đã xác nhận (nhóm ảnh + nhóm text/audio, map `correct`) qua 1 lần discover thật, **UI action CHƯA verify** - chỉ throw TODO |
+| `fillBlankHandler.js` | placeholder | Chưa gặp type thật |
+| `sentenceBuilderHandler.js` | placeholder | Chưa gặp type thật, cần đọc toạ độ lúc runtime (chưa có API tương ứng trong Bridge) |
+
+**ĐÃ VERIFY THẬT trên emulator (2026-08-05)**: toàn bộ `NavigationEngine.navigateTo()` cho tới
+hết `openExercise()` (chọn Khối "Khối 1" → mở Unit "Unit 1: In the school playground" → mở
+Lesson "Lesson 3" (phải scroll) → mở Exercise "Wrap-up grammar" (phải scroll tiếp trong danh
+sách hoạt động đã sổ ra) - đã sửa 3 lỗi thật phát hiện qua chạy thật: (1) nút Chinh phục/Ôn tập
+không tồn tại khi Unit đang là Unit "hiện tại" ngay trên tab Vui học (chỉ best-effort, không
+throw); (2) danh sách Lesson của 1 Unit dài hơn 1 màn hình, cần scroll; (3) danh sách hoạt động
+trong 1 Lesson cũng cần scroll để tìm đúng Exercise.
+
+**CHƯA verify được**: bước cuối (Handler thật sự trả lời câu hỏi qua `checkAnswer`/
+`assertAnswerResult`/`nextQuestion`) - emulator (AVD `Pixel_8`) mất kết nối ngay sau khi
+`openExercise()` chạy xong (lỗi hạ tầng Maestro/adb, không phải lỗi code) trước khi kịp verify
+tiếp. Cần chạy lại `npm run run-e2e` (đảm bảo emulator đang chạy) để verify hết
+`TrueFalseHandler`/`MultipleChoiceHandler` và cập nhật lại mục này.
 Phần điều hướng tham số hoá theo tên thật (`navigate_to_lesson.yaml`) là việc tiếp theo.

@@ -19,9 +19,10 @@ let callCounter = 0;
  * Mỗi thao tác (trừ isVisible) chạy 1 lượt `maestro test` RIÊNG (không tích lũy bước rồi chạy
  * gộp) - đơn giản, đúng nghĩa "cung cấp thao tác" theo yêu cầu kiến trúc, đổi lại chậm hơn 1
  * file Maestro gộp nhiều bước (mỗi lượt tốn thêm chi phí khởi động `maestro test`). Đã xác nhận
- * thật (automation/discovery/unitStatusProbe.js, cùng kỹ thuật): nhiều lượt `maestro test`
- * RIÊNG BIỆT gọi liên tiếp KHÔNG làm mất trạng thái app (Maestro không tự launchApp/clearState
- * nếu flow không có bước đó) - nên tách rời từng thao tác vẫn hoạt động đúng trên app thật.
+ * thật (cùng kỹ thuật dùng trước đây ở discovery/unitStatusProbe.js, nay đã xoá): nhiều lượt
+ * `maestro test` RIÊNG BIỆT gọi liên tiếp KHÔNG làm mất trạng thái app (Maestro không tự
+ * launchApp/clearState nếu flow không có bước đó) - nên tách rời từng thao tác vẫn hoạt động
+ * đúng trên app thật.
  *
  * isVisible() KHÔNG chạy `maestro test` - chỉ đọc `maestro hierarchy` (nhanh hơn nhiều, không
  * tốn chi phí khởi động test runner) để trả lời NGAY true/false, dùng cho rẽ nhánh

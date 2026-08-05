@@ -81,81 +81,40 @@ automation/
 ```
 CMS_BASE_URL=https://parrotedu.vn/api/cms
 CMS_ACCESS_TOKEN=<token thật của bạn>
-# Optional - chỉ cần khi có NHIỀU thiết bị/emulator cùng kết nối (xem mục "Chỉ random Unit đã
-# Hoàn thành" bên dưới). Để trống thì maestro/adb tự chọn thiết bị duy nhất đang kết nối.
+# Optional - chỉ cần khi dùng Runtime (npm run run-e2e) và có NHIỀU thiết bị/emulator cùng kết
+# nối. Để trống thì maestro/adb tự chọn thiết bị duy nhất đang kết nối. `discover` KHÔNG dùng
+# biến này (không cần thiết bị nào).
 DEVICE_ID=
 ```
 
-## Chỉ random Unit đã "Hoàn thành" (bắt buộc thiết bị/emulator + Maestro)
+## Random Book/Unit/Lesson/Exercise (thuần CMS, không kiểm tra trạng thái Hoàn thành)
 
-`npm run discover` chỉ random Unit trong nhóm **đã Hoàn thành trên app** - không bao giờ chọn
-Unit đang khoá/chưa mở khoá/chưa hoàn thành. Toàn bộ logic nằm trong 3 file tách biệt rõ vai trò:
-
-- `discovery/unitStateDetector.js` - **UnitStateDetector**: nơi DUY NHẤT quyết định
-  `COMPLETED`/`NOT_COMPLETED`/`UNKNOWN` + độ tin cậy (`confidence`, 0-1) + nguồn (`CMS`/`UI`).
-  Không nơi nào khác trong `discovery/` tự so khớp text nút hay tự đọc field CMS - muốn đổi
-  rule (CMS đổi field, app đổi chữ nút, thêm tín hiệu mới...) CHỈ cần sửa file này.
-- `discovery/unitStatusProbe.js` - lái Maestro/adb thật, CHỈ trả tín hiệu THÔ (progress fraction
-  "x / y", nhãn nút, `enabled`/`clickable` của nút) cho detector, không tự kết luận trạng thái.
-- `discovery/unitCompletion.js` - orchestrator: random Book → random Unit trong Book đó → hỏi
-  detector → chưa `COMPLETED` thì random Unit khác/Book khác, tới khi tìm được hoặc đã thử hết.
-
-**UnitStateDetector đọc gì (không chỉ dựa vào nhãn nút):** đã xác nhận qua `maestro hierarchy`
-thật rằng card layout luôn là tiêu đề → **"x / y" (progress fraction)** → [mô tả] → nút hành
-động (`class="android.widget.Button"`, có `clickable`/`enabled`/`accessibilityText`) - nút được
-định vị theo **cấu trúc** (class Button), không theo chữ hiển thị. `detectFromUiSignals()` ưu
-tiên progress fraction (số liệu, ổn định) làm tín hiệu chính; nhãn nút hiện tại
-(`KNOWN_ACTION_LABELS` - data tách riêng, không hardcode trong logic) chỉ dùng đối chiếu để
-tăng/giảm confidence:
-
-| Tín hiệu | State | Confidence |
-|---|---|---|
-| fraction done≥total + nhãn khớp | COMPLETED | 0.98 |
-| fraction done<total + nhãn khớp | NOT_COMPLETED | 0.95-0.98 |
-| chỉ có fraction (nhãn lạ/thiếu) | theo fraction | 0.90 |
-| fraction và nhãn KHÔNG khớp | theo fraction (tin số liệu hơn) | 0.70 |
-| chỉ có nhãn (không đọc được fraction) | theo nhãn | 0.55 |
-| không đọc được cả 2 / không thấy card | **UNKNOWN** | 0.30-0.40 |
-
-**Vì sao KHÔNG dùng field CMS (`status`/`progress`/...) làm nguồn chính**: đã gọi thật
-`getUnitsOfBook()` (2026-08-05) - CMS admin (`CMS_ACCESS_TOKEN`, role "admin") trả
-`status: "draft"|"done"` (trạng thái BIÊN TẬP nội dung, không phải tiến độ học) và
-`progress`/`completed_items`/`completed_lessons` LUÔN = 0 (tiến độ gắn với 1 học sinh/profile cụ
-thể như "Ngoc"/"Ha" trong app, API admin CMS không có ngữ cảnh học sinh nào để tính khác 0). Vì
-vậy `detectFromCmsFields()` cố tình KHÔNG tin 2 field này - chỉ dùng field CMS nếu sau này CMS bổ
-sung field theo học sinh thật (`completed`/`is_completed`/`percent_completed`/`unlocked`/
-`is_locked`/`completion_status`) - hiện tại luôn trả `null` (để UI quyết định).
-
-**UNKNOWN là kết quả hợp lệ, không phải lỗi và không bị coi là "chưa hoàn thành"**: nếu sau khi
-thử random hết TẤT CẢ Book/Unit vẫn còn Unit ở trạng thái UNKNOWN, `discover` KHÔNG kết luận
-`"No completed Unit found."` - báo riêng số Unit còn UNKNOWN (cần xác nhận thủ công). Chỉ khi
-MỌI Unit đều xác định chắc là NOT_COMPLETED (không còn UNKNOWN nào) mới báo
-`"No completed Unit found."`.
-
-**Chiến lược random (tối ưu, không scan toàn bộ trước khi thử)**: random 1 Book chưa thử →
-random THỨ TỰ Unit trong Book đó → gặp `COMPLETED` là dừng ngay, trả về luôn (không cần đọc hết
-Book). Vì chi phí thật nằm ở bước mở app + chuyển Khối (không phải ở việc đọc 1 hay nhiều Unit),
-khi đã mở "Danh sách Units" của 1 Book, code đọc tín hiệu của TẤT CẢ Unit trong Book đó ngay
-trong 1 lượt scroll rồi mới random thứ tự để tra/log - tránh phải mở lại đúng 1 Book nhiều lần.
-Đăng nhập (`bootstrapAppSession()`) chỉ chạy 1 lần cho cả lượt `discover`, chuyển Book
-(`openUnitsListForBook()`) chạy lại cho mỗi Book mới cần thử.
-
-Log in ra theo dạng:
+`npm run discover` random HOÀN TOÀN trên dữ liệu CMS - bất kỳ Book nào, bất kỳ Unit nào trong
+Book đó đều có thể được chọn. KHÔNG kiểm tra Unit đang "Hoàn thành"/"Ôn tập" hay chưa, KHÔNG đọc
+UI/hierarchy, KHÔNG cần thiết bị/emulator/Maestro nào - chỉ gọi CMS API + Playwright (Exam
+Scraper). Trình tự (toàn bộ trong `discovery/cli.js`):
 
 ```
-Book Khối 5
-Unit Unit 2: Our homes
-State = COMPLETED
-Source = UI
-Confidence = 0.98
-Reason = progress 3/3, khớp nhãn nút "Ôn tập"
-
-Unit được chọn: Unit 2: Our homes
+random Book (getBooks + pickRandom)
+  -> random Unit trong Book đó (getUnitsOfBook + pickRandom)
+  -> random Lesson trong Unit đó (getLessonsOfUnit + pickRandom)
+  -> random Lesson Item type=EXERCISE trong Lesson đó (getLessonItemsOfLesson + flatten + filter + pickRandom)
+  -> resolve Exercise (getExerciseDetail)
+  -> random Exam trong exam_ids của Exercise (getExamOfExercise)
+  -> đọc Question/Correct Answer thật (parseQuestionsFromExamPage, Playwright)
 ```
 
-**Yêu cầu:** phải có 1 thiết bị/emulator Android đang kết nối (`adb devices`) và đã cài đúng app
-(`APP_ID` trong `.env`) - khác với trước đây (`discover` chỉ cần CMS API + Playwright headless,
-không cần emulator).
+**Tự thử lại khi gặp ngõ cụt**: nếu 1 cấp bất kỳ rỗng (vd Book không có Unit, Lesson không có
+Lesson Item nào type EXERCISE) hoặc Exam Scraper lỗi, `pickRandomExerciseWithRetry()` log lại lỗi
+rồi random lại HOÀN TOÀN từ Book (tối đa 10 lần) - không cần biết/không phụ thuộc trạng thái Unit
+nào. Hết 10 lần vẫn lỗi mới dừng hẳn và báo lỗi gần nhất.
+
+**Lịch sử**: bản trước đây chỉ random trong nhóm Unit "đã Hoàn thành" (đọc `maestro hierarchy`
+thật qua 1 thiết bị/emulator kết nối - xem `unitStateDetector.js`/`unitStatusProbe.js`/
+`unitCompletion.js` cũ, đã xoá). Lý do ban đầu là tránh làm bài trong Unit CHƯA hoàn thành sẽ
+hoàn thành thật lần đầu (tốn nội dung mới, không lặp lại được mỗi lần chạy automation) - đã đổi
+theo yêu cầu nghiệp vụ mới: ưu tiên phạm vi random rộng nhất, đơn giản nhất, chấp nhận việc chạy
+`discover` nhiều lần có thể tự hoàn thành thêm nội dung học thật trên tài khoản test.
 
 ## Chạy
 
@@ -169,10 +128,10 @@ npm run run-e2e                # MỚI - tự lái Maestro thật: Navigation ->
                                 # output/run-result.json (xem mục "Runtime End-to-End" trên)
 ```
 
-`discover` cần máy ảo/thiết bị đang kết nối (đọc trạng thái Hoàn thành trên app, xem mục "Chỉ
-random Unit đã Hoàn thành"). `generate-flow` không cần (chỉ đọc `discovery.json` đã có, sinh
-YAML). `run-e2e` cần máy ảo/thiết bị đang kết nối VÀ app đã mở sẵn, đăng nhập sẵn, đang ở tab
-gốc "Vui học" (xem giả định của `NavigationEngine` ở mục "Runtime End-to-End").
+`discover` KHÔNG cần máy ảo/thiết bị nào (chỉ CMS API + Playwright headless). `generate-flow`
+cũng không cần (chỉ đọc `discovery.json` đã có, sinh YAML). `run-e2e` cần máy ảo/thiết bị đang
+kết nối VÀ app đã mở sẵn, đăng nhập sẵn, đang ở tab gốc "Vui học" (xem giả định của
+`NavigationEngine` ở mục "Runtime End-to-End").
 
 Kết quả `discover` thật (ví dụ, đã chạy nhiều lần, luôn ra Book/Unit/Lesson/Exam khác nhau):
 
@@ -365,7 +324,7 @@ MaestroBridge (bridge/maestroBridge.js)  <-------------┘
   "Chưa chính xác"). KHÔNG gọi CMS, KHÔNG biết Book/Unit/Lesson/Exercise/QuestionType là gì. Mỗi
   thao tác (trừ `isVisible`) chạy 1 lượt `maestro test` riêng - chậm hơn 1 file gộp nhiều bước,
   đổi lại đúng nghĩa "cung cấp thao tác" và đơn giản (đã xác nhận thật: nhiều lượt `maestro test`
-  liên tiếp KHÔNG làm mất trạng thái app, xem mục Unit đã Hoàn thành ở trên).
+  liên tiếp KHÔNG làm mất trạng thái app).
 - **`navigation/navigationEngine.js`** - nhận `{book, unit, lesson, exercise}` (mỗi cái có
   `.name`, đọc từ `discovery.json` do Runtime truyền vào) rồi tự điều hướng bằng thao tác của
   Bridge - không hardcode tên nào, không gọi CMS, không xử lý câu hỏi. **Giả định**: app đã mở,

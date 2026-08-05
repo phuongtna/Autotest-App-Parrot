@@ -36,8 +36,9 @@ export const config = {
   appId: readVar("APP_ID"),
   cmsBaseUrl: readVar("CMS_BASE_URL").replace(/\/+$/, ""),
   cmsAccessToken: readVar("CMS_ACCESS_TOKEN"),
-  // Optional - chỉ cần khi dùng unitStatusProbe.js (đọc trạng thái Hoàn thành trên app thật).
-  // Để trống thì maestro/adb tự chọn thiết bị duy nhất đang kết nối.
+  // Optional - chỉ cần khi dùng Runtime (npm run run-e2e, xem bridge/maestroBridge.js) và có
+  // NHIỀU thiết bị/emulator cùng kết nối. Để trống thì maestro/adb tự chọn thiết bị duy nhất
+  // đang kết nối. Discovery (npm run discover) không dùng biến này - không cần thiết bị.
   deviceId: readVar("DEVICE_ID"),
 };
 

@@ -9,17 +9,3 @@ export function pickRandom(list) {
   const index = Math.floor(Math.random() * list.length);
   return list[index];
 }
-
-/**
- * Trả về 1 bản sao đã xáo trộn ngẫu nhiên toàn bộ (Fisher-Yates) - dùng khi cần duyệt 1 danh
- * sách theo thứ tự ngẫu nhiên (vd random Book/Unit lần lượt cho tới khi gặp Unit Hoàn thành,
- * xem unitCompletion.js) thay vì chỉ lấy 1 phần tử ngẫu nhiên duy nhất.
- */
-export function shuffle(list) {
-  const copy = [...list];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}

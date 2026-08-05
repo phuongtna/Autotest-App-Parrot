@@ -2,8 +2,8 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { getBooks } from "./books.js";
-import { getUnitsOfBook } from "./units.js";
+import { getBooks, filterSelfLearnBooks } from "./books.js";
+import { getUnitsOfBook, filterPublishedUnits } from "./units.js";
 import { getLessonsOfUnit } from "./lessons.js";
 import { getLessonItemsOfLesson, flattenLessonItems, filterExerciseItems } from "./lessonItems.js";
 import { getExerciseDetail } from "./exercises.js";
@@ -62,19 +62,21 @@ function verboseLog(...args) {
 
 /**
  * 1 lượt random thuần CMS: Book -> Unit -> Lesson -> Lesson Item (lọc EXERCISE) -> Exercise ->
- * Exam -> Question. KHÔNG kiểm tra trạng thái Hoàn thành/Ôn tập, KHÔNG đọc UI/thiết bị - mọi
- * Book/Unit đều có thể được chọn. Throw ngay khi 1 cấp rỗng (vd Book không có Unit, Lesson
+ * Exam -> Question. KHÔNG kiểm tra trạng thái Hoàn thành/Ôn tập, KHÔNG đọc UI/thiết bị - nhưng
+ * CÓ lọc Book/Unit theo trạng thái publish (xem filterSelfLearnBooks()/filterPublishedUnits()) để
+ * chỉ random trong những gì THẬT SỰ hiển thị trên app - tránh Runtime tốn thời gian tìm 1 Unit
+ * không tồn tại trên app. Throw ngay khi 1 cấp rỗng (vd Book không có Unit đã publish, Lesson
  * không có Exercise) hoặc Exam Scraper lỗi - để pickRandomExerciseWithRetry() quyết định thử
  * lại với lựa chọn khác.
  */
 async function pickExerciseAttempt() {
-  const books = await getBooks();
-  if (books.length === 0) throw new Error("Không lấy được danh sách Book nào từ CMS.");
+  const books = filterSelfLearnBooks(await getBooks());
+  if (books.length === 0) throw new Error("Không lấy được Book type SELF_LEARN nào từ CMS.");
   const book = pickRandom(books);
   verboseLog(`  -> Book: ${describe(book)}`);
 
-  const units = await getUnitsOfBook(book);
-  if (units.length === 0) throw new Error(`Book "${describe(book)}" không có Unit nào.`);
+  const units = filterPublishedUnits(await getUnitsOfBook(book));
+  if (units.length === 0) throw new Error(`Book "${describe(book)}" không có Unit nào đã publish (status=done).`);
   const unit = pickRandom(units);
   verboseLog(`  -> Unit: ${describe(unit)}`);
 

@@ -89,14 +89,14 @@ DEVICE_ID=
 
 ## Random Book/Unit/Lesson/Exercise (thuần CMS, không kiểm tra trạng thái Hoàn thành)
 
-`npm run discover` random HOÀN TOÀN trên dữ liệu CMS - bất kỳ Book nào, bất kỳ Unit nào trong
-Book đó đều có thể được chọn. KHÔNG kiểm tra Unit đang "Hoàn thành"/"Ôn tập" hay chưa, KHÔNG đọc
-UI/hierarchy, KHÔNG cần thiết bị/emulator/Maestro nào - chỉ gọi CMS API + Playwright (Exam
-Scraper). Trình tự (toàn bộ trong `discovery/cli.js`):
+`npm run discover` random trên dữ liệu CMS - bất kỳ Book nào, bất kỳ Unit nào **đã publish/hiển
+thị trên app** đều có thể được chọn. KHÔNG kiểm tra Unit đang "Hoàn thành"/"Ôn tập" hay chưa,
+KHÔNG đọc UI/hierarchy, KHÔNG cần thiết bị/emulator/Maestro nào - chỉ gọi CMS API + Playwright
+(Exam Scraper). Trình tự (toàn bộ trong `discovery/cli.js`):
 
 ```
-random Book (getBooks + pickRandom)
-  -> random Unit trong Book đó (getUnitsOfBook + pickRandom)
+random Book, CHỈ trong Book type="SELF_LEARN" (getBooks + filterSelfLearnBooks + pickRandom)
+  -> random Unit, CHỈ trong Unit status="done" (getUnitsOfBook + filterPublishedUnits + pickRandom)
   -> random Lesson trong Unit đó (getLessonsOfUnit + pickRandom)
   -> random Lesson Item type=EXERCISE trong Lesson đó (getLessonItemsOfLesson + flatten + filter + pickRandom)
   -> resolve Exercise (getExerciseDetail)
@@ -104,17 +104,31 @@ random Book (getBooks + pickRandom)
   -> đọc Question/Correct Answer thật (parseQuestionsFromExamPage, Playwright)
 ```
 
-**Tự thử lại khi gặp ngõ cụt**: nếu 1 cấp bất kỳ rỗng (vd Book không có Unit, Lesson không có
-Lesson Item nào type EXERCISE) hoặc Exam Scraper lỗi, `pickRandomExerciseWithRetry()` log lại lỗi
-rồi random lại HOÀN TOÀN từ Book (tối đa 10 lần) - không cần biết/không phụ thuộc trạng thái Unit
-nào. Hết 10 lần vẫn lỗi mới dừng hẳn và báo lỗi gần nhất.
+**Vì sao phải lọc Book type="SELF_LEARN" (`books.js#filterSelfLearnBooks`)**: ĐÃ XÁC NHẬN THẬT
+(2026-08-05) mỗi Khối có 2 bản ghi Book TRÙNG TÊN, `id` khác hẳn nhau - `"BY_TEACHER"` (sách giao
+bởi giáo viên) và `"SELF_LEARN"` (sách tự học). Toàn bộ Unit của bản ghi `"BY_TEACHER"` KHÔNG tồn
+tại trên tab "Vui học" (tự học) của app - chỉ `"SELF_LEARN"` mới đúng. Không lọc field này thì có
+thể random trúng Unit "hợp lệ" theo CMS nhưng không tồn tại trên app, khiến Runtime tốn rất nhiều
+thời gian scroll tìm 1 Unit không bao giờ thấy.
+
+**Vì sao phải lọc Unit status="done" (`units.js#filterPublishedUnits`)**: ĐÃ XÁC NHẬN THẬT
+(2026-08-05, đối chiếu toàn bộ 25 Unit của 1 Book SELF_LEARN thật với kết quả quét `maestro
+hierarchy` trên app thật - khớp 100%, không ngoại lệ): field `status` trên Unit (`"draft"` vs
+`"done"`) chính là trạng thái publish/nháp - `"done"` = đã publish, hiển thị trên app;
+`"draft"` = chưa publish, học sinh không thấy. Khác với field `status` ở CẤP BOOK (luôn là
+`"active"`, không liên quan tới publish Unit).
+
+**Tự thử lại khi gặp ngõ cụt**: nếu 1 cấp bất kỳ rỗng (vd Book không có Unit nào đã publish,
+Lesson không có Lesson Item nào type EXERCISE) hoặc Exam Scraper lỗi, `pickRandomExerciseWithRetry()`
+log lại lỗi rồi random lại HOÀN TOÀN từ Book (tối đa 10 lần) - không cần biết/không phụ thuộc
+trạng thái Hoàn thành/Ôn tập nào. Hết 10 lần vẫn lỗi mới dừng hẳn và báo lỗi gần nhất.
 
 **Lịch sử**: bản trước đây chỉ random trong nhóm Unit "đã Hoàn thành" (đọc `maestro hierarchy`
 thật qua 1 thiết bị/emulator kết nối - xem `unitStateDetector.js`/`unitStatusProbe.js`/
 `unitCompletion.js` cũ, đã xoá). Lý do ban đầu là tránh làm bài trong Unit CHƯA hoàn thành sẽ
 hoàn thành thật lần đầu (tốn nội dung mới, không lặp lại được mỗi lần chạy automation) - đã đổi
-theo yêu cầu nghiệp vụ mới: ưu tiên phạm vi random rộng nhất, đơn giản nhất, chấp nhận việc chạy
-`discover` nhiều lần có thể tự hoàn thành thêm nội dung học thật trên tài khoản test.
+theo yêu cầu nghiệp vụ mới: không cần quan tâm tiến độ học (Hoàn thành/Ôn tập), chỉ cần đảm bảo
+Unit chọn ra THẬT SỰ tồn tại trên app (lọc theo Book type + Unit status ở trên).
 
 ## Chạy
 

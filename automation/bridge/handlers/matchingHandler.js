@@ -1,16 +1,17 @@
 /**
- * Dạng bài Nối (Matching) - CHƯA XÁC NHẬN tên "type" thật từ CMS (chưa gặp qua
- * examPageScraper lần nào). Placeholder type dưới đây chắc chắn KHÔNG khớp type thật, nên
- * registry sẽ không bao giờ gọi handler này cho tới khi có ví dụ thật.
+ * Dạng bài Nối (Matching) - CMS trả về type "CONNECT" (ĐÃ XÁC NHẬN THẬT qua examPageScraper,
+ * 2026-08-05 - xem cùng ghi chú ở automation/runtime/handlers/matchingHandler.js): "answers"
+ * gồm 2 "group" (0: audio/text, 1: image) + "correct" là map {idNhóm0 -> idNhóm1}.
  *
- * Khi gặp dạng bài này (xem cảnh báo "Không có handler cho type ..." từ unsupportedHandler.js),
- * cập nhật `type` cho khớp giá trị thật, và dựa theo pattern đã xác nhận thủ công trong
- * flows/vui_hoc/unit9_getting_started_tram_khoi_hanh.yaml (bước S12): tapOn lần lượt từng
- * cặp trái/phải theo đúng thứ tự (app tự kiểm tra ngay khi ghép đủ cặp, KHÔNG có nút
- * "Kiểm tra" - khác các dạng bài khác). Cần biết trước raw "answers"/"correct" của dạng bài
- * này chứa cặp trái-phải ra sao (metadata.raw trong QuestionModel) trước khi viết buildSteps().
+ * CHƯA XÁC NHẬN UI THẬT trên máy ảo/thiết bị (chưa từng random gặp type này qua Bridge). Theo
+ * pattern đã xác nhận thủ công cho dạng Nối KHÁC (bước S12 trong
+ * flows/vui_hoc/unit9_getting_started_tram_khoi_hanh.yaml: tapOn lần lượt từng cặp trái/phải,
+ * KHÔNG có nút "Kiểm tra" - app tự kiểm tra ngay khi ghép đủ cặp) NHƯNG dạng "CONNECT" này có
+ * nhóm là ẢNH (không có text để tapOn theo), nên rất có thể cần toạ độ hoặc thao tác khác hẳn -
+ * KHÔNG suy đoán, CHỈ throw rõ ràng cho tới khi verify được trên máy ảo/thiết bị thật (cùng
+ * trạng thái với bản Runtime).
  */
-export const type = "MATCHING_TODO_CONFIRM_CMS_TYPE";
+export const type = "CONNECT";
 
 /**
  * @param {import("../../model/questionModel.js").QuestionModel} questionModel
@@ -18,8 +19,8 @@ export const type = "MATCHING_TODO_CONFIRM_CMS_TYPE";
  */
 export function buildSteps(questionModel) {
   throw new Error(
-    `MatchingHandler chưa implement - chưa có ví dụ thật nào của dạng bài này từ CMS để xác ` +
-      `nhận type/shape cặp trái-phải. Question ${questionModel.id} (type="${questionModel.type}") ` +
-      `cần được dùng để cập nhật lại handler này trước khi dùng được.`,
+    `MatchingHandler chưa implement - type "CONNECT" đã xác nhận từ CMS nhưng thao tác UI thật ` +
+      `(tapOn theo ảnh không có text, hoặc cần toạ độ/drag) CHƯA verify trên máy ảo/thiết bị. ` +
+      `Question ${questionModel.id}.`,
   );
 }

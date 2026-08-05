@@ -1,0 +1,250 @@
+# Testcase nguồn (source of truth): flows/vui_hoc/testcases/unit9-getting-started.yaml
+# Unit 9 - Protecting the enviroment | Getting Started | Trạm khởi hành
+#
+# Ghi chú:
+# - Tên "screen" trong testcase là tên logic, không chắc trùng chữ hiển thị thật trên UI,
+#   nên các bước dưới đây ưu tiên thao tác theo text của button/đáp án lấy trực tiếp từ testcase.
+# - Những chỗ đánh dấu "TODO" là chưa xác nhận được trên máy ảo thật (chưa có quyền truy cập
+#   thiết bị) - cần người kiểm tra lại text/selector trước khi chạy thật hoặc khi flow fail.
+# - result.actions và entry (ngoài first_time->Tiếp tục) mô tả các nhánh thay thế nhau
+#   (không thể chạy đồng thời trong 1 lần test) nên chỉ được ghi chú, không thực thi ở đây.
+# - YÊU CẦU MÔI TRƯỜNG (AVD): file /home/mt/.android/avd/Pixel_8.avd/config.ini phải có
+#   "hw.keyboard=no". Nếu để "hw.keyboard=yes" (mặc định máy ảo hay bật để gõ bằng bàn phím máy
+#   host), Gboard chỉ hiện thanh công cụ thu gọn (mic/xoá/emoji) thay vì bàn phím đầy đủ - khi đó
+#   panel "Tiếp theo"/ô input của bài Điền ký tự (S07) bị đè phía sau nút "Kiểm tra" cũ, tap không
+#   có tác dụng (đã xác nhận bằng hierarchy + tap thô adb, không phải lỗi riêng của Maestro). Sửa
+#   xong phải tắt hẳn rồi khởi động lại emulator (thay đổi chỉ áp dụng lúc cold boot).
+#
+# Chạy: maestro test flows/vui_hoc/unit9_getting_started_tram_khoi_hanh.yaml -e APP_ID=com.inet.parrotedu
+appId: ${APP_ID}
+---
+# Setup: đăng nhập + vào Khối 10 + Unit 9 + bấm Chinh phục/Ôn tập (dùng lại flow đã xác nhận)
+- runFlow: study_unit9_protecting_environment.yaml
+
+# Mở lesson "Getting Started" rồi vào đúng activity "Trạm khởi hành" bằng text, KHÔNG dùng nút
+# mũi tên/logic "tiếp tục bài chưa hoàn thành": nút mũi tên (cùng vùng bấm với text "Getting
+# started" index 1) tự nhảy sang activity TIẾP THEO còn dang dở nếu "Trạm khởi hành" đã hoàn
+# thành trước đó (xác nhận trên máy thật: mũi tên nhảy thẳng sang "Thử thách", bỏ qua "Trạm khởi
+# hành") - khiến flow phụ thuộc vào trạng thái completed trên server, không lặp lại được.
+# Cách ổn định: bấm vào thanh tiến độ dạng "x / y" của card "Getting started" (hierarchy xác nhận
+# đây là text riêng, dạng "\d+ / \d+", nằm dưới tiêu đề card) để sổ ra danh sách từng bài học, sau
+# đó chọn thẳng "Trạm khởi hành" bằng text - luôn vào đúng activity này bất kể trạng thái hoàn
+# thành, khớp cả 3 nhánh entry (first_time/in_progress/completed) của testcase.
+- tapOn:
+    text: "\\d+ / \\d+"
+- tapOn: "Trạm khởi hành"
+
+# Popup "AI hỗ trợ học tập" (xin đồng ý dùng AI bên thứ 3) có thể hiện ra khi mở activity lần đầu.
+# Đây không phải popup "Cho phép học" trong testcase - chỉ dismiss để flow đi tiếp.
+- runFlow:
+    when:
+      visible:
+        text: "AI hỗ trợ học tập"
+    commands:
+      - tapOn: "Tiếp tục"
+
+# entry.completed (testcase): nếu "Trạm khởi hành" đã hoàn thành từ trước, tapOn ở trên vào thẳng
+# màn Kết quả (xác nhận trên máy thật) - bấm "Làm lại" để quay lại màn Dẫn nhập, đúng theo testcase.
+- runFlow:
+    when:
+      visible:
+        text: "Làm lại"
+    commands:
+      - tapOn: "Làm lại"
+
+# entry.first_time (testcase): popup "Cho phép học" chỉ hiện khi mở activity lần đầu tiên.
+- runFlow:
+    when:
+      visible:
+        text: "Cho phép học"
+    commands:
+      - tapOn: "Tiếp tục"
+      # Nhánh thay thế "Để sau" (đóng popup, ở lại màn Danh sách bài học) không chạy trong flow này.
+
+# entry.in_progress (testcase): S01/S02 optional bên dưới đã xử lý trường hợp resume dở dang.
+
+# S01: Dẫn nhập -> Flashcard
+# optional: true - thực tế activity đang ở trạng thái "in_progress" (đã học dở từ lần chạy
+# trước, theo testcase mục "entry.in_progress") nên mở "Trạm khởi hành" có thể vào thẳng màn
+# bài tập đang dở (vd Đúng/Sai) chứ không phải Dẫn nhập -> bỏ qua tap này nếu không thấy.
+- tapOn:
+    text: "Tiếp theo"
+    optional: true
+
+# S02: Flashcard -> Bài tập Đúng/Sai
+# optional: true - cùng lý do như S01.
+- tapOn:
+    text: "Tiếp theo"
+    optional: true
+
+# S03: Bài tập Đúng/Sai - chọn đáp án False theo testcase.
+# (Đã thử "True" vì tưởng cặp nghĩa "bị nguy hiểm: endangered" đúng, nhưng app trả về
+# "Chưa chính xác" -> app coi cặp này là SAI, đúng như testcase ghi -> quay lại "False".)
+- tapOn: "False"
+- tapOn: "Kiểm tra"
+- assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# S04: Flashcard -> Bài tập Trắc nghiệm
+- tapOn: "Tiếp theo"
+
+# S05: testcase ghi "Bài tập Trắc nghiệm" (tapOn "environment") nhưng màn hình thật là
+# "Drag and drop": kéo từ đúng vào ô "Drop here protection" để ghép "environmental protection".
+# Theo hierarchy (maestro hierarchy) lúc chạy thật:
+#   - ô "Drop here" nằm ở khoảng (19%, 64%) màn hình
+#   - lựa chọn "environmental" nằm ở khoảng (50%, 74%) màn hình
+# tapOn không kéo được (ô Kiểm tra vẫn disabled) nên phải dùng swipe để giả lập thao tác kéo-thả.
+# Bọc retry vì swipe đôi khi không đủ để "thả" đúng ô (flaky observed).
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: "Thử lại"
+          optional: true
+      - swipe:
+          start: "50%,74%"
+          end: "19%,64%"
+          duration: 1200
+      - tapOn: "Kiểm tra"
+      - assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# S06: Flashcard -> Bài tập Điền ký tự
+- tapOn: "Tiếp theo"
+
+# S07: Bài tập Điền ký tự ("Look and write" - deforestation) - nhập e, e, i.
+# CẬP NHẬT CƠ CHẾ MỚI (xác nhận trên máy thật + hierarchy sau khi sửa AVD hw.keyboard=no để bàn
+# phím ảo hiện đầy đủ - xem ghi chú cuối file): app KHÔNG còn tự nhảy sang ô tiếp theo sau khi gõ
+# 1 ký tự như flow cũ giả định. Mỗi lần chỉ có DUY NHẤT 1 ô input full-width hiện ra (không phải 3
+# ô nhỏ nằm trong dòng chữ) kèm nút bên dưới:
+#   - Nếu còn ô trống phía sau: nút hiện "Tiếp theo" - bấm để xác nhận ký tự vừa gõ và mở ra ô
+#     input TIẾP THEO (ô cũ tự đóng lại, không cần focus lại).
+#   - Nếu đây là ô CUỐI CÙNG: nút tự đổi thành "Kiểm tra" - bấm để nộp toàn bộ đáp án.
+# vì vậy: gõ xong 1 ký tự chỉ bấm "Kiểm tra" ở ô cuối, các ô trước đó bấm "Tiếp theo".
+# Chỉ cần tap vào ô blank ĐẦU TIÊN 1 lần duy nhất để mở ô input; từ ô thứ 2 trở đi ô input mới tự
+# hiện ra (đã có sẵn focus bàn phím) nên không cần tapOn lại.
+- tapOn:
+    point: "170,1456"
+- inputText: "e"
+- tapOn: "Tiếp theo"
+- inputText: "e"
+- tapOn: "Tiếp theo"
+- inputText: "i"
+- tapOn: "Kiểm tra"
+- assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# S08: Flashcard -> Bài tập Sentence Builder
+- tapOn: "Tiếp theo"
+
+# S09: Bài tập Sentence Builder ("Reorder the letters") - ghép từ "practical" theo thứ tự
+# p-r-a-c-t-i-c-a-l. Tap vào 1 ô chữ trong ngân hàng chữ cái sẽ nối chữ đó vào cuối chuỗi đáp án.
+#
+# Điều tra kỹ (xem maestro hierarchy sau từng lần tap, dùng flow debug riêng):
+# - tapOn theo "text" (kể cả có index) fail theo mẫu cố định không phụ thuộc chữ gì - do cách
+#   Maestro resolve selector "text" trong 1 chuỗi tap liên tiếp, KHÔNG phải do reflow layout hay
+#   do đặc điểm 2 chữ trùng nhau (đã so sánh toàn bộ attribute của node "đã đặt" và "còn lại":
+#   resource-id, accessibilityText đều rỗng như nhau, chỉ khác bounds).
+# - Ngân hàng chữ cái KHÔNG reflow/compact khi 1 ô bị lấy đi: các ô còn lại giữ nguyên toạ độ gốc,
+#   chỉ để lại khoảng trống. Toạ độ mỗi chữ vì vậy tính được ngay từ hierarchy lúc màn hình vừa
+#   hiện ra, không cần tính lại sau mỗi lần tap - chỉ có 2 mốc dịch chuyển của NGÂN HÀNG (không
+#   phải của từng chữ) do vùng đáp án phía trên phình ra: dịch xuống 1 lần khi có đáp án đầu tiên,
+#   dịch xuống lần 2 khi đáp án tràn sang dòng thứ 2 (sau chữ thứ 7).
+# - tapOn point dùng "%" (phần trăm) có tỉ lệ fail cao hơn point dùng toạ độ pixel tuyệt đối
+#   (không có "%"): theo mã đã decompile (Orchestra.tapOnPointV2Command), point có "%" đi qua
+#   nhánh Maestro.tapOnRelative, point KHÔNG có "%" đi qua nhánh Maestro.tapOnPoint (khác hẳn) -
+#   dùng toạ độ pixel tuyệt đối (không "%") đã tap đúng 9/9 liên tiếp, xác nhận bằng hierarchy sau
+#   mỗi bước và bằng "Chính xác" khi Kiểm tra.
+# - Toạ độ pixel dưới đây lấy trực tiếp từ maestro hierarchy tại lần shuffle xác nhận là
+#   deterministic (ngân hàng luôn ra đúng thứ tự i,t,c,a,l,r,a ở hàng 1 và p,c ở hàng 2 khi vừa
+#   vào bài "practical" lần đầu). Nếu app đổi shuffle (không còn deterministic) thì các toạ độ này
+#   sẽ cần tính lại từ hierarchy thực tế.
+- tapOn:
+    point: "103,1055"
+- tapOn:
+    point: "771,945"
+- tapOn:
+    point: "505,945"
+- tapOn:
+    point: "363,945"
+- tapOn:
+    point: "226,945"
+- tapOn:
+    point: "95,945"
+- tapOn:
+    point: "246,1103"
+- tapOn:
+    point: "910,945"
+- tapOn:
+    point: "640,1126"
+- tapOn: "Kiểm tra"
+- assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# S10 (testcase): Flashcard xen giữa Sentence Builder và Bài tập Điền từ - xác nhận trên máy thật
+# đây là 1 bước Flashcard riêng ("upset"), PHẢI tapOn "Tiếp theo" thêm 1 lần nữa mới tới màn
+# "Write the word" (S11 testcase) - không đi thẳng từ S09 sang như mô tả gộp trong testcase.
+- tapOn: "Tiếp theo"
+
+# S11 (testcase): Bài tập Điền từ ("Write the word" - upset) - nhập "pset".
+# Xác nhận trên máy thật: PHẢI tapOn vào ô nhập trước khi inputText, nếu không ô nhập chưa được
+# focus (Kiểm tra vẫn disabled, gõ không có tác dụng). Không có EditText/hint trong hierarchy nên
+# dùng point theo toạ độ pixel tuyệt đối (không "%", xem lý do ở S09) ngay cạnh ký tự gợi ý "u" -
+# đã xác nhận bằng hierarchy + screenshot: tap trúng hiện khung xanh dương + bàn phím ảo, gõ
+# "pset" hiển thị đúng ô, Kiểm tra -> "Chính xác".
+- tapOn:
+    point: "795,418"
+- inputText: "pset"
+- tapOn: "Kiểm tra"
+- assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# S12 (testcase): Bài tập Nối ("Read and match") - ghép từng cặp trái/phải theo testcase.
+# Xác nhận trên máy thật: bài này TỰ ĐỘNG kiểm tra ngay khi ghép đủ 5 cặp, KHÔNG có nút "Kiểm tra"
+# như testcase mô tả (khác với S03/S05/S07/S09/S11) - hierarchy xác nhận không có phần tử
+# "Kiểm tra" nào trên màn này. Vì vậy KHÔNG tapOn "Kiểm tra" ở đây (sẽ fail vì không tồn tại),
+# "Chính xác" hiện ra ngay sau cặp ghép cuối cùng. Ưu tiên app thật theo yêu cầu đã thống nhất.
+- tapOn: "upset"
+- tapOn: "làm rối loạn, xáo trộn"
+- tapOn: "deforestation"
+- tapOn: "nạn phá rừng"
+- tapOn: "endangered"
+- tapOn: "bị nguy hiểm"
+- tapOn: "environmental protection"
+- tapOn: "bảo vệ môi trường"
+- tapOn: "practical"
+- tapOn: "thực tế, thiết thực"
+- assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# result: màn Kết quả - xác nhận trên máy thật có 2 khối "ĐIỂM SỐ" và "TỐC ĐỘ" (không phải
+# "score"/"time" như tên biến trong testcase, nhưng cùng ý nghĩa). Có 1 khoảng chuyển màn hoạt ảnh
+# ngắn từ S12 sang đây - assertVisible chạy ngay có thể race với hoạt ảnh (đã quan sát 1 lần fail
+# dù screenshot ngay sau đó cho thấy màn đã hiện đúng) nên chờ hoạt ảnh kết thúc trước khi assert.
+- waitForAnimationToEnd:
+    timeout: 3000
+# text thật có khoảng trắng cuối ("ĐIỂM SỐ ", "TỐC ĐỘ ") - assertVisible so khớp regex FULL string
+# nên phải nới bằng ".*" (đã xác nhận fail nếu để đúng nguyên văn không có ".*").
+- assertVisible:
+    text: "ĐIỂM SỐ.*"
+- assertVisible:
+    text: "TỐC ĐỘ.*"
+- takeScreenshot: unit9_getting_started_tram_khoi_hanh_result
+# LƯU Ý (khác biệt với testcase, ưu tiên app thật): testcase mục "result.verify" yêu cầu score
+# "<10", nhưng khi làm đúng hết tất cả các bước ngay từ lần Kiểm tra đầu tiên (như flow này), điểm
+# thực tế đo được là "10" (điểm tối đa), không phải "<10". Vì vậy KHÔNG viết assertion "score < 10"
+# ở đây vì sẽ luôn fail với 1 flow trả lời đúng hết - chỉ assertVisible sự tồn tại của khối điểm số
+# ở trên. Nếu cần assertion chặt hơn (vd đúng giá trị "10"), cân nhắc dùng
+# assertVisible: {text: "10", below: "ĐIỂM SỐ"}.
+
+# result.actions (testcase) - 2 lựa chọn thay thế nhau trên màn Kết quả, không chạy cả 2 trong
+# cùng 1 lần test nên chỉ ghi chú lại ở đây:
+#   - "Tiếp theo" -> Điều hướng đến bài Thử thách
+#   - "Làm lại"   -> Điều hướng lại bài Trạm khởi hành
+# TODO: nếu cần tự động hoá 1 trong 2 nhánh trên, tách thành flow/step riêng.
+
+# verify.progress (testcase) - kiểm tra tiến độ bài học:
+#   intro_to_flashcard    -> Không tăng tiến độ
+#   flashcard_to_practice -> Có tăng tiến độ
+#   challenge             -> Không tính tiến độ
+# TODO: chưa có selector/progress bar thật để viết assertion cụ thể cho phần này.

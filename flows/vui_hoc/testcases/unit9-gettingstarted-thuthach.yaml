@@ -1,11 +1,11 @@
-name: Unit9_GettingStarted_TramKhoiHanh
+name: Unit9_GettingStarted_ThuThach
 
 precondition:
-  profile: Ngọc
+  profile: Ha
   grade: 10
   unit: Unit 9 - Protecting the enviroment
   lesson: Getting Started
-  activity: Trạm khởi hành
+  activity: Thử thách
 
 entry:
 

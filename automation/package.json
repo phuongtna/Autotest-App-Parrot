@@ -1,0 +1,16 @@
+{
+  "name": "parrot-random-lesson-automation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CMS-driven random lesson discovery + Maestro flow generation for ParrotEdu",
+  "scripts": {
+    "discover": "node discovery/cli.js",
+    "generate-flow": "node bridge/flowGenerator.js",
+    "run-e2e": "node runtime/index.js"
+  },
+  "dependencies": {
+    "js-yaml": "^5.2.3",
+    "playwright": "^1.62.1"
+  }
+}

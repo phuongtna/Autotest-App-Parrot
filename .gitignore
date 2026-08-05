@@ -4,3 +4,8 @@ test_data/datatest.js
 reports/
 *.png
 .maestro/tmp/
+
+automation/node_modules/
+automation/.cache/
+automation/output/
+flows/vui_hoc/generated/

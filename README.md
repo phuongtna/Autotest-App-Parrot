@@ -173,3 +173,12 @@ curl -Ls "https://get.maestro.mobile.dev" | bash
 ```
 
 Máy hiện tại đã có Maestro CLI `2.8.0` cài tại `~/.maestro/bin/maestro`.
+
+## automation/ - discovery + bridge bài học ngẫu nhiên từ CMS (đang phát triển)
+
+Project Node.js riêng, độc lập với các flow Maestro ở trên (không sửa/ảnh hưởng gì tới
+`flows/`, `scripts/`). Tự khám phá Book/Unit/Lesson/Exercise/Exam/Question/Correct Answer từ
+CMS, chọn ngẫu nhiên 1 Exercise, và dùng kiến trúc plugin (1 handler/dạng bài) để sinh ra 1
+file Maestro YAML trả lời đúng câu hỏi đó - chưa có bước tự điều hướng app tới đúng màn hình
+(vẫn cần tự mở app thủ công trước khi chạy file sinh ra). Xem chi tiết ở
+[automation/README.md](automation/README.md).

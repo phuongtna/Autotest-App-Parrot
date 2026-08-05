@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { dump } from "js-yaml";
+import { execCliSync, sleepSync } from "../src/execCli.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_TMP_DIR = join(__dirname, "..", "output", ".tmp");
@@ -55,7 +55,7 @@ export class MaestroBridge {
     writeFileSync(flowPath, yaml, "utf8");
     try {
       const args = [...this._deviceArgs(), "test", flowPath, "-e", `APP_ID=${this.appId}`];
-      execFileSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+      execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -66,7 +66,7 @@ export class MaestroBridge {
 
   _dumpHierarchy() {
     const args = [...this._deviceArgs(), "hierarchy"];
-    const raw = execFileSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    const raw = execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
     return JSON.parse(raw);
   }
 
@@ -148,7 +148,7 @@ export class MaestroBridge {
     while (Date.now() < deadline) {
       if (this.isVisible("Chính xác.*")) return "CORRECT";
       if (this.isVisible("Chưa chính xác.*")) return "INCORRECT";
-      execFileSync("sleep", [String(pollMs / 1000)]);
+      sleepSync(pollMs / 1000);
     }
     return "UNKNOWN";
   }

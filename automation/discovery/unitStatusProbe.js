@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
 import { dump } from "js-yaml";
 import { config } from "../src/config.js";
+import { execCliSync, sleepSync } from "../src/execCli.js";
 import { getAppAccount } from "./appAccount.js";
 import { normalizeUnitKey } from "./unitNameKey.js";
 
@@ -27,7 +28,7 @@ const LAUNCH_APP_SUBFLOW = join(REPO_ROOT, "flows", "subflows", "launch_app.yaml
 
 function requireCli(bin, helpArg = "--version") {
   try {
-    execFileSync(bin, [helpArg], { encoding: "utf8" });
+    execCliSync(bin, [helpArg], { encoding: "utf8" });
   } catch {
     throw new Error(
       `Không tìm thấy lệnh "${bin}" - cần cài đặt và có trong PATH để đọc trạng thái Unit trên ` +
@@ -51,7 +52,7 @@ function runMaestroFlow(steps, { label }) {
   writeFileSync(flowPath, yaml, "utf8");
   try {
     const args = [...deviceArgs(), "test", flowPath, "-e", `APP_ID=${config.appId}`];
-    execFileSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   } finally {
     rmSync(flowPath, { force: true });
   }
@@ -59,7 +60,7 @@ function runMaestroFlow(steps, { label }) {
 
 function dumpHierarchy() {
   const args = [...deviceArgs(), "hierarchy"];
-  const raw = execFileSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const raw = execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   return JSON.parse(raw);
 }
 
@@ -74,7 +75,7 @@ function scrollDownOneScreen() {
   // Chờ list đứng yên hẳn rồi mới dump hierarchy ở lượt lặp tiếp theo - dump ngay sau khi vừa
   // scroll có lúc bắt được frame đang chuyển động, khiến 2 lần dump liên tiếp tình cờ giống
   // nhau (list chưa kịp lộ nội dung mới) -> vòng lặp dừng sớm nhầm là đã hết danh sách.
-  execFileSync("sleep", ["0.5"]);
+  sleepSync(0.5);
 }
 
 function parseTop(bounds) {
@@ -209,7 +210,7 @@ export function openUnitsListForBook(bookName) {
   // extendedWaitUntil ở trên chỉ đợi tiêu đề màn hiện ra - phần danh sách Unit bên dưới có thể
   // vẫn đang render/load ảnh (đã xác nhận thật: dump ngay sau khi mở màn có lúc thiếu card đầu
   // danh sách so với dump sau khi đã scroll 1 lần).
-  execFileSync("sleep", ["0.8"]);
+  sleepSync(0.8);
 }
 
 /**

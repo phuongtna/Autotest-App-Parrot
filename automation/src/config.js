@@ -40,6 +40,19 @@ export const config = {
   // NHIỀU thiết bị/emulator cùng kết nối. Để trống thì maestro/adb tự chọn thiết bị duy nhất
   // đang kết nối. Discovery (npm run discover) không dùng biến này - không cần thiết bị.
   deviceId: readVar("DEVICE_ID"),
+
+  // Dùng cho discovery/homeworks.js (GET /api/user/exams/room.json) - hệ thống KHÁC hẳn CMS
+  // (host/path/auth khác nhau, xem automation/README.md mục "Bài tập"). Token + cookie hiện chỉ
+  // xác nhận hoạt động với tài khoản vai trò "teacher" - CHƯA xác nhận token học sinh thật.
+  teacherPortalBaseUrl: (readVar("TEACHER_PORTAL_BASE_URL") || "https://parrotedu.vn").replace(
+    /\/+$/,
+    "",
+  ),
+  teacherAccessToken: readVar("TEACHER_ACCESS_TOKEN"),
+  // Cookie header nguyên văn copy từ DevTools (vd "SELECTED_PROFILE=...; __Secure-better-auth.session_token=...").
+  // Chưa xác nhận có bắt buộc đi kèm Authorization header hay không (mọi lần test đều gửi kèm cả
+  // 2) - giữ nguyên cả 2 làm phương án đã CHỨNG MINH hoạt động, không tự bỏ bớt.
+  teacherSessionCookie: readVar("TEACHER_SESSION_COOKIE"),
 };
 
 export function requireCmsConfig() {
@@ -50,6 +63,17 @@ export function requireCmsConfig() {
     throw new Error(
       `Thiếu biến môi trường trong .env: ${missing.join(", ")}. ` +
         `Xem automation/README.md để biết cách cấu hình.`,
+    );
+  }
+}
+
+export function requireTeacherPortalConfig() {
+  const missing = [];
+  if (!config.teacherAccessToken) missing.push("TEACHER_ACCESS_TOKEN");
+  if (missing.length > 0) {
+    throw new Error(
+      `Thiếu biến môi trường trong .env: ${missing.join(", ")}. ` +
+        `Xem automation/README.md mục "Bài tập" để biết cách lấy giá trị này.`,
     );
   }
 }

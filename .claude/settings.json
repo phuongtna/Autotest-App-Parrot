@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/scripts/session-start-sync.sh",
+            "timeout": 30,
+            "statusMessage": "Syncing with origin..."
+          }
+        ]
+      }
+    ]
+  }
+}

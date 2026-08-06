@@ -7,7 +7,9 @@
   "scripts": {
     "discover": "node discovery/cli.js",
     "generate-flow": "node bridge/flowGenerator.js",
-    "run-e2e": "node runtime/index.js"
+    "run-e2e": "node runtime/index.js",
+    "discover-homework": "node bai_tap/discovery/homeworkCli.js",
+    "run-homework-e2e": "node bai_tap/runtime/homeworkIndex.js"
   },
   "dependencies": {
     "js-yaml": "^5.2.3",

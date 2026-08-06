@@ -377,3 +377,262 @@ trong 1 Lesson cũng cần scroll để tìm đúng Exercise.
 tiếp. Cần chạy lại `npm run run-e2e` (đảm bảo emulator đang chạy) để verify hết
 `TrueFalseHandler`/`MultipleChoiceHandler` và cập nhật lại mục này.
 Phần điều hướng tham số hoá theo tên thật (`navigate_to_lesson.yaml`) là việc tiếp theo.
+
+## Bài tập (Homework) - Discovery (`bai_tap/discovery/homeworks.js` + `bai_tap/model/homeworkModel.js`)
+
+Feature KHÁC hẳn "Vui học" (tab riêng, giáo viên giao bài theo lớp thay vì tự học random) - nằm
+riêng trong module `bai_tap/` (đặt tên theo cùng quy ước với `flows/vui_hoc/`), ĐỘC LẬP hoàn toàn
+với `discovery/books.js`/`units.js`/... ở trên, không dùng chung code (dù cùng gọi
+`discovery/cmsClient.js` + `bridge/maestroBridge.js` - 2 module hạ tầng dùng chung giữa Vui học và
+Bài tập, không đặt trong `bai_tap/`):
+
+```
+automation/
+  bai_tap/
+    discovery/
+      homeworks.js       # gọi GET /api/user/exams/room.json (teacher portal) + resolveHomeworkLevel()
+      homeworkCli.js     # entrypoint `npm run discover-homework`, ghi output/homework_discovery.json
+    model/
+      homeworkModel.js   # normalizeHomework() + resolveMyStatus()
+    navigation/
+      homeworkPageObjects.js     # selector/text - CHỈ 3 màn List/FilterSheet/AttemptHistory
+      homeworkNavigationEngine.js
+    runtime/
+      pendingExamLaunch.js       # PendingExamLaunchError + message cố định
+      homeworkResultWriter.js    # ghi output/homework_run_result.json
+      homeworkIndex.js           # entrypoint `npm run run-homework-e2e`
+```
+
+**Đường nối Student → Book đã xác nhận thật (2026-08-06)**: mỗi Khối có Book `type="BY_TEACHER"`
+riêng (khác Book `type="SELF_LEARN"` mà Vui học dùng, xem mục lọc `filterSelfLearnBooks` ở trên) -
+`Book.grade.id` khớp đúng `Class.grade_id` (đã đối chiếu qua `GET /api/classes/teacher`: Class
+"3B" có `grade_id` = đúng `grade.id` của Book "Khối 3" `type=BY_TEACHER`). LessonItem thuộc diện
+Bài tập có field `mode: "BY_TEACHER"` riêng (khác Vui học, chưa xác nhận giá trị `mode` bên Vui
+học là gì).
+
+### Endpoint danh sách Bài tập - ĐÃ XÁC NHẬN THẬT
+
+```
+GET https://parrotedu.vn/api/user/exams/room.json?limit=&page=&period=
+```
+
+Test thật 2026-08-06 bằng token vai trò `"teacher"` (tài khoản GV, KHÔNG phải CMS admin token) -
+lấy đủ 45/45 bản ghi (page 1+2, `period=WEEK`; `period=MONTH` cho `total=149` - endpoint có filter
+theo khoảng thời gian, khớp ý "2 tuần gần nhất"/"1 tháng gần nhất" trong Figma nhưng CHƯA xác nhận
+giá trị enum chính xác của `period` khớp 2 lựa chọn đó). Response: `{ status, total, class_names,
+creator_rooms, data: [...] }` - `data[]` là danh sách Room (= 1 Bài tập), đã phẳng sẵn
+book/unit/lesson/lessonItem, không cần tự đi bộ cây Book→Unit→Lesson→LessonItem như Vui học.
+
+**GIỚI HẠN CHƯA XÁC NHẬN**: token/cookie test được lấy từ tài khoản **giáo viên**, path là
+`/api/user/...` (không phải `/api/teacher/...`) nên khả năng cao dùng chung cho token học sinh,
+nhưng **chưa có bằng chứng trực tiếp** (chưa capture network request từ chính app học sinh mở màn
+"Bài tập"). Cần xác nhận trước khi coi đây là nguồn dữ liệu chính thức cho Runtime.
+
+### `bai_tap/model/homeworkModel.js` - field đã xác nhận vs. loại bỏ
+
+Xem JSDoc đầu file để biết đầy đủ - tóm tắt các quyết định quan trọng:
+
+- **`id` = `room.id`** (quyết định hiện tại, không phải giả định) - response không có
+  "homework_id"/"assignment_id" riêng.
+- **`examId` = UNRESOLVED, KHÔNG phải quyết định cuối cùng.** Hiện KHÔNG có nguồn dữ liệu nào đã
+  được xác nhận đáng tin cậy cho field này:
+    - `room.exams` luôn `null` trong toàn bộ dữ liệu hiện có (45/45 bản ghi).
+    - `lesson-items/:id` (CMS) **đã được chứng minh KHÔNG đáng tin cậy** (2026-08-06): room
+      `7325fd77-...` có `attempts[].examId` thật là `"53d15f32-..."` nhưng `lesson-items/:id`
+      cùng `lessonItemId` lại trả `exam_ids: ["188d6a2d-..."]` - khác hẳn.
+    - Đã thử đoán endpoint chi tiết 1 Room (404/không lọc) - không tìm ra thêm.
+  KHÔNG tạo field `examId` placeholder trong model. Chỉ bổ sung field này khi tìm được đúng
+  endpoint mà app học sinh THẬT SỰ dùng để mở bài (network capture lúc bấm "Làm bài" trên 1 bài
+  CHƯA từng ai làm) - đây là việc cần làm tiếp, không phải đã đóng lại.
+- **`level` (BASIC/ADVANCED, = category "Bài tập về nhà"/"Bài tập nâng cao")** không có trong
+  response này - đã xác nhận field này tồn tại và nhất quán qua `GET /api/cms/lesson-items/:id`
+  (3 lần test riêng: 1 role_play → `ADVANCED`, còn lại → `BASIC`, đúng theo xác nhận của bạn "AI
+  Role Play luôn là bài nâng cao") - dùng `resolveHomeworkLevel(lessonItem.id)` gọi riêng, không
+  gộp vào model chính vì khác nguồn/khác auth.
+- **`assignedDate`** (ngày giao bài) - không tìm thấy field nào đại diện đúng khái niệm này, loại
+  khỏi model.
+- **Trạng thái làm bài** (chưa làm/đang làm/hoàn thành) không phải field có sẵn - suy ra bằng
+  `resolveMyStatus(homework, userId)` từ `attempts[].userId`/`status` (đã xác nhận 37/45 bản ghi
+  không có `answers[]` nào = chưa ai làm).
+
+Đã smoke-test thật `getHomeworks()`/`resolveHomeworkLevel()` (2026-08-06) - chạy đúng, lấy đủ dữ
+liệu, không lỗi.
+
+### Cấu hình
+
+Thêm vào `.env` (ngoài `CMS_BASE_URL`/`CMS_ACCESS_TOKEN` đã có - `resolveHomeworkLevel()` vẫn cần
+2 biến đó):
+
+```
+TEACHER_ACCESS_TOKEN=<Bearer token của tài khoản giáo viên, copy từ DevTools>
+TEACHER_SESSION_COOKIE=<cookie header nguyên văn, copy từ DevTools>
+```
+
+`TEACHER_PORTAL_BASE_URL` mặc định `https://parrotedu.vn`, chỉ cần set nếu khác. Lưu ý:
+`TEACHER_ACCESS_TOKEN` là JWT có hạn ngắn (quan sát thật ~1 giờ) - hết hạn thì `discover-homework`/
+`run-homework-e2e` báo lỗi HTTP 401 rõ ràng, cần lấy lại token mới từ DevTools.
+
+### Test automation Bài tập - PHẠM VI hiện tại (2026-08-06)
+
+Đã viết `bai_tap/navigation/homeworkNavigationEngine.js` + `bai_tap/runtime/homeworkIndex.js` + entrypoint
+`npm run discover-homework` / `npm run run-homework-e2e`. **CHỈ implement phần KHÔNG phụ thuộc mở
+bài làm thật** (Navigation/Discovery/Runtime/Assertions/Page Objects/Models cho 3 màn: HomeworkList,
+HomeworkFilterSheet, HomeworkAttemptHistory) - theo đúng yêu cầu, KHÔNG implement "Start Homework"/
+"Open Exam"/"Submit Exam" vì `examId` vẫn đang UNRESOLVED (xem mục trên).
+
+- `bai_tap/navigation/homeworkPageObjects.js` - text/selector của 3 màn trên (lấy từ ảnh Figma, **CHƯA đối
+  chiếu `maestro hierarchy` trên thiết bị thật** - cùng tình trạng bản đầu của
+  `navigation/navigationEngine.js` trước khi refactor theo lần chạy thật).
+- `bai_tap/navigation/homeworkNavigationEngine.js` - các method AN TOÀN: `openHomeworkTab()`,
+  `assertHomeworkCardVisible()`, `openFilterSheet()`/`selectFilterRange()`/`applyFilter()`,
+  `openAttemptHistory()` (chỉ xem lịch sử điểm/thời gian, KHÔNG hiển thị câu hỏi nên coi là ngoài
+  ranh giới "Open Exam"). `startHomework()` và `openAttemptDetail()` **CỐ TÌNH luôn throw**
+  `PendingExamLaunchError` (`bai_tap/runtime/pendingExamLaunch.js`), message cố định
+  `"Waiting for verified exam launch endpoint."` - không suy đoán examId, không tự tạo endpoint
+  mở bài giả.
+- `bai_tap/runtime/homeworkIndex.js` - đọc Discovery thật -> mở tab -> assert từng card hiển thị đúng ->
+  đánh dấu PENDING (đúng message trên) cho bước mở bài -> ghi `output/homework_run_result.json`
+  (status `"CARD_VERIFIED..."`/`"PENDING"`/`"ERROR"` cho từng Homework, không throw làm hỏng cả
+  lượt chạy - cùng nguyên tắc `runtime/index.js`).
+- `bridge/maestroBridge.js` có thêm `back()` (cú pháp `back` chuẩn của Maestro).
+
+**ĐÃ VERIFY THẬT trên thiết bị (2026-08-06, thiết bị `BDB00056877`, model "Aris", app
+`com.inet.parrotedu`, tài khoản học sinh "Ngoc" lớp 3B - đúng khớp Khối 3/lớp "3B" đã xác nhận qua
+CMS/teacher-portal ở trên):**
+
+- `openHomeworkTab()` - cả 2 chiều (đã ở sẵn tab, và chuyển thật từ tab "Vui học" sang) - PASS.
+  Text tab "Bài tập" KHÔNG bị nhầm với tiêu đề màn dù trùng chữ (lo ngại ban đầu không xảy ra).
+- `assertHomeworkCardVisible()` - PASS cho card không cần scroll ("Speaking orange") và card cần
+  scroll ("G3-U19-L1: Listen and repeat", card thứ 5 trong danh sách).
+- `openFilterSheet()` / `selectFilterRange()` / `applyFilter()` - PASS, bottom sheet khớp 100%
+  page objects (title "Xem bài tập theo", 2 radio, nút "Xem"); áp dụng "1 tháng gần nhất" thành
+  công, header đổi đúng.
+- `openAttemptHistory()` - PASS, màn AttemptHistory hiện đúng Close(X)/tiêu đề/"Lần 1"/điểm/
+  "Xem chi tiết" (KHÔNG tap tiếp, đúng ranh giới) - phát hiện thêm 2 field chưa từng biết: "Đúng
+  X/2" (số câu đúng) và "Thời gian nộp DD/MM" (ngày nộp, không phải khoảng).
+- `bridge.back()` - PASS, quay từ AttemptHistory về List sạch sẽ, không có dialog xác nhận thoát.
+
+**Đã SỬA theo phát hiện thật** (không phải suy đoán): `scrollUntilVisible` timeout tăng từ 20000
+lên **45000ms** trong `assertHomeworkCardVisible()`/`openAttemptHistory()` - đã đo THẤT BẠI THẬT
+với 20000ms/tốc độ mặc định khi cuộn từ đầu danh sách (báo "No visible element found"), ổn định
+sau khi tăng. Phát hiện thêm 1 popup chung MỚI ("Cập nhật phiên bản mới", nút "Để sau") khi chuyển
+tab - đã thêm `homeworkPageObjects.popups` + dismiss trong `openHomeworkTab()`.
+
+**CHƯA VERIFY**: trạng thái CTA "Tiếp tục" (tài khoản test hiện không có Homework nào đang dở
+dang - chỉ thấy thật "Làm bài"/"Làm lại"/"Chinh phục") - vẫn giữ nguyên trong page objects vì suy
+luận hợp lý từ 3 trạng thái còn lại, nhưng chưa có bằng chứng thật. `startHomework()`/
+`openAttemptDetail()` (throw `PendingExamLaunchError`) chỉ mới smoke-test bằng fake bridge, không
+cần verify thêm trên thiết bị vì cố tình không thực thi hành vi thật nào.
+
+### Milestone: test end-to-end 1 Homework random (`bai_tap/runtime/homeworkIndex.js`)
+
+Viết lại `runtime/homeworkIndex.js` theo đúng yêu cầu milestone - CHỈ chạy 1 Homework random (không
+phải lặp hết danh sách như bản trước), 3 giai đoạn tách biệt, giai đoạn sau CHỈ chạy nếu giai đoạn
+trước PASS (không chạy tiếp trên nền lỗi, không tự quy lỗi thành PASS):
+
+1. **Discovery** - `getHomeworks()` (danh sách thật) → `filterOutRolePlay()` (TẠM THỜI bỏ type
+   `role_play` theo yêu cầu 2026-08-06 - loại này không có Question/Exam pipeline, xem
+   `discovery/homeworks.js`) → `pickRandom()` (`discovery/randomPicker.js` dùng chung với Vui
+   học) - random THUẦN trên kết quả API, không hardcode Book/Unit/Room nào.
+2. **Navigation** - `openHomeworkTab()` → `assertHomeworkCardVisible()` cho đúng Homework vừa
+   random ("điều hướng tới màn Homework" = cuộn tới đúng vị trí card, KHÔNG tap CTA).
+3. **Runtime (launch)** - gọi THẬT `nav.startHomework(homework)` (không giả lập/không bỏ qua). Vì
+   `startHomework()` hiện luôn throw `PendingExamLaunchError` (chưa có endpoint mở bài nào được
+   xác nhận), nhánh này bắt đúng lỗi đó → dừng lại, ghi lý do cố định
+   `"Blocked by unresolved exam launch endpoint."`, KHÔNG coi là crash. Lỗi nào KHÁC
+   `PendingExamLaunchError` được ghi nhận trung thực là `"ERROR"` (không giấu thành PASS/BLOCKED).
+
+**ĐÃ CHẠY THẬT THÀNH CÔNG** (2026-08-06, thiết bị `BDB00056877`, tài khoản học sinh "Ngoc" lớp 3B,
+`TEACHER_ACCESS_TOKEN` mới xin lại từ DevTools):
+
+```
+Đã random 1/48 Homework: "G3-U18-Lesson 1: Listen and repeat" (type=exercise)
+Book: Khối 3 / Unit 18: Playing and doing / Lesson 1
+
+Discovery=PASS  Navigation=PASS  Launch=BLOCKED
+  reason: "Blocked by unresolved exam launch endpoint."
+```
+
+`output/homework_run_result.json` ghi đủ 4 mục theo yêu cầu: `homework` (HomeworkModel đầy đủ, đã
+bỏ `metadata.raw` cho gọn), `discovery`/`navigation` (`{status, message}`), `launch`
+(`{status, reason}`). Cũng đã verify riêng nhánh **Discovery FAIL** (dùng token hết hạn trước đó) -
+`navigation`/`launch` tự động thành `"SKIPPED"`, không có gì bị gán nhầm PASS.
+
+Trong quá trình test KHÔNG phát hiện thêm request/endpoint thật nào dùng để mở bài (không chủ động
+dò network - milestone chỉ yêu cầu dừng đúng lúc gặp `PendingExamLaunchError`, không yêu cầu dò
+tiếp). Nếu sau này phát hiện được, sẽ báo cáo bằng chứng trước khi sửa `startHomework()`.
+
+### Đã LÀM THẬT 1 Homework tới hết (vượt ranh giới `PendingExamLaunchError` theo yêu cầu mới 2026-08-06)
+
+Theo yêu cầu mới ("Chạy end-to-end test trên làm 1 bài tập ngẫu nhiên thiết bị Android thật" - tức
+KHÔNG dừng ở `PendingExamLaunchError` nữa mà thực sự bấm vào làm), đã thực hiện thật trên thiết bị
+`BDB00056877`, tài khoản "Ngoc" lớp 3B. Đây là các phát hiện THẬT xác nhận qua thao tác thật (không
+suy đoán):
+
+**1. "Mở bài" (tap CTA "Làm bài") KHÔNG cần endpoint riêng nào - là điều hướng UI thuần.** Bấm
+   `tapOn` đúng CTA của 1 Homework (toạ độ lấy từ `maestro hierarchy`, không hardcode text vì trùng
+   nhiều CTA "Làm bài" trên cùng màn hình) đưa thẳng vào màn làm bài - app tự lo phần "mở đề" phía
+   sau, Bridge/Automation không cần biết/gọi bất kỳ API nào để làm việc này. Popup "AI hỗ trợ học
+   tập" đã thấy xuất hiện ở 1 lượt thử trước đó (dismiss bằng "Tiếp tục") nhưng KHÔNG xuất hiện ở
+   lượt chạy thành công mô tả bên dưới - chưa xác định được điều kiện chính xác khi nào popup này
+   hiện, ghi nhận là KHÔNG ổn định (flaky), không phải luôn có/luôn không.
+
+**2. Homework thật đã hoàn thành:** "G3-U18-Lesson 1: Listen and choose" (`lessonItem.id`
+   `c7e69a44-cbcc-4602-b153-2ee2254d2d59`, `room.id` `f2b959de-d042-4f70-a9ba-1a41fc134c99`), dạng
+   `type="exercise"`, 5 câu loại `ONE` (single-choice, đáp án là ẢNH không có text). **KHÔNG phải
+   random thuần** - cố tình chọn 1 Homework đã có sẵn `attempts[].examId` thật (học sinh khác đã
+   làm) để có `examId` đáng tin cậy dùng cross-check qua Exam Scraper TRƯỚC khi làm, tránh lặp lại
+   lỗi lệch dữ liệu đã gặp ở lượt thử trước (xem mục dưới).
+
+**3. Phát hiện lỗi thật (chưa xử lý, chỉ ghi nhận):** ở lượt thử ĐẦU TIÊN (Homework
+   "G3-U18-Lesson 1: Read and complete", `lessonItem.id` `ab20bfd5-ce15-42b6-bcad-c584c60ed4c3`),
+   câu hỏi dạng SORT ("Reorder the letters") hiển thị THẬT 5 ô chữ cái (w,t,r,i,g) trên màn hình,
+   nhưng đáp án "correct" scrape được từ `exam_ids` của `lesson-items/:id` (cách lấy examId DUY
+   NHẤT khả dụng cho Room CHƯA có attempt nào) lại là chuỗi 7 ký tự "w/r/i/t/i/n/g" = "writing" -
+   LỆCH với UI thật. Đây là bằng chứng THỨ HAI (sau lần phát hiện trong CMS ở mục "Bài tập -
+   Discovery" phía trên) khẳng định `lesson-items/:id.exam_ids` KHÔNG đáng tin cho Room chưa có
+   attempt - đã dừng lại, KHÔNG đoán/không tự sửa đáp án, chuyển sang Homework khác (theo lựa chọn
+   của bạn) thay vì cố hoàn thành bài này.
+
+**4. Cơ chế chọn đáp án dạng `ONE` (ảnh, lưới 2x2):** 4 lựa chọn A(trên-trái)/B(trên-phải)/
+   C(dưới-trái)/D(dưới-phải) theo đúng thứ tự đọc chuẩn - **đã xác nhận thật** thứ tự này khớp
+   1-1 với index trong mảng `answers[]` scrape được (`answers[0]`→A, `answers[1]`→B, `answers[2]`→C,
+   `answers[3]`→D): 2/4 vị trí được xác nhận trực tiếp qua field `explain_answer` ghi rõ chữ cái
+   (vd `"Đáp án đúng là B"` khớp đúng `answers[1]`), 2/4 vị trí còn lại suy ra từ cùng quy luật đọc
+   lưới - và toàn bộ được XÁC NHẬN CHUNG CUỘC bởi màn Kết thúc báo đúng "CHÍNH XÁC 5/5". Bấm vào
+   khung ảnh (`tapOn` theo toạ độ từ hierarchy, không theo text vì đáp án không có text) để chọn -
+   khung được chọn hiện viền xanh, nút "Tiếp theo" chỉ bật (enable) sau khi đã chọn 1 đáp án.
+
+**5. Bài tập (Homework) KHÔNG chấm từng câu như Vui học** - không có nút "Kiểm tra"/không có
+   feedback "Chính xác"/"Chưa chính xác" ngay sau mỗi câu; làm hết toàn bộ N câu rồi mới có 1 màn
+   Kết thúc chấm điểm tổng - khác hẳn cơ chế `checkAnswer()`/`assertAnswerResult()` của
+   `bridge/maestroBridge.js` (2 hàm đó chỉ dùng cho Vui học).
+
+**6. Nếu lưới đáp án không hiện đủ trên màn hình** (2 ô dưới bị cắt, chỉ thấy 1 sliver) - phải
+   `swipe` cuộn xuống NGAY TRONG màn câu hỏi (không phải cuộn danh sách Homework) để hiện đủ nội
+   dung trước khi xác định toạ độ tap, KHÔNG suy đoán toạ độ khi chưa thấy đủ ảnh - đã xác nhận
+   toạ độ lưới đáp án ổn định lại sau khi cuộn (dùng lại được cho câu tiếp theo cùng dạng).
+
+**7. Màn Kết thúc (`Bài tập X/32` ở header) đã xác nhận thật đủ layout:** mascot + tiêu đề động
+   viên (vd "Con đang làm đúng hướng rồi!") + 2 ô thống kê "ĐIỂM SỐ" (vd `10`) và "CHÍNH XÁC" (vd
+   `5/5`) + link "Xem bài đã làm" + section "Kiến thức trong bài" + 2 nút `"Tiếp theo"` (theo xác
+   nhận của bạn: chuyển sang Homework TIẾP THEO chưa làm, không phải câu hỏi tiếp theo) và
+   `"Làm lại"` (theo xác nhận của bạn: làm lại ĐÚNG bài vừa xong) + icon Close (X) góc phải trên
+   (bounds thật `[954,96][1062,204]` lúc test) bấm vào quay thẳng về HomeworkList, danh sách tự
+   cập nhật tiến độ tổng (`8/32` → `9/32`).
+
+**8. Phát hiện phụ (ngoài ý muốn nhưng có giá trị):** vô tình gửi keyevent HOME (phím Home Android)
+   giữa lúc đang làm câu 1/5 (chưa chọn đáp án nào) - app KHÔNG bị kill, toàn bộ trạng thái bài làm
+   (câu 1/5, vị trí audio, chưa chọn gì) được giữ nguyên khi mở lại app bằng
+   `adb shell monkey -p <package> -c android.intent.category.LAUNCHER 1` (không dùng force-stop) -
+   cho thấy app chịu được việc bị đưa xuống nền/mở lại giữa chừng, không mất dữ liệu bài làm.
+
+**Giới hạn còn lại (KHÔNG coi là đã giải quyết chung):** lượt chạy thành công này dựa vào 1 Room
+ĐÃ có attempt thật (nên có `examId` đáng tin qua `room.answers[].examId`) - vấn đề gốc "examId
+UNRESOLVED cho Room CHƯA từng có ai làm" (mục "Bài tập - Discovery" phía trên) VẪN CHƯA có lời giải
+chung - mục 3 ở trên còn cho thấy nó có thể gây lệch đáp án thật nếu cố dùng `exam_ids` từ
+`lesson-items/:id` làm nguồn thay thế. `startHomework()`/`openAttemptDetail()` trong
+`homeworkNavigationEngine.js` VẪN cố tình chưa implement (vẫn throw `PendingExamLaunchError`) vì đây
+là quyết định kiến trúc (cần thiết kế Handler theo QuestionType giống Vui học trước khi generalize
+hoá, không phải giới hạn kỹ thuật) - lượt "làm thật" ở trên được thực hiện bằng script tạm/ad-hoc
+bên ngoài NavigationEngine, chưa đưa vào code chính thức.

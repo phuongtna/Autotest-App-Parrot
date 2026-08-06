@@ -79,6 +79,19 @@ export class MaestroBridge {
   }
 
   /**
+   * Chạy 1 mảng bước Maestro NGUYÊN VẸN (native command, có thể gồm `runFlow: { when: ... }`,
+   * `scrollUntilVisible`, `tapOn: { optional: true }`...) trong ĐÚNG 1 lượt `maestro test` DUY
+   * NHẤT - dùng cho NavigationEngine khi cần gộp nhiều bước liên tiếp (rẽ nhánh/scroll) thành 1
+   * flow thay vì gọi tap/wait/isVisible rời rạc (mỗi lượt tốn thêm 1 lần khởi động `maestro
+   * test`/`maestro hierarchy` - xem ghi chú đo thời gian thật trong navigationEngine.js). Bridge
+   * không diễn giải nội dung `steps` - chỉ dump YAML rồi chạy, giống `_runFlow` nội bộ.
+   * @param {Array<Object|string>} steps
+   */
+  async runSteps(steps) {
+    return this._runFlow(steps);
+  }
+
+  /**
    * Bấm vào 1 phần tử. `selector` là string (khớp text, giống `tapOn: "..."` của Maestro) hoặc
    * object selector đầy đủ của Maestro (vd `{ below: "...", text: "..." }`, `{ leftOf: "..." }`,
    * `{ point: "x,y" }`) - truyền thẳng cho Maestro tự phân giải (đã dùng thật trong các flow
@@ -136,6 +149,16 @@ export class MaestroBridge {
   /** Bấm nút qua câu tiếp theo - chữ cố định, dùng chung cho MỌI dạng bài. */
   async nextQuestion() {
     return this.tap("Tiếp theo");
+  }
+
+  /**
+   * Lùi lại 1 màn hình - dùng cú pháp `back` chuẩn của Maestro (native command, không phải suy
+   * đoán riêng của project này). CHƯA verify hành vi cụ thể trong app ParrotEdu (vd có dialog xác
+   * nhận thoát hay không) - dùng thận trọng, kiểm tra lại bằng isVisible()/assertVisible ngay sau
+   * khi gọi thay vì giả định luôn quay đúng về màn trước đó.
+   */
+  async back() {
+    return this._runFlow(["back"]);
   }
 
   /**

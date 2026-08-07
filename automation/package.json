@@ -10,7 +10,11 @@
     "run-e2e": "node runtime/index.js",
     "discover-homework": "node bai_tap/discovery/homeworkCli.js",
     "run-homework-e2e": "node bai_tap/runtime/homeworkIndex.js",
-    "assign-homework": "node giao_bai_tap/cli.js"
+    "assign-homework": "node giao_bai_tap/cli.js",
+    "test-random-homework-open": "node bai_tap/runRandomOpenHomeworkFlow.js",
+    "run-homework-random-e2e": "node bai_tap/runtime/homeworkRandomE2E.js",
+    "run-homework-random-scoring-e2e": "node bai_tap/runtime/homeworkRandomScoringE2E.js",
+    "run-homework-random-scoring-e2e-onesession": "node bai_tap/runtime/homeworkRandomScoringE2EOneSession.js"
   },
   "dependencies": {
     "js-yaml": "^5.2.3",

@@ -38,6 +38,12 @@ export class MaestroBridge {
     if (!appId) throw new Error("MaestroBridge cần appId (xem automation/src/config.js).");
     this.appId = appId;
     this.deviceId = deviceId;
+    // Đếm số lượt `maestro test` THẬT đã spawn qua instance này (mỗi `_runFlow()` = 1 tiến trình
+    // `maestro test` riêng, tốn ~30-50s khởi động session - xem đo đạc thật 2026-08-07 ở
+    // flows/bai_tap/testcases/homework-review-explanation.yaml). KHÔNG tính `maestro hierarchy`
+    // (`_dumpHierarchy()`/`isVisible()`/`hierarchy()`) - lệnh đó rẻ, không khởi động session.
+    // Dùng để báo cáo hiệu năng testcase (vd runtime/homeworkRandomScoringE2EOneSession.js).
+    this.testInvocationCount = 0;
   }
 
   _deviceArgs() {
@@ -50,6 +56,7 @@ export class MaestroBridge {
    * @returns {{ success: boolean, error?: string }}
    */
   _runFlow(steps) {
+    this.testInvocationCount++;
     mkdirSync(OUTPUT_TMP_DIR, { recursive: true });
     const flowPath = join(OUTPUT_TMP_DIR, `bridge_step_${++callCounter}.yaml`);
     const yaml = `appId: \${APP_ID}\n---\n${dump(steps, { lineWidth: -1 })}`;
@@ -137,6 +144,23 @@ export class MaestroBridge {
     const texts = this._collectTexts(tree, []);
     const pattern = new RegExp(`^${textPattern}$`);
     return texts.some((t) => pattern.test(t));
+  }
+
+  /**
+   * Trả về cây hierarchy thô hiện tại (đúng dữ liệu `maestro hierarchy` đã parse JSON) - dùng khi
+   * caller cần TỰ PHÂN TÍCH nhiều phần tử cùng lúc bằng code thật (Node), thay vì dựa vào selector
+   * `above`/`below` kèm `index` của Maestro trong `copyTextFrom`/`tapOn` - ĐÃ XÁC NHẬN THẬT
+   * (2026-08-07, thiết bị 3201d866d40a1681) cả selector lồng nhau LẪN selector đơn tầng có
+   * `index` đều có thể đọc SAI (vd đọc nhầm cả 3 lần liên tiếp thành cùng 1 giá trị sai) - parse
+   * trực tiếp JSON của `maestro hierarchy` là cách DUY NHẤT đã kiểm chứng đáng tin trong phiên làm
+   * việc này (xem bai_tap/homeworkListReader.js). Chỉ nên gọi hàm này SAU KHI đã dùng
+   * `runSteps()`/các method khác để đưa app về đúng trạng thái cần đọc (gộp scroll vào 1 lượt
+   * `runSteps()` DUY NHẤT rồi mới gọi `hierarchy()` 1 lần - KHÔNG gọi xen kẽ hierarchy() sau MỖI
+   * bước scroll, sẽ tốn 1 lượt khởi động `maestro hierarchy` RIÊNG mỗi lần, xem ghi chú đo thời
+   * gian thật trong bai_tap/runRandomOpenHomeworkFlow.js).
+   */
+  hierarchy() {
+    return this._dumpHierarchy();
   }
 
   /** Bấm nút nộp đáp án - chữ cố định, dùng chung cho MỌI dạng bài (đã xác nhận qua

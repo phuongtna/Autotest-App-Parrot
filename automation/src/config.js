@@ -49,9 +49,10 @@ export const config = {
     "",
   ),
   teacherAccessToken: readVar("TEACHER_ACCESS_TOKEN"),
-  // Cookie header nguyên văn copy từ DevTools (vd "SELECTED_PROFILE=...; __Secure-better-auth.session_token=...").
-  // Chưa xác nhận có bắt buộc đi kèm Authorization header hay không (mọi lần test đều gửi kèm cả
-  // 2) - giữ nguyên cả 2 làm phương án đã CHỨNG MINH hoạt động, không tự bỏ bớt.
+  // Cookie header nguyên văn - ĐÃ XÁC NHẬN THẬT (2026-08-07) KHÔNG bắt buộc: gọi GET
+  // /api/user/exams/room.json thành công chỉ với header Authorization (TEACHER_ACCESS_TOKEN lấy
+  // qua get_teacher_token.sh -> POST /api/auth/login, role=teacher), đã test bỏ hẳn Cookie. Giữ
+  // lại field này chỉ để tương thích với cách lấy tay qua DevTools trước đây, không còn cần thiết.
   teacherSessionCookie: readVar("TEACHER_SESSION_COOKIE"),
   // Dùng bởi giao_bai_tap/navigation/teacherPortalSession.js để đăng nhập THẬT qua form UI
   // (Playwright) - khác TEACHER_ACCESS_TOKEN ở trên (token đó chỉ xác nhận dùng được cho API,

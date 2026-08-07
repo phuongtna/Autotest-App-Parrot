@@ -59,12 +59,32 @@ export const homeworkPageObjects = {
 
   // Màn "Xem chi tiết" 1 lần làm - ĐÃ VERIFY THẬT (2026-08-06, thiết bị BDB00056877, homework
   // "G3-U18-Lesson 1: Listen and choose", lần làm "Đúng 2/5"): hiển thị lại đúng N câu (Câu 1..N,
-  // đã thấy N=5) kèm audio/đáp án đã chọn, có nút "Giải thích" (KHÔNG dùng ở đây, ngoài phạm vi
-  // hiện tại) và 1 nút chuyển câu ở vị trí cố định - text đổi từ "Tiếp theo" (còn câu sau) thành
-  // "Xem xong" NGAY tại câu cuối (đã xác nhận N/N) - dùng để biết khi nào dừng loop và quay về
-  // AttemptHistory, không cần biết trước N.
+  // đã thấy N=5) kèm audio/đáp án đã chọn, có nút "Giải thích" và 1 nút chuyển câu ở vị trí cố
+  // định - text đổi từ "Tiếp theo" (còn câu sau) thành "Xem xong" NGAY tại câu cuối (đã xác nhận
+  // N/N) - dùng để biết khi nào dừng loop và quay về AttemptHistory, không cần biết trước N.
+  //
+  // Nút "Giải thích" + popup "explanation" bên dưới - ĐÃ VERIFY THẬT (2026-08-07, thiết bị
+  // 3201d866d40a1681, model "SM-M205G", cùng homework, "Lần 4"): xem đầy đủ kết quả verify (kể cả
+  // 2 điểm text khác spec gốc: "Parrot giải thích" chữ thường, "Tóm lại" không phải "Tóm tắt") ở
+  // flows/bai_tap/testcases/homework-review-explanation.yaml.
   reviewDetail: {
     nextButton: "Tiếp theo",
     doneButton: "Xem xong",
+    explanationButton: "Giải thích",
+    // Tab "Câu N" ở đầu màn - đổi màu nền/viền theo câu đó ĐÚNG (xanh lá) hay SAI (đỏ/hồng); màu
+    // là dấu hiệu DUY NHẤT quan sát được để biết câu đang xem đúng/sai TRƯỚC KHI bấm "Giải thích"
+    // (không có text "Đúng"/"Sai" riêng trên màn này) - CHƯA có cách đọc màu qua `maestro
+    // hierarchy`/`tapOn` text thuần (cần đọc thuộc tính màu/resource-id qua bridge.hierarchy() nếu
+    // muốn tự động hoá, chưa implement ở NavigationEngine).
+    explanationPopup: {
+      title: "Parrot giải thích",
+      knowledgeSection: "Kiến thức",
+      // CHỈ xuất hiện khi câu ĐÚNG (cùng popup, thay cho 2 mục whySection/hintSection).
+      summarySection: "Tóm lại",
+      // 2 mục dưới CHỈ xuất hiện khi câu SAI (thay cho summarySection).
+      whySection: "Tại sao sai",
+      hintSection: "Gợi ý",
+      closeButton: "Đóng",
+    },
   },
 };

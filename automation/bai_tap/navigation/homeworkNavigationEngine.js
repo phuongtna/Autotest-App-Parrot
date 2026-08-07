@@ -196,6 +196,87 @@ export class HomeworkNavigationEngine {
   }
 
   /**
+   * Biến thể GỘP của openHomeworkTab()+openFilterSheet()+selectFilterRange()+applyFilter() - CÙNG
+   * chuỗi selector/hành vi 4 hàm gốc (KHÔNG đổi), chỉ gộp vào ĐÚNG 1 lượt `maestro test` DUY NHẤT
+   * thay vì 4 lượt riêng (mỗi hàm gốc tự spawn 1 tiến trình `maestro test`, ~30-50s khởi động
+   * session/lượt - xem đo đạc thật 2026-08-07 dẫn ở homeworkExamEngine.js#answerCurrentQuestionOneShot()).
+   * @param {string} rangeLabel - vd `homeworkPageObjects.filterSheet.optionOneMonth`
+   */
+  async openHomeworkTabWithFilterOneShot(rangeLabel) {
+    const steps = [
+      {
+        runFlow: {
+          when: { notVisible: po.list.sectionRegular },
+          commands: [
+            { tapOn: { text: po.bottomTab.homeworkLabel } },
+            { waitForAnimationToEnd: { timeout: 2000 } },
+            ...this._dismissKnownPopupsSteps(),
+          ],
+        },
+      },
+      { waitForAnimationToEnd: { timeout: 2000 } },
+      { assertVisible: { text: po.list.screenTitle } },
+      { tapOn: { text: po.list.filterHeaderPattern } },
+      { assertVisible: { text: po.filterSheet.title } },
+      { tapOn: rangeLabel },
+      { tapOn: po.filterSheet.applyButton },
+      { extendedWaitUntil: { visible: { text: po.list.screenTitle }, timeout: 5000 } },
+    ];
+    const result = await this.bridge.runSteps(steps);
+    if (!result.success) {
+      throw new Error(`HomeworkNavigationEngine: không mở được tab "Bài tập" + áp filter (gộp 1 lượt): ${result.error}`);
+    }
+  }
+
+  /**
+   * Biến thể GỘP của assertHomeworkCardVisible()+tapOn CTA (mở bài)+verifyIdentity() (hàm sau
+   * thuộc HomeworkExamEngine) - CÙNG chuỗi selector/hành vi các hàm gốc, chỉ gộp vào ĐÚNG 1 lượt
+   * `maestro test` DUY NHẤT (thay vì ~5 lượt riêng: assert card, screenshot target, tap CTA/chờ/
+   * dismiss AI popup, verifyIdentity, screenshot exam screen).
+   * @param {import("../model/homeworkModel.js").HomeworkModel} homework
+   * @param {{ targetScreenshot?: string, examScreenshot?: string }} [options]
+   */
+  async openHomeworkAndVerifyIdentityOneShot(homework, { targetScreenshot, examScreenshot } = {}) {
+    if (!homework?.title || !homework?.cta) {
+      throw new Error("openHomeworkAndVerifyIdentityOneShot() cần homework.title + homework.cta.");
+    }
+    const steps = [
+      {
+        runFlow: {
+          when: { notVisible: { text: homework.title } },
+          commands: [
+            {
+              scrollUntilVisible: {
+                element: { text: homework.title },
+                direction: "DOWN",
+                timeout: 45000, // xem lý do 45000 (không phải 20000 mặc định) ở assertHomeworkCardVisible().
+              },
+            },
+          ],
+        },
+      },
+      { assertVisible: { text: homework.title } },
+    ];
+    if (targetScreenshot) steps.push({ takeScreenshot: targetScreenshot });
+    steps.push(
+      { tapOn: { below: homework.title, text: homework.cta } },
+      { waitForAnimationToEnd: { timeout: 3000 } },
+      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
+      { extendedWaitUntil: { visible: { text: homework.title }, timeout: 10000 } },
+      { assertNotVisible: { text: "Trò chuyện" } },
+      { assertNotVisible: { text: "Bài tập về nhà" } },
+    );
+    if (examScreenshot) steps.push({ takeScreenshot: examScreenshot });
+
+    const result = await this.bridge.runSteps(steps);
+    if (!result.success) {
+      throw new Error(
+        `HomeworkNavigationEngine: không mở được bài + xác nhận identity cho "${homework.title}" (gộp 1 lượt): ${result.error}`,
+      );
+    }
+  }
+
+  /**
    * CỐ TÌNH CHƯA IMPLEMENT - tapOn CTA ("Làm bài"/"Tiếp tục"/"Chinh phục"/"Làm lại") = bắt đầu
    * hoặc tiếp tục 1 lượt làm bài thật, cần biết cách app mở đúng Exam - xem
    * runtime/pendingExamLaunch.js.

@@ -1,0 +1,227 @@
+/**
+ * Đọc danh sách Homework THẬT đang hiển thị trên UI màn "Bài tập" (List) - KHÔNG gọi CMS/
+ * teacher-portal API (khác hẳn `discovery/homeworks.js`, module đó lấy danh sách qua
+ * `GET /api/user/exams/room.json`). Dùng cho testcase random-1-Homework-làm-thật: yêu cầu
+ * nghiệp vụ là "random đúng bài đang thấy trên app", không phải "random 1 ID từ API rồi hy vọng
+ * app cũng thấy" - 2 nguồn dữ liệu (API teacher-portal vs UI học sinh) đã xác nhận có thể lệch
+ * nhau (xem automation/README.md mục "Bài tập" - GIỚI HẠN CHƯA XÁC NHẬN).
+ *
+ * Cách đọc: `bridge.hierarchy()` (đã có sẵn, parse JSON của `maestro hierarchy`) rồi tự PHÂN NHÓM
+ * theo mẫu text thật đã quan sát trên thiết bị (không suy đoán):
+ *   "Bài tập về nhà" | "Bài tập nâng cao"   (section header)
+ *   <title>                                 (tên Homework - dòng bất kỳ, không cố định)
+ *   ... (badge "Điểm"/"Điểm N", "Hạn nộp DD/MM (QUÁ HẠN)", "Xem bài đã làm" - bỏ qua) ...
+ *   "N / M"                                 (số lần đã làm/số lần được phép - LUÔN có, mọi card)
+ *   ...
+ *   "Làm bài" | "Tiếp tục" | "Làm lại" | "Chinh phục"   (CTA - kết thúc 1 card)
+ *
+ * Bất biến dùng để xác định <title> đáng tin cậy nhất (đã đối chiếu 2 kiểu card thật khác nhau -
+ * card CHƯA làm và card ĐÃ có điểm - thứ tự các dòng phụ khác nhau nhưng bất biến này đúng cho cả
+ * 2): <title> luôn là dòng text đứng NGAY TRƯỚC dòng khớp mẫu "N / M" gần nhất, tính từ sau khi đã
+ * thấy 1 section header. Tự loại được dòng đếm tổng ở đầu màn (vd "13 / 32" đứng ngay sau tiêu đề
+ * màn "Bài tập") vì dòng đó xuất hiện TRƯỚC section header đầu tiên.
+ *
+ * LƯU Ý QUAN TRỌNG (phát hiện khi tự đối chiếu dữ liệu hierarchy thật lúc cuộn xuống): section
+ * header CHỈ xuất hiện 1 LẦN ở đầu mỗi section rồi cuộn mất khỏi màn hình - các lượt hierarchy đọc
+ * SAU KHI đã cuộn qua header sẽ KHÔNG còn thấy lại chữ header đó, dù card vẫn đang hiển thị thật.
+ * Vì vậy trạng thái "đã thấy header" (`sectionSeen`) phải được DUY TRÌ XUYÊN SUỐT nhiều lượt gọi
+ * (nhiều lượt cuộn), KHÔNG được reset về false ở đầu mỗi lượt `parseHomeworkCardsFromTexts()` -
+ * xem cách `collectVisibleHomeworkCards()` truyền lại `sectionSeen` giữa các lượt cuộn bên dưới.
+ *
+ * BUG THẬT đã xác nhận + SỬA (2026-08-07, thiết bị 3201d866d40a1681, chạy
+ * homeworkRandomScoringE2EOneSession.js): nhãn "Chuyển profile" (control CỐ ĐỊNH ở góc trên màn
+ * hình, dùng để chuyển hồ sơ học sinh, KHÔNG phải Homework) bị `parseHomeworkCardsFromTexts()`
+ * nhận nhầm làm <title> vì hàm cũ đọc TOÀN BỘ text trên màn hình theo 1 mảng phẳng, không phân
+ * biệt text đó có thực sự nằm TRONG danh sách Homework hay không - chỉ dựa vào "đứng ngay trước 1
+ * dòng khớp mẫu N/M".
+ *
+ * Đối chiếu `maestro hierarchy` THẬT (JSON đầy đủ, không phải bản đã lọc text, nhiều lượt cuộn
+ * khác nhau) cho thấy màn hình có TỚI 2 node `class: "android.widget.ScrollView"` LỒNG NHAU:
+ * 1 node NGOÀI bọc TOÀN BỘ màn hình (bounds "[0,0][1080,2340]", `scrollable="false"` - KHÔNG phải
+ * danh sách, chỉ là container chung, VẪN chứa cả header "Chuyển profile") và 1 node TRONG mới
+ * đúng là danh sách Homework thật (bounds "[0,291][1080,2112]", `scrollable="true"` - LUÔN đúng
+ * giá trị này ở mọi lượt cuộn đã đối chiếu). Vì vậy KHÔNG thể chỉ dựa vào `class ===
+ * "android.widget.ScrollView"` (khớp cả node ngoài, vẫn lọt "Chuyển profile" - đã thử, xác nhận
+ * SAI thật) - phải dùng ĐÚNG cờ `scrollable === "true"` (chỉ node danh sách thật có cờ này) làm
+ * dấu hiệu CẤU TRÚC duy nhất, KHÔNG dựa vào so khớp text "Chuyển profile" hay bất kỳ chuỗi cụ thể
+ * nào (không hardcode) - `collectTextNodes()` cũ (đọc TẤT CẢ text bất kể vị trí) đã đổi thành hàm
+ * `collectTextNodesInsideScrollableList()` dưới đây.
+ */
+
+const SECTION_HEADERS = ["Bài tập về nhà", "Bài tập nâng cao"];
+const CTA_TEXTS = ["Làm bài", "Tiếp tục", "Làm lại", "Chinh phục"];
+const PROGRESS_PATTERN = /^\d+\s*\/\s*\d+$/;
+// Lookahead tối đa (số dòng) từ sau "N / M" tới CTA - đủ rộng cho các dòng phụ đã biết ("Hạn nộp...",
+// "Xem bài đã làm") nhưng vẫn có giới hạn để không lỡ ghép nhầm sang card kế tiếp.
+const MAX_CTA_LOOKAHEAD = 6;
+
+function isScrollableContainerNode(attrs) {
+  // CHỈ dựa vào cờ `scrollable` (KHÔNG kèm `class`) - xem "BUG THẬT đã xác nhận + SỬA" ở đầu file:
+  // có 1 ScrollView NGOÀI bọc cả header, luôn scrollable="false", nên nếu match theo class sẽ lọt
+  // lại đúng bug này.
+  return attrs?.scrollable === "true";
+}
+
+/**
+ * Thu thập text CHỈ của node nằm TRONG vùng danh sách Homework thật (có tổ tiên là ScrollView bọc
+ * danh sách - xem "BUG THẬT đã xác nhận + SỬA" ở đầu file) - loại hẳn control cố định (header
+ * profile, bottom tab bar...) khỏi luồng dữ liệu bằng CẤU TRÚC hierarchy, không bằng so khớp text.
+ * @param {Object} node
+ * @param {string[]} acc
+ * @param {boolean} insideScrollableList - đã gặp tổ tiên ScrollView/scrollable trên đường đi chưa
+ */
+function collectTextNodesInsideScrollableList(node, acc, insideScrollableList = false) {
+  const attrs = node?.attributes ?? {};
+  const nowInside = insideScrollableList || isScrollableContainerNode(attrs);
+  const text = attrs.text;
+  if (nowInside && typeof text === "string" && text.trim()) acc.push(text.trim());
+  for (const child of node?.children ?? []) collectTextNodesInsideScrollableList(child, acc, nowInside);
+  return acc;
+}
+
+/**
+ * Phân tích 1 mảng text (thứ tự DFS của `maestro hierarchy`, đúng thứ tự hiển thị trên - dưới với
+ * layout 1 cột của màn này) thành danh sách card {title, cta}.
+ * @param {string[]} texts
+ * @param {{ sectionSeen?: boolean }} [state] - `sectionSeen` mang từ lượt đọc TRƯỚC (xem lưu ý ở
+ *   đầu file) - truyền `true` nếu 1 lượt trước đó (cùng phiên cuộn) đã từng thấy section header.
+ * @returns {{ cards: Array<{ title: string, cta: string }>, sectionSeen: boolean }}
+ */
+export function parseHomeworkCardsFromTexts(texts, { sectionSeen: initialSectionSeen = false } = {}) {
+  const cards = [];
+  let sectionSeen = initialSectionSeen;
+  for (let i = 0; i < texts.length; i++) {
+    const text = texts[i];
+    if (SECTION_HEADERS.includes(text)) {
+      sectionSeen = true;
+      continue;
+    }
+    if (!sectionSeen) continue;
+    if (!PROGRESS_PATTERN.test(text)) continue;
+
+    const title = texts[i - 1];
+    if (!title || SECTION_HEADERS.includes(title) || PROGRESS_PATTERN.test(title) || CTA_TEXTS.includes(title)) {
+      continue;
+    }
+    let cta = null;
+    for (let j = i + 1; j < Math.min(texts.length, i + 1 + MAX_CTA_LOOKAHEAD); j++) {
+      if (CTA_TEXTS.includes(texts[j])) {
+        cta = texts[j];
+        break;
+      }
+      // Gặp "N / M" hoặc section header khác trước khi thấy CTA - đã lỡ sang card/section kế tiếp,
+      // dừng tìm CTA cho title này (card lỗi hiển thị/không đọc được CTA - bỏ qua, không đoán).
+      if (PROGRESS_PATTERN.test(texts[j]) || SECTION_HEADERS.includes(texts[j])) break;
+    }
+    if (cta) cards.push({ title, cta });
+  }
+  return { cards, sectionSeen };
+}
+
+/**
+ * Đọc TOÀN BỘ card đang render trong cây hierarchy hiện tại (1 lượt `maestro hierarchy`, không tự
+ * cuộn) - dùng cho `collectVisibleHomeworkCards()` lặp lại sau mỗi lần cuộn.
+ * @param {import("../../bridge/maestroBridge.js").MaestroBridge} bridge
+ * @param {{ sectionSeen?: boolean }} [state]
+ */
+export function readCurrentHomeworkCards(bridge, state) {
+  const tree = bridge.hierarchy();
+  return cardsFromTree(tree, state);
+}
+
+/** Dùng chung cho cả `readCurrentHomeworkCards()` (bridge, sync) và biến thể MCP session (async,
+ *  xem `collectVisibleHomeworkCardsViaMcpSession()`) - tách riêng để không lặp lại cặp
+ *  collect-text-rồi-parse ở 2 nơi. */
+function cardsFromTree(tree, state) {
+  const texts = collectTextNodesInsideScrollableList(tree, []);
+  return parseHomeworkCardsFromTexts(texts, state);
+}
+
+/**
+ * Cuộn (trong Node, KHÔNG dùng `scrollUntilVisible` của Maestro vì chưa biết trước title nào để
+ * làm target - đây chính là việc cần làm) + đọc hierarchy nhiều lượt để gom đủ card đang thực sự
+ * tồn tại trên UI trong danh sách đang mở (caller tự đảm bảo đã ở đúng màn List + đã áp filter
+ * mong muốn trước khi gọi). Dừng sớm khi 2 lượt cuộn liên tiếp không phát hiện thêm card mới (đã
+ * chạm đáy danh sách) - không cuộn cố định số lần, nhưng có `maxScrolls` làm giới hạn an toàn.
+ * @param {import("../../bridge/maestroBridge.js").MaestroBridge} bridge
+ * @param {{ maxScrolls?: number }} [options]
+ * @returns {Promise<Array<{ title: string, cta: string }>>}
+ */
+export async function collectVisibleHomeworkCards(bridge, { maxScrolls = 8 } = {}) {
+  const seen = new Map(); // key "title|cta" -> card, giữ thứ tự lần đầu gặp
+  let sectionSeen = false;
+  const addCards = (result) => {
+    sectionSeen = sectionSeen || result.sectionSeen;
+    let added = 0;
+    for (const card of result.cards) {
+      const key = `${card.title}|${card.cta}`;
+      if (!seen.has(key)) {
+        seen.set(key, card);
+        added++;
+      }
+    }
+    return added;
+  };
+
+  addCards(readCurrentHomeworkCards(bridge, { sectionSeen }));
+
+  let noNewStreak = 0;
+  for (let i = 0; i < maxScrolls && noNewStreak < 2; i++) {
+    await bridge.runSteps([{ swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } }, { waitForAnimationToEnd: { timeout: 1200 } }]);
+    const added = addCards(readCurrentHomeworkCards(bridge, { sectionSeen }));
+    noNewStreak = added === 0 ? noNewStreak + 1 : 0;
+  }
+
+  return Array.from(seen.values());
+}
+
+/**
+ * Biến thể GỘP SESSION của `collectVisibleHomeworkCards()` - CÙNG hành vi/điều kiện dừng/thứ tự
+ * cuộn (`noNewStreak < 2`, `maxScrolls` mặc định 8, cùng bước swipe "50%,80%"->"50%,25%" 400ms +
+ * chờ hoạt ảnh 1200ms), CÙNG hàm parse (`cardsFromTree()` - tái dùng NGUYÊN VẸN, không đổi logic
+ * đúng/sai của Discovery) - CHỈ khác transport: dùng `MaestroMcpSession` (1 tiến trình `maestro
+ * mcp` sống xuyên suốt, xem file đó) thay vì `MaestroBridge` (mỗi swipe/hierarchy tự spawn 1 tiến
+ * trình CLI riêng). Giữ nguyên `collectVisibleHomeworkCards()` bản gốc (không xoá, không sửa) để
+ * rollback/so sánh - xem đo đạc thật trong flows/bai_tap/testcases/homework-review-explanation.yaml.
+ *
+ * KHÔNG hardcode Homework/tiêu chí dừng nào khác bản gốc - chỉ đổi cách gọi Maestro.
+ * @param {import("./maestroMcpSession.js").MaestroMcpSession} mcpSession - đã `start()` sẵn.
+ * @param {string} appId
+ * @param {{ maxScrolls?: number }} [options]
+ * @returns {Promise<Array<{ title: string, cta: string }>>}
+ */
+export async function collectVisibleHomeworkCardsViaMcpSession(mcpSession, appId, { maxScrolls = 8 } = {}) {
+  const seen = new Map();
+  let sectionSeen = false;
+  const addCards = (result) => {
+    sectionSeen = sectionSeen || result.sectionSeen;
+    let added = 0;
+    for (const card of result.cards) {
+      const key = `${card.title}|${card.cta}`;
+      if (!seen.has(key)) {
+        seen.set(key, card);
+        added++;
+      }
+    }
+    return added;
+  };
+
+  addCards(cardsFromTree(await mcpSession.hierarchy(), { sectionSeen }));
+
+  let noNewStreak = 0;
+  for (let i = 0; i < maxScrolls && noNewStreak < 2; i++) {
+    const swipeResult = await mcpSession.run(appId, [
+      { swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } },
+      { waitForAnimationToEnd: { timeout: 1200 } },
+    ]);
+    if (!swipeResult.success) {
+      throw new Error(`collectVisibleHomeworkCardsViaMcpSession: cuộn thất bại ở lượt ${i + 1}: ${swipeResult.error}`);
+    }
+    const added = addCards(cardsFromTree(await mcpSession.hierarchy(), { sectionSeen }));
+    noNewStreak = added === 0 ? noNewStreak + 1 : 0;
+  }
+
+  return Array.from(seen.values());
+}
+
+export { CTA_TEXTS, SECTION_HEADERS, collectTextNodesInsideScrollableList };

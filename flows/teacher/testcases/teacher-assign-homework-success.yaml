@@ -1,0 +1,118 @@
+# Testcase (nguồn/spec) cho web Teacher Dashboard (https://parrotedu.vn/teacher/dashboard) -
+# chức năng "Giao bài tập" (GV giao bài tập cho học sinh). Cùng vai trò với
+# flows/bai_tap/testcases/homework-review-explanation.yaml: đây là spec NGUỒN để người/AI đối
+# chiếu khi verify/viết automation, KHÔNG PHẢI flow Maestro chạy được ngay (chưa có automation
+# web trong repo, xem README.md - repo hiện chỉ có automation Android/Maestro).
+#
+# ĐÃ VERIFY THẬT (2026-08-07, Playwright headless + tài khoản GV "Phương" trong .env
+# TEACHER_USERNAME/TEACHER_PASSWORD, lớp "3B" - đúng lớp có học sinh "Ngoc" dùng ở
+# flows/bai_tap/testcases/homework-review-explanation.yaml) toàn bộ nhánh web S01->S05, PASS
+# đúng nghiệp vụ, TRỪ vài điểm đã SỬA lại theo đúng UI thật (khác với bản draft ban đầu):
+#   - Nút mở form thật là "+ Giao bài tập" (route /teacher/exercise/add), KHÔNG PHẢI chọn Lớp
+#     trước rồi mới hiện Unit/Lesson như đoán ban đầu - thứ tự đúng là: mở form -> chọn Lớp (chip)
+#     -> panel "Chọn bài tập" bên phải MỚI hiện ra -> Chọn Unit (dropdown) -> Chọn Lesson (chip)
+#     -> Danh sách bài tập (click vào từng dòng để chọn/bỏ chọn, không phải checkbox riêng lẻ).
+#   - Nút submit thật là "Giao bài đã chọn" (KHÔNG PHẢI "Giao bài tập" như tên nút ở bước mở form).
+#   - Thông báo thành công thật: toast "Giao bài tập mới thành công".
+#   - Bài tập vừa giao xuất hiện trong danh sách kèm đúng Lớp/Hạn nộp đã chọn.
+#
+# CHƯA VERIFY:
+#   - V03 (thông báo trên app học sinh) - session này chỉ verify được phía web (Playwright,
+#     không có trình duyệt/emulator app mobile để kiểm tra thông báo phía học sinh). Cần verify
+#     riêng bằng Maestro trên app ParrotEdu (như cách flows/bai_tap/ đã làm) hoặc kiểm tra thủ công.
+#
+# Phát hiện thêm (CHƯA rõ nguyên nhân, cần lưu ý khi viết automation/verify lại):
+#   - Lần verify thật đã tạo dư 1 bản ghi trùng: chọn đúng 1 bài "Speaking orange" cho lớp 3B
+#     nhưng sau khi bấm "Giao bài đã chọn" thì danh sách xuất hiện 2 dòng "Speaking orang"
+#     giống hệt nhau (cùng lớp, cùng hạn nộp) - tổng số bài đã giao tăng từ 46 lên 48 thay vì 47.
+#     Có thể là bug double-submit ở FE (chưa xác nhận), KHÔNG PHẢI hành vi mong đợi trong spec
+#     này - không đưa vào các mục `expected`/`verify` bên dưới vì đây là spec cho case "giao 1
+#     bài tập thành công", không phải case trùng lặp. Trang "Chỉnh sửa bài tập" của bài vừa giao
+#     KHÔNG có nút xoá/hủy giao (chỉ có "Hủy" = thoát form không lưu, và "Giao bài đã chọn" =
+#     lưu lại) - nên chưa dọn được 2 bản ghi dư này khỏi dữ liệu thật của lớp 3B.
+
+name: TeacherDashboard_GiaoBaiTap_ThanhCong
+
+precondition:
+  role: Giáo viên (GV) đã đăng nhập thành công trên web https://parrotedu.vn/teacher/dashboard
+  data: GV đang phụ trách ít nhất 1 lớp, lớp có sẵn Unit/Lesson/Danh sách bài tập để chọn giao
+  extra: >
+    Có sẵn 1 tài khoản học sinh thuộc lớp đó, đã đăng nhập app ParrotEdu (mobile) và đang mở app
+    (hoặc mở lại sau khi giao) để kiểm tra thông báo/icon thông báo nhận được.
+
+flow:
+
+  - id: S01
+    screen: Teacher Dashboard
+    action:
+      tab: Giao bài tập
+    expected:
+      screen: Màn hình "Bài tập đã giao" (danh sách các bài tập đã giao trước đó, có ô tìm kiếm +
+        lọc theo Lớp/khoảng thời gian)
+
+  - id: S02
+    screen: Bài tập đã giao
+    action:
+      button: "+ Giao bài tập"
+    expected:
+      screen: Màn "Giao bài tập" (route /teacher/exercise/add) - 2 cột "Thông tin bài tập" (trái)
+        và "Chọn bài tập" (phải, rỗng, có placeholder "Thầy/cô hãy chọn lớp học trước để bắt đầu
+        chọn bài tập")
+
+  - id: S03
+    screen: Giao bài tập
+    action:
+      chọn: Lớp để giao (chip Lớp, ví dụ "3B" - 1 lớp bất kỳ GV đang phụ trách)
+    expected:
+      screen: Panel "Chọn bài tập" bên phải hiện ra, tự chọn sẵn Unit/Lesson đầu tiên và danh sách
+        bài tập tương ứng
+
+  - id: S04
+    screen: Giao bài tập
+    action:
+      chọn:
+        - Unit (bất kỳ, qua dropdown "Chọn Unit")
+        - Lesson (bất kỳ, qua chip "Chọn Lesson")
+        - 1 dòng bất kỳ trong "Danh sách bài tập" (click vào dòng để chọn)
+    expected:
+      screen: Dòng bài tập đã chọn đổi trạng thái chọn, nút "Giao bài đã chọn" có thể bấm được
+
+  - id: S05
+    screen: Giao bài tập
+    action:
+      button: Giao bài đã chọn
+    expected:
+      web:
+        - Toast "Giao bài tập mới thành công"
+        - Điều hướng về lại màn "Bài tập đã giao" (/teacher/exercise)
+        - Bài tập vừa giao xuất hiện trong danh sách, đúng Lớp/Hạn nộp đã chọn ở S03/S04
+      app_hoc_sinh:
+        - Có thông báo hiển thị trên màn hình (push/in-app notification) HOẶC hiển thị ở icon
+          thông báo góc phải màn hình
+        - Nội dung thông báo đúng với thông tin bài tập GV vừa giao (Unit/Lesson/tên bài tập)
+
+result:
+
+  verify:
+
+    - id: V01
+      mô_tả: >
+        Sau khi chọn đủ Lớp + Unit/Lesson/1 bài tập và bấm "Giao bài đã chọn" -> hệ thống hiển thị
+        toast "Giao bài tập mới thành công".
+      trạng_thái: PASS (verify thật 2026-08-07, Playwright, lớp 3B, bài "Speaking orange")
+
+    - id: V02
+      mô_tả: >
+        Bài tập vừa giao hiển thị đúng trong danh sách ở màn "Bài tập đã giao" (đúng Lớp, đúng
+        Hạn nộp đã chọn).
+      trạng_thái: PASS (verify thật 2026-08-07 - nhưng xem ghi chú đầu file: lần verify này bị
+        tạo dư thành 2 dòng trùng thay vì 1, nghi vấn bug double-submit, KHÔNG thuộc phạm vi
+        case này - case chỉ xác nhận bài tập CÓ xuất hiện đúng thông tin, không xác nhận số lượng)
+
+    - id: V03
+      mô_tả: >
+        Học sinh thuộc lớp được giao nhận được thông báo trên app (trên màn hình hoặc trong icon
+        thông báo góc phải), nội dung đúng bài tập GV vừa giao.
+      trạng_thái: CHƯA VERIFY (cần verify riêng bằng Maestro/thiết bị thật trên app ParrotEdu,
+        song song với thao tác giao bài trên web - session verify web này không có quyền truy cập
+        app mobile)

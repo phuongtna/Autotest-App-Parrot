@@ -1,4 +1,18 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m *)",
+      "Bash(git push origin main)",
+      "Bash(git push -u origin main)"
+    ],
+    "deny": [
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

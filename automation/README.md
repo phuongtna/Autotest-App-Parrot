@@ -460,17 +460,34 @@ liệu, không lỗi.
 
 ### Cấu hình
 
+**ĐÃ XÁC NHẬN THẬT (2026-08-09) - có API login riêng, KHÔNG cần DevTools thủ công nữa:**
+`POST https://parrotedu.vn/api/auth/login` với body `{username, password, role:"teacher"}` trả về
+`data.token` - đã test thật token này dùng MỘT MÌNH (không cần cookie đi kèm) authenticate thành
+công `GET /api/user/exams/room.json` (200, dữ liệu thật). Đây là API JSON bình thường, KHÁC hẳn
+luồng OAuth2 Casdoor ở mục "Exam Scraper" phía trên (luồng đó chỉ áp dụng cho
+`exam.parrotedu.vn`/Exam Editor, không phải teacher portal này).
+
+Dùng `../get_teacher_token.sh` (điền `TEACHER_USERNAME`/`TEACHER_PASSWORD` vào `.env` 1 lần) để tự
+lấy/refresh `TEACHER_ACCESS_TOKEN` thay vì copy tay qua DevTools:
+
+```bash
+./get_teacher_token.sh
+set -a; source .env; set +a
+```
+
 Thêm vào `.env` (ngoài `CMS_BASE_URL`/`CMS_ACCESS_TOKEN` đã có - `resolveHomeworkLevel()` vẫn cần
 2 biến đó):
 
 ```
-TEACHER_ACCESS_TOKEN=<Bearer token của tài khoản giáo viên, copy từ DevTools>
-TEACHER_SESSION_COOKIE=<cookie header nguyên văn, copy từ DevTools>
+TEACHER_USERNAME=<username tài khoản giáo viên>
+TEACHER_PASSWORD=<password tài khoản giáo viên>
+TEACHER_ACCESS_TOKEN=<tự động điền bởi get_teacher_token.sh - không cần điền tay>
+TEACHER_SESSION_COOKIE=<optional - config.js coi là optional, KHÔNG bắt buộc theo test thật ở trên>
 ```
 
 `TEACHER_PORTAL_BASE_URL` mặc định `https://parrotedu.vn`, chỉ cần set nếu khác. Lưu ý:
 `TEACHER_ACCESS_TOKEN` là JWT có hạn ngắn (quan sát thật ~1 giờ) - hết hạn thì `discover-homework`/
-`run-homework-e2e` báo lỗi HTTP 401 rõ ràng, cần lấy lại token mới từ DevTools.
+`run-homework-e2e` báo lỗi HTTP 401 rõ ràng, chạy lại `./get_teacher_token.sh` để lấy token mới.
 
 ### Test automation Bài tập - PHẠM VI hiện tại (2026-08-06)
 

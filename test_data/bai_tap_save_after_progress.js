@@ -1,0 +1,1 @@
+output.afterProgress = maestro.copiedText;

@@ -5,3 +5,4 @@ flows:
   - "flows/login/*.yaml"
   - "flows/vui_hoc/*.yaml"
   - "flows/profile/*.yaml"
+  - "flows/bai_tap/*.yaml"

@@ -1,0 +1,172 @@
+# TC1 (xem flows/bai_tap/TESTCASES.md): Học ngẫu nhiên 1 bài tập tới khi hoàn thành thành công.
+# Toàn bộ selector/hành vi dưới đây đã XÁC NHẬN THẬT trên thiết bị (tài khoản "Ngoc" lớp 3B,
+# 2026-08-09) - không suy đoán, không tái dùng logic/selector của Vui học hoặc Unit 9.
+#
+# ĐÃ XÁC NHẬN THẬT (mục 2 khác với rule mô tả ban đầu):
+# 1. Icon mic (Speaking) không có text/id riêng (ảnh graphic cam thuần). Text "Nhấn để nói" nằm
+#    ngay dưới icon nhưng bounds bị dồn sát mép màn hình - tapOn theo text đó TAP TRƯỢT ra ngoài
+#    vùng chạm thật khi test. Phải tap theo toạ độ tương đối (point) mới trúng nút mic.
+# 2. Speaking CHỈ CẦN BẤM MIC 1 LẦN - ghi âm tự dừng + tự nộp sau ~3-4s im lặng, tự hiện popup
+#    kết quả ngay - KHÔNG cần bấm lại icon mic lần 2 để "gửi" như rule mô tả ban đầu.
+# 3. Dạng Nối (matching): tap 1 thẻ trái + 1 thẻ phải -> ghép thành 1 cặp (thẻ KHÔNG biến mất
+#    khỏi layout, chỉ đổi màu xám + đánh số thứ tự). Nút "Tiếp theo" (cố định đáy) chỉ hiện/bật
+#    sau khi ghép HẾT toàn bộ cặp. Maestro YAML thuần không có cách chọn "đúng cặp chưa ghép"
+#    theo text vì không biết trước nội dung cặp của 1 Homework ngẫu nhiên -> xử lý bằng chiến
+#    lược BEST-EFFORT (tap toạ độ cố định 2 cột + cuộn, lặp có giới hạn - xem bên dưới). KHÔNG
+#    đảm bảo đúng 100% với mọi số cặp/layout khác nhau.
+# 4. Câu cuối cùng của bài: bấm "Tiếp theo" đi thẳng vào màn Kết quả - không có nút "Nộp bài"
+#    riêng.
+# 5. Màn Kết quả: 2 ô "ĐIỂM SỐ" + "CHÍNH XÁC" (dạng x/N) + nút "Tiếp theo"/"Làm lại" + icon
+#    Close (X) góc phải trên. Tiêu đề/phụ đề động viên ĐỔI theo điểm số thật - không assert theo
+#    text cố định.
+# 6. Tiến độ tổng "Bài tập X/24" (đầu danh sách): tăng đúng 1 khi hoàn thành LẦN ĐẦU (CTA "Làm
+#    bài"/"Chinh phục"), KHÔNG đổi khi làm lại (CTA "Làm lại").
+#
+# GIỚI HẠN CÒN LẠI (không giả vờ đã xử lý hết, ghi rõ theo yêu cầu):
+# - "Random" ở đây là GIẢ-RANDOM (số lần scroll ngẫu nhiên 0-2 rồi chọn CTA đầu tiên nhìn thấy),
+#   không phải random thật trên toàn danh sách - Maestro YAML thuần không có API đọc danh sách
+#   rồi chọn 1 index bất kỳ mà không phải trả giá bằng tốc độ (scrollUntilVisible/đọc hierarchy).
+# - Dạng Điền từ (nhập text)/Sentence Builder (kéo-thả theo thứ tự) CHƯA được verify thật trong
+#   phiên khảo sát này. Nhánh xử lý chung bên dưới (tap toạ độ) nhiều khả năng KHÔNG đủ cho 2
+#   dạng này - nếu random trúng, flow sẽ THẤT BẠI THẬT ở assertVisible cuối (đúng chủ đích, không
+#   báo PASS giả) vì màn Kết quả sẽ không bao giờ xuất hiện.
+# - repeat/while của Maestro (bản 2.8.0 đang dùng) không có tham số giới hạn số lần lặp
+#   ("maxRetries" đã test thật KHÔNG phải property hợp lệ) - vì vậy toàn bộ vòng lặp trong file
+#   này dùng repeat/times (có giới hạn cứng) kết hợp runFlow/when để mô phỏng "lặp tới khi xong",
+#   tránh treo vô hạn trên thiết bị thật.
+appId: ${APP_ID}
+---
+- launchApp:
+    permissions:
+      all: allow
+- tapOn: "Bài tập"
+
+# Chọn ngẫu nhiên (giả-random) 1 Homework: cuộn 0-2 lần (sinh số ngẫu nhiên 1 lần duy nhất) rồi
+# chọn CTA đầu tiên nhìn thấy. Không dùng scrollUntilVisible ở đây - chậm hơn vì nó lặp scroll +
+# đọc hierarchy sau mỗi lần, trong khi ưu tiên ở đây là tốc độ.
+- runScript: ../../test_data/bai_tap_random_scroll.js
+- repeat:
+    times: ${output.scrollTimes}
+    commands:
+      - scroll
+
+# An toàn (hiếm khi chạy): nếu giả-random ở trên không thấy CTA nào (vd cuộn trúng vùng chỉ có
+# "Tiếp tục" - ngoài phạm vi TC1), cuộn tiếp cho tới khi thấy 1 trong 3 CTA hợp lệ. KHÔNG ảnh
+# hưởng tốc độ ở đường thường vì chỉ chạy khi bước trên thất bại.
+- runFlow:
+    when:
+      notVisible: "Làm bài|Chinh phục|Làm lại"
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Làm bài|Chinh phục|Làm lại"
+          direction: DOWN
+          timeout: 15000
+
+# Lưu tiến độ tổng TRƯỚC khi làm bài, để verify đúng rule ở mục 6 (phía trên) sau khi làm xong.
+- copyTextFrom:
+    below: "Bài tập"
+    above: "Bài tập về nhà"
+- runScript: ../../test_data/bai_tap_save_before_progress.js
+
+# Bấm CTA đầu tiên nhìn thấy (ưu tiên Làm bài -> Chinh phục -> Làm lại) + ghi nhận đây là lần
+# làm đầu tiên hay làm lại, dùng để verify đúng tiến độ ở cuối flow (mục 6).
+- runFlow:
+    when:
+      visible: "Làm bài"
+    commands:
+      - tapOn: "Làm bài"
+      - runScript: ../../test_data/bai_tap_mark_first_attempt.js
+- runFlow:
+    when:
+      visible: "Chinh phục"
+    commands:
+      - tapOn: "Chinh phục"
+      - runScript: ../../test_data/bai_tap_mark_first_attempt.js
+- runFlow:
+    when:
+      visible: "Làm lại"
+    commands:
+      - tapOn: "Làm lại"
+      - runScript: ../../test_data/bai_tap_mark_redo_attempt.js
+
+# Popup "AI hỗ trợ học tập" đã ghi nhận xuất hiện KHÔNG ổn định (flaky) lúc mở bài - dismiss
+# best-effort, không ảnh hưởng gì nếu không xuất hiện.
+- runFlow:
+    when:
+      visible: "AI hỗ trợ học tập"
+    commands:
+      - tapOn: "Tiếp tục"
+
+# Làm hết toàn bộ câu hỏi trong bài (không Dẫn nhập, không Flashcard, không "Kiểm tra" từng câu
+# như Vui học) cho tới khi màn Kết quả xuất hiện - "ĐIỂM SỐ" là mốc nhận biết duy nhất/ổn định.
+# Giới hạn 20 lần lặp ngoài (dư so với bài dài nhất đã gặp thật - 8 câu) để không treo vô hạn.
+- repeat:
+    times: 20
+    commands:
+      - runFlow:
+          when:
+            notVisible: "ĐIỂM SỐ"
+          commands:
+            # Dạng Speaking: nhận biết qua text "Nhấn để nói" (chỉ dùng để CHECK tồn tại, không
+            # dùng để tap - xem mục 1). 1 lần tap theo toạ độ là đủ để ghi âm + tự nộp (mục 2).
+            - runFlow:
+                when:
+                  visible: "Nhấn để nói"
+                commands:
+                  - tapOn:
+                      point: "50%,92%"
+                  - extendedWaitUntil:
+                      visible:
+                        text: "Tiếp theo"
+                      timeout: 12000
+                  - tapOn: "Tiếp theo"
+            # Dạng khác (Đúng/Sai, Trắc nghiệm, Nối...): best-effort - tap toạ độ cột trái/phải
+            # rồi cuộn, lặp tối đa 6 lần hoặc tới khi nút "Tiếp theo" xuất hiện (mục 3). Không giả
+            # định 1 lần tap là chắc chắn đúng - đây là lý do lặp thêm thay vì chỉ tap 1 lần.
+            - runFlow:
+                when:
+                  notVisible: "Nhấn để nói"
+                commands:
+                  - repeat:
+                      times: 6
+                      commands:
+                        - runFlow:
+                            when:
+                              notVisible: "Tiếp theo"
+                            commands:
+                              - tapOn:
+                                  point: "27%,45%"
+                              - tapOn:
+                                  point: "73%,45%"
+                              - scroll
+                  - runFlow:
+                      when:
+                        visible: "Tiếp theo"
+                      commands:
+                        - tapOn: "Tiếp theo"
+
+# Verify màn Kết quả: điểm số + chính xác x/N + 2 nút hành động (đã xác nhận thật, xem mục 5).
+# Nếu vòng lặp trên không đưa được tới màn này (vd gặp dạng bài chưa verify - xem "Giới hạn còn
+# lại"), bước assertVisible này THẤT BẠI THẬT - đúng chủ đích, không có cơ chế nào "giả PASS".
+- assertVisible: "ĐIỂM SỐ"
+- assertVisible: "CHÍNH XÁC"
+- assertVisible: "Tiếp theo"
+- assertVisible: "Làm lại"
+
+# Quay lại danh sách "Bài tập" bằng icon Close (X) - không có text, tap theo toạ độ (đã xác nhận
+# thật vị trí góc phải trên, ổn định qua nhiều màn Kết quả khác nhau đã test).
+- tapOn:
+    point: "92%,6%"
+- extendedWaitUntil:
+    visible:
+      text: "Bài tập về nhà"
+    timeout: 10000
+
+# Verify tiến độ tổng đổi đúng theo rule (mục 6): tăng nếu là lần làm đầu, giữ nguyên nếu làm lại.
+- copyTextFrom:
+    below: "Bài tập"
+    above: "Bài tập về nhà"
+- runScript: ../../test_data/bai_tap_save_after_progress.js
+- runScript: ../../test_data/bai_tap_compare_progress.js
+- assertTrue: ${output.progressOk}

@@ -18,13 +18,16 @@ Rule chung cho màn "Bài tập" (khác với "Vui học"):
 Precondition:
 - Đã đăng nhập, đang ở màn chính của app.
 - Trong tab "Bài tập" có ít nhất 1 bài đang ở trạng thái "Làm bài" / "Làm lại" /
-  "Chinh phục" (chưa hoàn thành hoặc có thể làm lại) để chọn ngẫu nhiên.
+  "Chinh phục" / "Tiếp tục" (chưa hoàn thành hoặc có thể làm lại) để chọn ngẫu nhiên.
+  "Tiếp tục" xuất hiện khi 1 bài đã bấm vào làm dở (từ "Làm bài"/"Chinh phục") rồi
+  thoát ra giữa chừng, chưa nộp bài lần nào - vẫn tính là LẦN ĐẦU khi hoàn thành
+  (xem Output) - xác nhận thật 2026-08-09.
 
 Step:
 1. Mở tab "Bài tập" (nếu đang ở tab "Vui học" thì bấm chuyển tab; nếu popup
    "Cập nhật phiên bản mới" hiện ra thì bấm "Để sau" để tắt).
 2. Cuộn danh sách bài tập, chọn ngẫu nhiên 1 card đang có nút "Làm bài" / "Làm lại" /
-   "Chinh phục" và bấm vào nút đó để bắt đầu làm bài.
+   "Chinh phục" / "Tiếp tục" và bấm vào nút đó để bắt đầu làm bài.
 3. Nếu popup "AI hỗ trợ học tập" hiện ra thì bấm "Tiếp tục" để tắt.
 4. Làm lần lượt hết tất cả câu hỏi trong bài (bài tập không có Dẫn nhập, không có
    Flashcard, không chấm từng câu như Vui học - làm hết mới có màn Kết quả), theo
@@ -44,7 +47,8 @@ Output:
   "Xem bài đã làm", section "Kiến thức trong bài", 2 nút "Tiếp theo" (sang bài tập
   kế tiếp) và "Làm lại" (làm lại đúng bài vừa xong).
 - Bấm nút Close (X) quay lại danh sách "Bài tập": tiến độ tổng của danh sách tăng
-  đúng thêm 1 bài (vd 8/32 -> 9/32).
+  đúng thêm 1 bài (vd 8/32 -> 9/32) nếu là lần hoàn thành đầu tiên (CTA "Làm bài" /
+  "Chinh phục" / "Tiếp tục"), giữ nguyên nếu là "Làm lại".
 
 ---
 

@@ -9,7 +9,8 @@
     "generate-flow": "node bridge/flowGenerator.js",
     "run-e2e": "node runtime/index.js",
     "discover-homework": "node bai_tap/discovery/homeworkCli.js",
-    "run-homework-e2e": "node bai_tap/runtime/homeworkIndex.js"
+    "run-homework-e2e": "node bai_tap/runtime/homeworkIndex.js",
+    "assign-homework": "node giao_bai_tap/cli.js"
   },
   "dependencies": {
     "js-yaml": "^5.2.3",

@@ -644,6 +644,42 @@ suy đoán):
    `adb shell monkey -p <package> -c android.intent.category.LAUNCHER 1` (không dùng force-stop) -
    cho thấy app chịu được việc bị đưa xuống nền/mở lại giữa chừng, không mất dữ liệu bài làm.
 
+## Giao bài tập (Web GV) - Playwright, KHÁC hẳn Maestro (`giao_bai_tap/`)
+
+Tự động hoá **phần web GV** của TC1 (`flows/giao_bai_tap/TESTCASES.md`) - feature này chạy trên
+2 hệ thống (web GV `parrotedu.vn/teacher` + app HS), Maestro CHỈ điều khiển được app Android nên
+không viết được flow Maestro cho phần web. Dùng Playwright (cùng công cụ với Exam Scraper ở
+trên) để tự lái UI web GV thật, entrypoint `npm run assign-homework`:
+
+```
+giao_bai_tap/
+  navigation/
+    teacherPortalPageObjects.js   # text/selector web GV
+    teacherPortalSession.js        # đăng nhập THẬT qua form UI (username/password từ .env)
+  runtime/
+    assignHomeworkFlow.js          # chọn lớp -> assert lớp khối khác disable -> hạn nộp ->
+                                    # Unit/Lesson/bài -> "Giao bài đã chọn" -> assert toast
+  cli.js                            # entrypoint `npm run assign-homework`
+```
+
+**ĐÃ CHẠY THẬT THÀNH CÔNG END-TO-END (2026-08-09)**: `ASSIGN_PRIMARY_CLASS=3B
+ASSIGN_OTHER_GROUP_CLASS=6D ASSIGN_DUE_DATE=20/08/2026 ASSIGN_UNIT_NAME="Unit 1: Hello"
+ASSIGN_LESSON_NAME="Lesson 1" ASSIGN_HOMEWORK_ITEM_NAME="G3-U1-Lesson 1: Listen and repeat"
+npm run assign-homework` - toàn bộ 6 bước (đăng nhập, mở form, chọn lớp, assert lớp khối khác
+disable, hạn nộp, chọn Unit/Lesson/bài, submit + assert toast) đều PASS trên web GV thật. Các
+phát hiện thật đáng chú ý qua nhiều lượt debug (screenshot + DOM dump, xem comment tại chỗ trong
+`assignHomeworkFlow.js`):
+- "Hạn nộp" KHÔNG phải input ngày native - là nút mở popover Radix hiển thị lịch (header
+  "Tháng N" + lưới ngày + 2 nút chuyển tháng).
+- "Chọn Unit" là Radix Select thật (`role="combobox"` mở `role="listbox"`/`role="option"`).
+- "Chọn Lesson" là nút toggle phẳng (không phải dropdown) - Unit/Lesson đều đã có sẵn 1 giá trị
+  mặc định được chọn, bấm lại vào giá trị ĐANG được chọn sẽ BỎ CHỌN nó (đã gặp lỗi thật: bấm lại
+  "Lesson 1" đang active làm mất trắng "Danh sách bài tập") - phải kiểm tra trạng thái hiện tại
+  trước, chỉ bấm khi cần đổi khác.
+
+Chỉ có phần "app HS nhận thông báo" của TC1 nằm ngoài phạm vi này - Playwright không điều khiển
+app Android, vẫn cần verify riêng (tay hoặc 1 flow Maestro khác).
+
 **Giới hạn còn lại (KHÔNG coi là đã giải quyết chung):** lượt chạy thành công này dựa vào 1 Room
 ĐÃ có attempt thật (nên có `examId` đáng tin qua `room.answers[].examId`) - vấn đề gốc "examId
 UNRESOLVED cho Room CHƯA từng có ai làm" (mục "Bài tập - Discovery" phía trên) VẪN CHƯA có lời giải

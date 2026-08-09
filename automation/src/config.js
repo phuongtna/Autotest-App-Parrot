@@ -53,6 +53,11 @@ export const config = {
   // Chưa xác nhận có bắt buộc đi kèm Authorization header hay không (mọi lần test đều gửi kèm cả
   // 2) - giữ nguyên cả 2 làm phương án đã CHỨNG MINH hoạt động, không tự bỏ bớt.
   teacherSessionCookie: readVar("TEACHER_SESSION_COOKIE"),
+  // Dùng bởi giao_bai_tap/navigation/teacherPortalSession.js để đăng nhập THẬT qua form UI
+  // (Playwright) - khác TEACHER_ACCESS_TOKEN ở trên (token đó chỉ xác nhận dùng được cho API,
+  // CHƯA có bằng chứng web SPA đọc được token đó để coi là đã đăng nhập).
+  teacherUsername: readVar("TEACHER_USERNAME"),
+  teacherPassword: readVar("TEACHER_PASSWORD"),
 };
 
 export function requireCmsConfig() {

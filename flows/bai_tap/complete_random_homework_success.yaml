@@ -20,7 +20,10 @@
 #    Close (X) góc phải trên. Tiêu đề/phụ đề động viên ĐỔI theo điểm số thật - không assert theo
 #    text cố định.
 # 6. Tiến độ tổng "Bài tập X/24" (đầu danh sách): tăng đúng 1 khi hoàn thành LẦN ĐẦU (CTA "Làm
-#    bài"/"Chinh phục"), KHÔNG đổi khi làm lại (CTA "Làm lại").
+#    bài"/"Chinh phục"/"Tiếp tục"), KHÔNG đổi khi làm lại (CTA "Làm lại").
+# 7. CTA "Tiếp tục" (khác "Tiếp tục" của popup "AI hỗ trợ học tập"/màn Kết quả): xuất hiện khi 1
+#    bài đã được bấm vào làm dở (Làm bài/Chinh phục) rồi THOÁT RA giữa chừng, chưa nộp bài lần
+#    nào - vẫn tính là LẦN ĐẦU hoàn thành (giống mục 6) vì bài chưa từng có kết quả.
 #
 # GIỚI HẠN CÒN LẠI (không giả vờ đã xử lý hết, ghi rõ theo yêu cầu):
 # - "Random" ở đây là GIẢ-RANDOM (số lần scroll ngẫu nhiên 0-2 rồi chọn CTA đầu tiên nhìn thấy),
@@ -41,6 +44,15 @@ appId: ${APP_ID}
       all: allow
 - tapOn: "Bài tập"
 
+# Lưu tiến độ tổng TRƯỚC khi cuộn/làm bài, để verify đúng rule ở mục 6 (phía trên) sau khi làm
+# xong. PHẢI đọc ở đây (đầu danh sách, ngay sau khi mở tab) - đọc SAU khi cuộn ngẫu nhiên (như
+# code cũ) làm header "Bài tập X/Y" có thể đã bị cuộn khuất, khiến copyTextFrom fail thật (bug đã
+# xác nhận thật khi chạy lại 2026-08-09: fail ngay bước này bất cứ khi nào scrollTimes >= 1).
+- copyTextFrom:
+    below: "Bài tập"
+    above: "Bài tập về nhà"
+- runScript: ../../test_data/bai_tap_save_before_progress.js
+
 # Chọn ngẫu nhiên (giả-random) 1 Homework: cuộn 0-2 lần (sinh số ngẫu nhiên 1 lần duy nhất) rồi
 # chọn CTA đầu tiên nhìn thấy. Không dùng scrollUntilVisible ở đây - chậm hơn vì nó lặp scroll +
 # đọc hierarchy sau mỗi lần, trong khi ưu tiên ở đây là tốc độ.
@@ -50,27 +62,22 @@ appId: ${APP_ID}
     commands:
       - scroll
 
-# An toàn (hiếm khi chạy): nếu giả-random ở trên không thấy CTA nào (vd cuộn trúng vùng chỉ có
-# "Tiếp tục" - ngoài phạm vi TC1), cuộn tiếp cho tới khi thấy 1 trong 3 CTA hợp lệ. KHÔNG ảnh
-# hưởng tốc độ ở đường thường vì chỉ chạy khi bước trên thất bại.
+# An toàn (hiếm khi chạy): nếu giả-random ở trên không thấy CTA nào, cuộn tiếp cho tới khi thấy 1
+# trong 4 CTA hợp lệ ("Tiếp tục" thêm vào 2026-08-09 - xem mục 7 phía trên, đây là trạng thái THẬT
+# gặp phải khi chạy lại, không phải giả định). KHÔNG ảnh hưởng tốc độ ở đường thường vì chỉ chạy
+# khi bước trên thất bại.
 - runFlow:
     when:
-      notVisible: "Làm bài|Chinh phục|Làm lại"
+      notVisible: "Làm bài|Chinh phục|Làm lại|Tiếp tục"
     commands:
       - scrollUntilVisible:
           element:
-            text: "Làm bài|Chinh phục|Làm lại"
+            text: "Làm bài|Chinh phục|Làm lại|Tiếp tục"
           direction: DOWN
           timeout: 15000
 
-# Lưu tiến độ tổng TRƯỚC khi làm bài, để verify đúng rule ở mục 6 (phía trên) sau khi làm xong.
-- copyTextFrom:
-    below: "Bài tập"
-    above: "Bài tập về nhà"
-- runScript: ../../test_data/bai_tap_save_before_progress.js
-
-# Bấm CTA đầu tiên nhìn thấy (ưu tiên Làm bài -> Chinh phục -> Làm lại) + ghi nhận đây là lần
-# làm đầu tiên hay làm lại, dùng để verify đúng tiến độ ở cuối flow (mục 6).
+# Bấm CTA đầu tiên nhìn thấy (ưu tiên Làm bài -> Chinh phục -> Tiếp tục -> Làm lại) + ghi nhận đây
+# là lần làm đầu tiên hay làm lại, dùng để verify đúng tiến độ ở cuối flow (mục 6/7).
 - runFlow:
     when:
       visible: "Làm bài"
@@ -82,6 +89,12 @@ appId: ${APP_ID}
       visible: "Chinh phục"
     commands:
       - tapOn: "Chinh phục"
+      - runScript: ../../test_data/bai_tap_mark_first_attempt.js
+- runFlow:
+    when:
+      visible: "Tiếp tục"
+    commands:
+      - tapOn: "Tiếp tục"
       - runScript: ../../test_data/bai_tap_mark_first_attempt.js
 - runFlow:
     when:

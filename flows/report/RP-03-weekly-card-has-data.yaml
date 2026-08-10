@@ -1,0 +1,31 @@
+# RP-03 — Card nhận xét tuần CÓ dữ liệu
+# Kỳ vọng:
+#   - ảnh giáo viên đổi theo gender (bao-cao-thay.png nếu male, bao-cao-co.png nếu ngược lại)
+#   - đoạn nhận xét general_comment (giới hạn 4 dòng)
+#   - link "Xem chi tiết" -> mở /dashboard/reports/study-report
+# Tags: smoke, data-dependent
+appId: ${APP_ID}
+tags:
+  - smoke
+  - data-dependent
+name: RP-03 Card nhan xet tuan - co du lieu
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- assertVisible: ".*(Xem chi tiết).*"
+- assertNotVisible: ".*(Chưa có báo cáo mới).*"
+- takeScreenshot: artifacts/RP-03-weekly-has-data
+
+- tapOn: ".*(Xem chi tiết).*"
+- extendedWaitUntil:
+    visible: ".*(Báo cáo học tập).*"
+    timeout: 30000
+- assertVisible:
+    text: ".*(Nhận xét chung|Kết quả học tập|Chuyên cần|Chưa có báo cáo mới).*"
+- takeScreenshot: artifacts/RP-03-detail-opened

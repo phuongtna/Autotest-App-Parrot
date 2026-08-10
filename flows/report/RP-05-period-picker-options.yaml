@@ -1,0 +1,44 @@
+# RP-05 — Bottom sheet chọn kỳ báo cáo "Xem báo cáo"
+# Kỳ vọng: hiện đủ 7 lựa chọn theo code:
+#   Tuần trước / Tuần này / Tháng trước /
+#   Giữa học kỳ 1 / Cuối học kỳ 1 / Giữa học kỳ 2 / Cuối học kỳ 2
+#   + nút "Xem"
+# Tags: smoke, regression
+appId: ${APP_ID}
+tags:
+  - smoke
+  - regression
+name: RP-05 Sheet chon ky bao cao - du 7 lua chon
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: ".*(Tuần trước|Tuần này).*"
+    timeout: 30000
+
+- tapOn:
+    text: ".*(Tuần trước|Tuần này).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Xem báo cáo).*"
+    timeout: 15000
+
+- assertVisible: ".*(Tuần trước).*"
+- assertVisible: ".*(Tuần này).*"
+- assertVisible: ".*(Tháng trước).*"
+- assertVisible: ".*(Giữa học kỳ 1).*"
+- assertVisible: ".*(Cuối học kỳ 1).*"
+- assertVisible: ".*(Giữa học kỳ 2).*"
+- assertVisible: ".*(Cuối học kỳ 2).*"
+- assertVisible: ".*(Xem).*"
+
+- takeScreenshot: artifacts/RP-05-period-picker

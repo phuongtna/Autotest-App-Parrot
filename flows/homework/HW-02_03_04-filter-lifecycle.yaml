@@ -1,0 +1,82 @@
+# HW-02_03_04 — Vòng đời filter: mở sheet, đổi sang "1 tháng gần nhất", huỷ chọn không áp dụng
+# Gộp từ HW-02 (mở sheet, đủ 2 lựa chọn + nút Xem), HW-03 (áp dụng filter, phần UI: sheet
+# đóng/nhãn đổi/list reload), HW-04 (đóng sheet bằng swipe KHÔNG bấm Xem -> lựa chọn tạm
+# không được áp dụng). Cả 3 dùng launch-keep-session, không ghi dữ liệu, thao tác nối tiếp
+# trên cùng 1 bottom sheet -> gộp 1 lần login thay vì 3.
+#
+# Thứ tự bắt buộc: mở sheet (HW-02) -> chọn "1 tháng gần nhất" + Xem (HW-03) -> mở lại sheet,
+# chọn "2 tuần gần nhất" nhưng đóng bằng swipe, KHÔNG bấm Xem (HW-04). Nhờ vậy trạng thái filter
+# được COMMIT cuối flow vẫn là "1 tháng gần nhất" (HW-04 chỉ chứng minh lựa chọn tạm không áp
+# dụng, không đổi trạng thái đã commit) -> đúng tiền đề để hw03-verify-filter-dates.js chạy
+# NGAY SAU flow này và verify Hạn nộp dưới filter "1 tháng gần nhất" mà không cần mở lại sheet.
+#
+# Phần verify dữ liệu Hạn nộp thật (mọi card hiển thị phải nằm trong khoảng hợp lệ của filter
+# đang chọn) KHÔNG nằm trong file YAML này (Maestro YAML thuần không duyệt được danh sách có số
+# card không biết trước, xem lý do kỹ thuật trong comment đầu hw03-verify-filter-dates.js) -
+# chạy bằng: node flows/homework/hw03-verify-filter-dates.js. Script đó tự đăng nhập + điều
+# hướng RIÊNG (không gọi lại nguyên file này) vì cần dừng lại NGAY SAU khi vào tab (filter còn
+# "2 tuần gần nhất") để verify trước khi đổi sang "1 tháng" - bước chọn "1 tháng" dùng chung
+# helpers/homework-select-month-filter.yaml với file này để không copy-paste 2 nơi.
+# Tags: smoke, regression
+appId: ${APP_ID}
+tags:
+  - smoke
+  - regression
+name: HW-02_03_04 Filter - mo sheet, doi 1 thang, huy khong ap dung
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# --- Tiền đề: mặc định khi vào tab PHẢI là "2 tuần gần nhất" ---
+- assertVisible: ".*(2 tuần gần nhất).*"
+
+# --- HW-02: mở sheet filter, xác nhận đủ cấu trúc ---
+# LƯU Ý: testID `homework-filter-*` không lộ ra thành Android resource-id (đã kiểm tra bằng
+# `uiautomator dump` - xem ghi chú gốc trong lịch sử HW-02) -> dùng selector text thay cho id.
+- tapOn:
+    text: ".*gần nhất.*"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+- assertVisible:
+    text: ".*(2 tuần gần nhất).*"
+- assertVisible:
+    text: ".*(1 tháng gần nhất).*"
+- assertVisible:
+    text: "Xem"
+- takeScreenshot: artifacts/HW-02-filter-sheet
+
+# --- HW-03 (UI): chọn "1 tháng gần nhất" -> Xem -> filter áp dụng + list reload ---
+# Sheet đã đang MỞ SẴN từ bước HW-02 ngay trên -> gọi thẳng helper chọn+áp dụng, không mở lại
+# sheet (dùng chung helper này với hw03-verify-filter-dates.js).
+- runFlow: ../helpers/homework-select-month-filter.yaml
+- takeScreenshot: artifacts/HW-03-filter-month
+
+# --- HW-04: mở lại sheet, chọn option KHÁC (2 tuần) nhưng đóng bằng swipe (không bấm Xem)
+#     -> lựa chọn tạm KHÔNG được áp dụng, nhãn "1 tháng gần nhất" phải được giữ nguyên
+#     (rangeTimeTemp chỉ commit khi bấm "Xem") ---
+- tapOn:
+    text: ".*gần nhất.*"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+
+- tapOn:
+    text: ".*(2 tuần gần nhất).*"
+- swipe:
+    from:
+      text: ".*(Xem bài tập theo).*"
+    direction: DOWN
+- extendedWaitUntil:
+    notVisible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+
+- assertVisible: ".*(1 tháng gần nhất).*"
+- assertNotVisible: ".*(2 tuần gần nhất).*"
+
+- takeScreenshot: artifacts/HW-04-filter-dismiss

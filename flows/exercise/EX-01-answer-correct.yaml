@@ -1,0 +1,39 @@
+# EX-01 — Trả lời ĐÚNG 1 câu -> app báo "Chính xác"
+#
+# Cơ chế: build test (EXPO_PUBLIC_E2E=1) gắn testID chứa tính đúng/sai:
+#   exercise_answer_{i}_correct / exercise_answer_{i}_wrong
+# nên flow chọn được đáp án đúng mà không cần biết nội dung đề.
+#
+# Chỉ áp dụng cho câu dạng tap chọn (ONE / MULTI / TRUE_FALSE). Nếu câu đầu là
+# dạng khác (điền từ, kéo thả, nói) thì không có id nào khớp -> case này skip
+# bằng runFlow.when, xem EX-07 cho dạng điền từ.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-01 Tra loi dung - bao Chinh xac
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_.*_correct"
+    commands:
+      - tapOn:
+          id: "exercise_answer_.*_correct"
+      - tapOn:
+          id: "exercise_check_button"
+
+      # Footer phải hiện trạng thái đúng
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_correct"
+          timeout: 15000
+      - assertNotVisible:
+          id: "exercise_result_incorrect"
+      - takeScreenshot: ../artifacts/EX-01-correct

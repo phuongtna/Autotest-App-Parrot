@@ -1,0 +1,41 @@
+# HW-16 — "Xem bài đã làm" (lịch sử làm bài) từ card đã hoàn thành
+# Kỳ vọng màn lịch sử:
+#   - danh sách các lần làm: "Lần 1", "Lần 2", ...
+#   - mỗi lần có "Điểm", "Đúng", "Thời gian nộp" + nút "Xem chi tiết"
+#   - cuối màn có nút "Làm lại"
+# Tags: regression, data-dependent
+# (Rút khỏi Smoke theo phương án tối ưu tab Bài tập: phụ thuộc dữ liệu có sẵn (bài đã hoàn
+# thành) + cần scroll tìm "Xem bài đã làm" -> không phải golden-path tối thiểu cho Smoke,
+# vẫn giữ nguyên trong Regression để không mất coverage.)
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-16 Lich su lam bai
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Xem bài đã làm).*"
+    direction: DOWN
+    timeout: 25000
+- tapOn: ".*(Xem bài đã làm).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*Lần 1.*"
+    timeout: 30000
+- assertVisible: ".*(Điểm).*"
+- assertVisible: ".*(Đúng).*"
+- assertVisible: ".*(Thời gian nộp).*"
+- assertVisible: ".*(Xem chi tiết).*"
+- assertVisible: ".*(Làm lại).*"
+
+- takeScreenshot: artifacts/HW-16-history

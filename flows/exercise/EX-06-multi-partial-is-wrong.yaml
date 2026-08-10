@@ -1,0 +1,36 @@
+# EX-06 — Câu MULTI: chọn THIẾU (chỉ 1 trong nhiều đáp án đúng) -> phải báo SAI
+#
+# Đây là case dễ lọt nhất: nếu app so sánh sai (dùng "có chứa" thay vì "khớp
+# đúng tập hợp") thì chọn thiếu vẫn được tính đúng.
+appId: ${APP_ID}
+tags:
+  - regression
+  - negative
+  - writes
+name: EX-06 MULTI chon thieu - phai bao sai
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_.*_correct"
+        index: 1
+    commands:
+      # Chỉ chọn 1 đáp án đúng rồi kiểm tra
+      - tapOn:
+          id: "exercise_answer_.*_correct"
+      - tapOn:
+          id: "exercise_check_button"
+
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_incorrect"
+          timeout: 15000
+      - assertNotVisible:
+          id: "exercise_result_correct"
+      - takeScreenshot: ../artifacts/EX-06-multi-partial

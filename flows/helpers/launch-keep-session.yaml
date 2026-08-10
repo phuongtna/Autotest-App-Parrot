@@ -1,0 +1,11 @@
+# Helper: mở app GIỮ session cũ (không clearState).
+# Dùng cho các flow chạy nối tiếp nhau để khỏi login lại mỗi case.
+appId: ${APP_ID}
+---
+- launchApp:
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      text: ".*(Đăng nhập|Vui học|Bài tập|Báo cáo).*"
+    timeout: 30000

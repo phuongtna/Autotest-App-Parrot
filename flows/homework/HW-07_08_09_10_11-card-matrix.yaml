@@ -1,0 +1,118 @@
+# HW-07_08_09_10_11 — Ma trận section + trạng thái card trên tab Bài tập
+# Gộp từ HW-07 (thứ tự 3 nhóm section), HW-08 (card chưa hoàn thành), HW-09 (nhãn quá hạn),
+# HW-10 (nhãn hạn nộp hôm nay), HW-11 (card đã hoàn thành). Cả 5 case gốc đọc trên CÙNG 1
+# danh sách/account (launch-keep-session, không ghi dữ liệu) -> gộp 1 lần login thay vì 5.
+#
+# Giữa mỗi nhóm kiểm tra, cuộn lại về đầu danh sách (đúng kỹ thuật fixed-step đã dùng trong
+# helpers/open-tab-homework.yaml: 5 lần swipe direction DOWN) trước khi tìm mục tiếp theo,
+# THAY VÌ tiếp tục cuộn 1 chiều từ vị trí cũ: vị trí tương đối giữa card "Hạn nộp" (chưa hoàn
+# thành) / "Quá hạn" / "Hôm nay" / "Xem bài đã làm" (đã hoàn thành) trong danh sách phụ thuộc
+# dữ liệu tài khoản tại thời điểm chạy - không có bằng chứng nào trong YAML/TEST-CASES.md xác
+# nhận thứ tự cố định giữa chúng, nên cuộn 1 chiều liên tục có thể vô tình bỏ sót 1 card đã
+# lướt qua phía trên. Việc reset chỉ là vài lượt vuốt cục bộ (không gọi lại API, không phát
+# sinh tiến trình Maestro mới) - rẻ hơn nhiều so với 4 lần login+launch+fetch bị loại bỏ khi
+# gộp, nên đây vẫn là tổng lợi ích tối ưu thời gian chạy thực sự so với 5 file tách rời.
+#
+# scrollUntilVisible (không đổi sang số bước cố định) được giữ nguyên cho MỖI mục tiêu tìm
+# kiếm vì vị trí card đó trong danh sách là dữ liệu-phụ-thuộc, không xác định trước được -
+# đổi sang scroll cố định ở đây sẽ là đoán, không có bằng chứng.
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-07_08_09_10_11 Ma tran section va trang thai card
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# --- HW-07: 3 nhóm section + thứ tự (về nhà -> nâng cao -> kiến thức trong bài) ---
+- assertVisible: ".*(Bài tập về nhà).*"
+
+# Nhóm nâng cao có thể không có dữ liệu -> scroll tìm, ghi nhận nếu thiếu (optional,
+# đúng như HW-07 gốc)
+- scrollUntilVisible:
+    element:
+      text: ".*(Bài tập nâng cao).*"
+    direction: DOWN
+    timeout: 60000
+    speed: 100
+    optional: true
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Kiến thức trong bài).*"
+    direction: DOWN
+    timeout: 60000
+    speed: 100
+    optional: true
+
+- takeScreenshot: artifacts/HW-07-sections
+
+# --- HW-08: Card bài CHƯA hoàn thành (Hạn nộp + CTA, KHÔNG có block điểm) ---
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 250
+- scrollUntilVisible:
+    element:
+      text: ".*(Hạn nộp).*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: ".*(Hạn nộp).*"
+- assertVisible:
+    text: ".*(Làm bài|Tiếp tục|Chinh phục).*"
+- takeScreenshot: artifacts/HW-08-card-not-completed
+
+# --- HW-11: Card bài ĐÃ hoàn thành (điểm + lịch sử + làm lại) ---
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 250
+- scrollUntilVisible:
+    element:
+      text: ".*(Xem bài đã làm).*"
+    direction: DOWN
+    timeout: 25000
+- assertVisible: ".*(Xem bài đã làm).*"
+- assertVisible: ".*(Làm lại).*"
+- assertVisible:
+    text: "Điểm.*"
+- takeScreenshot: artifacts/HW-11-card-completed
+
+# --- HW-09: Nhãn quá hạn (chữ đỏ, in hoa, cạnh ngày hạn nộp) ---
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 250
+- scrollUntilVisible:
+    element:
+      text: ".*QUÁ HẠN.*"
+    direction: DOWN
+    timeout: 25000
+- takeScreenshot: artifacts/HW-09-overdue
+
+# --- HW-10: Nhãn hạn nộp HÔM NAY ---
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 250
+- scrollUntilVisible:
+    element:
+      text: ".*Hôm nay.*"
+    direction: DOWN
+    timeout: 25000
+- takeScreenshot: artifacts/HW-10-due-today

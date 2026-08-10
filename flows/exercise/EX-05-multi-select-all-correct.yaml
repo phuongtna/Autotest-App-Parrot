@@ -1,0 +1,52 @@
+# EX-05 — Câu MULTI: chọn HẾT đáp án đúng -> "Chính xác"
+#
+# MULTI có nhiều đáp án đúng, mỗi cái là 1 id riêng exercise_answer_{i}_correct.
+# Maestro tap vào match đầu tiên nên phải tap theo index tăng dần; các index
+# không tồn tại được bỏ qua bằng optional: true.
+#
+# Case chỉ chạy khi câu hiện tại có >= 2 đáp án đúng (đặc trưng MULTI).
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-05 MULTI chon het dap an dung
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_.*_correct"
+        index: 1
+    commands:
+      # Tối đa 6 đáp án đúng
+      - tapOn:
+          id: "exercise_answer_0_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_1_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_2_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_3_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_4_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_5_correct"
+          optional: true
+
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_correct"
+          timeout: 15000
+      - takeScreenshot: ../artifacts/EX-05-multi-correct

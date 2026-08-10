@@ -1,0 +1,42 @@
+# HW-24 — Badge số bài chưa làm trên icon tab "Bài tập"
+# Logic code (app/dashboard/(tabs)/_layout.tsx):
+#   - badge = total_not_completed, CHỈ fetch khi pathname thuộc
+#     /dashboard, /dashboard/learningAi, /dashboard/account
+#   - khi ĐANG Ở tab Bài tập thì badge bị ép về 0 (badge={focused ? 0 : homeworkCount})
+# Kỳ vọng: đứng ở tab Vui học/Báo cáo -> badge hiện số; vào tab Bài tập -> badge mất
+# Tags: regression, data-dependent, extended
+# (Xếp Extended theo phương án tối ưu tab Bài tập: chỉ chụp ảnh, không assert số badge thật -
+# bán tự động, QA cần đối chiếu 3 ảnh bằng mắt như ghi chú cuối file.)
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+  - extended
+name: HW-24 Badge so bai chua lam tren tab
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# Ở tab Vui học -> badge phải hiển thị (số hoặc 9+)
+- tapOn:
+    text: ".*(Vui học).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Bài tập).*"
+    timeout: 20000
+- takeScreenshot: artifacts/HW-24-badge-on-vuihoc
+
+# Sang tab Báo cáo -> badge vẫn phải hiển thị
+- runFlow: ../helpers/open-tab-report.yaml
+- takeScreenshot: artifacts/HW-24-badge-on-baocao
+
+# Vào tab Bài tập -> badge phải biến mất
+- runFlow: ../helpers/open-tab-homework.yaml
+- takeScreenshot: artifacts/HW-24-badge-cleared
+
+# LƯU Ý QA: badge là <Text> số nên không so sánh được bằng assert text ổn định.
+# So sánh 3 ảnh chụp ở trên: 2 ảnh đầu PHẢI có badge đỏ, ảnh cuối PHẢI không có.

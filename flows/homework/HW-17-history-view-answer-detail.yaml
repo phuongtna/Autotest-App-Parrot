@@ -1,0 +1,41 @@
+# HW-17 — Từ lịch sử vào "Xem chi tiết" (màn show-answer)
+# Kỳ vọng: mở màn xem lại đáp án; hiện số câu, đáp án đúng/sai, có nút quay lại
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-17 Lich su - xem chi tiet dap an
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Xem bài đã làm).*"
+    direction: DOWN
+    timeout: 25000
+- tapOn: ".*(Xem bài đã làm).*"
+- extendedWaitUntil:
+    visible: ".*(Xem chi tiết).*"
+    timeout: 30000
+- tapOn:
+    text: ".*(Xem chi tiết).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Câu 1|Chính xác|Đúng|Parrot giải thích).*"
+    timeout: 30000
+- takeScreenshot: artifacts/HW-17-show-answer
+
+# Quay lại lịch sử
+- back
+- extendedWaitUntil:
+    visible: ".*(Xem chi tiết).*"
+    timeout: 20000

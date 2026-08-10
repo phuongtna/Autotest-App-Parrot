@@ -1,0 +1,87 @@
+# EX-10 — Làm ĐÚNG hết cả bài -> ra màn kết quả
+#
+# Vòng lặp tối đa 25 câu. Mỗi câu:
+#   - dạng tap chọn: tap mọi đáp án đúng (theo index) rồi Kiểm tra
+#   - dạng điền từ:  nhập chuỗi bất kỳ (không suy ra được đáp án đúng)
+#   - dạng nối:      nối lần lượt theo vị trí
+#   - dạng kéo thả / sắp xếp / nói: KHÔNG tự động hoá được (xem README.md),
+#     vòng lặp vẫn bấm nút chính nên bài có thể dừng ở đó -> case sẽ fail ở
+#     bước chốt và cần QA làm tay.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-10 Lam dung het bai den man ket qua
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- repeat:
+    times: 25
+    commands:
+      # dạng điền từ
+      - runFlow:
+          when:
+            visible:
+              id: "exercise_fillword_input"
+          commands:
+            - tapOn:
+                id: "exercise_fillword_input"
+            - inputText: "test"
+            - tapOn:
+                id: "exercise_fillword_check_button"
+                optional: true
+
+      # dạng nối
+      - runFlow:
+          when:
+            visible:
+              id: "exercise_connect_left_0"
+          commands:
+            - repeat:
+                times: 6
+                commands:
+                  - tapOn:
+                      id: "exercise_connect_left_.*"
+                      optional: true
+                  - tapOn:
+                      id: "exercise_connect_right_.*"
+                      optional: true
+
+      # dạng tap chọn — chọn hết đáp án đúng
+      - tapOn:
+          id: "exercise_answer_0_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_1_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_2_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_3_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_4_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_5_correct"
+          optional: true
+
+      # Kiểm tra -> Tiếp tục (cùng 1 nút, bấm 2 lần)
+      - tapOn:
+          id: "exercise_check_button"
+          optional: true
+      - tapOn:
+          id: "exercise_check_button"
+          optional: true
+
+# Chốt: đã ra màn kết quả
+- extendedWaitUntil:
+    visible:
+      text: ".*(Điểm số|Chính xác|Hoàn thành).*"
+    timeout: 60000
+- takeScreenshot: ../artifacts/EX-10-result

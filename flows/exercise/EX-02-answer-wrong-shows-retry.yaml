@@ -1,0 +1,38 @@
+# EX-02 — Trả lời SAI lần 1 -> báo "Chưa chính xác" + nút đổi thành "Thử lại"
+#
+# Nguồn kỳ vọng: getExplainActionButtonsState() trong
+# components/lessons/units/LessonExercise/CheckAnswerFooter.tsx
+#   showRetry = sai && checkCounter === 1
+appId: ${APP_ID}
+tags:
+  - regression
+  - negative
+  - writes
+name: EX-02 Tra loi sai lan 1 - hien Thu lai
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_.*_wrong"
+    commands:
+      - tapOn:
+          id: "exercise_answer_.*_wrong"
+      - tapOn:
+          id: "exercise_check_button"
+
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_incorrect"
+          timeout: 15000
+      - assertNotVisible:
+          id: "exercise_result_correct"
+
+      # Lần sai đầu tiên -> nút phải là "Thử lại", chưa phải "Tiếp tục"
+      - assertVisible: ".*(Thử lại).*"
+      - takeScreenshot: ../artifacts/EX-02-wrong-retry

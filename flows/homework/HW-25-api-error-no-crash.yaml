@@ -1,0 +1,40 @@
+# HW-25 — Mất mạng / API lỗi khi vào tab Bài tập
+# Cách chạy: bật chế độ máy bay (hoặc Network Link Conditioner = 100% loss) TRƯỚC khi chạy flow.
+#            Trên simulator iOS: tắt Wi-Fi máy Mac hoặc dùng `xcrun simctl` proxy.
+# Kỳ vọng theo code: result.error -> setExercisesAssignment([]) -> hiện empty state
+#          "Bạn không có bài tập nào đang chờ." — KHÔNG crash, KHÔNG trắng màn hình vô hạn.
+# GHI CHÚ CHẤT LƯỢNG: empty state này ĐÁNG NGHI vì lỗi mạng bị hiển thị y như
+#          "không có bài tập" — QA cần đánh dấu là defect UX nếu sản phẩm muốn phân biệt.
+# Tags: negative, extended
+# (Xếp Extended theo phương án tối ưu tab Bài tập: đúng định nghĩa edge-case offline/lỗi API.)
+appId: ${APP_ID}
+tags:
+  - negative
+  - extended
+name: HW-25 Loi API/offline - khong crash
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- tapOn:
+    text: ".*(Bài tập).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bạn không có bài tập nào đang chờ.|Bài tập về nhà).*"
+    timeout: 40000
+
+# App vẫn sống: tab bar còn, đổi tab được
+- assertVisible: ".*(Báo cáo).*"
+- tapOn:
+    text: ".*(Báo cáo).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Báo cáo học tập).*"
+    timeout: 30000
+
+- takeScreenshot: artifacts/HW-25-offline

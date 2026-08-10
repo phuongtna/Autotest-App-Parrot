@@ -1,0 +1,26 @@
+# RP-25 — Android: "Khôi phục đăng ký" bị ẩn khi thanh toán Android đang TẮT
+# Logic code: hide = Platform.OS === "android" && !ANDROID_PAYMENT_ENABLED
+# Cách chạy: CHỈ chạy trên thiết bị/emulator Android.
+#   - Nếu constants/androidPayment.ts có ANDROID_PAYMENT_ENABLED = false -> PHẢI KHÔNG thấy dòng menu
+#   - Nếu = true -> PHẢI thấy dòng menu (khi đó dùng RP-16 thay case này)
+# Kỳ vọng đồng thời: thẻ "Nâng cấp tài khoản" cũng bị ẩn khi payment tắt.
+# Tags: regression, negative
+appId: ${APP_ID}
+tags:
+  - regression
+  - negative
+name: RP-25 Android - an Khoi phuc dang ky khi payment tat
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- assertNotVisible: ".*(Khôi phục đăng ký).*"
+- assertNotVisible: ".*(Nâng cấp tài khoản).*"
+- assertVisible: ".*(Quản lý tài khoản).*"
+
+- takeScreenshot: artifacts/RP-25-android-restore-hidden

@@ -1,0 +1,70 @@
+# RP-26 — Khối "Kết quả học tập" hiển thị 2 kỹ năng mới: PHONIC, SENTENCE_PATTERN
+#
+# Bối cảnh: backend bổ sung 2 skill key mới. Màn study-report map key -> icon qua
+# mảng `reportIcons` và map nhãn qua i18n key `Report_<KEY>`.
+#
+# Kỳ vọng PASS:
+#   1. Mở được màn Báo cáo học tập.
+#   2. KHÔNG có chuỗi thô "Report_PHONIC" / "Report_SENTENCE_PATTERN" nào lộ ra
+#      màn hình. Nếu lộ nghĩa là thiếu key i18n -> app hiện tên kỹ năng bằng
+#      key kỹ thuật, phụ huynh đọc không hiểu. Đây là điều kiện CHẶN.
+#   3. Nếu kỳ báo cáo đang xem có 2 kỹ năng này thì phải hiện đúng nhãn tiếng
+#      Việt "Ngữ âm" / "Mẫu câu" (bước optional — kỳ nào chưa có dữ liệu 2 skill
+#      đó thì bỏ qua, KHÔNG tính FAIL).
+#
+# Coi là FAIL khi:
+#   - Thấy "Report_PHONIC" hoặc "Report_SENTENCE_PATTERN" trên màn hình.
+#   - Mở màn báo cáo bị crash / không thấy khối "Kết quả học tập".
+#
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: RP-26 Ky nang moi PHONIC va SENTENCE_PATTERN
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+# Vào màn Báo cáo học tập
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nhận xét chung|Kết quả học tập).*"
+    timeout: 30000
+
+# Khối "Kết quả học tập" nằm dưới phần nhận xét -> cuộn tới
+- scrollUntilVisible:
+    element:
+      text: ".*(Kết quả học tập).*"
+    direction: DOWN
+    timeout: 30000
+
+# CHẶN: không được lộ i18n key thô ra UI
+- assertNotVisible:
+    text: ".*Report_PHONIC.*"
+- assertNotVisible:
+    text: ".*Report_SENTENCE_PATTERN.*"
+
+# Nếu kỳ báo cáo đang xem có 2 kỹ năng mới thì phải hiện nhãn tiếng Việt.
+# optional: kỳ chưa có dữ liệu 2 skill đó thì bỏ qua, KHÔNG tính FAIL.
+- scrollUntilVisible:
+    element:
+      text: ".*(Ngữ âm).*"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+- scrollUntilVisible:
+    element:
+      text: ".*(Mẫu câu).*"
+    direction: DOWN
+    timeout: 15000
+    optional: true
+
+- takeScreenshot: artifacts/RP-26-new-skills

@@ -1,0 +1,37 @@
+# HW-20 — Section "Kiến thức trong bài": bấm card unit gợi ý
+# Kỳ vọng: router.replace sang tab "Vui học" với book_id + unit_id của unit đó
+#          (tab active đổi sang Vui học, KHÔNG còn ở tab Bài tập)
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-20 Unit goi y - dieu huong sang Vui hoc
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Kiến thức trong bài).*"
+    direction: DOWN
+    timeout: 25000
+- takeScreenshot: artifacts/HW-20-recommended-section
+
+# Bấm vào card unit ngay dưới nhãn section
+- swipe:
+    start: 50%, 80%
+    end: 50%, 45%
+    duration: 400
+- tapOn:
+    point: 50%, 55%
+
+- extendedWaitUntil:
+    visible: ".*(Vui học).*"
+    timeout: 30000
+- takeScreenshot: artifacts/HW-20-navigated-vuihoc

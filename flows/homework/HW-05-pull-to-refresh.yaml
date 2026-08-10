@@ -1,0 +1,28 @@
+# HW-05 — Pull-to-refresh danh sách bài tập
+# Kỳ vọng: kéo xuống -> refresh -> nội dung render lại, không crash, filter giữ nguyên
+# Tags: regression
+appId: ${APP_ID}
+tags:
+  - regression
+name: HW-05 Pull to refresh danh sach bai tap
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- swipe:
+    start: 50%, 35%
+    end: 50%, 85%
+    duration: 600
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bài tập về nhà|Bài tập nâng cao|Kiến thức trong bài|Bạn không có bài tập nào đang chờ.).*"
+    timeout: 30000
+- assertVisible: ".*(2 tuần gần nhất).*"
+
+- takeScreenshot: artifacts/HW-05-refresh

@@ -1,0 +1,32 @@
+# Helper: mở tab "Bài tập" và chờ tab render xong.
+#
+# Selector dùng full-match "Bài tập" (không phải ".*Bài tập.*"):
+#   - Maestro so khớp text bằng regex FULL-MATCH, nên "Bài tập" không khớp
+#     "Bài tập về nhà" (tiêu đề section) -> không lo tap nhầm.
+#   - Trước đây dùng ".*Bài tập, tab.*" (nhãn accessibility kiểu iOS VoiceOver,
+#     "Bài tập, tab, 2 of 6") nhưng Android trả accessibilityText khác
+#     ("Bài tập" hoặc "Bài tập, 9+" khi có badge) nên selector đó luôn FAILED
+#     trên Android.
+appId: ${APP_ID}
+---
+- tapOn:
+    text: "Bài tập"
+
+# DEVICE_MODE=true: máy thật không launchApp được nên danh sách giữ nguyên vị trí
+# cuộn từ case trước -> filter và tiêu đề section bị cuộn khỏi màn hình, assert
+# bên dưới sẽ fail oan. Cuộn về đầu trước.
+- runFlow:
+    when:
+      true: ${DEVICE_MODE == 'true'}
+    commands:
+      - repeat:
+          times: 5
+          commands:
+            - swipe:
+                direction: DOWN
+                duration: 250
+# Loading spinner của tab có thể chạy vài giây -> chờ tới khi thấy nội dung thật
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bài tập về nhà|Bài tập nâng cao|Bạn không có bài tập nào đang chờ|2 tuần gần nhất|1 tháng gần nhất).*"
+    timeout: 30000

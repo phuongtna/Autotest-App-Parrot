@@ -1,0 +1,33 @@
+# RP-22 — Thẻ "Nâng cấp tài khoản" ở đầu tab Báo cáo
+# Logic code:
+#   iOS     : hiện khi subscriptionState !== "active"        (UpgradeAccount)
+#   Android : hiện khi ANDROID_PAYMENT_ENABLED && !isProAccount (UpgradeAccountAndroid)
+#   Tài khoản PRO: PHẢI KHÔNG hiện thẻ này, và badge gói (HasSubscription) phải hiện cạnh tên
+# Tags: pro-only, regression
+appId: ${APP_ID}
+tags:
+  - pro-only
+  - regression
+name: RP-22 The nang cap - hien/an theo goi
+---
+# --- Phần A: tài khoản FREE -> PHẢI thấy thẻ nâng cấp ---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- assertVisible: ".*(Nâng cấp tài khoản).*"
+- takeScreenshot: artifacts/RP-22-free-upgrade-card
+
+# --- Phần B: tài khoản PRO -> PHẢI KHÔNG thấy thẻ nâng cấp ---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- assertNotVisible: ".*(Nâng cấp tài khoản).*"
+- takeScreenshot: artifacts/RP-22-pro-no-upgrade-card

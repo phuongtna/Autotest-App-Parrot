@@ -1,0 +1,53 @@
+# EX-04 — Sai 2 lần liên tiếp -> KHÔNG còn "Thử lại", chuyển sang "Tiếp tục"
+#
+# Nguồn kỳ vọng: getExplainActionButtonsState() — CheckAnswerFooter.tsx
+#   showRetry = sai && checkCounter === 1
+#   showNext  = sai && checkCounter  > 1
+appId: ${APP_ID}
+tags:
+  - regression
+  - negative
+  - writes
+name: EX-04 Sai 2 lan - chuyen sang Tiep tuc
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_.*_wrong"
+    commands:
+      # Sai lần 1
+      - tapOn:
+          id: "exercise_answer_.*_wrong"
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_incorrect"
+          timeout: 15000
+      - assertVisible: ".*(Thử lại).*"
+
+      # Thử lại rồi sai tiếp
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          notVisible:
+            id: "exercise_result_incorrect"
+          timeout: 15000
+      - tapOn:
+          id: "exercise_answer_.*_wrong"
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_incorrect"
+          timeout: 15000
+
+      # Lần sai thứ 2 -> hết lượt thử lại
+      - assertNotVisible: ".*(Thử lại).*"
+      - takeScreenshot: ../artifacts/EX-04-wrong-twice

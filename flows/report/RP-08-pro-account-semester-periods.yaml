@@ -1,0 +1,92 @@
+# RP-08 — Tài khoản PRO xem đủ 4 kỳ học kỳ
+# Kỳ vọng: chọn lần lượt Giữa HK1 / Cuối HK1 / Giữa HK2 / Cuối HK2 ->
+#   - KHÔNG hiện sheet nâng cấp
+#   - tiêu đề kỳ render đúng dạng:
+#       Giữa kỳ: "study_report_title_by_mid_semester"  (semester I/II + năm học)
+#       Cuối kỳ: "study_report_title_by_end_semester"
+#   - có nội dung HOẶC empty state "Chưa có báo cáo mới" (kỳ chưa tới)
+# Tags: pro-only, regression
+appId: ${APP_ID}
+tags:
+  - pro-only
+  - regression
+name: RP-08 PRO - 4 ky hoc ky
+---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: ".*(Tuần trước|Tuần này).*"
+    timeout: 30000
+
+- repeat:
+    times: 1
+    commands:
+      # --- Giữa học kỳ 1 ---
+      - tapOn:
+          text: ".*(Tuần trước|Tuần này|Tháng trước|Giữa học kỳ 1|Cuối học kỳ 1|Giữa học kỳ 2|Cuối học kỳ 2).*"
+          index: 0
+      - extendedWaitUntil:
+          visible: ".*(Xem báo cáo).*"
+          timeout: 15000
+      - tapOn: ".*(Giữa học kỳ 1).*"
+      - tapOn: ".*(Xem).*"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Nhận xét chung|Kết quả học tập|Chuyên cần|Chưa có báo cáo mới).*"
+          timeout: 30000
+      - assertNotVisible: ".*(Nâng cấp để xem báo cáo tháng và học kỳ của con).*"
+      - takeScreenshot: artifacts/RP-08-mid-sem-1
+
+      # --- Cuối học kỳ 1 ---
+      - tapOn:
+          text: ".*(Giữa học kỳ 1).*"
+          index: 0
+      - extendedWaitUntil:
+          visible: ".*(Xem báo cáo).*"
+          timeout: 15000
+      - tapOn: ".*(Cuối học kỳ 1).*"
+      - tapOn: ".*(Xem).*"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Nhận xét chung|Kết quả học tập|Chuyên cần|Chưa có báo cáo mới).*"
+          timeout: 30000
+      - takeScreenshot: artifacts/RP-08-end-sem-1
+
+      # --- Giữa học kỳ 2 ---
+      - tapOn:
+          text: ".*(Cuối học kỳ 1).*"
+          index: 0
+      - extendedWaitUntil:
+          visible: ".*(Xem báo cáo).*"
+          timeout: 15000
+      - tapOn: ".*(Giữa học kỳ 2).*"
+      - tapOn: ".*(Xem).*"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Nhận xét chung|Kết quả học tập|Chuyên cần|Chưa có báo cáo mới).*"
+          timeout: 30000
+      - takeScreenshot: artifacts/RP-08-mid-sem-2
+
+      # --- Cuối học kỳ 2 ---
+      - tapOn:
+          text: ".*(Giữa học kỳ 2).*"
+          index: 0
+      - extendedWaitUntil:
+          visible: ".*(Xem báo cáo).*"
+          timeout: 15000
+      - tapOn: ".*(Cuối học kỳ 2).*"
+      - tapOn: ".*(Xem).*"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Nhận xét chung|Kết quả học tập|Chuyên cần|Chưa có báo cáo mới).*"
+          timeout: 30000
+      - takeScreenshot: artifacts/RP-08-end-sem-2

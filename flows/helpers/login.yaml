@@ -1,0 +1,54 @@
+# Helper: đăng nhập bằng SĐT + OTP.
+#
+# QUAN TRỌNG — app KHÔNG đăng nhập bằng mật khẩu:
+#   app/auth/login/index.tsx  ->  field password đã bị comment (dòng 287-316),
+#   submit gọi sendOtpAsync() rồi push sang /auth/login/verify-otp.
+#   Nên luồng thật là: SĐT -> "Đăng nhập" -> nhập 6 số OTP -> "Xác nhận".
+#
+# Nếu app đã có session (đang ở dashboard) thì bỏ qua toàn bộ, không login lại.
+#
+# Tham số:  PHONE, OTP
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      visible: ".*(Chào mừng bạn đến với ParrotEdu!|Nhập số điện thoại).*"
+    commands:
+      - tapOn:
+          text: ".*(Nhập số điện thoại).*"
+      - inputText: "${PHONE}"
+      - hideKeyboard
+
+      - tapOn:
+          text: ".*(Đăng nhập).*"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Xác thực OTP).*"
+          timeout: 30000
+
+      # OTPField là 1 input ẩn dài 6 ký tự, các ô chỉ là view hiển thị
+      # -> tap vào vùng ô rồi gõ thẳng 6 số.
+      - tapOn:
+          text: ".*(Nhập mã vừa gửi đến Zalo).*"
+      - inputText: "${OTP}"
+      - hideKeyboard
+
+      # Đủ 6 số thì nút Xác nhận mới bật
+      - runFlow:
+          when:
+            visible: ".*(Xác nhận).*"
+          commands:
+            - tapOn:
+                text: ".*(Xác nhận).*"
+
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Vui học|Bài tập|Báo cáo).*"
+          timeout: 60000
+
+# Chốt: phải thấy tab bar của dashboard
+# (không dùng ".*Bài tập, tab.*": hậu tố ", tab" chỉ có trên iOS VoiceOver;
+#  Android trả accessibilityText dạng "Bài tập" hoặc "Bài tập, 9+" khi có badge)
+- extendedWaitUntil:
+    visible: ".*(Vui học|Bài tập|Báo cáo).*"
+    timeout: 30000

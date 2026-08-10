@@ -1,0 +1,19 @@
+# Helper: mở tab "Báo cáo" và chờ tab render xong.
+#
+# Selector dùng full-match "Báo cáo" (không phải ".*Báo cáo, tab.*"): hậu tố ", tab"
+# chỉ có trên iOS VoiceOver, Android trả accessibilityText khác -> selector cũ luôn
+# FAILED trên Android. Xem ghi chú tương tự ở open-tab-homework.yaml.
+appId: ${APP_ID}
+---
+- tapOn:
+    text: "Báo cáo"
+- extendedWaitUntil:
+    visible:
+      text: ".*(Báo cáo học tập).*"
+    timeout: 30000
+# Card báo cáo tuần load async -> chờ hết spinner (có nội dung HOẶC empty state)
+- extendedWaitUntil:
+    visible:
+      text: ".*(Xem chi tiết|Chưa có báo cáo mới|Không tải được nhận xét).*"
+    timeout: 30000
+    optional: true

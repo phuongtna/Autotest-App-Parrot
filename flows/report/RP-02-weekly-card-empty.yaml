@@ -1,0 +1,27 @@
+# RP-02 — Card nhận xét tuần ở trạng thái RỖNG
+# Logic code: getStudentAcademicReportAsync với period_type = LAST_WEEK (thứ 2..6)
+#             hoặc WEEK (thứ 7, CN). Nếu lỗi HOẶC general_comment rỗng -> weeklyReport = null
+# Kỳ vọng: hiện ảnh giáo viên + "Chưa có báo cáo mới" +
+#          "Báo cáo học tập thường được cập nhật vào thứ bảy hàng tuần. Ba mẹ quay lại sau nhé!"
+#          và KHÔNG có link "Xem chi tiết" trong card này
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: RP-02 Card nhan xet tuan - trang thai rong
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- assertVisible: ".*(Chưa có báo cáo mới).*"
+- assertVisible:
+    text: ".*cập nhật vào thứ bảy hàng tuần.*"
+- assertNotVisible: ".*(Xem chi tiết).*"
+
+- takeScreenshot: artifacts/RP-02-weekly-empty

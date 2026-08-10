@@ -1,0 +1,67 @@
+# HW-03 — Đổi filter sang "1 tháng gần nhất" rồi bấm "Xem"
+# Kỳ vọng (phần UI, verify được bằng YAML thuần): sheet đóng, nhãn filter trên màn hình đổi
+#          thành "1 tháng gần nhất", danh sách reload (không crash, không trắng màn).
+#
+# GIỚI HẠN CỦA MAESTRO YAML (không tự làm được, xem "GIỚI HẠN CÒN LẠI" bên dưới):
+# Mục tiêu đầy đủ của HW-03 còn yêu cầu kiểm tra DATA thật - mọi Hạn nộp của Homework card
+# đang hiển thị sau khi lọc phải nằm trong [hôm nay - 1 tháng lịch, hôm nay]. Maestro YAML
+# thuần KHÔNG làm được việc này vì 2 lý do:
+#   1. `runScript` chạy trong sandbox JS riêng của Maestro (không phải Node) - không gọi được
+#      `maestro hierarchy`/adb để đọc UI, dù `Date` (ngày hệ thống) vẫn dùng được.
+#   2. Maestro YAML không có lệnh "lấy text của TẤT CẢ phần tử khớp 1 selector" (chỉ
+#      `copyTextFrom` cho ĐÚNG 1 phần tử) - không duyệt được danh sách có số card không biết
+#      trước rồi so ngày từng card.
+# => Phần kiểm tra DATA nằm ở file Node riêng, chạy NGAY SAU flow này (app vẫn mở đúng màn):
+#      node flows/homework/hw03-verify-filter-dates.js     (chạy từ gốc repo)
+#    File đó tự chạy lại chính flow này (qua `maestro test`) rồi tự cuộn + đọc
+#    `maestro hierarchy` nhiều lượt để gom toàn bộ card, parse "Hạn nộp DD/MM" theo bất biến đã
+#    xác nhận thật (xem comment đầu file đó), rồi so ngày bằng Node thật (không hardcode ngày).
+#    Đây là cách DUY NHẤT verify được tính đúng của DATA hạn nộp - chạy trực tiếp flow YAML này
+#    (`maestro test flows/homework/HW-03-filter-switch-month.yaml`) CHỈ verify được phần UI
+#    (sheet/nhãn/reload) như trước đây, KHÔNG tự kiểm tra DATA hạn nộp.
+# Tags: smoke, regression
+appId: ${APP_ID}
+tags:
+  - smoke
+  - regression
+name: HW-03 Filter - doi sang 1 thang gan nhat
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# LƯU Ý: testID `homework-filter-*` không lộ ra thành Android resource-id (xem
+# ghi chú trong HW-02-filter-sheet-open.yaml) -> dùng selector text thay cho id.
+- tapOn:
+    text: ".*gần nhất.*"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+
+- tapOn:
+    text: ".*(1 tháng gần nhất).*"
+- tapOn:
+    text: "Xem"
+
+# Sheet đóng
+- extendedWaitUntil:
+    notVisible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+
+# Nhãn filter đã đổi sang 1 tháng
+- extendedWaitUntil:
+    visible: ".*(1 tháng gần nhất).*"
+    timeout: 20000
+- assertNotVisible: ".*(2 tuần gần nhất).*"
+
+# Danh sách reload xong
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bài tập về nhà|Bài tập nâng cao|Kiến thức trong bài|Bạn không có bài tập nào đang chờ).*"
+    timeout: 30000
+
+- takeScreenshot: artifacts/HW-03-filter-month

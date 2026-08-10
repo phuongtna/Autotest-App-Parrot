@@ -1,0 +1,45 @@
+# HW-12 — Popup đồng ý chia sẻ dữ liệu AI khi bấm làm bài LẦN ĐẦU
+# Kỳ vọng: hiện dialog "AI hỗ trợ học tập" với 2 nút "Tiếp tục" / "Để sau";
+#          bấm "Tiếp tục" -> lưu consent -> vào màn làm bài
+# Lưu ý: PHẢI chạy trên state sạch (clearState) vì consent được persist trong Redux.
+# Tags: regression
+appId: ${APP_ID}
+tags:
+  - needs-login
+  - writes
+  - regression
+name: HW-12 AI consent - dong y
+---
+- runFlow: ../helpers/launch-wipe.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Làm bài|Tiếp tục|Chinh phục).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: ".*(Làm bài|Tiếp tục|Chinh phục).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible: ".*(AI hỗ trợ học tập).*"
+    timeout: 15000
+- assertVisible: ".*(Tiếp tục).*"
+- assertVisible: ".*(Để sau).*"
+- takeScreenshot: artifacts/HW-12-consent-dialog
+
+- tapOn: ".*(Tiếp tục).*"
+
+# Vào màn làm bài: header có nút X + tên bài, có nút "Kiểm tra" hoặc nội dung câu hỏi
+- extendedWaitUntil:
+    visible:
+      text: ".*(Kiểm tra|Tiếp theo|Nhập câu trả lời).*"
+    timeout: 40000
+
+- takeScreenshot: artifacts/HW-12-doing-screen

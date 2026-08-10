@@ -1,0 +1,35 @@
+# RP-10 — Khối "Kết quả học tập" (skills)
+# Kỳ vọng:
+#   - có ít nhất 1 thẻ kỹ năng trong: Kỹ năng nghe / Kỹ năng nói / Kỹ năng đọc /
+#     Kỹ năng viết / Phát âm / Từ vựng / Ngữ pháp / Giao tiếp
+#   - mỗi thẻ: vòng tròn điểm (fill = point*10) + delta
+#       delta > 0 -> chữ xanh "tăng"; delta < 0 -> chữ đỏ "giảm"; delta = 0 -> "không đổi"
+#   - nếu skills rỗng -> hiện đúng "Chưa có dữ liệu"
+#   - Layout: số thẻ LẺ thì thẻ đầu chiếm full width, các thẻ sau chia 2 cột
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: RP-10 Khoi Ket qua hoc tap
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Kết quả học tập).*"
+    direction: DOWN
+    timeout: 30000
+- assertVisible:
+    text: ".*(Kỹ năng nghe|Kỹ năng nói|Kỹ năng đọc|Kỹ năng viết|Phát âm|Từ vựng|Ngữ pháp|Giao tiếp|Chưa có dữ liệu).*"
+
+- takeScreenshot: artifacts/RP-10-skills

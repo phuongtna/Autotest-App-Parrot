@@ -1,0 +1,38 @@
+# RP-09 — Khối "Nhận xét chung"
+# Kỳ vọng theo code study-report.tsx:
+#   - dòng chào: "Thầy/Cô <display_name> chào ba/mẹ <tên học sinh>,"
+#       * "Thầy" nếu teacher.gender = male, ngược lại "Cô"
+#       * "ba" nếu hồ sơ phụ huynh mặc định gender = male, ngược lại "mẹ"
+#   - dòng "…gửi báo cáo <nhãn kỳ viết thường> của con"
+#   - general_comment
+#   - bullet từng kỹ năng: "• <Tên kỹ năng>: <điểm>, <điểm>…"
+#   - dòng ký tên "Thầy/Cô <teacher.name>"
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: RP-09 Khoi Nhan xet chung
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nhận xét chung|Chưa có báo cáo mới).*"
+    timeout: 30000
+
+- assertVisible: ".*(Nhận xét chung).*"
+- assertVisible:
+    text: "(Thầy|Cô).*"
+- assertVisible:
+    text: ".*(ba|mẹ).*"
+
+- takeScreenshot: artifacts/RP-09-general-comment

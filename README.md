@@ -17,6 +17,10 @@ Bộ khung test automation cho app Android chạy trên máy ảo (AVD) trong An
 │   ├── vui_hoc/               # testcase cho màn hình "Vui học"
 │   │   ├── TESTCASES.md       # template để điền case Step/Output trước khi viết flow
 │   │   └── study_unit9_protecting_environment.yaml # TC: học Unit 9 ở Khối 10 (đã pass)
+│   ├── homework/             # HW-01→27: tab "Bài tập" (port từ maestro_1, xem mục dưới)
+│   ├── exercise/              # EX-01→11: cơ chế làm bài (cần build bật EXPO_PUBLIC_E2E=1)
+│   ├── report/                # RP-01→26: tab "Báo cáo"
+│   ├── helpers/                # subflow dùng chung riêng cho 3 bộ trên (login, mở tab...)
 │   └── subflows/
 │       └── launch_app.yaml  # subflow dùng chung: clear state + mở app (tự cấp quyền notification)
 ├── scripts/
@@ -173,6 +177,50 @@ curl -Ls "https://get.maestro.mobile.dev" | bash
 ```
 
 Máy hiện tại đã có Maestro CLI `2.8.0` cài tại `~/.maestro/bin/maestro`.
+
+## flows/homework, flows/exercise, flows/report - port từ maestro_1
+
+3 bộ này (71 file, HW-\*/EX-\*/RP-\*) được port nguyên bản từ project Maestro riêng
+`Documents/maestro_1` (bộ test cho tab "Bài tập" + "Báo cáo" + cơ chế làm bài, viết độc
+lập, KHÔNG dùng `automation/`). Chỉ sửa tối thiểu để chạy được trong repo này:
+
+- `appId: com.inet.parrotedu` (hardcode) → `appId: ${APP_ID}` trong toàn bộ 71 file.
+- Thêm biến `PHONE`, `OTP`, `PROFILE_NAME_B` vào `test_data/accounts.env` (tên biến khác
+  `PHONE_NUMBER`/`OTP_CODE` vì nội dung flow gốc dùng `${PHONE}`/`${OTP}` - chưa đổi tên
+  biến bên trong 71 file để giữ đúng bản gốc).
+- Sửa 2 chỗ dùng selector `".*<tab>, tab.*"` (hậu tố ", tab" chỉ tồn tại trên iOS
+  VoiceOver, luôn FAILED trên Android) còn sót lại trong `helpers/open-tab-report.yaml`
+  và `homework/HW-26-filter-resets-on-tab-return.yaml` - cùng lỗi đã được fix trước đó ở
+  `helpers/login.yaml`/`helpers/open-tab-homework.yaml`.
+
+**Còn 1 lỗi Android CHƯA sửa** (ghi lại theo đúng chú thích gốc, trước khi HW-02/03/04 được
+gộp thành `homework/HW-02_03_04-filter-lifecycle.yaml`; chưa tự sửa vì cần xác nhận lại trên
+thiết bị thật trước khi đổi selector):
+testID `homework-filter-*` không lộ ra thành Android resource-id, nên selector
+`id: "homework-filter-..."` luôn FAILED trên Android. Ảnh hưởng `homework/HW-26`,
+`report/RP-12`, `RP-25`, `helpers/open-exercise.yaml` - cần đổi sang selector `text:`
+(xem cách `homework/HW-02_03_04-filter-lifecycle.yaml` đã làm) sau khi xác nhận lại trên máy ảo.
+`homework/HW-02_03_04-filter-lifecycle.yaml` (gộp từ HW-02+03+04, xem mục tối ưu bên dưới) đã
+tự dùng selector `text:` nên không còn bị lỗi này.
+
+### Tối ưu bộ testcase tab "Bài tập" (27 -> 17 flow)
+
+27 case HW-01..HW-27 gốc đã được gộp còn 17 flow để giảm số lần login/relaunch lặp lại mà
+không mất coverage - chi tiết mapping, lý do gộp từng cặp case nằm trong các comment đầu mỗi
+file gộp (`HW-02_03_04-filter-lifecycle.yaml`, `HW-07_08_09_10_11-card-matrix.yaml`,
+`HW-12_13-ai-consent-lifecycle.yaml`, `HW-14_15-exercise-lifecycle.yaml`,
+`HW-18_19-role-play-lifecycle.yaml`, `HW-21_22-upgrade-sheet-lifecycle.yaml`). 16 file gốc đã
+gộp được giữ nguyên nội dung tại `homework/_deprecated/` (không nằm trong glob
+`flows/homework/*.yaml` nên không còn được Maestro chạy) để đối chiếu khi cần, không xoá hẳn
+vì thư mục `flows/homework/` tại thời điểm gộp chưa được commit vào git.
+
+Yêu cầu riêng của `exercise/*` (EX-\*): app phải build với `EXPO_PUBLIC_E2E=1` để có
+testID `exercise_answer_{i}_correct/_wrong` (xem `flows/exercise/README.md`) - nếu
+không case sẽ tự skip qua `runFlow.when`, không fail giả.
+
+Case tag `data-dependent` (cần tài khoản có sẵn dữ liệu cụ thể: bài quá hạn, tài khoản
+Pro/Free/rỗng...) có thể fail vì THIẾU DATA, không phải app lỗi - xem
+`flows/homework/TEST-CASES.md` mục điều kiện từng case trước khi báo bug.
 
 ## automation/ - discovery + bridge bài học ngẫu nhiên từ CMS (đang phát triển)
 

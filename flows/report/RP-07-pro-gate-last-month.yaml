@@ -1,0 +1,53 @@
+# RP-07 — Tài khoản FREE chọn "Tháng trước" -> API trả 403
+# Kỳ vọng (iOS): bottom sheet nâng cấp với
+#   - title "Nâng cấp để xem báo cáo tháng và học kỳ của con"
+#   - note  "Báo cáo tháng dành cho tài khoản PRO"  (period lấy từ rangeTimeTemp.type)
+#   - đồng thời màn báo cáo rơi vào isReportEmpty -> nút "Chia sẻ" PHẢI bị ẩn
+# Kỳ vọng (Android + payment bật): sheet Google Play reason study_report
+# Tags: pro-only, negative
+appId: ${APP_ID}
+tags:
+  - pro-only
+  - negative
+name: RP-07 Free account - Thang truoc 403 -> sheet nang cap
+---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: ".*(Tuần trước|Tuần này).*"
+    timeout: 30000
+
+- tapOn:
+    text: ".*(Tuần trước|Tuần này).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Xem báo cáo).*"
+    timeout: 15000
+- tapOn: ".*(Tháng trước).*"
+- tapOn: ".*(Xem).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nâng cấp để xem báo cáo tháng và học kỳ của con|dành cho tài khoản PRO|Nâng cấp tài khoản).*"
+    timeout: 30000
+- takeScreenshot: artifacts/RP-07-pro-gate-month
+
+# Đóng sheet rồi kiểm tra empty state + nút Chia sẻ bị ẩn
+- swipe:
+    start: 50%, 30%
+    end: 50%, 95%
+    duration: 500
+- extendedWaitUntil:
+    visible: ".*(Chưa có báo cáo mới).*"
+    timeout: 20000
+- assertNotVisible: ".*(Chia sẻ).*"
+- takeScreenshot: artifacts/RP-07-empty-no-share

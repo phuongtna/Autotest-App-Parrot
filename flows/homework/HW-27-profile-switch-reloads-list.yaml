@@ -1,0 +1,39 @@
+# HW-27 — Đổi hồ sơ học sinh -> danh sách bài tập nạp lại theo hồ sơ mới
+# Logic code: useEffect([profile]) -> scroll về đầu, setPage(1), fetch lại
+# Cần: tài khoản phụ huynh có >= 2 hồ sơ con
+# Kỳ vọng: sau khi chuyển hồ sơ, toast "Thay đổi tài khoản con thành công!",
+#          tab Bài tập render lại theo dữ liệu hồ sơ mới (tiến độ / danh sách đổi)
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-27 Doi ho so con - reload danh sach bai tap
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+- takeScreenshot: artifacts/HW-27-before-switch
+
+# Mở chọn hồ sơ từ header của tab Bài tập
+- tapOn:
+    text: ".*(Chuyển profile).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Chuyển profile học tập).*"
+    timeout: 15000
+- tapOn:
+    text: ".*(${PROFILE_NAME_B}).*"
+- tapOn:
+    text: ".*(Chuyển profile).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Thay đổi tài khoản con thành công!|Bài tập về nhà|Bạn không có bài tập nào đang chờ.).*"
+    timeout: 40000
+- takeScreenshot: artifacts/HW-27-after-switch

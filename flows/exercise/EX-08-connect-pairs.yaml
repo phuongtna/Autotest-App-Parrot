@@ -1,0 +1,38 @@
+# EX-08 — Câu NỐI (CONNECT): nối lần lượt trái i <-> phải i cho đến hết
+#
+# Giới hạn đã biết: testID của CONNECT chỉ mang VỊ TRÍ (left_i / right_i), không
+# mang tính đúng/sai — cặp đúng do BE quyết định và app chỉ lộ ra sau khi nối.
+# Nên case này KIỂM CƠ CHẾ, không kiểm điểm: nối hết cặp thì footer phải hiện
+# nút tiếp tục và app không crash.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-08 Noi cap - hoan thanh co che
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_0"
+    commands:
+      - repeat:
+          times: 6
+          commands:
+            - tapOn:
+                id: "exercise_connect_left_.*"
+                optional: true
+            - tapOn:
+                id: "exercise_connect_right_.*"
+                optional: true
+
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_check_button"
+          timeout: 20000
+      - takeScreenshot: ../artifacts/EX-08-connect

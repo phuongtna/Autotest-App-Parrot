@@ -1,0 +1,28 @@
+# HW-01 — Tab "Bài tập" load đúng cấu trúc mặc định
+# Kỳ vọng: banner + filter mặc định "2 tuần gần nhất" + tiêu đề "Bài tập" + thanh tiến độ
+# Tags: smoke
+appId: ${APP_ID}
+tags:
+  - smoke
+name: HW-01 Tab Bai tap - load mac dinh
+---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# 1. Filter khoảng thời gian mặc định PHẢI là "2 tuần gần nhất"
+- assertVisible: ".*(2 tuần gần nhất).*"
+
+# 2. Tiêu đề khối
+- assertVisible: ".*(Bài tập).*"
+
+# 3. Không được rơi vào trạng thái lỗi trắng màn hình:
+#    hoặc có danh sách bài, hoặc có empty state chính thức
+- assertVisible:
+    text: ".*(Bài tập về nhà|Bài tập nâng cao|Kiến thức trong bài|Bạn không có bài tập nào đang chờ.).*"
+
+- takeScreenshot: artifacts/HW-01-tab-load

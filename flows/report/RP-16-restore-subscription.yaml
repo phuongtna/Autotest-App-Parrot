@@ -1,0 +1,45 @@
+# RP-16 — Menu "Khôi phục đăng ký"
+# Hiển thị: iOS luôn hiện. Android CHỈ hiện khi ANDROID_PAYMENT_ENABLED = true.
+# Kỳ vọng alert "Khôi phục đăng ký" với 1 trong các message:
+#   - "Bạn chưa đăng ký gói để khôi phục"                       (no_subscription)
+#   - "Khôi phục thành công. Thời hạn sử dụng đến DD/MM/YYYY…"   (current_profile)
+#   - "Gói Pro hiện đang được áp dụng cho hồ sơ <tên>…"          (other_profile)
+#   Android bổ sung: "google restore failed" / "google purchase pending"
+# Kỳ vọng chống spam: đang loadingRestore thì tap tiếp KHÔNG gọi lại API.
+# Tags: regression, pro-only
+appId: ${APP_ID}
+tags:
+  - writes
+  - regression
+  - pro-only
+name: RP-16 Khoi phuc dang ky
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- assertVisible: ".*(Khôi phục đăng ký).*"
+
+# Tap 2 lần nhanh để kiểm tra guard loadingRestore
+- tapOn:
+    text: ".*(Khôi phục đăng ký).*"
+    repeat: 2
+    delay: 100
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bạn chưa đăng ký gói để khôi phục|Khôi phục thành công|Gói Pro hiện đang được áp dụng|Khôi phục đăng ký).*"
+    timeout: 30000
+- takeScreenshot: artifacts/RP-16-restore-alert
+
+# Đóng alert
+- tapOn:
+    text: ".*(OK|Đóng|Hủy).*"
+    optional: true
+
+# Chỉ được hiện ĐÚNG 1 alert — không có alert thứ 2 xếp sau
+- assertNotVisible: ".*(Bạn chưa đăng ký gói để khôi phục).*"

@@ -1,0 +1,28 @@
+# RP-15 — Menu "Thông tin các con"
+# Kỳ vọng: mở /dashboard/children — danh sách con, có back về tab Báo cáo
+# Tags: smoke, regression
+appId: ${APP_ID}
+tags:
+  - smoke
+  - regression
+name: RP-15 Menu Thong tin cac con
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- tapOn: ".*(Thông tin các con).*"
+- extendedWaitUntil:
+    visible:
+      text: ".*(Thông tin các con|Thêm con|Lớp).*"
+    timeout: 25000
+- takeScreenshot: artifacts/RP-15-children
+
+- back
+- extendedWaitUntil:
+    visible: ".*(Quản lý tài khoản).*"
+    timeout: 20000

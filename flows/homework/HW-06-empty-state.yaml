@@ -1,0 +1,23 @@
+# HW-06 — Empty state tab Bài tập
+# Cần: tài khoản KHÔNG có bài tập nào trong khoảng thời gian đang chọn (PHONE_EMPTY)
+# Kỳ vọng: hiện "Bạn không có bài tập nào đang chờ.", tiến độ 0 / 0, không crash
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-06 Empty state - khong co bai tap
+---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- assertVisible: ".*(Bạn không có bài tập nào đang chờ.).*"
+- assertNotVisible: ".*(Bài tập về nhà).*"
+- assertNotVisible: ".*(Bài tập nâng cao).*"
+
+- takeScreenshot: artifacts/HW-06-empty

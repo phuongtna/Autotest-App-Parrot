@@ -1,0 +1,119 @@
+# HW-14_15 — Vòng đời làm bài: thoát giữa chừng bằng X, quay lại TIẾP TỤC đúng bài, làm hết
+# Gộp từ HW-15 (nút X thoát giữa bài -> card đổi thành "Tiếp tục") và HW-14 (làm bài đầy đủ
+# -> màn kết quả). Bản gốc test 2 bài KHÁC NHAU (mỗi case tự chọn card index 0 tại thời điểm
+# chạy của chính nó) nên không chứng minh được "Tiếp tục" có nối ĐÚNG tiến độ của chính bài đã
+# thoát dở hay không. Gộp bằng cách dùng CHÍNH bài vừa thoát dở (HW-15) để bấm "Tiếp tục" và
+# làm hết (HW-14) -> vừa tiết kiệm 1 lần login, vừa thêm được bằng chứng "resume đúng bài" mà
+# 2 file tách rời hiện tại chưa kiểm chứng được.
+# Tags: writes, regression
+appId: ${APP_ID}
+tags:
+  - writes
+  - regression
+name: HW-14_15 Lam bai - thoat giua chung, tiep tuc dung bai, hoan thanh
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# --- HW-15: vào bài, thoát ngay bằng X, xác nhận card đổi thành "Tiếp tục" sau refresh ---
+- scrollUntilVisible:
+    element:
+      text: ".*(Làm bài|Tiếp tục).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: ".*(Làm bài|Tiếp tục).*"
+    index: 0
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Kiểm tra|Tiếp theo|Nhập câu trả lời).*"
+    timeout: 40000
+
+# Bấm nút X ở góc trên trái header (chưa trả lời câu nào)
+- tapOn:
+    point: 8%, 8%
+
+- extendedWaitUntil:
+    visible: ".*(Bài tập).*"
+    timeout: 20000
+
+# Refresh để state doing_answer_id được nạp lại
+- swipe:
+    start: 50%, 35%
+    end: 50%, 85%
+    duration: 600
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bài tập về nhà|Bài tập nâng cao).*"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: ".*(Tiếp tục).*"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: artifacts/HW-15-close-resume
+
+# --- HW-14: tiếp tục ĐÚNG bài vừa thoát dở, làm hết các câu -> màn kết quả ---
+- tapOn:
+    text: ".*(Tiếp tục).*"
+    index: 0
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Kiểm tra|Tiếp theo|Nhập câu trả lời).*"
+    timeout: 40000
+- takeScreenshot: artifacts/HW-14-q1
+
+# Lặp qua tối đa 20 câu: chọn đáp án (nếu là dạng chọn) -> Kiểm tra -> Tiếp theo
+- repeat:
+    times: 20
+    commands:
+      # Dạng điền từ
+      - runFlow:
+          when:
+            visible: ".*(Nhập câu trả lời).*"
+          commands:
+            - tapOn: ".*(Nhập câu trả lời).*"
+            - inputText: "test"
+            - hideKeyboard
+      # Bấm Kiểm tra nếu đang enable
+      - tapOn:
+          text: ".*(Kiểm tra).*"
+          optional: true
+      - tapOn:
+          text: ".*(Tiếp theo).*"
+          optional: true
+      - tapOn:
+          text: ".*(Hoàn thành).*"
+          optional: true
+
+# Màn kết quả
+- extendedWaitUntil:
+    visible:
+      text: ".*(Điểm số|Chính xác|Hoàn thành).*"
+    timeout: 40000
+- takeScreenshot: artifacts/HW-14-result
+
+# Đóng kết quả -> về tab Bài tập
+- tapOn:
+    text: ".*(Hoàn thành).*"
+    optional: true
+- extendedWaitUntil:
+    visible: ".*(Bài tập).*"
+    timeout: 30000

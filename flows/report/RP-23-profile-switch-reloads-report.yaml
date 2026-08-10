@@ -1,0 +1,38 @@
+# RP-23 — Đổi hồ sơ con -> báo cáo tuần nạp lại theo hồ sơ mới
+# Logic code: useFocusEffect([profileId]) gọi lại getStudentAcademicReportAsync
+# Kỳ vọng: tên hồ sơ + lớp trên header đổi, card nhận xét tuần load lại
+#          (nội dung khác hoặc chuyển sang empty state)
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: RP-23 Doi ho so con - reload bao cao tuan
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- takeScreenshot: artifacts/RP-23-before-switch
+
+- tapOn:
+    text: ".*(Chuyển profile).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Chuyển profile học tập).*"
+    timeout: 15000
+- tapOn:
+    text: ".*(${PROFILE_NAME_B}).*"
+- tapOn:
+    text: ".*(Chuyển profile).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Thay đổi tài khoản con thành công!|Xem chi tiết|Chưa có báo cáo mới).*"
+    timeout: 40000
+- assertVisible: ".*(${PROFILE_NAME_B}).*"
+- takeScreenshot: artifacts/RP-23-after-switch

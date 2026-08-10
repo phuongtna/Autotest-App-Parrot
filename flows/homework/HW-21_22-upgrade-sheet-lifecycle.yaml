@@ -1,0 +1,80 @@
+# HW-21_22 — FREE + 403: sheet nâng cấp bài NÂNG CAO, rồi sheet nâng cấp LÀM LẠI
+# Gộp từ HW-21 (bấm "Chinh phục" ở bài nâng cao -> sheet "thực hành nâng cao") và HW-22 (bấm
+# "Làm lại" ở bài đã hoàn thành -> sheet "học không giới hạn"). File HW-22 gốc đã tự
+# assertNotVisible message của HW-21 để tránh lẫn 2 nhánh - nghĩa là ý nghĩa thật của case này
+# là ĐỐI CHIẾU CHÉO 2 message, không phải 2 test độc lập. Chạy trên CÙNG 1 tài khoản FREE
+# trong cùng 1 phiên làm phép đối chiếu này đáng tin hơn so với 2 lần chạy tách biệt.
+#
+# Đóng sheet nâng cấp của HW-21 trước khi sang HW-22: dùng lại helpers/launch-fresh.yaml
+# (chỉ restart tiến trình app, GIỮ session - không cần OTP lại) thay vì đoán gesture/selector
+# đóng riêng cho bottom sheet đó (không có bằng chứng nào trong YAML gốc về cách đóng sheet
+# này). Vẫn tiết kiệm được bước OTP/login so với 2 file tách rời.
+# Tags: pro-only, negative, extended
+appId: ${APP_ID}
+tags:
+  - pro-only
+  - negative
+  - extended
+name: HW-21_22 Free account - sheet nang cap (bai nang cao vs lam lai)
+---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# --- HW-21: FREE + bài NÂNG CAO -> 403 -> sheet "thực hành nâng cao" ---
+- scrollUntilVisible:
+    element:
+      text: ".*(Bài tập nâng cao).*"
+    direction: DOWN
+    timeout: 25000
+- scrollUntilVisible:
+    element:
+      text: ".*(Chinh phục).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: ".*(Chinh phục).*"
+    index: 0
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nâng cấp để con thực hành nâng cao|Bài tập nâng cao dành cho tài khoản PRO|Nâng cấp tài khoản|Không thể bắt đầu làm bài).*"
+    timeout: 30000
+- takeScreenshot: artifacts/HW-21-upgrade-advanced
+
+# Đóng sheet bằng cách restart tiến trình app (giữ session), không đoán gesture đóng sheet
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# --- HW-22: FREE + LÀM LẠI bài đã hoàn thành -> 403 -> sheet "học không giới hạn" ---
+- scrollUntilVisible:
+    element:
+      text: ".*(Làm lại).*"
+    direction: DOWN
+    timeout: 25000
+- tapOn:
+    text: ".*(Làm lại).*"
+    index: 0
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nâng cấp để con tiếp tục học không giới hạn|Làm lại bài tập dành cho tài khoản PRO|Nâng cấp tài khoản|Không thể bắt đầu làm bài).*"
+    timeout: 30000
+- takeScreenshot: artifacts/HW-22-upgrade-redo
+
+# Đối chiếu chéo: message PHẢI KHÔNG phải message của bài nâng cao (cùng tài khoản/phiên)
+- assertNotVisible: ".*(Bài tập nâng cao dành cho tài khoản PRO).*"

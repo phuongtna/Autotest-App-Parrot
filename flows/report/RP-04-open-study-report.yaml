@@ -1,0 +1,30 @@
+# RP-04 — Vào "Báo cáo học tập" từ dòng menu (icon đỏ)
+# Kỳ vọng: mở màn /dashboard/reports/study-report
+#   - header: nút back + tiêu đề "Báo cáo học tập"
+#   - nút "Chia sẻ" ở góc phải CHỈ hiện khi có dữ liệu và không loading
+#   - filter kỳ báo cáo mặc định: "Tuần trước" (thứ 2..6) hoặc "Tuần này" (thứ 7, CN)
+# Tags: smoke
+appId: ${APP_ID}
+tags:
+  - smoke
+name: RP-04 Mo man Bao cao hoc tap
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Tuần trước|Tuần này).*"
+    timeout: 30000
+- assertVisible: ".*(Báo cáo học tập).*"
+
+- takeScreenshot: artifacts/RP-04-study-report

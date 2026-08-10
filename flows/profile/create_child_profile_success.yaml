@@ -1,0 +1,144 @@
+# Testcase: Phụ huynh tạo hồ sơ học tập mới cho con thành công, hồ sơ mới xuất hiện trong danh sách.
+# Tài khoản test: phụ huynh có sẵn (0915775115, đã có 2 hồ sơ con Ngoc và Ha - xem switch_profile_success.yaml).
+# Tên hồ sơ con mới được sinh động (kèm timestamp, xem test_data/create_child_profile_data.js,
+# dùng qua ${output.CHILD_NAME}) để tránh trùng với hồ sơ tạo ra ở lần chạy trước.
+#
+# Lưu ý selector "Chọn trường" / "Khối học" / "Lớp": các lựa chọn hiển thị dạng radio vẽ bằng SVG
+# (com.horcrux.svg), không phải RadioButton/Checkbox chuẩn Android, và KHÔNG nhận tap vào text hay
+# vào vùng cha có attribute "clickable" bao ngoài - đã verify bằng `maestro hierarchy` + screenshot:
+# tapOn theo text hoặc theo `leftOf` không đổi trạng thái chọn (radio vẫn rỗng, nút "Xác nhận" vẫn
+# disable). Chỉ tap trúng chính icon radio (~63x63px) mới đổi trạng thái. Vì vậy 3 bước chọn Trường
+# học/Khối học/Lớp dưới đây dùng tapOn: point theo toạ độ đã xác định thực tế trên màn hình
+# 1080x2340 (không đoán).
+#
+# Lưu ý thêm: tap vào đúng icon radio đó vẫn có tỉ lệ flaky (verify bằng cách lặp lại tapOn cùng 1
+# toạ độ nhiều lần trên cùng 1 trạng thái màn hình - có lần ăn ngay, có lần phải tap lần 2 mới ăn,
+# dù màn hình/animation đã đứng yên hoàn toàn). Vì vậy mỗi tapOn: point dưới đây được lặp lại 2 lần
+# liên tiếp để tăng độ tin cậy (tap lại vào radio đã chọn không làm mất lựa chọn), và sau khi bấm
+# "Xác nhận" luôn có bước extendedWaitUntil: notVisible kiểm tra popup đã đóng thật (không phải cứ
+# bấm xong là coi như thành công) - nếu chọn vẫn thất bại thì bước này sẽ FAIL rõ ràng thay vì pass giả.
+#
+# Chạy: maestro test flows/profile/create_child_profile_success.yaml -e APP_ID=com.inet.parrotedu -e PHONE_NUMBER=0915775115 -e OTP_CODE=888888
+appId: ${APP_ID}
+---
+- runFlow: ../subflows/launch_app.yaml
+- runScript: ../../test_data/create_child_profile_data.js
+
+# Đăng nhập bằng tài khoản phụ huynh
+- tapOn: "Nhập số điện thoại"
+- inputText: ${PHONE_NUMBER}
+- tapOn: "Đăng nhập"
+- extendedWaitUntil:
+    visible:
+      text: "Xác thực OTP"
+    timeout: 10000
+- tapOn:
+    below: "Đổi số điện thoại"
+    above: "Xác nhận"
+- inputText: ${OTP_CODE}
+- tapOn: "Xác nhận"
+
+# App đôi khi hiện popup "Cập nhật phiên bản mới" che tab bar ngay sau khi đăng nhập - bấm "Để sau"
+# nếu popup này xuất hiện (không liên quan tới testcase, chỉ là interstitial ngẫu nhiên của app).
+- runFlow:
+    when:
+      visible: "Cập nhật phiên bản mới"
+    commands:
+      - tapOn: "Để sau"
+
+- extendedWaitUntil:
+    visible:
+      text: "Vui học"
+    timeout: 15000
+
+# Báo cáo -> Thông tin các con -> Thêm hồ sơ mới
+- tapOn: "Báo cáo"
+- tapOn: "Thông tin các con"
+- tapOn: "Thêm hồ sơ mới"
+
+# Nhập Họ tên (tên generate động, tránh trùng dữ liệu cũ)
+- tapOn: "Đầy đủ họ tên con"
+- inputText: ${output.CHILD_NAME}
+- hideKeyboard
+
+# Chọn Năm sinh (chọn 1 năm hợp lệ hiển thị sẵn trong picker)
+- tapOn: "Chọn năm sinh của con"
+- tapOn: "2016"
+- tapOn: "Xác nhận"
+
+# Chọn Trường học: "Trường THCS Xuân La" (tìm kiếm để ra đúng 1 kết quả rồi chọn)
+- tapOn: "Chọn trường"
+- waitForAnimationToEnd
+- tapOn: "Tìm kiếm tên trường"
+- inputText: "Xuân La"
+- extendedWaitUntil:
+    visible:
+      text: "Trường THCS Xuân La"
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    point: "84,978"
+- tapOn:
+    point: "84,978"
+- tapOn: "Xác nhận"
+- extendedWaitUntil:
+    notVisible:
+      text: "Tìm kiếm tên trường"
+    timeout: 10000
+
+# Chọn Khối học: "Lớp 9" (bottom sheet cố định 5 dòng: 12,11,10,9,8 - "Lớp 9" luôn ở dòng thứ 4)
+- tapOn: "Chọn khối"
+- extendedWaitUntil:
+    visible:
+      text: "Lớp 9"
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    point: "84,1939"
+- tapOn:
+    point: "84,1939"
+- tapOn: "Xác nhận"
+- extendedWaitUntil:
+    notVisible:
+      text: "Lớp 12"
+    timeout: 10000
+
+# Chọn Lớp: "9D" (Trường + Khối này chỉ có đúng 1 lớp, hiển thị luôn trên form - không phải popup)
+- scroll
+- extendedWaitUntil:
+    visible:
+      text: "9D"
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    point: "115,1920"
+- tapOn:
+    point: "115,1920"
+
+# Bấm "Thêm hồ sơ mới" để submit
+# Lưu ý: "Thêm hồ sơ mới" cũng là text của nút "thêm hồ sơ" ở màn danh sách "Thông tin các con",
+# nên không dùng notVisible: "Thêm hồ sơ mới" để chờ rời form (không bao giờ đúng) - dùng
+# "Thông tin cơ bản" (tiêu đề section chỉ có ở form tạo/sửa hồ sơ) để chờ rời form thay thế.
+- tapOn: "Thêm hồ sơ mới"
+- extendedWaitUntil:
+    notVisible:
+      text: "Thông tin cơ bản"
+    timeout: 15000
+- takeScreenshot: create_child_profile_after_submit
+
+# Expected (ưu tiên): quay về "Thông tin các con" và hồ sơ mới xuất hiện trong danh sách.
+- runFlow:
+    when:
+      visible: "Thông tin các con"
+    commands:
+      - assertVisible: ${output.CHILD_NAME}
+      - takeScreenshot: create_child_profile_success_direct_list
+
+# Nếu không tự quay về danh sách "Thông tin các con": bấm "Chuyển profile" rồi verify hồ sơ mới ở đó.
+- runFlow:
+    when:
+      notVisible: "Thông tin các con"
+    commands:
+      - tapOn: "Chuyển profile"
+      - assertVisible: ${output.CHILD_NAME}
+      - takeScreenshot: create_child_profile_success_switch_profile

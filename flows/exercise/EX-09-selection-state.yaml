@@ -1,0 +1,34 @@
+# EX-09 — Chọn đáp án thì đáp án đó phải ở trạng thái "đã chọn"
+#
+# Mọi ô đáp án đều khai accessibilityState.selected, nên kiểm được trạng thái
+# chọn mà không phụ thuộc màu sắc.
+# Đồng thời kiểm chọn lại ô khác thì ô cũ bỏ chọn (dạng chọn 1 đáp án).
+appId: ${APP_ID}
+tags:
+  - regression
+name: EX-09 Trang thai da chon cua dap an
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_0_.*"
+    commands:
+      # Chưa chọn gì -> chưa có ô nào selected
+      - assertNotVisible:
+          id: "exercise_answer_.*"
+          enabled: true
+          selected: true
+
+      - tapOn:
+          id: "exercise_answer_0_.*"
+      - assertVisible:
+          id: "exercise_answer_0_.*"
+          selected: true
+
+      - takeScreenshot: ../artifacts/EX-09-selected

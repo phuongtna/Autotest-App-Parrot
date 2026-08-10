@@ -1,0 +1,52 @@
+# HW-13 — Từ chối consent AI ("Để sau")
+# Kỳ vọng: dialog đóng, KHÔNG điều hướng sang màn làm bài, vẫn ở tab Bài tập,
+#          và nút "Làm bài" tap lại được (khoá chống spam đã mở lại — isStartingExerciseRef=false)
+# Tags: regression, negative
+appId: ${APP_ID}
+tags:
+  - needs-login
+  - writes
+  - regression
+  - negative
+name: HW-13 AI consent - tu choi (De sau)
+---
+- runFlow: ../helpers/launch-wipe.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Làm bài|Tiếp tục|Chinh phục).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: ".*(Làm bài|Tiếp tục|Chinh phục).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible: ".*(AI hỗ trợ học tập).*"
+    timeout: 15000
+- tapOn: ".*(Để sau).*"
+
+- extendedWaitUntil:
+    notVisible: "AI hỗ trợ học tập"
+    timeout: 10000
+
+# Vẫn ở tab Bài tập
+- assertVisible: ".*(Bài tập).*"
+- assertNotVisible: ".*(Kiểm tra).*"
+
+# Tap lại lần 2 -> dialog PHẢI hiện lại (chứng minh khoá spam đã nhả)
+- tapOn:
+    text: ".*(Làm bài|Tiếp tục|Chinh phục).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(AI hỗ trợ học tập).*"
+    timeout: 15000
+- tapOn: ".*(Để sau).*"
+
+- takeScreenshot: artifacts/HW-13-consent-decline

@@ -1,0 +1,46 @@
+# EX-03 — Sai -> "Thử lại" -> chọn đúng -> báo "Chính xác"
+# Kiểm tra: sau khi bấm Thử lại, đáp án được mở lại cho chọn (isCheckAnswer reset).
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-03 Sai roi thu lai chon dung
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_.*_wrong"
+    commands:
+      - tapOn:
+          id: "exercise_answer_.*_wrong"
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_incorrect"
+          timeout: 15000
+
+      # Thử lại
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          notVisible:
+            id: "exercise_result_incorrect"
+          timeout: 15000
+
+      # Lần 2 chọn đúng
+      - tapOn:
+          id: "exercise_answer_.*_correct"
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_correct"
+          timeout: 15000
+      - takeScreenshot: ../artifacts/EX-03-retry-correct

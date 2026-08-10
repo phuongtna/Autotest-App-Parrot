@@ -1,0 +1,56 @@
+# RP-06 — Đổi kỳ sang "Tuần này" và bấm "Xem"
+# Kỳ vọng:
+#   - sheet đóng, nhãn filter đổi thành "Tuần này"
+#   - tiêu đề kỳ đổi theo periodKey: "Báo cáo học tập tuần <n> - Tháng <mm>/<yyyy>"
+#   - nội dung reload (Nhận xét chung / Kết quả học tập / Chuyên cần hoặc empty state)
+# Tags: smoke, regression
+appId: ${APP_ID}
+tags:
+  - smoke
+  - regression
+name: RP-06 Doi ky sang Tuan nay
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: ".*(Tuần trước|Tuần này).*"
+    timeout: 30000
+
+- tapOn:
+    text: ".*(Tuần trước|Tuần này).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Xem báo cáo).*"
+    timeout: 15000
+- tapOn:
+    text: ".*(Tuần này).*"
+    index: 0
+- tapOn: ".*(Xem).*"
+
+- extendedWaitUntil:
+    notVisible: "Xem báo cáo"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: ".*(Tuần này).*"
+    timeout: 30000
+
+# Tiêu đề kỳ theo tuần
+- assertVisible:
+    text: ".*Báo cáo học tập tuần.*"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nhận xét chung|Kết quả học tập|Chuyên cần|Chưa có báo cáo mới).*"
+    timeout: 30000
+
+- takeScreenshot: artifacts/RP-06-current-week

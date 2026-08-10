@@ -1,0 +1,20 @@
+# Helper: khởi động lại app từ đầu (kill process + mở lại), GIỮ session.
+#
+# Trước đây helper này dùng `clearState: true`. Sai mục đích:
+#   - Các case cần "trạng thái sạch" thực chất chỉ cần app vào lại từ màn đầu
+#     (kiểm tra useFocusEffect chạy lần đầu, filter về mặc định, tab load).
+#   - `clearState` xoá cả session -> phải đăng nhập lại bằng OTP thật, không tự
+#     động được, và làm mất luôn phiên đang test.
+#
+# Case nào THỰC SỰ cần xoá dữ liệu app (vd cờ đồng ý AI đã lưu) thì dùng
+# helpers/launch-wipe.yaml và phải có OTP hợp lệ.
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      text: ".*(Đăng nhập|Vui học|Bài tập|Báo cáo).*"
+    timeout: 40000

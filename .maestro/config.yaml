@@ -6,3 +6,6 @@ flows:
   - "flows/vui_hoc/*.yaml"
   - "flows/profile/*.yaml"
   - "flows/bai_tap/*.yaml"
+  - "flows/homework/*.yaml"
+  - "flows/exercise/*.yaml"
+  - "flows/report/*.yaml"

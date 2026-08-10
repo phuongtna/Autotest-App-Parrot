@@ -1,0 +1,28 @@
+# RP-13 — Nút "Chia sẻ" bị ẩn khi báo cáo rỗng hoặc đang loading
+# Logic code: isShowRightIcon={!isReportEmpty && !isLoading}
+# Kỳ vọng: tài khoản/kỳ không có dữ liệu -> thấy "Chưa có báo cáo mới" và KHÔNG có nút "Chia sẻ"
+# Tags: regression, negative, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - negative
+  - data-dependent
+name: RP-13 An nut Chia se khi bao cao rong
+---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible: ".*(Chưa có báo cáo mới).*"
+    timeout: 30000
+- assertNotVisible: ".*(Chia sẻ).*"
+
+- takeScreenshot: artifacts/RP-13-no-share

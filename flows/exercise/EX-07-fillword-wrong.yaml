@@ -1,0 +1,33 @@
+# EX-07 — Câu ĐIỀN TỪ (FILL_WORD): nhập từ chắc chắn sai -> báo SAI
+#
+# Không thể tự sinh case "điền đúng": đáp án nằm ở BE, testID không mang nội
+# dung đáp án. Muốn test nhánh đúng cần đề seed cố định — xem README.md.
+appId: ${APP_ID}
+tags:
+  - regression
+  - negative
+  - writes
+name: EX-07 Dien tu sai - bao sai
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_fillword_input"
+    commands:
+      - tapOn:
+          id: "exercise_fillword_input"
+      - inputText: "zzqqxx"
+      - tapOn:
+          id: "exercise_fillword_check_button"
+
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_incorrect"
+          timeout: 20000
+      - takeScreenshot: ../artifacts/EX-07-fillword-wrong

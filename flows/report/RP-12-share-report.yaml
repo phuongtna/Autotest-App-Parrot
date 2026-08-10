@@ -1,0 +1,36 @@
+# RP-12 — Chia sẻ báo cáo
+# Kỳ vọng: bấm "Chia sẻ" -> gọi shareStudentAcademicReportAsync -> mở share sheet hệ điều hành
+#          với link dạng <apiUrl>/parent-share/academic-report/<token>?period_type=<kỳ>
+# Kiểm chứng thủ công: dán link vào browser -> mở được trang báo cáo đúng kỳ.
+# Tags: regression
+appId: ${APP_ID}
+tags:
+  - writes
+  - regression
+name: RP-12 Chia se bao cao
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Chia sẻ).*"
+    timeout: 30000
+
+- tapOn: ".*(Chia sẻ).*"
+
+# Share sheet của OS (iOS: "Copy"/"Sao chép"; Android: "Share"/"Chia sẻ với")
+- extendedWaitUntil:
+    visible:
+      text: ".*(Copy|Sao chép|Chia sẻ|Share|AirDrop|Messages|Tin nhắn).*"
+    timeout: 25000
+- takeScreenshot: artifacts/RP-12-share-sheet
+
+# Đóng share sheet
+- back

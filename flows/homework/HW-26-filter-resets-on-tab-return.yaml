@@ -1,0 +1,47 @@
+# HW-26 — Filter RESET về "2 tuần gần nhất" khi rời tab rồi quay lại
+# Logic code: useFocusEffect với hasFocusedOnce -> mỗi lần focus lại tab thì
+#             setRangeTimeSelected(rangeTimes[0]) và fetch lại từ trang 1.
+# Kỳ vọng: đổi sang "1 tháng gần nhất" -> sang tab khác -> quay lại tab Bài tập
+#          -> nhãn filter trở về "2 tuần gần nhất"
+# GHI CHÚ: đây là hành vi theo code hiện tại. Nếu PO mong muốn GIỮ filter thì đây là defect
+#          — QA ghi vào cột "Ghi nhận" chứ không tự sửa kỳ vọng.
+# Tags: regression
+appId: ${APP_ID}
+tags:
+  - regression
+name: HW-26 Filter reset khi quay lai tab
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- tapOn:
+    id: "homework-filter-trigger"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+- tapOn:
+    id: "homework-filter-option-MONTH"
+- tapOn:
+    id: "homework-filter-apply"
+- extendedWaitUntil:
+    visible: ".*(1 tháng gần nhất).*"
+    timeout: 20000
+
+# Rời tab rồi quay lại
+# (không dùng hậu tố ", tab" - chỉ có trên iOS VoiceOver, xem ghi chú trong
+# helpers/open-tab-homework.yaml)
+- tapOn:
+    text: "Vui học"
+- extendedWaitUntil:
+    visible: "Bài tập"
+    timeout: 20000
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# useFocusEffect reset filter về mặc định mỗi lần focus lại tab
+- assertVisible: ".*(2 tuần gần nhất).*"
+- takeScreenshot: artifacts/HW-26-filter-reset

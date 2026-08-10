@@ -47,6 +47,9 @@ maestro test "$TARGET" \
   -e PHONE_NUMBER="${PHONE_NUMBER:-}" \
   -e OTP_CODE="${OTP_CODE:-}" \
   -e UNREGISTERED_PHONE_NUMBER="${UNREGISTERED_PHONE_NUMBER:-}" \
+  -e PHONE="${PHONE:-}" \
+  -e OTP="${OTP:-}" \
+  -e PROFILE_NAME_B="${PROFILE_NAME_B:-}" \
   --format junit \
   --output "$REPORT_DIR/report.xml"
 

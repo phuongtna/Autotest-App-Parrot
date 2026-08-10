@@ -1,0 +1,61 @@
+# HW-18_19 — Bài tập ROLE-PLAY: lịch sử hội thoại TRƯỚC, mở phiên mới SAU
+# Gộp từ HW-19 (lịch sử hội thoại của bài role-play đã hoàn thành) và HW-18 (mở phiên mới ->
+# vào màn intro, không tạo exam). Cùng dùng 1 card role-play trên cùng account.
+#
+# THỨ TỰ: chạy HW-19 trước vì nó dùng nút "Xem bài đã làm" ngay trên card (không cần mở phiên
+# gì trước), rồi dùng lệnh `back` (đã dùng ở HW-17 gốc, không phải selector suy đoán) để quay
+# lại tab trước khi mở phiên mới ở HW-18. Nếu làm ngược lại (HW-18 trước) sẽ cần 1 selector
+# "đóng màn intro role-play" mà không file gốc nào cung cấp bằng chứng - tránh đoán selector.
+# Tags: writes, regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - writes
+  - regression
+  - data-dependent
+name: HW-18_19 Bai tap role-play - lich su truoc, mo phien sau
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*Trò chuyện cùng Parrot.*"
+    direction: DOWN
+    timeout: 25000
+- takeScreenshot: artifacts/HW-18-roleplay-card
+
+# --- HW-19: Lịch sử hội thoại (card role-play đã hoàn thành sẵn) ---
+- tapOn:
+    text: ".*(Xem bài đã làm).*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      text: ".*(Lịch sử hội thoại|Xem nhận xét|Xem lại cuộc hội thoại|Trò chuyện lại).*"
+    timeout: 30000
+- takeScreenshot: artifacts/HW-19-roleplay-history
+
+- back
+- extendedWaitUntil:
+    visible: ".*Trò chuyện cùng Parrot.*"
+    timeout: 20000
+
+# --- HW-18: Mở phiên role-play mới -> vào intro (không đi qua createExam) ---
+- tapOn:
+    text: ".*(Làm bài|Tiếp tục|Chinh phục|Làm lại).*"
+    index: 0
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Từ vựng|Nhiệm vụ hoàn thành|Trò chuyện cùng Parrot|Bắt đầu).*"
+    timeout: 45000
+- takeScreenshot: artifacts/HW-18-roleplay-intro

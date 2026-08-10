@@ -1,0 +1,41 @@
+# RP-20 — Đăng xuất THẬT (xác nhận)
+# Kỳ vọng: unregister FCM token -> gọi logoutAsync -> signOut -> về màn Đăng nhập
+# CẢNH BÁO: case này phá session. Đã gắn tag "destructive" và bị loại khỏi
+#           bộ regression mặc định (xem excludeTags trong config.yaml).
+#           Chạy riêng bằng: maestro test .maestro/report/RP-20-logout-confirm.yaml
+# Tags: destructive, regression
+appId: ${APP_ID}
+tags:
+  - writes
+  - destructive
+  - regression
+name: RP-20 Dang xuat - xac nhan
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Đăng xuất).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*(Đăng xuất).*"
+- extendedWaitUntil:
+    visible: ".*(Bạn có thật sự muốn đăng xuất khỏi ứng dụng?).*"
+    timeout: 15000
+- tapOn:
+    text: ".*(Đăng xuất|Đồng ý|OK|Xác nhận).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nhập số điện thoại|Đăng nhập).*"
+    timeout: 40000
+- assertNotVisible: ".*(Quản lý tài khoản).*"
+
+- takeScreenshot: artifacts/RP-20-logged-out

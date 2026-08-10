@@ -1,0 +1,79 @@
+# Helper: mở 1 bài tập và dừng lại ở màn LÀM BÀI (app/dashboard/exercise/doing.tsx).
+#
+# Kết thúc helper: đang ở câu hỏi đầu tiên, footer đã render nút
+# exercise_check_button ("Kiểm tra" / "Tiếp tục").
+#
+# Tham số: PHONE, OTP
+#
+# DEVICE_MODE=true  -> bỏ qua launchApp + login.
+#   Maestro 2.8.0 chưa implement launchApp cho iPhone thật (NotImplementedError),
+#   nên khi chạy máy thật app phải được mở sẵn và đã đăng nhập.
+#   Chạy:  maestro --device <UDID> test --apple-team-id <TEAM> -e DEVICE_MODE=true ...
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      true: ${DEVICE_MODE != 'true'}
+    commands:
+      - runFlow: launch-keep-session.yaml
+      - runFlow:
+          file: login.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+# Máy thật: không launchApp được nên state rớt lại từ case trước (app có thể
+# đang đứng ở màn làm bài / màn kết quả). Đưa về tab bar trước khi điều hướng.
+- runFlow:
+    when:
+      true: ${DEVICE_MODE == 'true'}
+    commands:
+      - tapOn:
+          id: "exercise_close_button"
+          optional: true
+      - tapOn:
+          id: "exercise_show_answer_next_button"
+          optional: true
+      - tapOn:
+          text: ".*(Hoàn thành|Đóng).*"
+          optional: true
+
+- runFlow: open-tab-homework.yaml
+
+# Nhắm ĐÚNG bài cần mở, không tap theo index.
+#
+# Vì sao: danh sách bài tập của tài khoản test phần lớn là bài ĐÃ LÀM (nút "Làm
+# lại"), chỉ còn 1 bài dạng SPEAK mang nhãn "Tiếp tục". Nếu tap theo index thì
+# luôn rơi vào bài SPEAK — dạng không có đáp án để tap, mọi case chọn đáp án
+# thành vô nghĩa. EXERCISE_NAME mặc định trỏ tới bài dạng chọn đáp án.
+- scrollUntilVisible:
+    element:
+      text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: ".*(Làm bài|Làm lại|Tiếp tục).*"
+    below:
+      text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+
+# Consent AI nếu tài khoản chưa đồng ý
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+# Chốt: đã vào màn làm bài
+- extendedWaitUntil:
+    visible:
+      id: "exercise_close_button"
+    timeout: 40000
+# Nội dung câu hỏi load qua 2 API (answer detail -> exam detail); trên máy thật
+# mạng thật có thể mất khá lâu, nên nới timeout.
+#
+# KHÔNG chốt bằng exercise_check_button: câu dạng SPEAK không render footer đó
+# (nó dùng AudioRecorderSection), câu FILL_WORD chỉ hiện nút khi bàn phím mở.
+# Chốt bằng nhãn của mọi dạng câu để helper dùng được cho cả bộ.
+- extendedWaitUntil:
+    visible:
+      text: ".*(Kiểm tra|Tiếp theo|Tiếp tục|Nhấn để nói|Nhập câu trả lời).*"
+    timeout: 90000

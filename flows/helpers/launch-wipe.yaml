@@ -1,0 +1,15 @@
+# Helper: xoá sạch dữ liệu app rồi mở lại (ĐĂNG XUẤT).
+#
+# Chỉ dùng cho case bắt buộc phải có state trắng, ví dụ dialog đồng ý AI chỉ hiện
+# lần đầu. Sau helper này PHẢI gọi helpers/login.yaml với PHONE + OTP hợp lệ,
+# nếu không toàn bộ case sau sẽ fail vì mất session.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible:
+      text: ".*(Đăng nhập|Chào mừng bạn đến với ParrotEdu!|Vui học|Bài tập).*"
+    timeout: 40000

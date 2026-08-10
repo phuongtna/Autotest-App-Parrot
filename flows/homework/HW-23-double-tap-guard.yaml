@@ -1,0 +1,53 @@
+# HW-23 — Chống spam tap nút "Làm bài" (isStartingExerciseRef)
+# Kỳ vọng: tap 3 lần liên tiếp rất nhanh -> CHỈ tạo 1 phiên làm bài, chỉ push 1 lần.
+#          Sau khi vào màn làm bài, bấm X 1 lần PHẢI quay ngay về tab Bài tập
+#          (nếu bị push 2 lần thì phải bấm X 2 lần -> case FAIL).
+# Tags: regression, negative
+appId: ${APP_ID}
+tags:
+  - writes
+  - regression
+  - negative
+name: HW-23 Chong spam tap Lam bai
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Làm bài|Tiếp tục).*"
+    direction: DOWN
+    timeout: 20000
+
+# 3 tap liên tiếp, không chờ giữa các tap
+- tapOn:
+    text: ".*(Làm bài|Tiếp tục).*"
+    index: 0
+    repeat: 3
+    delay: 60
+
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Kiểm tra|Tiếp theo|Nhập câu trả lời).*"
+    timeout: 40000
+
+# Bấm X đúng 1 lần -> phải về tab Bài tập ngay
+- tapOn:
+    point: 8%, 8%
+- extendedWaitUntil:
+    visible: ".*(Bài tập về nhà).*"
+    timeout: 20000
+- assertNotVisible: ".*(Kiểm tra).*"
+
+- takeScreenshot: artifacts/HW-23-double-tap-guard

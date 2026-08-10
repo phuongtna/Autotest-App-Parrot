@@ -1,0 +1,57 @@
+# EX-11 — Thoát giữa bài rồi vào lại: phải tiếp tục ở câu chưa làm, không mất tiến độ
+#
+# Nguồn kỳ vọng: getExam() trong app/dashboard/exercise/doing.tsx tìm
+# nextIndex = câu đầu tiên chưa có trong answer đã lưu; nếu làm hết thì reset về câu 1.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-11 Thoat giua bai roi vao lai
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# Làm xong câu 1
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_.*_correct"
+    commands:
+      - tapOn:
+          id: "exercise_answer_.*_correct"
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_correct"
+          timeout: 15000
+      - tapOn:
+          id: "exercise_check_button"
+
+- takeScreenshot: ../artifacts/EX-11-before-close
+
+# Thoát
+- tapOn:
+    id: "exercise_close_button"
+- extendedWaitUntil:
+    visible: ".*(Bài tập).*"
+    timeout: 30000
+
+# Vào lại cùng bài
+- scrollUntilVisible:
+    element:
+      text: ".*(Làm bài|Tiếp tục).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: ".*(Làm bài|Tiếp tục).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      id: "exercise_check_button"
+    timeout: 40000
+- takeScreenshot: ../artifacts/EX-11-after-resume

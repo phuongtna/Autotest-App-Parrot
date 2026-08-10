@@ -1,0 +1,44 @@
+# RP-24 — Mất mạng / API lỗi ở tab Báo cáo
+# Cách chạy: bật chế độ máy bay (hoặc chặn mạng) TRƯỚC khi chạy flow.
+# Kỳ vọng theo code: result.error -> setWeeklyReport(null) -> empty state "Chưa có báo cáo mới";
+#          vào màn Báo cáo học tập -> isReportEmpty=true -> empty state + ẩn "Chia sẻ";
+#          KHÔNG crash, tab bar vẫn dùng được.
+# GHI CHÚ CHẤT LƯỢNG: lỗi mạng hiển thị giống hệt "chưa có báo cáo" -> phụ huynh không
+#          phân biệt được. Ghi nhận là defect UX nếu sản phẩm yêu cầu thông báo lỗi riêng.
+# Tags: negative
+appId: ${APP_ID}
+tags:
+  - negative
+name: RP-24 Loi API/offline tab Bao cao
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- tapOn:
+    text: ".*(Báo cáo).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Chưa có báo cáo mới|Xem chi tiết).*"
+    timeout: 40000
+- takeScreenshot: artifacts/RP-24-offline-tab
+
+- tapOn:
+    text: ".*(Báo cáo học tập).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Chưa có báo cáo mới).*"
+    timeout: 40000
+- assertNotVisible: ".*(Chia sẻ).*"
+- takeScreenshot: artifacts/RP-24-offline-detail
+
+# App vẫn sống
+- tapOn:
+    point: 6%, 8%
+- extendedWaitUntil:
+    visible: ".*(Quản lý tài khoản).*"
+    timeout: 25000

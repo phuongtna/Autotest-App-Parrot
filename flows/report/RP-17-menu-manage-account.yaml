@@ -1,0 +1,36 @@
+# RP-17 — Menu "Quản lý tài khoản"
+# Kỳ vọng:
+#   - dưới tiêu đề menu hiện số điện thoại của user (menu.phone = user?.phone)
+#   - bấm vào -> mở /dashboard/profiles/manage
+# Tags: smoke, regression
+appId: ${APP_ID}
+tags:
+  - smoke
+  - regression
+name: RP-17 Menu Quan ly tai khoan
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- assertVisible: ".*(Quản lý tài khoản).*"
+# Số điện thoại phải hiện ngay dưới nhãn menu
+- assertVisible:
+    text: ".*(${PHONE}).*"
+- takeScreenshot: artifacts/RP-17-manage-row
+
+- tapOn: ".*(Quản lý tài khoản).*"
+- extendedWaitUntil:
+    visible:
+      text: ".*(Quản lý tài khoản|Thêm hồ sơ|Hồ sơ).*"
+    timeout: 25000
+- takeScreenshot: artifacts/RP-17-manage-screen
+
+- back
+- extendedWaitUntil:
+    visible: ".*(Thông tin các con).*"
+    timeout: 20000

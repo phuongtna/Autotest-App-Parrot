@@ -1,0 +1,39 @@
+# Helper: mở sheet filter tab Bài tập, chọn "1 tháng gần nhất", bấm "Xem", chờ áp dụng +
+# danh sách reload xong.
+#
+# Tách riêng thành helper dùng chung giữa:
+#   - flows/homework/HW-02_03_04-filter-lifecycle.yaml (chạy qua `maestro test` bình thường,
+#     tag smoke/regression)
+#   - flows/homework/hw03-verify-filter-dates.js (script Node cần dừng lại NGAY SAU bước này
+#     để đọc `maestro hierarchy` thật và verify Hạn nộp - không gọi được "giữa chừng" 1 file
+#     .yaml khác qua `maestro test`, nên cần 1 file riêng để cả 2 nơi cùng gọi thay vì
+#     copy-paste lại chuỗi thao tác)
+#
+# Tiền đề: SHEET FILTER "Xem bài tập theo" ĐANG MỞ SẴN (helper này không tự mở sheet - nơi gọi
+# có thể đã mở sheet từ trước cho mục đích khác, như HW-02 kiểm tra cấu trúc sheet ngay trước
+# khi gọi helper này, nên không nên đóng rồi mở lại tốn thêm 1 vòng thao tác).
+# Kết thúc: sheet đóng, nhãn filter = "1 tháng gần nhất", danh sách đã reload xong.
+#
+# LƯU Ý: testID `homework-filter-*` không lộ ra thành Android resource-id (đã kiểm tra bằng
+# `uiautomator dump` - xem ghi chú gốc trong lịch sử HW-02/HW-03/HW-04) -> dùng selector text
+# thay cho id.
+appId: ${APP_ID}
+---
+- tapOn:
+    text: ".*(1 tháng gần nhất).*"
+- tapOn:
+    text: "Xem"
+
+- extendedWaitUntil:
+    notVisible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+
+- extendedWaitUntil:
+    visible: ".*(1 tháng gần nhất).*"
+    timeout: 20000
+- assertNotVisible: ".*(2 tuần gần nhất).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bài tập về nhà|Bài tập nâng cao|Kiến thức trong bài|Bạn không có bài tập nào đang chờ).*"
+    timeout: 30000

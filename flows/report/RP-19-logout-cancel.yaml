@@ -1,0 +1,41 @@
+# RP-19 — Bấm "Đăng xuất" rồi HỦY ở dialog xác nhận
+# Kỳ vọng: dialog "Bạn có thật sự muốn đăng nhập khỏi ứng dụng?" (key ask_sign_out:
+#          "Bạn có thật sự muốn đăng xuất khỏi ứng dụng?")
+#          bấm Hủy -> KHÔNG đăng xuất, vẫn ở tab Báo cáo, session còn nguyên
+# Tags: regression, negative
+appId: ${APP_ID}
+tags:
+  - regression
+  - negative
+name: RP-19 Dang xuat - huy o dialog
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Đăng xuất).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*(Đăng xuất).*"
+
+- extendedWaitUntil:
+    visible: ".*(Bạn có thật sự muốn đăng xuất khỏi ứng dụng?).*"
+    timeout: 15000
+- takeScreenshot: artifacts/RP-19-logout-confirm
+
+- tapOn:
+    text: ".*(Hủy|Huỷ|Không|Đóng|Cancel).*"
+
+- extendedWaitUntil:
+    notVisible: "Bạn có thật sự muốn đăng xuất khỏi ứng dụng?"
+    timeout: 15000
+
+# Vẫn đăng nhập
+- assertVisible: ".*(Quản lý tài khoản).*"
+- assertNotVisible: ".*(Nhập số điện thoại).*"

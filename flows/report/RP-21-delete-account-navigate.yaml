@@ -1,0 +1,35 @@
+# RP-21 — Link "Xóa tài khoản" ở cuối tab Báo cáo
+# Kỳ vọng: mở /dashboard/delete-account. Flow này CHỈ kiểm tra điều hướng +
+#          có bước xác nhận, KHÔNG bấm xoá thật.
+# CẢNH BÁO QA: tuyệt đối KHÔNG xác nhận xoá trên tài khoản test dùng chung.
+# Tags: regression
+appId: ${APP_ID}
+tags:
+  - regression
+name: RP-21 Xoa tai khoan - chi kiem tra dieu huong
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Xóa tài khoản).*"
+    direction: DOWN
+    timeout: 25000
+- tapOn: ".*(Xóa tài khoản).*"
+
+- extendedWaitUntil:
+    visible: ".*(Xóa tài khoản).*"
+    timeout: 25000
+- takeScreenshot: artifacts/RP-21-delete-account-screen
+
+# Rời màn ngay, không xác nhận xoá
+- back
+- extendedWaitUntil:
+    visible: ".*(Quản lý tài khoản).*"
+    timeout: 20000

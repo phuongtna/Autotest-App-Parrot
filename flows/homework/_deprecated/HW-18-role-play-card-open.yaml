@@ -1,0 +1,42 @@
+# HW-18 — Bài tập dạng ROLE-PLAY trên tab Bài tập
+# Kỳ vọng:
+#   - card có tiêu đề "Trò chuyện cùng Parrot: <tên bài>"
+#   - card role-play KHÔNG hiện thanh tiến độ câu (item_type === "role_play")
+#   - bấm nút -> vào màn intro role-play (không đi qua createExam)
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - writes
+  - regression
+  - data-dependent
+name: HW-18 Bai tap role-play - mo phien
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*Trò chuyện cùng Parrot.*"
+    direction: DOWN
+    timeout: 25000
+- takeScreenshot: artifacts/HW-18-roleplay-card
+
+- tapOn:
+    text: ".*(Làm bài|Tiếp tục|Chinh phục|Làm lại).*"
+    index: 0
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Từ vựng|Nhiệm vụ hoàn thành|Trò chuyện cùng Parrot|Bắt đầu).*"
+    timeout: 45000
+- takeScreenshot: artifacts/HW-18-roleplay-intro

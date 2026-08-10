@@ -1,0 +1,42 @@
+# RP-01 — Tab "Báo cáo" load đúng cấu trúc
+# Kỳ vọng:
+#   - header: avatar (hoặc avatar mặc định), tên hồ sơ, tên lớp, badge gói (HasSubscription)
+#   - card "Báo cáo học tập" + mũi tên
+#   - card nhận xét tuần: có nội dung + "Xem chi tiết", HOẶC empty state "Chưa có báo cáo mới"
+#   - menu: Thông tin các con / Khôi phục đăng ký / Quản lý tài khoản /
+#           Chính sách thanh toán / Chính sách bảo mật / Đăng xuất
+#   - cuối màn: "Xóa tài khoản"
+# Tags: smoke
+appId: ${APP_ID}
+tags:
+  - smoke
+name: RP-01 Tab Bao cao - load mac dinh
+---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- assertVisible: ".*(Báo cáo học tập).*"
+- assertVisible:
+    text: ".*(Xem chi tiết|Chưa có báo cáo mới).*"
+- assertVisible: ".*(Thông tin các con).*"
+- assertVisible: ".*(Quản lý tài khoản).*"
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Đăng xuất).*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: ".*(Chính sách thanh toán).*"
+- assertVisible: ".*(Chính sách bảo mật).*"
+- scrollUntilVisible:
+    element:
+      text: ".*(Xóa tài khoản).*"
+    direction: DOWN
+    timeout: 20000
+
+- takeScreenshot: artifacts/RP-01-tab-load

@@ -1,0 +1,24 @@
+# HW-10 — Bài hạn nộp HÔM NAY hiển thị nhãn "(Hôm nay)"
+# Cần: tài khoản có ít nhất 1 bài due_date == hôm nay, chưa hoàn thành
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-10 Card han nop hom nay
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*Hôm nay.*"
+    direction: DOWN
+    timeout: 25000
+
+- takeScreenshot: artifacts/HW-10-due-today

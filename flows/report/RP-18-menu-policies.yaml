@@ -1,0 +1,47 @@
+# RP-18 — Menu "Chính sách thanh toán" và "Chính sách bảo mật"
+# Kỳ vọng: mỗi dòng mở đúng màn tương ứng, nội dung render (không trắng trang),
+#          back về lại tab Báo cáo
+# Tags: smoke, regression
+appId: ${APP_ID}
+tags:
+  - smoke
+  - regression
+name: RP-18 Menu chinh sach thanh toan + bao mat
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+# --- Chính sách thanh toán ---
+- scrollUntilVisible:
+    element:
+      text: ".*(Chính sách thanh toán).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*(Chính sách thanh toán).*"
+- extendedWaitUntil:
+    visible: ".*(Chính sách thanh toán).*"
+    timeout: 25000
+- takeScreenshot: artifacts/RP-18-payment-policy
+- back
+
+# --- Chính sách bảo mật ---
+- scrollUntilVisible:
+    element:
+      text: ".*(Chính sách bảo mật).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*(Chính sách bảo mật).*"
+- extendedWaitUntil:
+    visible: ".*(Chính sách bảo mật).*"
+    timeout: 25000
+- takeScreenshot: artifacts/RP-18-privacy-policy
+- back
+
+- extendedWaitUntil:
+    visible: ".*(Quản lý tài khoản).*"
+    timeout: 20000

@@ -20,7 +20,7 @@ appId: ${APP_ID}
       - hideKeyboard
 
       - tapOn:
-          text: ".*(Đăng nhập).*"
+          text: "Đăng nhập"
       - extendedWaitUntil:
           visible:
             text: ".*(Xác thực OTP).*"
@@ -29,7 +29,8 @@ appId: ${APP_ID}
       # OTPField là 1 input ẩn dài 6 ký tự, các ô chỉ là view hiển thị
       # -> tap vào vùng ô rồi gõ thẳng 6 số.
       - tapOn:
-          text: ".*(Nhập mã vừa gửi đến Zalo).*"
+          below: "Đổi số điện thoại"
+          above: "Xác nhận"
       - inputText: "${OTP}"
       - hideKeyboard
 

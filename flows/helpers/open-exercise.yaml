@@ -45,15 +45,40 @@ appId: ${APP_ID}
 # lại"), chỉ còn 1 bài dạng SPEAK mang nhãn "Tiếp tục". Nếu tap theo index thì
 # luôn rơi vào bài SPEAK — dạng không có đáp án để tap, mọi case chọn đáp án
 # thành vô nghĩa. EXERCISE_NAME mặc định trỏ tới bài dạng chọn đáp án.
-- scrollUntilVisible:
-    element:
-      text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
-    direction: DOWN
-    timeout: 30000
-- tapOn:
-    text: ".*(Làm bài|Làm lại|Tiếp tục).*"
-    below:
-      text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+#
+# EXERCISE_DUE_DATE_DM (optional, "DD/MM"): dùng khi EXERCISE_NAME có thể trùng
+# title với ≥2 card cùng lúc (ĐÃ GẶP THẬT: giao lại 1 bài từng giao trước đó ->
+# 1 card cũ quá hạn + 1 card mới cùng tên - xem
+# flows/giao_bai_tap/e2e-teacher-assign-student-open.mjs). Neo theo "Hạn nộp
+# DD/MM" (duy nhất hơn title) thay vì theo title khi có param này - không đổi
+# hành vi cũ cho các case KHÔNG truyền param (EX-01..EX-11 vẫn neo theo title
+# như trước, tương thích ngược 100%).
+- runFlow:
+    when:
+      true: ${EXERCISE_DUE_DATE_DM != null}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+          direction: DOWN
+          timeout: 30000
+      - tapOn:
+          text: ".*(Làm bài|Làm lại|Tiếp tục).*"
+          below:
+            text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+- runFlow:
+    when:
+      true: ${EXERCISE_DUE_DATE_DM == null}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+          direction: DOWN
+          timeout: 30000
+      - tapOn:
+          text: ".*(Làm bài|Làm lại|Tiếp tục).*"
+          below:
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
 
 # Consent AI nếu tài khoản chưa đồng ý
 - runFlow:

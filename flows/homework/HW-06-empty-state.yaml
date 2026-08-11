@@ -1,13 +1,101 @@
-# HW-06 — Empty state tab Bài tập
-# Cần: tài khoản KHÔNG có bài tập nào trong khoảng thời gian đang chọn (PHONE_EMPTY)
-# Kỳ vọng: hiện "Bạn không có bài tập nào đang chờ.", tiến độ 0 / 0, không crash
+# HW-06b — Empty state tab Bài tập, dùng hồ sơ VỪA TẠO thay cho tài khoản PHONE_EMPTY riêng.
+# Kết hợp 2 case:
+#   1. Tạo hồ sơ con mới thành công (logic form giống flows/profile/create_child_profile_success.yaml)
+#      -> hồ sơ mới tạo chắc chắn CHƯA được giao bài tập nào.
+#   2. Chuyển sang đúng hồ sơ đó rồi verify tab Bài tập hiện empty state (giống HW-06-empty-state.yaml).
+# Nhờ vậy không cần chuẩn bị sẵn 1 tài khoản/hồ sơ rỗng riêng (PHONE_EMPTY) cho HW-06.
+#
+# Lưu ý (xem thêm comment trong create_child_profile_success.yaml): 3 bước chọn Trường học/Khối
+# học/Lớp dùng tapOn theo toạ độ cố định trên màn hình 1080x2340 vì các lựa chọn là radio vẽ bằng
+# SVG, không nhận tap theo text.
+#
+# Kỳ vọng: hiện "Bạn không có bài tập nào đang chờ.", tiến độ 0/0, không crash.
 # Tags: regression, data-dependent
 appId: ${APP_ID}
 tags:
   - regression
   - data-dependent
-name: HW-06 Empty state - khong co bai tap
+name: HW-06b Empty state - ho so moi tao chua co bai tap
 ---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runScript: ../../test_data/create_child_profile_data.js
+
+# --- 1. Tạo hồ sơ con mới ---
+- runFlow: ../helpers/open-tab-report.yaml
+- tapOn: ".*(Thông tin các con).*"
+- tapOn: "Thêm hồ sơ mới"
+
+- tapOn: "Đầy đủ họ tên con"
+- inputText: ${output.CHILD_NAME}
+- hideKeyboard
+
+- tapOn: "Chọn năm sinh của con"
+- tapOn: "2016"
+- tapOn: "Xác nhận"
+
+- tapOn: "Chọn trường"
+- waitForAnimationToEnd
+- tapOn: "Tìm kiếm tên trường"
+- inputText: "Xuân La"
+- extendedWaitUntil:
+    visible:
+      text: "Trường THCS Xuân La"
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    point: "84,978"
+- tapOn:
+    point: "84,978"
+- tapOn: "Xác nhận"
+- extendedWaitUntil:
+    notVisible:
+      text: "Tìm kiếm tên trường"
+    timeout: 10000
+
+- tapOn: "Chọn khối"
+- extendedWaitUntil:
+    visible:
+      text: "Lớp 9"
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    point: "84,1939"
+- tapOn:
+    point: "84,1939"
+- tapOn: "Xác nhận"
+- extendedWaitUntil:
+    notVisible:
+      text: "Lớp 12"
+    timeout: 10000
+
+- scroll
+- extendedWaitUntil:
+    visible:
+      text: "9D"
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    point: "115,1920"
+- tapOn:
+    point: "115,1920"
+
+- tapOn: "Thêm hồ sơ mới"
+- extendedWaitUntil:
+    notVisible:
+      text: "Thông tin cơ bản"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: ${output.CHILD_NAME}
+    timeout: 15000
+- takeScreenshot: artifacts/HW-06b-profile-created
+
+# --- 2. Chuyển sang hồ sơ vừa tạo, thao tác từ header tab Bài tập ---
 - runFlow: ../helpers/launch-fresh.yaml
 - runFlow:
     file: ../helpers/login.yaml
@@ -16,8 +104,33 @@ name: HW-06 Empty state - khong co bai tap
       OTP: ${OTP}
 - runFlow: ../helpers/open-tab-homework.yaml
 
+- tapOn:
+    text: ".*(Chuyển profile).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Chuyển profile học tập).*"
+    timeout: 15000
+- tapOn:
+    text: ".*(${output.CHILD_NAME}).*"
+# Nút xác nhận trong bottom sheet trùng chữ với link "Chuyển profile" ở header phía sau
+# (header vẫn nằm trong view tree dù bị sheet che) -> "Chuyển profile" (match EXACT, không có
+# ".*...*" để không dính luôn tiêu đề sheet "Chuyển profile học tập") có 2 điểm khớp: header
+# (index 0, đứng trước trong tree) và nút xác nhận (index 1) - đã verify bằng debug screenshot.
+- tapOn:
+    text: "Chuyển profile"
+    index: 1
+- extendedWaitUntil:
+    visible:
+      text: ".*(Thay đổi tài khoản con thành công!).*"
+    timeout: 40000
+
+# --- 3. Verify empty state: hồ sơ mới tạo chưa có bài tập nào ---
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bạn không có bài tập nào đang chờ.).*"
+    timeout: 15000
 - assertVisible: ".*(Bạn không có bài tập nào đang chờ.).*"
 - assertNotVisible: ".*(Bài tập về nhà).*"
 - assertNotVisible: ".*(Bài tập nâng cao).*"
 
-- takeScreenshot: artifacts/HW-06-empty
+- takeScreenshot: artifacts/HW-06b-empty-new-profile

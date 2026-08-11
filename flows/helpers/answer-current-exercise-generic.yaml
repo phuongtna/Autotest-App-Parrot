@@ -1,0 +1,91 @@
+# Helper: trả lời CÂU HIỆN TẠI trên màn làm bài và lặp lại tối đa 25 lần để tiến đến màn kết quả.
+#
+# KHÔNG kiểm tra đúng/sai (việc đó là trách nhiệm của EX-01..EX-09) - chỉ thao tác AN TOÀN để
+# chuyển sang câu tiếp theo. Vòng lặp CHOICE/FILL_WORD/CONNECT bên dưới COPY NGUYÊN logic đã verify
+# thật trong flows/exercise/EX-10-full-run-all-correct.yaml (không viết lại cách khác) - testID lấy
+# từ flows/exercise/README.md.
+#
+# SPEAK ("Nhấn để nói"): KHÔNG có handler an toàn - ĐÃ XÁC NHẬN THẬT 2/2 lần (2026-08-11, thiết bị
+# 3201d866d40a1681, xem flows/exercise/EX-12-speaking-record-result.yaml dòng 18-29 +
+# flows/exercise/README.md mục 2): bấm mic thật khiến app THOÁT RA NGOÀI về danh sách Lesson,
+# không bao giờ vào được trạng thái ghi âm. Vì vậy helper này CHỦ ĐỘNG dừng bằng 1 assertVisible
+# chắc chắn fail mang thông điệp "BLOCKED_MISSING_EXERCISE_HANDLER" ngay khi phát hiện màn SPEAK,
+# thay vì lặp 25 lần vô ích rồi fail mơ hồ ở bước chờ màn kết quả (khó phân biệt với flaky thật).
+#
+# SORT/SENTENCE_BUILDER/DRAG_DROP: cũng KHÔNG tự động hoá được (cần pan gesture, xem README.md mục
+# 1) - vòng lặp không có selector nào khớp nên sẽ không thao tác được gì; case gọi helper này sẽ
+# FAIL ở bước chờ màn kết quả (timeout thường, không phải BLOCKED_MISSING_EXERCISE_HANDLER) - cần
+# QA kiểm tra tay khi gặp.
+appId: ${APP_ID}
+---
+- repeat:
+    times: 25
+    commands:
+      - runFlow:
+          when:
+            visible: ".*(Nhấn để nói).*"
+          commands:
+            - takeScreenshot: ../artifacts/BLOCKED-missing-exercise-handler-speak
+            - assertVisible:
+                text: "BLOCKED_MISSING_EXERCISE_HANDLER: cau SPEAK chua co handler an toan tren real device (xem flows/exercise/README.md muc 2 + EX-12)"
+
+      # FILL_WORD
+      - runFlow:
+          when:
+            visible:
+              id: "exercise_fillword_input"
+          commands:
+            - tapOn:
+                id: "exercise_fillword_input"
+            - inputText: "test"
+            - tapOn:
+                id: "exercise_fillword_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_fillword_next_button"
+                optional: true
+
+      # CONNECT
+      - runFlow:
+          when:
+            visible:
+              id: "exercise_connect_left_0"
+          commands:
+            - repeat:
+                times: 6
+                commands:
+                  - tapOn:
+                      id: "exercise_connect_left_.*"
+                      optional: true
+                  - tapOn:
+                      id: "exercise_connect_right_.*"
+                      optional: true
+
+      # CHOICE (ONE / MULTI / TRUE_FALSE) - tap mọi đáp án "_correct" đang hiện (không quan tâm số
+      # lượng, MULTI có thể cần nhiều tap - optional vì không phải câu nào cũng còn đáp án ở vị trí đó)
+      - tapOn:
+          id: "exercise_answer_0_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_1_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_2_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_3_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_4_correct"
+          optional: true
+      - tapOn:
+          id: "exercise_answer_5_correct"
+          optional: true
+
+      # Kiểm tra -> Tiếp tục / Thử lại / Hoàn thành (cùng 1 nút, bấm 2 lần cho đủ chu kỳ)
+      - tapOn:
+          id: "exercise_check_button"
+          optional: true
+      - tapOn:
+          id: "exercise_check_button"
+          optional: true

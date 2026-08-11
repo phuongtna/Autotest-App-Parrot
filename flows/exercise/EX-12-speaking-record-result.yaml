@@ -1,0 +1,180 @@
+# EX-12 — Câu dạng SPEAKING: bật mic ghi âm -> gửi audio -> hiện popup kết quả
+#
+# Dạng SPEAK KHÔNG xuất hiện trong bộ bài "Bài tập" mà EX-01..EX-11 dùng (qua
+# helpers/open-exercise.yaml) - nó nằm bên "Vui học" (Book -> Unit -> Lesson ->
+# hoạt động con, giống automation/README.md mục Runtime). Case này tự điều
+# hướng sang "Vui học" thay vì gọi open-exercise.yaml.
+#
+# Điểm vào mặc định (XÁC NHẬN THẬT 2026-08-11 bằng automation/discovery -
+# npm run discover, sau đó dò tay trên thiết bị thật 3201d866d40a1681):
+#   Khối 1 -> Unit "Fun time 4" -> Lesson "Let's watch" -> mở rộng "0/1" ->
+#   tap "Thử thách" -> vào thẳng câu dạng SPEAK ("Listen and repeat").
+# Nội dung CMS có thể đổi theo thời gian - nếu case FAIL ở bước tìm
+# BOOK_NAME/UNIT_NAME/LESSON_NAME, chạy lại `cd automation && npm run
+# discover --verbose` (cần CMS_ACCESS_TOKEN hợp lệ - xem get_tokens.sh - và
+# automation/.cache/exam_session.json chưa hết hạn) tới khi ra 1 Exercise có
+# "Question types" chứa SPEAK, rồi override BOOK_NAME/UNIT_NAME/LESSON_NAME.
+#
+# CẢNH BÁO ĐÃ TỰ TAY XÁC NHẬN, LẶP LẠI 2/2 LẦN (2026-08-11, thiết bị thật
+# 3201d866d40a1681, xem thêm homework/TEST-CASES.md dòng HW-14b "app treo khi
+# ghi âm"): bấm nút mic thật trên thiết bị thật KHÔNG vào được trạng thái
+# đang ghi âm - màn hình đứng yên vài giây rồi app tự THOÁT về lại danh sách
+# Lesson ("Fun time 4"), KHÔNG bao giờ tới popup kết quả. logcat không có
+# exception rõ ràng, chỉ thấy APM_AudioPolicyManager setAppState ngay trước
+# khi màn hình đổi. Vì vậy case này gần như CHẮC CHẮN sẽ FAIL ở bước
+# extendedWaitUntil kết quả khi chạy trên thiết bị thật - đây là hành vi app
+# ĐÃ BIẾT (bug), không phải lỗi ở case. Giữ lại case để: (1) có bằng chứng
+# lặp lại được cho bug này, (2) tự động chạy lại nếu vấn đề được BE/app fix.
+# Nếu cần case "xanh" thường xuyên, bọc toàn bộ khối thao tác mic trong
+# runFlow.when hoặc bỏ tag regression.
+#
+# Không có testID cho nút mic (không có trong bảng testID của
+# exercise/README.md). Nút mic là 1 ViewGroup không có text/content-desc,
+# nằm NGAY TRÊN nhãn tĩnh "Nhấn để nói" (nhãn này không clickable, không
+# phải vùng chạm) - do đó selector dùng `above: "Nhấn để nói"` để trỏ tới nút
+# chứ không tap thẳng vào chữ.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-12 Speaking - bat mic ghi am - gui audio - hien ket qua
+---
+- runFlow:
+    file: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+- tapOn:
+    text: "Vui học"
+    optional: true
+
+- runFlow:
+    when:
+      visible: "AI hỗ trợ học tập"
+    commands:
+      - tapOn: "Tiếp tục"
+- runFlow:
+    when:
+      visible: "Cho phép học"
+    commands:
+      - tapOn: "Tiếp tục"
+
+# Chọn đúng Khối
+- runFlow:
+    when:
+      notVisible: "${BOOK_NAME == null ? 'Khối 1' : BOOK_NAME}"
+    commands:
+      - tapOn:
+          leftOf: "Chuyển profile"
+      - extendedWaitUntil:
+          visible:
+            text: "Chọn khối"
+          timeout: 5000
+      - tapOn: "${BOOK_NAME == null ? 'Khối 1' : BOOK_NAME}"
+- extendedWaitUntil:
+    visible:
+      text: "${BOOK_NAME == null ? 'Khối 1' : BOOK_NAME}"
+    timeout: 10000
+
+# Mở đúng Unit (theo đúng cơ chế đã xác nhận trong
+# automation/navigation/navigationEngine.js#_ensureUnitOpenSteps: vào "Tất cả
+# units", scroll tới tên Unit, rồi bấm nút hành động "Chinh phục"/"Ôn tập"
+# NGAY DƯỚI tên Unit - not bấm thẳng vào tên Unit).
+- runFlow:
+    when:
+      notVisible: "${UNIT_NAME == null ? 'Fun time 4' : UNIT_NAME}"
+    commands:
+      - tapOn: "Tất cả units"
+      - extendedWaitUntil:
+          visible:
+            text: "Danh sách Units.*"
+          timeout: 10000
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - scrollUntilVisible:
+          element:
+            text: "${UNIT_NAME == null ? 'Fun time 4' : UNIT_NAME}"
+          direction: DOWN
+          timeout: 20000
+      - assertVisible:
+          text: "${UNIT_NAME == null ? 'Fun time 4' : UNIT_NAME}"
+      - scrollUntilVisible:
+          element:
+            below: "${UNIT_NAME == null ? 'Fun time 4' : UNIT_NAME}"
+            text: "Chinh phục|Ôn tập"
+          direction: DOWN
+          timeout: 20000
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - tapOn:
+          below: "${UNIT_NAME == null ? 'Fun time 4' : UNIT_NAME}"
+          text: "Chinh phục|Ôn tập"
+          optional: true
+
+# Mở rộng Lesson (bấm thanh tiến độ "x / y") rồi vào mục con dạng SPEAK
+- waitForAnimationToEnd:
+    timeout: 2000
+- runFlow:
+    when:
+      notVisible: "${LESSON_NAME == null ? 'Let’s watch' : LESSON_NAME}"
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "${LESSON_NAME == null ? 'Let’s watch' : LESSON_NAME}"
+          direction: DOWN
+          timeout: 20000
+- assertVisible:
+    text: "${LESSON_NAME == null ? 'Let’s watch' : LESSON_NAME}"
+- tapOn:
+    below: "${LESSON_NAME == null ? 'Let’s watch' : LESSON_NAME}"
+    text: "\\d+ / \\d+"
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    text: "${LESSON_ITEM_NAME == null ? 'Thử thách' : LESSON_ITEM_NAME}"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- runFlow:
+    when:
+      visible: "AI hỗ trợ học tập"
+    commands:
+      - tapOn: "Tiếp tục"
+
+# --- Màn câu hỏi SPEAK ---
+# LƯU Ý: dùng tên file screenshot KHÔNG có "../" (khác quy ước "../artifacts/..."
+# của EX-01..EX-11) - bản Maestro CLI đang cài (2.8.0) chặn takeScreenshot
+# thoát ra ngoài thư mục output của chính lượt chạy đó ("resolves outside
+# this run's takeScreenshot output folder"), xác nhận thật khi chạy case này
+# 2026-08-11. Nếu các case EX-01..EX-11 vẫn chạy được với "../artifacts/..."
+# trên máy CI, khả năng do khác version Maestro - cần đối chiếu lại nếu nâng
+# cấp Maestro.
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nhấn để nói).*"
+    timeout: 30000
+- takeScreenshot: EX-12-speaking-question
+
+# Bật mic (icon cam, không có testID - xem cảnh báo ở đầu file)
+- tapOn:
+    above: "Nhấn để nói"
+- takeScreenshot: EX-12-after-mic-tap
+
+# Chờ ghi âm 4-5s
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Bấm lại icon mic để dừng ghi & gửi audio lên
+- tapOn:
+    above: "Nhấn để nói"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Em đọc là|Phát âm đúng là).*"
+    timeout: 30000
+- takeScreenshot: EX-12-speaking-result

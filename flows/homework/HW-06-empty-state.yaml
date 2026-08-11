@@ -1,21 +1,19 @@
-# HW-06b — Empty state tab Bài tập, dùng hồ sơ VỪA TẠO thay cho tài khoản PHONE_EMPTY riêng.
-# Kết hợp 2 case:
-#   1. Tạo hồ sơ con mới thành công (logic form giống flows/profile/create_child_profile_success.yaml)
-#      -> hồ sơ mới tạo chắc chắn CHƯA được giao bài tập nào.
-#   2. Chuyển sang đúng hồ sơ đó rồi verify tab Bài tập hiện empty state (giống HW-06-empty-state.yaml).
-# Nhờ vậy không cần chuẩn bị sẵn 1 tài khoản/hồ sơ rỗng riêng (PHONE_EMPTY) cho HW-06.
+# HW-06 — Empty state tab Bài tập
+# Tự tạo hồ sơ con mới (logic form giống flows/profile/create_child_profile_success.yaml) rồi
+# chuyển sang hồ sơ đó để test - hồ sơ mới tạo chắc chắn CHƯA được giao bài tập nào, nên KHÔNG
+# cần chuẩn bị sẵn 1 tài khoản/hồ sơ rỗng riêng (PHONE_EMPTY, chưa từng được cấu hình trong repo
+# này) như file HW-06 cũ (đã xoá vì không tự chạy hết được với account chuẩn trong accounts.env).
 #
 # Lưu ý (xem thêm comment trong create_child_profile_success.yaml): 3 bước chọn Trường học/Khối
 # học/Lớp dùng tapOn theo toạ độ cố định trên màn hình 1080x2340 vì các lựa chọn là radio vẽ bằng
 # SVG, không nhận tap theo text.
 #
 # Kỳ vọng: hiện "Bạn không có bài tập nào đang chờ.", tiến độ 0/0, không crash.
-# Tags: regression, data-dependent
+# Tags: regression
 appId: ${APP_ID}
 tags:
   - regression
-  - data-dependent
-name: HW-06b Empty state - ho so moi tao chua co bai tap
+name: HW-06 Empty state - ho so moi tao chua co bai tap
 ---
 - runFlow: ../helpers/launch-fresh.yaml
 - runFlow:
@@ -93,7 +91,7 @@ name: HW-06b Empty state - ho so moi tao chua co bai tap
     visible:
       text: ${output.CHILD_NAME}
     timeout: 15000
-- takeScreenshot: artifacts/HW-06b-profile-created
+- takeScreenshot: artifacts/HW-06-profile-created
 
 # --- 2. Chuyển sang hồ sơ vừa tạo, thao tác từ header tab Bài tập ---
 - runFlow: ../helpers/launch-fresh.yaml
@@ -133,4 +131,4 @@ name: HW-06b Empty state - ho so moi tao chua co bai tap
 - assertNotVisible: ".*(Bài tập về nhà).*"
 - assertNotVisible: ".*(Bài tập nâng cao).*"
 
-- takeScreenshot: artifacts/HW-06b-empty-new-profile
+- takeScreenshot: artifacts/HW-06-empty-new-profile

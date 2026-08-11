@@ -54,6 +54,7 @@ không cần dựa vào màu.
 | EX-09 | trạng thái đã chọn của ô đáp án |
 | EX-10 | làm đúng hết bài → ra màn kết quả |
 | EX-11 | thoát giữa bài rồi vào lại |
+| EX-12 | SPEAKING: bật mic -> chờ ghi âm -> tắt mic gửi -> hiện popup kết quả (chỉ kiểm luồng UI, không kiểm điểm phát âm) |
 
 ## Những gì bộ case này KHÔNG kiểm được
 
@@ -63,7 +64,14 @@ Nói rõ để không hiểu nhầm là đã phủ hết:
    react-native-gesture-handler + Reanimated. Maestro chỉ có tap/swipe theo toạ
    độ, không tạo được pan gesture mà các component này nhận. Không thêm testID
    cho chúng vì có id cũng không kéo được. **Phải test tay.**
-2. **SPEAK** — cần thu âm thật. Không tự động hoá.
+2. **SPEAK** — không xuất hiện trong bộ bài "Bài tập" mà EX-01..EX-11 dùng,
+   chỉ có bên "Vui học" (Book/Unit/Lesson) - EX-12 tự điều hướng riêng, không
+   dùng `open-exercise.yaml`. Cần thu âm thật để chấm điểm phát âm nên phần
+   chấm điểm không tự động hoá được; EX-12 chỉ kiểm cơ chế UI. ĐÃ TỰ TAY XÁC
+   NHẬN LẶP LẠI 2/2 LẦN (2026-08-11, thiết bị thật): bấm nút mic thật khiến
+   app thoát khỏi bài về lại danh sách Lesson, không bao giờ vào được trạng
+   thái ghi âm hay tới popup kết quả — khớp với bug đã biết ở
+   homework/TEST-CASES.md dòng HW-14b ("app treo khi ghi âm").
 3. **Điền từ ĐÚNG** — đáp án nằm ở BE, testID không mang nội dung đáp án. Chỉ
    test được nhánh sai. Muốn test nhánh đúng cần một bài seed cố định biết trước
    đáp án.

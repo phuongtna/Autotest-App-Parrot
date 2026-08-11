@@ -26,9 +26,13 @@ name: RP-23 Doi ho so con - reload bao cao tuan
     timeout: 15000
 - tapOn:
     text: ".*(${PROFILE_NAME_B}).*"
+# Nút xác nhận trong bottom sheet trùng chữ với link "Chuyển profile" ở header phía sau (header
+# vẫn còn trong view tree dù bị sheet che) -> dùng match EXACT (không ".*...*" để tránh dính luôn
+# tiêu đề sheet "Chuyển profile học tập") + index 1 mới trúng đúng nút xác nhận (index 0 là
+# header, đã verify bằng debug screenshot).
 - tapOn:
-    text: ".*(Chuyển profile).*"
-    index: 0
+    text: "Chuyển profile"
+    index: 1
 
 - extendedWaitUntil:
     visible:

@@ -28,12 +28,22 @@ name: HW-27 Doi ho so con - reload danh sach bai tap
     timeout: 15000
 - tapOn:
     text: ".*(${PROFILE_NAME_B}).*"
+# Nút xác nhận trong bottom sheet trùng chữ với link "Chuyển profile" ở header phía sau (header
+# vẫn còn trong view tree dù bị sheet che) -> dùng match EXACT (không ".*...*" để tránh dính luôn
+# tiêu đề sheet "Chuyển profile học tập") + index 1 mới trúng đúng nút xác nhận (index 0 là
+# header, đã verify bằng debug screenshot - trước đây tap nhầm header nên sheet không đóng/không
+# đổi hồ sơ, chỉ "pass" nhờ assert dưới có nhánh OR luôn đúng bất kể có đổi hồ sơ hay không).
 - tapOn:
-    text: ".*(Chuyển profile).*"
-    index: 0
+    text: "Chuyển profile"
+    index: 1
 
 - extendedWaitUntil:
     visible:
-      text: ".*(Thay đổi tài khoản con thành công!|Bài tập về nhà|Bạn không có bài tập nào đang chờ.).*"
+      text: ".*(Thay đổi tài khoản con thành công!).*"
     timeout: 40000
+- assertVisible: ".*(${PROFILE_NAME_B}).*"
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bài tập về nhà|Bài tập nâng cao|Bạn không có bài tập nào đang chờ.).*"
+    timeout: 15000
 - takeScreenshot: artifacts/HW-27-after-switch

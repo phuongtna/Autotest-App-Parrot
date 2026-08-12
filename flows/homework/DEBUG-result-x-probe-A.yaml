@@ -1,0 +1,45 @@
+# DEBUG PROBE A (tạm, xoá sau khi xong) - dừng NGAY tại exercise_result_screen, KHÔNG tap X,
+# để chạy `maestro hierarchy` ngay sau khi flow kết thúc (app vẫn đứng nguyên màn đó, không launch
+# lại/không đóng app).
+#
+# KHÁC open-exercise.yaml: không nhắm ĐÚNG 1 EXERCISE_NAME cụ thể (mục tiêu ở đây chỉ là tái hiện
+# cơ chế result-screen -> X -> list, không cần đúng bài) - bấm "Làm bài" ĐẦU TIÊN nhìn thấy cho
+# nhanh, tránh tốn ngân sách 90s scrollUntilVisible tìm đúng tên bài không cần thiết.
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+- runFlow:
+    when:
+      notVisible: "Làm bài"
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Làm bài"
+          direction: DOWN
+          timeout: 30000
+          waitToSettleTimeoutMs: 500
+- tapOn:
+    text: "Làm bài"
+    index: 0
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_close_button"
+    timeout: 40000
+- takeScreenshot: DEBUG-probeA-opened
+- runFlow: ../helpers/answer-current-exercise-generic.yaml
+- extendedWaitUntil:
+    visible:
+      id: "exercise_result_screen"
+    timeout: 60000
+- takeScreenshot: DEBUG-probeA-result-screen

@@ -180,7 +180,14 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
 - takeScreenshot: HW-14_15-resumed
 
 # --- Hoàn thành bằng exercise handler chung (không giả định loại câu hỏi - xem helper) ---
-- runFlow: ../helpers/answer-current-exercise-generic.yaml
+# EXERCISE_NAME truyền thêm (2026-08-12, thay đổi thuần bổ sung, không đổi hành vi happy path):
+# helper giờ là dispatcher có nhánh BLOCKED_MISSING_EXERCISE_HANDLER/BLOCKED_MISSING_UI_EVIDENCE
+# tường minh (xem flows/helpers/answer-current-exercise-generic.yaml) - truyền tên bài đang làm
+# vào để report BLOCKED (nếu có) biết đang chạy trên assignment nào, thay vì "không rõ".
+- runFlow:
+    file: ../helpers/answer-current-exercise-generic.yaml
+    env:
+      EXERCISE_NAME: ${EXERCISE_NAME}
 
 # --- Màn kết quả ---
 # ĐÃ SỬA (2026-08-12): nhãn cũ "Điểm số|Chính xác|Hoàn thành" (title-case) KHÔNG khớp UI thật -

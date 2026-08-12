@@ -1,0 +1,43 @@
+# Handler SKELETON cho cau dang Sentence Builder - CHUA co UI evidence du manh de thao tac
+# TONG QUAT (du CO 1 fixture that, deterministic - xem giai thich ben duoi).
+#
+# CONTRACT: goi tu dispatcher (flows/helpers/answer-current-exercise-generic.yaml) hoac truc
+# tiep tu 1 EX testcase, khi man hinh hien tai da duoc dispatcher xac nhan la dang
+# "ghep/sap xep chu cai" (tin hieu DUY NHAT tung quan sat duoc: text "Reorder the letters").
+#
+# QUAN TRONG - AMBIGUOUS VOI SORT: text "Reorder the letters" la tin hieu DUY NHAT ma repo tung
+# ghi nhan cho CA Sentence Builder lan SORT (xem flows/helpers/answer-sort-question.yaml) - o
+# tang Maestro (khong doc duoc CMS `type` that) KHONG co cach phan biet 2 type nay. Handler nay
+# KHONG tu nhan la "chac chan SENTENCE_BUILDER" - report BLOCKED liet ke CA HAI type lam
+# candidate, khong chon dai 1 cai.
+#
+# TAI SAO KHONG THAO TAC (du CO fixture that):
+#   flows/vui_hoc/unit9_getting_started_tram_khoi_hanh.yaml buoc S09 (dong 140-182) co 1 recipe
+#   DA VERIFY THAT tren thiet bi that cho DUNG 1 instance cu the (tu "practical", Unit 9 - Khoi
+#   10): tap theo TOA DO PIXEL TUYET DOI lay truc tiep tu 1 lan `maestro hierarchy` dump. Khong
+#   co testID/content-desc cho tung o chu (da so sanh toan bo attribute: resource-id va
+#   accessibilityText deu rong nhu nhau, chi khac bounds). Chinh file do CANH BAO: "Neu app doi
+#   shuffle (khong con deterministic) thi cac toa do nay se can tinh lai tu hierarchy thuc te" -
+#   nghia la recipe do CHI dung cho dung 1 tu/1 lan shuffle cu the, dung no lam handler GENERIC
+#   se tap SAI o bat ky cau nao khac (tu khac, do dai khac, shuffle khac) - co the tao FALSE
+#   PASS/FALSE FAIL nguy hiem hon la BLOCKED ro rang.
+#
+#   Muon generic hoa that su can tinh toa do DONG luc runtime tu hierarchy - chinh
+#   automation/bridge/handlers/sentenceBuilderHandler.js (dong 15-16) va automation/README.md
+#   (dong 58, 307) da xac nhan can 1 "hierarchyProbe.js" cho viec nay va file do CHUA TON TAI
+#   trong repo ("[Deferred phase 2]"). Khong bia ky thuat thay the.
+#
+# FIXTURE THAT de test rieng KHA NANG DETECT + BLOCKED cua handler nay (khong thao tac that):
+#   Unit 9: Protecting the enviroment (Khoi 10) -> "Getting Started" -> "Tram khoi hanh" -> S01
+#   (Dan nhap) -> S02 (Flashcard) -> S03 (Dung/Sai) -> S04 (Flashcard) -> S05 (Drag and drop,
+#   type ONE) -> S06 (Flashcard) -> S07 (Dien ky tu) -> S08 (Flashcard) -> S09 = MAN SENTENCE
+#   BUILDER THAT (xem EX-13-sentence-builder-blocked.yaml - dung lai fixture nay, KHONG di het
+#   S09 bang toa do cu the).
+#
+# Neu sau nay co hierarchyProbe.js that (tinh toa do dong, tong quat cho moi tu/moi shuffle),
+# sua truc tiep file nay - KHONG tao file thu 2.
+appId: ${APP_ID}
+---
+- takeScreenshot: BLOCKED-missing-ui-evidence-sentence-builder
+- assertVisible:
+    text: "BLOCKED_MISSING_UI_EVIDENCE - candidate_type: SENTENCE_BUILDER hoac SORT (khong phan biet duoc qua UI signal hien co) - ui_signal: text Reorder the letters - missing: khong co testID/selector on dinh cho tung o chu, chi co 1 recipe toa do pixel content-specific (unit9 S09, tu practical) khong tong quat hoa duoc vi can hierarchyProbe.js (chua ton tai trong repo) de tinh toa do dong - exercise: ${EXERCISE_NAME == null ? 'khong ro, EXERCISE_NAME khong duoc truyen vao handler nay' : EXERCISE_NAME}"

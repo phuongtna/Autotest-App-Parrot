@@ -1,0 +1,116 @@
+# EX-13 — Sentence Builder: dispatcher PHAI nhan dien dung type va bao BLOCKED_MISSING_UI_
+# EVIDENCE NGAY, KHONG duoc timeout mu (xem flows/helpers/answer-current-exercise-generic.yaml
+# + flows/helpers/answer-sentence-builder-question.yaml).
+#
+# KY VONG KET QUA: case nay CHAC CHAN se FAIL (giong quy uoc da co o EX-12 - xem docblock file do
+# "case gan nhu CHAC CHAN se FAIL... day la hanh vi DA BIET, khong phai loi o case"). O day ly do
+# FAIL la CO CHU DICH: man Sentence Builder chua co UI evidence du de thao tac that (xem audit
+# trong flows/helpers/answer-sentence-builder-question.yaml) - dispatcher PHAI dung lai va bao
+# ro BLOCKED_MISSING_UI_EVIDENCE trong vong vai giay (ngay khi thay text "Reorder the letters"),
+# KHONG duoc chay het 25 vong lap / cho toi timeout dai roi moi fail mo ho. Neu Maestro output
+# CHUA thay dong "BLOCKED_MISSING_UI_EVIDENCE" trong assertion loi -> ĐO LA REGRESSION THAT (vi
+# du dispatcher im lang bo qua man hinh nay) - can dieu tra, khac voi FAIL co message ro rang.
+#
+# FIXTURE: Unit 9 - Protecting the enviroment (Khoi 10), man "Vui hoc" - dung LAI NGUYEN VEN
+# navigation + cac buoc S01-S08 DA VERIFY THAT tren thiet bi that trong
+# flows/vui_hoc/unit9_getting_started_tram_khoi_hanh.yaml (dong 20-138) de dua man hinh toi DUNG
+# cau Sentence Builder ("practical", S09) - day la fixture DETERMINISTIC DUY NHAT trong repo cho
+# type nay (xem audit). KHONG doi cach tra loi S03/S05/S07 (Dung/Sai, Drag-and-drop, Dien ky tu)
+# vi do la dieu kien BAT BUOC de di toi dung man S09, khong phai business logic can EX-13 kiem
+# tra - EX-13 CHI kiem tra hanh vi dispatcher tai man Sentence Builder, khong kiem tra 3 cau do.
+#
+# KHAC EX-12: EX-12 tu dieu huong rieng (Fun time 4/Let's watch) va SPEAK; EX-13 dung Unit 9 va
+# Sentence Builder - 2 fixture/type khac nhau, khong lien quan, khong sua EX-12.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-13 Sentence Builder - dispatcher bao BLOCKED_MISSING_UI_EVIDENCE, khong timeout mu
+---
+# --- Setup + dieu huong toi Unit 9, "Tram khoi hanh" (COPY NGUYEN VEN tu unit9_getting_started_
+# tram_khoi_hanh.yaml dong 20-138 - da verify that, xem trich dan tung doan ben duoi) ---
+- runFlow: ../vui_hoc/study_unit9_protecting_environment.yaml
+
+- tapOn:
+    text: "\\d+ / \\d+"
+- tapOn: "Trạm khởi hành"
+
+- runFlow:
+    when:
+      visible:
+        text: "AI hỗ trợ học tập"
+    commands:
+      - tapOn: "Tiếp tục"
+
+- runFlow:
+    when:
+      visible:
+        text: "Làm lại"
+    commands:
+      - tapOn: "Làm lại"
+
+- runFlow:
+    when:
+      visible:
+        text: "Cho phép học"
+    commands:
+      - tapOn: "Tiếp tục"
+
+# S01: Dẫn nhập -> Flashcard (optional - có thể đang resume dở dang, xem unit9...yaml dòng 64-69)
+- tapOn:
+    text: "Tiếp theo"
+    optional: true
+
+# S02: Flashcard -> Bài tập Đúng/Sai (optional - cùng lý do)
+- tapOn:
+    text: "Tiếp theo"
+    optional: true
+
+# S03: Bài tập Đúng/Sai - PHẢI trả lời để đi tiếp (không phải mục tiêu kiểm tra của EX-13)
+- tapOn: "False"
+- tapOn: "Kiểm tra"
+- assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# S04: Flashcard -> màn tiếp theo (thực tế là Drag and drop, xem S05)
+- tapOn: "Tiếp theo"
+
+# S05: "Drag and drop" (type ONE render thành UI kéo-thả - xem catalog audit, KHÔNG phải mục
+# tiêu kiểm tra của EX-13, chỉ là bước bắt buộc phải qua để tới S09)
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          text: "Thử lại"
+          optional: true
+      - swipe:
+          start: "50%,74%"
+          end: "19%,64%"
+          duration: 1200
+      - tapOn: "Kiểm tra"
+      - assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# S06: Flashcard -> Bài tập Điền ký tự
+- tapOn: "Tiếp theo"
+
+# S07: Bài tập Điền ký tự ("Look and write" - deforestation) - nhập e, e, i (không phải mục tiêu
+# kiểm tra của EX-13, chỉ là bước bắt buộc phải qua để tới S09)
+- tapOn:
+    point: "170,1456"
+- inputText: "e"
+- tapOn: "Tiếp theo"
+- inputText: "e"
+- tapOn: "Tiếp theo"
+- inputText: "i"
+- tapOn: "Kiểm tra"
+- assertVisible: "Chính xác"
+- tapOn: "Tiếp theo"
+
+# S08: Flashcard -> Bài tập Sentence Builder (S09) - ĐÂY LÀ ĐIỂM DỪNG, không tap tiếp như bản gốc
+- tapOn: "Tiếp theo"
+
+# --- Điểm kiểm tra thật của EX-13: dispatcher phải nhận diện màn Sentence Builder ngay và báo
+# BLOCKED_MISSING_UI_EVIDENCE, KHÔNG cố thao tác bằng toạ độ pixel cố định (khác S09 bản gốc) ---
+- takeScreenshot: EX-13-sentence-builder-question
+- runFlow: ../helpers/answer-current-exercise-generic.yaml

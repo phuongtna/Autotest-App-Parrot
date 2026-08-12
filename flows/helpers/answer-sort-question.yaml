@@ -1,0 +1,29 @@
+# Handler SKELETON cho cau dang SORT - CHUA co UI evidence du manh de thao tac (xem audit).
+#
+# CONTRACT: goi tu dispatcher (flows/helpers/answer-current-exercise-generic.yaml) hoac truc
+# tiep tu 1 EX testcase, khi man hinh hien tai da duoc dispatcher xac nhan la dang
+# "ghep/sap xep chu cai" (tin hieu DUY NHAT tung quan sat duoc: text "Reorder the letters" -
+# xem automation/README.md dong 604-612, flows/exercise/README.md muc 1).
+#
+# QUAN TRONG - AMBIGUOUS VOI SENTENCE_BUILDER: text "Reorder the letters" la tin hieu DUY NHAT
+# ma repo tung ghi nhan cho CA SORT lan SENTENCE_BUILDER (xem
+# flows/helpers/answer-sentence-builder-question.yaml) - o tang Maestro (khong doc duoc CMS
+# `type` that) KHONG co cach phan biet 2 type nay. Handler nay KHONG tu nhan la "chac chan
+# SORT" - report BLOCKED liet ke CA HAI type lam candidate, khong chon dai 1 cai.
+#
+# TAI SAO KHONG THAO TAC (khong bia toa do/gesture):
+#   automation/README.md dong 604-612 chi ghi nhan 1 LAN QUAN SAT NGAU NHIEN man hinh nay khi
+#   random 1 Homework that ("G3-U18-Lesson 1: Read and complete", 5 o chu cai w,t,r,i,g hien
+#   that). Khong co testID, khong co gesture nao tung duoc thu/verify - lan phat hien do DUNG
+#   LAI vi phat hien LECH DU LIEU (dap an BE 7 ky tu "writing" lech voi 5 o UI that 5 ky tu),
+#   KHONG phai 1 lan thu tu dong hoa UI thanh cong. Khong co fixture deterministic nao de lap
+#   lai man hinh nay theo y muon (khac voi Sentence Builder - xem file kia co fixture that o
+#   Unit 9 tu "practical").
+#
+# Neu sau nay co evidence moi (testID that, hoac cach tinh toa do dong tu hierarchy da verify
+# tong quat), sua truc tiep file nay - KHONG tao file thu 2.
+appId: ${APP_ID}
+---
+- takeScreenshot: BLOCKED-missing-ui-evidence-sort
+- assertVisible:
+    text: "BLOCKED_MISSING_UI_EVIDENCE - candidate_type: SORT hoac SENTENCE_BUILDER (khong phan biet duoc qua UI signal hien co) - ui_signal: text Reorder the letters - missing: khong co testID/selector on dinh cho tung o chu, khong co gesture da verify tong quat, khong co fixture deterministic de lap lai - xem automation/README.md dong 604-612 - exercise: ${EXERCISE_NAME == null ? 'khong ro, EXERCISE_NAME khong duoc truyen vao handler nay' : EXERCISE_NAME}"

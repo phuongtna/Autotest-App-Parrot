@@ -1,0 +1,57 @@
+# Handler cho CMS type "DRAG_DROP" (dang word-bank dien vao cho trong) - CONFIRMED bang real
+# device evidence (2026-08-12).
+#
+# FIXTURE THAT DA DUNG DE VERIFY (khong hard-code vao handler, chi ghi lai lam bang chung):
+#   Khoi 7 -> Unit 12: English-speaking countries -> Grammar -> "A/ An" (exerciseId
+#   ebb3a029-535c-4f41-9889-724e9ee9ba99, examId 237a76b9-d716-4296-b124-ae2f812fb533, CMS type
+#   "DRAG_DROP" xac nhan qua automation/discovery/examPageScraper.js + exam_session.json tu
+#   xay dung tu CMS_ACCESS_TOKEN - xem automation/README.md muc "Exam Scraper", KHONG can dang
+#   nhap Casdoor/Cambridge thu cong). Man hinh that: "Canada is [Drop here] enormous country in
+#   North America with many beautiful lakes." + 2 o lua chon "an"/"a".
+#
+# UI EVIDENCE THAT (maestro hierarchy that, khong doan):
+#   resource-id="exercise_dragdrop_zone_0"    - o "Drop here" (cho trong thu 0)
+#   resource-id="exercise_dragdrop_options"   - container chua cac lua chon
+#   resource-id="exercise_dragdrop_option_0"  - lua chon thu 0 (text "an" trong fixture nay)
+#   resource-id="exercise_dragdrop_option_1"  - lua chon thu 1 (text "a" trong fixture nay)
+# Testid theo INDEX, KHONG gan voi noi dung "an"/"a" cu the - cung quy uoc voi
+# exercise_answer_{i}_correct / exercise_connect_left_{i} da co, nen TONG QUAT HOA duoc cho
+# bat ky tu/cau nao khac, khong phai recipe content-specific.
+#
+# PHAT HIEN QUAN TRONG (khac gia dinh cu trong repo): DRAG_DROP KHONG can gesture keo/swipe nao
+# ca - chi CAN TAP vao 1 o lua chon (exercise_dragdrop_option_{i}) la no TU DONG dien vao cho
+# trong tuong ung + nut "Kiem tra" tu bat sang. Da xac nhan that: tapOn exercise_dragdrop_option_0
+# -> "an" tu dien vao cho trong, "Kiem tra" chuyen tu mau xam (disabled) sang mau xanh (enabled).
+# Day la ly do cac handler cu (automation/bridge|runtime/handlers/dragDropHandler.js) tung throw
+# "can swipe, chua verify" - gia dinh do SAI, it nhat voi bien the UI nay.
+#
+# GIOI HAN CHUA VERIFY (khong bia them): fixture dung de test chi co DUY NHAT 1 cho trong (1
+# zone). Truong hop nhieu cho trong cung luc (vd exam khac tung thay: "What ___ you ___ to do
+# ___ summer?" 3 cho trong, 5 lua chon) CHUA duoc verify thu tu dien - handler duoi day GIA DINH
+# tap lan luot cac option theo index se dien lan luot vao tung zone theo dung thu tu xuat hien
+# (cung logic voi vong lap CHOICE/CONNECT da co trong dispatcher) - neu sau nay phat hien gia
+# dinh nay sai (vd dien sai zone), sua LAI CHINH file nay voi bang chung moi, KHONG doan tiep.
+#
+# Khong verify dung/sai (khong biet dap an nao dung tu testID) - dung tinh than "generic
+# lifecycle" giong CHOICE/CONNECT: chi can dien HET cac cho trong de nut Kiem tra bat sang va
+# di duoc sang cau tiep theo, khong quan tam co dung hay khong.
+appId: ${APP_ID}
+---
+- tapOn:
+    id: "exercise_dragdrop_option_0"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_1"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_2"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_3"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_4"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_5"
+    optional: true

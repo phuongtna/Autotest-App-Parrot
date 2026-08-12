@@ -3,6 +3,19 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loginTeacherPortal } from "../navigation/teacherPortalSession.js";
 import { teacherPortalPageObjects as po } from "../navigation/teacherPortalPageObjects.js";
+import {
+  resolveAndSelectUnit,
+  resolveAndSelectLesson,
+  resolveAndSelectAssignment,
+} from "../navigation/teacherAssignmentDiscovery.js";
+import {
+  fetchEligibleAssignmentTree,
+  filterEligibleTree,
+  pickRandomEligibleAssignment,
+  NoEligibleAssignmentError,
+} from "../navigation/teacherAssignmentApiDiscovery.js";
+
+export { NoEligibleAssignmentError };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = join(__dirname, "..", "..", "output", "screenshots");
@@ -19,14 +32,19 @@ function parseDdMmYyyy(value) {
   return { day: Number(dd), month: Number(mm), year: Number(yyyy) };
 }
 
-const REQUIRED_PARAMS = [
-  "primaryClass",
-  "otherGroupClass",
-  "dueDate",
-  "unitName",
-  "lessonName",
-  "homeworkItemName",
-];
+const REQUIRED_PARAMS = ["primaryClass", "otherGroupClass", "dueDate"];
+
+// ĐÃ THAY THẾ (2026-08-12): bản cũ random Unit/Lesson MÙ trên UI rồi reroll-từ-đầu tối đa 20 lần
+// khi gặp Lesson toàn item rỗng (~2/3 Unit/Lesson của bộ "Kết nối tri thức" KHÔNG có exercise item
+// nào gắn exam thật - xem automation/output/data_discovery/A/network_log.json). Cách đó VẪN random
+// mù ở tầng Unit/Lesson (chỉ né hậu quả bằng cách thử lại), có thể cạn hết lượt thử mà không báo
+// đúng lý do (đã xảy ra thật: 1 lần chạy 2026-08-12 cạn 20 lượt, dừng ở Unit 15 - unit này 0/3
+// lesson eligible, xem automation/output/e2e_teacher_assign_student_lifecycle_report.json cũ).
+//
+// BẢN MỚI: gọi thẳng navigation/teacherAssignmentApiDiscovery.js#fetchEligibleAssignmentTree() để
+// dựng SẴN toàn bộ cây Unit->Lesson->Item eligible thật qua API (KHÔNG qua DOM, KHÔNG cần thử-sai)
+// trước khi đụng tới Playwright, rồi random ĐÚNG 1 lần trong cây đã tỉa (pickRandomEligibleAssignment)
+// - không còn khái niệm "reroll"/"ngõ cụt" nữa vì mọi item trong cây đã được xác nhận có exam thật.
 
 /**
  * Tự động hoá TC1 (flows/giao_bai_tap/TESTCASES.md) PHÍA WEB GV bằng Playwright. Phần "app HS
@@ -43,10 +61,18 @@ const REQUIRED_PARAMS = [
  *   KHÔNG có 2 lớp cùng khối để test (xem "GIỚI HẠN" trong TESTCASES.md).
  * @param {string} params.dueDate - hạn nộp, format "DD/MM/YYYY" (vd "20/08/2026") - chọn qua
  *   popover lịch thật trên UI, xem bước setDueDate bên dưới.
- * @param {string} params.unitName
- * @param {string} params.lessonName
- * @param {string} params.homeworkItemName
+ * @param {string} [params.unitName] - CHỈ ĐỊNH SẴN Unit (dùng cho debug/case cần cố định). Không
+ *   truyền -> RANDOM 1 Unit thật trong dropdown (xem automation/giao_bai_tap/navigation/
+ *   teacherAssignmentDiscovery.js#resolveAndSelectUnit) - không đoán tên, không hardcode.
+ * @param {string} [params.lessonName] - giống unitName, không truyền -> random 1 Lesson thật của
+ *   Unit đã chọn.
+ * @param {string} [params.homeworkItemName] - giống unitName, không truyền -> random 1 assignment
+ *   thật trong "Danh sách bài tập" của Lesson đã chọn.
  * @param {boolean} [params.headless=true]
+ * @returns {Promise<{status:"PASS"|"FAIL", steps, error?, selection:{unitName,lessonName,homeworkItemName,questionCount}}>}
+ *   selection luôn phản ánh Unit/Lesson/assignment THẬT đã dùng (dù được caller chỉ định sẵn hay
+ *   random) - caller BẮT BUỘC dùng lại selection.homeworkItemName để tra cứu metadata/đối chiếu
+ *   App HS, không được giả định lại giá trị đã truyền vào (vì có thể là random).
  */
 export async function assignHomeworkFlow(params) {
   const missing = REQUIRED_PARAMS.filter((key) => !params[key]);
@@ -65,6 +91,15 @@ export async function assignHomeworkFlow(params) {
     headless = true,
   } = params;
 
+  const selection = {
+    unitName: null,
+    lessonName: null,
+    homeworkItemName: null,
+    questionCount: null,
+    exerciseId: null,
+    examIds: null,
+    type: null,
+  };
   const steps = [];
   function step(name, fn, { page } = {}) {
     return async () => {
@@ -170,34 +205,68 @@ export async function assignHomeworkFlow(params) {
     // ĐÃ XÁC NHẬN THẬT (2026-08-09, debug screenshot thật): "Chọn Unit" là 1 Radix Select thật
     // (trigger <button role="combobox">, mở ra <div role="listbox"> chứa <div role="option">) -
     // KHÁC "Chọn Lesson" (chỉ là các <button> phẳng, không phải dropdown) và "Danh sách bài tập"
-    // (mỗi bài là 1 checkbox). Unit mặc định đã chọn sẵn Unit đầu tiên - CHỈ mở dropdown khi cần
-    // đổi khác giá trị đang hiển thị, tránh mở rồi không đóng lại (đã gặp thật: mở dropdown xong
-    // không chọn lại gì khiến nó che mất nút "Lesson 1" ở dưới, click tiếp bị chặn).
+    // (mỗi bài nhận diện qua "Xem chi tiết"+"N câu hỏi", KHÔNG phải checkbox chuẩn - xem
+    // teacherAssignmentDiscovery.js).
+    //
+    // Nếu homeworkItemName ĐÃ được chỉ định sẵn (case debug/tái hiện case cụ thể) -> dùng thẳng
+    // unitName/lessonName/homeworkItemName truyền vào, KHÔNG gọi API discovery (không cần, đã biết
+    // chính xác cần chọn gì). Ngược lại (case random - mặc định) -> gọi
+    // navigation/teacherAssignmentApiDiscovery.js#fetchEligibleAssignmentTree() dựng SẴN cây
+    // Unit->Lesson->Item eligible thật qua API (không qua DOM, không cần thử-sai/reroll) rồi random
+    // ĐÚNG 1 lần trong cây đã tỉa - nếu unitName/lessonName có chỉ định sẵn (nhưng homeworkItemName
+    // để trống), thu hẹp cây về đúng phạm vi đó trước khi random (random assignment TRONG Unit/
+    // Lesson đã ép, không random tự do toàn bộ cây).
+    await step(
+      "resolveAssignmentSelection",
+      async () => {
+        if (homeworkItemName) {
+          selection.unitName = unitName;
+          selection.lessonName = lessonName;
+          selection.homeworkItemName = homeworkItemName;
+          return;
+        }
+
+        const { eligibleTree, stats } = await fetchEligibleAssignmentTree(primaryClass);
+        console.log(
+          `  [EXERCISE_DISCOVERY] total items: ${stats.totalItems} | items with exam: ${stats.itemsWithExam} | items without exam (EXCLUDED_NO_EXAM): ${stats.itemsWithoutExam}`,
+        );
+        const scoped = filterEligibleTree(eligibleTree, { unitName, lessonName });
+        const picked = pickRandomEligibleAssignment(scoped);
+
+        selection.unitName = picked.unitName;
+        selection.lessonName = picked.lessonName;
+        selection.homeworkItemName = picked.homeworkItemName;
+        selection.questionCount = picked.questionCount;
+        selection.exerciseId = picked.exerciseId;
+        selection.examIds = picked.examIds;
+        selection.type = picked.type;
+
+        console.log(
+          `  [RANDOM_SELECTION] unit=${selection.unitName} | lesson=${selection.lessonName} | assignment=${selection.homeworkItemName} | exerciseId=${selection.exerciseId} | type=${selection.type} | questionCount=${selection.questionCount}`,
+        );
+      },
+      { page },
+    )();
+
+    // Đã biết CHÍNH XÁC unit/lesson/assignment cần chọn (chỉ định sẵn hoặc vừa random qua API ở
+    // trên) - chọn trên UI bằng ĐÚNG tên đó (KHÔNG còn random mù trên DOM, KHÔNG còn reroll khi gặp
+    // ngõ cụt vì cây eligible đã đảm bảo mọi item đều có exam thật).
     await step(
       "selectUnitLessonHomework",
       async () => {
-        const unitTrigger = page.getByRole("combobox").first();
-        const currentUnitText = (await unitTrigger.innerText()).trim();
-        if (currentUnitText !== unitName) {
-          await unitTrigger.click();
-          const listbox = page.getByRole("listbox");
-          await listbox.waitFor({ state: "visible", timeout: 10000 });
-          await listbox.getByRole("option", { name: unitName, exact: true }).click();
-        }
+        await resolveAndSelectUnit(page, selection.unitName);
+        // Lesson list phụ thuộc Unit vừa chọn - chờ re-render (cùng ngân sách thời gian đã dùng
+        // thật trong automation/giao_bai_tap/dataDiscovery.mjs, không đoán số mới).
+        await page.waitForTimeout(1500);
 
-        // ĐÃ XÁC NHẬN THẬT (2026-08-09): nút Lesson đang active có class chứa
-        // "bg-surface-action-sub" (xem outerHTML thật bắt được lúc lỗi lần trước) - Lesson mặc
-        // định cũng đã chọn sẵn 1 lesson (giống Unit) nên CHỈ click nếu lessonName CHƯA active,
-        // tránh lặp lỗi bấm-vào-làm-mất-chọn như đã gặp thật với "Chọn Unit".
-        const lessonButton = page.getByText(lessonName, { exact: true });
-        const isLessonActive = await lessonButton.evaluate((el) =>
-          el.className.includes("bg-surface-action-sub"),
-        );
-        if (!isLessonActive) {
-          await lessonButton.click();
-        }
+        await resolveAndSelectLesson(page, selection.lessonName);
+        await page.waitForTimeout(1000);
 
-        await page.getByText(homeworkItemName, { exact: false }).first().click();
+        const picked = await resolveAndSelectAssignment(page, selection.homeworkItemName);
+        // questionCount đã có từ API discovery (chính xác hơn, luôn có số) - chỉ dùng lại giá trị
+        // đọc từ DOM khi selection đến từ case chỉ định sẵn (API discovery không chạy, questionCount
+        // vẫn null từ lúc khởi tạo selection).
+        if (selection.questionCount === null) selection.questionCount = picked.questionCount;
       },
       { page },
     )();
@@ -211,9 +280,9 @@ export async function assignHomeworkFlow(params) {
       { page },
     )();
 
-    return { status: "PASS", steps };
+    return { status: "PASS", steps, selection };
   } catch (err) {
-    return { status: "FAIL", steps, error: err.message };
+    return { status: "FAIL", steps, error: err.message, selection };
   } finally {
     await browser.close();
   }

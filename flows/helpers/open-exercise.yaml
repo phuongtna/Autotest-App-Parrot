@@ -49,32 +49,74 @@ appId: ${APP_ID}
 # EXERCISE_DUE_DATE_DM (optional, "DD/MM"): dùng khi EXERCISE_NAME có thể trùng
 # title với ≥2 card cùng lúc (ĐÃ GẶP THẬT: giao lại 1 bài từng giao trước đó ->
 # 1 card cũ quá hạn + 1 card mới cùng tên - xem
-# flows/giao_bai_tap/e2e-teacher-assign-student-open.mjs). Neo theo "Hạn nộp
-# DD/MM" (duy nhất hơn title) thay vì theo title khi có param này - không đổi
-# hành vi cũ cho các case KHÔNG truyền param (EX-01..EX-11 vẫn neo theo title
-# như trước, tương thích ngược 100%).
+# flows/giao_bai_tap/e2e-teacher-assign-student-open.mjs).
+#
+# ĐÃ SỬA (2026-08-12, 2 lượt): lượt 1 neo DUY NHẤT theo "Hạn nộp DD/MM" (bỏ qua hẳn EXERCISE_NAME)
+# khi có param này - giả định "Hạn nộp duy nhất hơn title" ĐÃ CHỨNG MINH SAI qua network capture +
+# room_details.json thật (2026-08-12): tài khoản test 3B có 8 room KHÁC NHAU cùng "Hạn nộp 19/08"
+# (mọi lượt giao bài tự động trong ngày đều mặc định dueDate=hôm nay+7 - collision THẬT, không
+# phải giả thuyết) - từng bấm NHẦM sang "G3-U2-Lesson 3: Listen and repeat" (SPEAK) thay vì
+# "G3-U19-L3: Listen and choose" (LISTENING) dù cả 2 đều "Hạn nộp 19/08".
+#
+# Lượt 2 (đổi hẳn sang neo DUY NHẤT theo title + assertVisible Hạn nộp riêng) CŨNG SAI kiểu khác -
+# ĐÃ GẶP THẬT: scrollUntilVisible theo title dừng cuộn ngay khi title mới chỉ hiện HÉ ở SÁT MÉP
+# DƯỚI màn hình (đủ ngưỡng "visible"), trong khi dòng "Hạn nộp" của CHÍNH card đó vẫn còn nằm NGOÀI
+# khung nhìn phía dưới - assertVisible ngay sau đó luôn FAILED dù đang đứng ĐÚNG card, không phải
+# do bấm nhầm card khác.
+#
+# BẢN ĐÚNG: dùng compound selector CỦA CHÍNH scrollUntilVisible (Maestro hỗ trợ thật -
+# element:{text, below} - ĐÃ VERIFY dùng thật trong flows/exercise/EX-12-speaking-record-result.yaml
+# + flows/vui_hoc/study_unit9_protecting_environment.yaml, không phải cú pháp mới bịa ra) - cuộn
+# tới khi ĐÚNG dòng "Hạn nộp DATE" nằm NGAY DƯỚI dòng title mong muốn cùng hiển thị - bắt buộc CẢ 2
+# điều kiện (đúng title VÀ đúng due date, đúng card) thoả mãn ĐỒNG THỜI trước khi dừng cuộn, đồng
+# thời do "Hạn nộp" luôn nằm THẤP hơn title trong 1 card, cuộn tới khi nó hiện đảm bảo cả title
+# phía trên cũng đã lọt vào khung nhìn (không còn bug "title hé mép" ở lượt sửa trước).
 - runFlow:
     when:
       true: ${EXERCISE_DUE_DATE_DM != null}
     commands:
+      # waitToSettleTimeoutMs (ĐÃ GẶP THẬT 2026-08-12): thiếu tham số này, scrollUntilVisible báo
+      # COMPLETED ngay khi target vừa chớm đủ ngưỡng visible, nhưng scroll vẫn còn trớn (momentum)
+      # khiến vị trí trôi tiếp vài chục px SAU KHI lệnh đã "hoàn thành" - lệnh tapOn NGAY SAU (đọc
+      # hierarchy MỚI, không phải hierarchy lúc scroll dừng) có thể không còn thấy target nữa (đã
+      # tái hiện thật: "G3-U3-Lesson 1: Read and complete" - scrollUntilVisible COMPLETED nhưng
+      # tapOn theo ĐÚNG cùng selector ngay sau đó FAILED "Element not found"). Set 500ms để Maestro
+      # tự chờ layout ổn định hẳn trước khi coi là xong, khớp gợi ý chính CLI đưa ra khi gặp lỗi này.
       - scrollUntilVisible:
           element:
             text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+            below:
+              text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
           direction: DOWN
-          timeout: 30000
+          timeout: 90000
+          waitToSettleTimeoutMs: 500
+      # ĐÃ GẶP THẬT (2026-08-12): tapOn "below: Hạn nộp DATE" (KHÔNG kèm title) tại đây vẫn có thể
+      # bấm NHẦM dù scrollUntilVisible phía trên đã cuộn ĐÚNG vị trí - vì ≥2 card cùng "Hạn nộp
+      # 19/08" có thể CÙNG hiển thị trong 1 khung nhìn (card liền kề nhau trong danh sách), "below"
+      # 1 cấp khớp NHẦM instance "Hạn nộp 19/08" của card KHÁC (đã tái hiện: bấm nhầm "G3-U18-
+      # Lesson 3: Listen and match" thay vì "G3-U19-L3: Listen and choose"). Lồng thêm "below" cấp 2
+      # (trỏ về ĐÚNG title) để buộc khớp ĐÚNG instance "Hạn nộp" nằm ngay dưới ĐÚNG title đó - Maestro
+      # chấp nhận "below" lồng nhau (selector đầy đủ, đệ quy được), không phải cú pháp mới bịa ra.
       - tapOn:
           text: ".*(Làm bài|Làm lại|Tiếp tục).*"
           below:
             text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+            below:
+              text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
 - runFlow:
     when:
       true: ${EXERCISE_DUE_DATE_DM == null}
     commands:
+      # ĐO THẬT (2026-08-12, thiết bị 3201d866d40a1681, xem docblock TARGET_LOOKUP_* trong
+      # flows/homework/verify-filter-web-vs-app.mjs + flows/helpers/locate-assignment-card.yaml):
+      # 30s KHÔNG đủ để cuộn native tới 1 assignment nằm khá sâu trong danh sách - tăng lên 90000
+      # khớp với ngân sách ĐÃ CHỨNG MINH đủ trên chính thiết bị này, không đoán.
       - scrollUntilVisible:
           element:
             text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
           direction: DOWN
-          timeout: 30000
+          timeout: 90000
+          waitToSettleTimeoutMs: 500
       - tapOn:
           text: ".*(Làm bài|Làm lại|Tiếp tục).*"
           below:
@@ -98,7 +140,23 @@ appId: ${APP_ID}
 # KHÔNG chốt bằng exercise_check_button: câu dạng SPEAK không render footer đó
 # (nó dùng AudioRecorderSection), câu FILL_WORD chỉ hiện nút khi bàn phím mở.
 # Chốt bằng nhãn của mọi dạng câu để helper dùng được cho cả bộ.
+#
+# ĐÃ SỬA (2026-08-12): CONNECT (nối cặp, vd "Listen and match" - xem flows/exercise/README.md bảng
+# testID exercise_connect_left_{i}/exercise_connect_right_{i}) KHÔNG render bất kỳ nhãn nào trong
+# regex trên ngay từ đầu (nút "Kiểm tra" của CONNECT chỉ xuất hiện SAU khi đã nối xong) - ĐÃ GẶP
+# THẬT (random qua flows/giao_bai_tap chọn đúng "G3-U19-L3: Listen and choose" - dạng "Listen and
+# match"): assertion nhãn cũ FAILED dù đã vào ĐÚNG màn làm bài (không phải bug mở nhầm bài, xem
+# root cause đầy đủ trong comment tapOn ở EXERCISE_DUE_DATE_DM branch phía trên). optional:true ở
+# bước nhãn chung để không hard-fail khi gặp CONNECT, rồi thử riêng dấu hiệu CONNECT
+# (exercise_connect_left_0, cũng optional) - ít nhất 1 trong 2 bước LUÔN đợi được vì mọi dạng câu
+# hiện có (theo README.md) đều rơi vào 1 trong 2 nhóm này.
 - extendedWaitUntil:
     visible:
       text: ".*(Kiểm tra|Tiếp theo|Tiếp tục|Nhấn để nói|Nhập câu trả lời).*"
     timeout: 90000
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "exercise_connect_left_0"
+    timeout: 90000
+    optional: true

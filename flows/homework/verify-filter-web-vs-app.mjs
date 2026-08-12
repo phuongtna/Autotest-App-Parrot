@@ -125,6 +125,30 @@ const MAX_SCROLLS = 18;
 const SCROLL_TO_TOP_TIMES = 8;
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "verify_filter_web_vs_app_report.json");
 
+// ĐO THẬT (2026-08-12, thiết bị 3201d866d40a1681, xem log [PERF] khi chạy sống): 1 lệnh CLI
+// `maestro` bất kỳ (dù là `hierarchy` hay `test` 1 flow chỉ có 1 swipe) tốn ~52-59s - chi phí này
+// chủ yếu là KHỞI ĐỘNG lại process/kết nối ADB (gần như CỐ ĐỊNH, không phụ thuộc độ phức tạp thao
+// tác). => đòn bẩy DUY NHẤT để giảm tổng thời gian thu thập là GIẢM SỐ LỆNH CLI PHẢI GỌI, không
+// phải tăng timeout hay tăng số lượt cuộn (những cái đó chỉ khiến 1 lần thu thập chạy lâu hơn với
+// CÙNG chi phí/lượt). Vì vậy đường "tìm đúng 1 assignment cụ thể" (targetMatch, dùng bởi
+// flows/giao_bai_tap/e2e-teacher-assign-student-open.mjs) dùng ngân sách NHỎ RIÊNG - KHÔNG dùng
+// chung MAX_SCROLLS/MAX_STALL_RETRIES (2 hằng số đó vẫn giữ nguyên cho use-case "quét hết danh
+// sách" của chính file này - verify-filter-web-vs-app.mjs#main(), không đổi hành vi ở đó):
+//   - TARGET_LOOKUP_MAX_SCROLLS=6: 6 lượt * (1 swipe + tối đa 2 hierarchy nếu có 1 stall-retry)
+//     = tối đa 18 lệnh CLI * ~55s ≈ 16 phút TRẦN TUYỆT ĐỐI - nhưng COLLECTION_HARD_TIMEOUT_MS
+//     (giữ nguyên 10 phút, KHÔNG tăng) sẽ chặn trước trong đa số trường hợp thật (~5-6 lượt/10
+//     phút theo đúng chi phí đã đo) - 2 an toàn độc lập, cái nào chạm trước thì dừng theo cái đó.
+//   - TARGET_LOOKUP_MAX_STALL_RETRIES=1 (không phải 0): bỏ hẳn retry sẽ khiến 1 lượt đọc "lỡ" do
+//     hierarchy chưa cập nhật (race đã xác nhận thật) bị tính nhầm thành "hết danh sách"
+//     (noNewStreak) → kết luận SAI "không tồn tại" trong khi thật ra chỉ là CHƯA ĐỦ NGÂN SÁCH. Giữ
+//     1 retry (không phải 2 như bản full-scan) để cân bằng giữa an toàn và chi phí.
+// stopReason MAX_SCROLLS/HARD_TIMEOUT khi dùng ngân sách nhỏ này nghĩa là "CHƯA ĐỦ BẰNG CHỨNG để
+// khẳng định không tồn tại" (khác NO_NEW_CARDS = đã cuộn thật tới hết danh sách) - caller PHẢI
+// phân biệt 2 trường hợp này (xem BLOCKED_DISCOVERY_BUDGET_EXCEEDED vs BLOCKED_ASSIGNMENT_NOT_FOUND
+// trong e2e-teacher-assign-student-open.mjs), không gộp chung thành 1 kết luận "not found".
+const TARGET_LOOKUP_MAX_SCROLLS = 6;
+const TARGET_LOOKUP_MAX_STALL_RETRIES = 1;
+
 // An toàn cứng cho 1 LẦN GỌI collectAllVisibleHomeworkCards() - KHÔNG được để chạy tới ngưỡng
 // app tự reload danh sách (~30 phút cuộn liên tục trong tab Bài tập, ghi nhận thời gian sử dụng).
 // main() gọi hàm này 2 LẦN (WEEK rồi MONTH) + thời gian login/mở tab/đổi filter xen giữa, nên mỗi
@@ -210,6 +234,27 @@ function scrollToTopBestEffort() {
 
 function scrollDownOnce() {
   runInlineSteps(`- swipe:\n    start: "50%,80%"\n    end: "50%,25%"\n    duration: 400\n- waitForAnimationToEnd:\n    timeout: 750`);
+}
+
+// COPY NGUYÊN gesture đã verify trong flows/homework/HW-05-pull-to-refresh.yaml (không invent
+// thao tác mới) - dùng khi target chưa thấy NGAY ở lượt đọc đầu tiên (trước khi cuộn gì cả): tab
+// "Bài tập" có thể đang hiển thị danh sách CACHE CŨ (fetch trước khi GV giao bài) chưa kịp có
+// assignment vừa tạo - pull-to-refresh 1 lần rẻ hơn nhiều so với cuộn mù nhiều lượt để "hy vọng"
+// card mới tự xuất hiện dưới đáy danh sách cache cũ (nó sẽ KHÔNG bao giờ xuất hiện nếu đó thật là
+// cache cũ, bất kể cuộn bao nhiêu lượt).
+function pullToRefreshOnce() {
+  runInlineSteps(
+    `
+- swipe:
+    start: 50%, 35%
+    end: 50%, 85%
+    duration: 600
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bài tập về nhà|Bài tập nâng cao|Kiến thức trong bài|Bạn không có bài tập nào đang chờ).*"
+    timeout: 30000
+`.trim(),
+  );
 }
 
 // ---- Thu thập card từ hierarchy (viết lại theo đúng bất biến đã verify PASS của
@@ -317,6 +362,20 @@ function cardsFromTree(tree, sectionSeen) {
   return parseHomeworkCardsFromEntries(entries, sectionSeen);
 }
 
+/**
+ * 1 lệnh `maestro hierarchy` DUY NHẤT (~52-59s, xem docblock TARGET_LOOKUP_* phía trên) - dùng
+ * bởi flows/giao_bai_tap/e2e-teacher-assign-student-open.mjs SAU KHI
+ * flows/helpers/locate-assignment-card.yaml (native scrollUntilVisible) đã xác nhận tìm thấy
+ * target, CHỈ để lấy card object đầy đủ (cho report) + đếm số card khớp ĐÚNG khoá title+Hạn nộp
+ * (phân biệt duplicate - xem BLOCKED_AMBIGUOUS_MATCH) - KHÔNG dùng để tự cuộn/tìm (đó là việc của
+ * scrollUntilVisible native). sectionSeen=true vì tại điểm gọi hàm này, native scroll đã cuộn qua
+ * ít nhất 1 section header thật (đã assertVisible tiêu đề card) - không cần dò lại từ đầu màn hình.
+ */
+function readHomeworkHierarchyOnce() {
+  const tree = maestroHierarchy();
+  return cardsFromTree(tree, true).cards;
+}
+
 function cardSignature(card) {
   return `${card.title}|${card.dueDateText}|${card.scoreText}|${card.cta}`;
 }
@@ -401,30 +460,57 @@ function collectionKeyForLogging(card) {
 
 /**
  * @param {object} [opts]
- * @param {{keyFn: (card) => string|null, key: string, expectedCount: number}} [opts.targetMatch]
+ * @param {{keyFn: (card) => string|null, key: string, expectedCount: number, titleForLog?: string, dueDateForLog?: string}} [opts.targetMatch]
  *   Khi set: sau MỖI lượt merge (kể cả lượt đọc ĐẦU TIÊN trước khi cuộn), đếm số card trong
  *   accumulated có keyFn(card)===key - nếu >= expectedCount thì DỪNG CUỘN NGAY
  *   (stopReason="TARGET_REACHED"), không cuộn tiếp để tìm thêm. Dùng khi lần chạy chỉ cần verify
- *   1 nhóm cụ thể (xem TARGET_HOMEWORK_TITLE/TARGET_DUE_DATE_DM + buildTargetMatchConfig()).
+ *   1 nhóm cụ thể (xem TARGET_HOMEWORK_TITLE/TARGET_DUE_DATE_DM + buildTargetMatchConfig(), hoặc
+ *   e2e-teacher-assign-student-open.mjs). titleForLog/dueDateForLog CHỈ để in CHECKPOINT log
+ *   (không ảnh hưởng logic match).
  * @param {number} [opts.hardTimeoutMs] An toàn cứng theo THỜI GIAN THỰC (Date.now(), không phải
  *   số lượt cuộn) - xem COLLECTION_HARD_TIMEOUT_MS. Nếu chạm ngưỡng trước khi dừng vì lý do khác,
  *   stopReason="HARD_TIMEOUT" (KHÔNG phải MAX_SCROLLS, dù MAX_SCROLLS cũng là 1 an toàn cứng khác
  *   theo SỐ LƯỢT - 2 an toàn độc lập, cái nào chạm trước thì dừng theo cái đó).
- * @returns {{cards: object[], emptyStateSeen: boolean, stopReason: "NO_NEW_CARDS"|"TARGET_REACHED"|"MAX_SCROLLS"|"HARD_TIMEOUT", scrollCount: number}}
- *   stopReason cho caller (runFilterCheck) biết có nên tin tưởng dữ liệu là ĐẦY ĐỦ hay không:
- *   NO_NEW_CARDS = đã cuộn tới hết danh sách thật (2 lượt liên tiếp không có card mới); mọi
- *   stopReason khác đều là dừng SỚM (có chủ đích với TARGET_REACHED, hoặc bất đắc dĩ với
- *   MAX_SCROLLS/HARD_TIMEOUT) - xem cách runFilterCheck dùng field này để tránh kết luận FAIL từ
- *   dữ liệu App HS chưa quét hết (report BLOCKED_COLLECTION_INCOMPLETE thay vào đó).
+ * @param {number} [opts.maxScrolls] Ghi đè MAX_SCROLLS - dùng ngân sách NHỎ HƠN cho use-case tìm
+ *   đúng 1 assignment (xem TARGET_LOOKUP_MAX_SCROLLS - lý do chọn số này ở comment hằng số đó).
+ * @param {number} [opts.maxStallRetries] Ghi đè MAX_STALL_RETRIES tương tự.
+ * @param {boolean} [opts.refreshOnceIfNotFoundImmediately] Khi true VÀ targetMatch chưa khớp ngay
+ *   ở lượt đọc đầu tiên (trước khi cuộn): pull-to-refresh 1 lần (gesture ĐÃ VERIFY, xem
+ *   pullToRefreshOnce()) rồi đọc lại, TRƯỚC KHI bắt đầu cuộn - đề phòng danh sách đang hiển thị
+ *   cache cũ (chưa kịp fetch lại sau khi vừa có assignment mới). Mặc định false - KHÔNG đổi hành
+ *   vi cũ của chính file này (main()#runFilterCheck không cần refresh vì không tìm 1 assignment
+ *   vừa-mới-tạo-tức-thời).
+ * @returns {{cards: object[], emptyStateSeen: boolean, stopReason: "NO_NEW_CARDS"|"TARGET_REACHED"|"MAX_SCROLLS"|"HARD_TIMEOUT", scrollCount: number, hierarchyCallCount: number}}
+ *   stopReason cho caller biết có nên tin tưởng dữ liệu là ĐẦY ĐỦ hay không: NO_NEW_CARDS = đã
+ *   cuộn tới hết danh sách thật (2 lượt liên tiếp không có card mới) - "không tìm thấy" ở đây là
+ *   KẾT LUẬN ĐÃ XÁC NHẬN. MAX_SCROLLS/HARD_TIMEOUT = dừng SỚM vì HẾT NGÂN SÁCH (số lượt hoặc thời
+ *   gian) - "không tìm thấy" ở đây là CHƯA ĐỦ BẰNG CHỨNG, không phải đã xác nhận không tồn tại
+ *   (caller PHẢI phân biệt 2 trường hợp này khi quyết định BLOCKED_ASSIGNMENT_NOT_FOUND vs
+ *   BLOCKED_DISCOVERY_BUDGET_EXCEEDED/BLOCKED_COLLECTION_INCOMPLETE, không gộp chung).
  */
-function collectAllVisibleHomeworkCards({ targetMatch = null, hardTimeoutMs = COLLECTION_HARD_TIMEOUT_MS } = {}) {
+function collectAllVisibleHomeworkCards({
+  targetMatch = null,
+  hardTimeoutMs = COLLECTION_HARD_TIMEOUT_MS,
+  maxScrolls = MAX_SCROLLS,
+  maxStallRetries = MAX_STALL_RETRIES,
+  refreshOnceIfNotFoundImmediately = false,
+} = {}) {
   scrollToTopBestEffort();
   const startedAtMs = Date.now();
+  let hierarchyCallCount = 0;
 
   let sectionSeen = false;
   let emptyStateSeen = false;
-  const readOnce = () => {
+  // ĐO THẬT (xem hằng số TARGET_LOOKUP_* phía trên): `maestro hierarchy` là lệnh CLI ĐẮT NHẤT
+  // trong toàn bộ hàm này (~52-59s/lệnh, chủ yếu chi phí khởi động lại process/ADB, gần như không
+  // phụ thuộc nội dung đọc) - log [PERF] mỗi lần gọi để mọi run sống tự báo cáo chi phí thật, thay
+  // vì đoán, và để phân biệt được "chậm vì hierarchy" hay "chậm vì swipe/parse".
+  const readOnce = (label) => {
+    const hStart = Date.now();
     const tree = maestroHierarchy();
+    const hierarchy_ms = Date.now() - hStart;
+    hierarchyCallCount++;
+    const pStart = Date.now();
     if (treeHasEmptyState(tree)) emptyStateSeen = true;
     const entries = collectEntriesInsideScrollableList(tree, [], false);
     const result = parseHomeworkCardsFromEntries(entries, sectionSeen);
@@ -432,6 +518,8 @@ function collectAllVisibleHomeworkCards({ targetMatch = null, hardTimeoutMs = CO
     const rootBounds = parseScreenBounds(tree?.attributes?.bounds);
     const containerBounds = findScrollableContainerBounds(tree);
     const lastEntryBottomY = entries.length ? entries[entries.length - 1].bounds?.bottom ?? null : null;
+    const parse_ms = Date.now() - pStart;
+    console.log(`[PERF] ${label}: hierarchy_ms=${hierarchy_ms} parse_ms=${parse_ms} hierarchyCallCount=${hierarchyCallCount}`);
     if (DEBUG_COLLECTOR) {
       console.error(`[DEBUG] readOnce: entries.length=${entries.length} cards.length=${result.cards.length}`);
       console.error(`[DEBUG] last 5 entries: ${JSON.stringify(entries.slice(-5))}`);
@@ -441,22 +529,59 @@ function collectAllVisibleHomeworkCards({ targetMatch = null, hardTimeoutMs = CO
     return { cards: result.cards, rootBounds, containerBounds, lastEntryBottomY, entriesSignature: JSON.stringify(entries) };
   };
 
-  let prevRead = readOnce();
+  const targetMatchedCount = (accumulated) => (targetMatch ? accumulated.filter((c) => targetMatch.keyFn(c) === targetMatch.key).length : 0);
+
+  // Log CHECKPOINT theo đúng format đã yêu cầu: mọi card ĐANG THẤY cùng title (kèm due date của
+  // từng card) + targetFound - để phân biệt "chưa refresh/load", "parser đọc sai", "chưa cuộn
+  // tới", "matcher sai" hay "card thực sự không tồn tại" (không đoán, đọc thẳng từ log).
+  const logCheckpoint = (label, accumulated, scrollIteration) => {
+    if (!targetMatch) return;
+    const found = targetMatchedCount(accumulated) >= targetMatch.expectedCount;
+    const sameTitleCards = targetMatch.titleForLog ? accumulated.filter((c) => c.title === targetMatch.titleForLog) : [];
+    console.log(
+      `CHECKPOINT[${label}]: elapsedMs=${Date.now() - startedAtMs} scrollIteration=${scrollIteration} rawCards=${accumulated.length} uniqueKeys=${new Set(accumulated.map(collectionKeyForLogging)).size}`,
+    );
+    console.log(`  TARGET: title="${targetMatch.titleForLog ?? "?"}" dueDate="${targetMatch.dueDateForLog ?? "?"}"`);
+    if (sameTitleCards.length) {
+      console.log(`  VISIBLE MATCHES (cùng title):`);
+      for (const c of sameTitleCards) console.log(`    - due=${c.dueDateText ?? c.scoreText ?? "?"} cta=${c.cta} completed=${c.completed}`);
+    } else {
+      console.log(`  VISIBLE MATCHES (cùng title): (chưa thấy card nào cùng title trong lượt đọc này)`);
+    }
+    console.log(`  targetFound=${found}`);
+  };
+
+  let prevRead = readOnce("INITIAL_READ");
   let accumulated = prevRead.cards;
+  logCheckpoint("INITIAL_READ", accumulated, 0);
 
-  const targetMatchedCount = () => (targetMatch ? accumulated.filter((c) => targetMatch.keyFn(c) === targetMatch.key).length : 0);
-
-  let noNewStreak = 0;
-  let scrollCount = 0;
-  let stopReason = targetMatch && targetMatchedCount() >= targetMatch.expectedCount ? "TARGET_REACHED" : null;
+  let stopReason = targetMatch && targetMatchedCount(accumulated) >= targetMatch.expectedCount ? "TARGET_REACHED" : null;
   if (DEBUG_COLLECTOR && stopReason === "TARGET_REACHED") {
     console.error(`[DEBUG] target đã đủ ngay từ lượt đọc đầu tiên (trước khi cuộn) - không cuộn gì thêm.`);
   }
 
+  // Target-first: nếu target CHƯA thấy ngay ở lượt đọc đầu (trước khi cuộn gì cả), thử refresh
+  // (pull-to-refresh - gesture ĐÃ VERIFY ở HW-05-pull-to-refresh.yaml, KHÔNG invent thao tác mới)
+  // ĐÚNG 1 LẦN trước khi cuộn - rẻ hơn nhiều so với cuộn mù nhiều lượt "hy vọng" card mới tự xuất
+  // hiện (nó sẽ không xuất hiện nếu đây thật là cache cũ, bất kể cuộn bao nhiêu).
+  if (refreshOnceIfNotFoundImmediately && targetMatch && stopReason !== "TARGET_REACHED") {
+    console.log(`Target chưa thấy ở lượt đọc đầu - pull-to-refresh 1 lần (đề phòng cache cũ) trước khi cuộn...`);
+    const swipeStart = Date.now();
+    pullToRefreshOnce();
+    console.log(`[PERF] REFRESH: swipe_ms=${Date.now() - swipeStart}`);
+    prevRead = readOnce("AFTER_REFRESH");
+    accumulated = prevRead.cards; // danh sách MỚI sau refresh (đã về lại đầu) - không gộp với lượt trước
+    logCheckpoint("AFTER_REFRESH", accumulated, 0);
+    if (targetMatchedCount(accumulated) >= targetMatch.expectedCount) stopReason = "TARGET_REACHED";
+  }
+
+  let noNewStreak = 0;
+  let scrollCount = 0;
+
   // Mỗi vòng lặp kiểm tra 2 an toàn cứng ĐỘC LẬP trước khi cuộn thêm (số lượt VÀ thời gian thực),
   // rồi kiểm tra 2 điều kiện dừng "có ý nghĩa" sau khi merge card mới (đủ target / hết card mới).
   while (!stopReason) {
-    if (scrollCount >= MAX_SCROLLS) {
+    if (scrollCount >= maxScrolls) {
       stopReason = "MAX_SCROLLS";
       break;
     }
@@ -466,8 +591,11 @@ function collectAllVisibleHomeworkCards({ targetMatch = null, hardTimeoutMs = CO
     }
 
     scrollCount++;
+    const iterStart = Date.now();
     let newRead = null;
-    for (let retry = 0; retry <= MAX_STALL_RETRIES; retry++) {
+    for (let retry = 0; retry <= maxStallRetries; retry++) {
+      const label = `SCROLL_${scrollCount}${retry > 0 ? `_retry${retry}` : ""}`;
+      const swipeStart = Date.now();
       if (prevRead.lastEntryBottomY == null) {
         // Fallback hiếm gặp (không đo được bounds dòng cuối) - giữ hành vi cuộn cố định cũ, KHÔNG
         // dừng cả script, nhưng mất đảm bảo overlap≤1 cho đúng lượt này.
@@ -475,7 +603,8 @@ function collectAllVisibleHomeworkCards({ targetMatch = null, hardTimeoutMs = CO
       } else {
         scrollPastLastEntry(prevRead.rootBounds, prevRead.containerBounds, prevRead.lastEntryBottomY);
       }
-      const candidate = readOnce();
+      console.log(`[PERF] ${label}: swipe_ms=${Date.now() - swipeStart}`);
+      const candidate = readOnce(label);
       // BUG THẬT đã xác nhận (2026-08-11): đôi khi `maestro hierarchy` đọc được ngay SAU
       // `waitForAnimationToEnd` vẫn trả về hierarchy CHƯA kịp cập nhật sau cuộn (race) - toàn bộ
       // entries GIỐNG Y NGUYÊN lượt trước (kể cả bounds), khiến mergeWithBoundedOverlap (chỉ so
@@ -485,7 +614,7 @@ function collectAllVisibleHomeworkCards({ targetMatch = null, hardTimeoutMs = CO
         newRead = candidate;
         break;
       }
-      if (DEBUG_COLLECTOR) console.error(`[DEBUG] stall detected (retry ${retry + 1}/${MAX_STALL_RETRIES}) - hierarchy giống y nguyên lượt trước, thử cuộn lại...`);
+      if (DEBUG_COLLECTOR) console.error(`[DEBUG] stall detected (retry ${retry + 1}/${maxStallRetries}) - hierarchy giống y nguyên lượt trước, thử cuộn lại...`);
       newRead = candidate; // dùng tạm nếu hết lượt retry vẫn không đổi (sẽ added=0, dừng bằng noNewStreak)
     }
     const before = accumulated.length;
@@ -493,11 +622,13 @@ function collectAllVisibleHomeworkCards({ targetMatch = null, hardTimeoutMs = CO
     const added = accumulated.length - before;
     noNewStreak = added === 0 ? noNewStreak + 1 : 0;
     prevRead = newRead;
+    console.log(`[PERF] SCROLL_${scrollCount}: iteration_ms=${Date.now() - iterStart}`);
+    logCheckpoint(`SCROLL_${scrollCount}`, accumulated, scrollCount);
     if (DEBUG_COLLECTOR) {
-      console.error(`[DEBUG] lượt cuộn ${scrollCount}/${MAX_SCROLLS}: +${added} card mới, tổng raw=${accumulated.length}, noNewStreak=${noNewStreak}`);
+      console.error(`[DEBUG] lượt cuộn ${scrollCount}/${maxScrolls}: +${added} card mới, tổng raw=${accumulated.length}, noNewStreak=${noNewStreak}`);
     }
 
-    if (targetMatch && targetMatchedCount() >= targetMatch.expectedCount) {
+    if (targetMatch && targetMatchedCount(accumulated) >= targetMatch.expectedCount) {
       stopReason = "TARGET_REACHED";
     } else if (noNewStreak >= 2) {
       stopReason = "NO_NEW_CARDS";
@@ -506,13 +637,13 @@ function collectAllVisibleHomeworkCards({ targetMatch = null, hardTimeoutMs = CO
 
   const uniqueKeyCount = new Set(accumulated.map(collectionKeyForLogging)).size;
   console.log(
-    `Thu thập xong sau ${scrollCount} lượt cuộn (dừng vì: ${stopReason}): ${accumulated.length} card RAW (không dedupe) / ${uniqueKeyCount} khoá (title+Hạn nộp hoặc title+Điểm) khác nhau. emptyStateSeen=${emptyStateSeen}`,
+    `Thu thập xong sau ${scrollCount} lượt cuộn / ${hierarchyCallCount} lệnh hierarchy (dừng vì: ${stopReason}): ${accumulated.length} card RAW (không dedupe) / ${uniqueKeyCount} khoá (title+Hạn nộp hoặc title+Điểm) khác nhau. emptyStateSeen=${emptyStateSeen}`,
   );
   if (stopReason === "MAX_SCROLLS" || stopReason === "HARD_TIMEOUT") {
     console.log(`CẢNH BÁO: dừng thu thập SỚM ngoài ý muốn (${stopReason}) - dữ liệu App HS CHƯA ĐẦY ĐỦ, không dùng để kết luận FAIL.`);
   }
 
-  return { cards: accumulated, emptyStateSeen, stopReason, scrollCount };
+  return { cards: accumulated, emptyStateSeen, stopReason, scrollCount, hierarchyCallCount };
 }
 
 // ---- Timezone: quy đổi TƯỜNG MINH sang giờ VN (UTC+7), KHÔNG dựa vào timezone của máy chạy
@@ -1059,4 +1190,7 @@ export {
   openHomeworkTabAtDefaultFilter,
   switchFilterToOneMonth,
   collectAllVisibleHomeworkCards,
+  TARGET_LOOKUP_MAX_SCROLLS,
+  TARGET_LOOKUP_MAX_STALL_RETRIES,
+  readHomeworkHierarchyOnce,
 };

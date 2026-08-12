@@ -1,0 +1,62 @@
+# Helper: xác nhận NATIVE (Maestro tự cuộn BÊN TRONG 1 lần gọi CLI) rằng card
+# (TARGET_TITLE, Hạn nộp TARGET_DUE_DATE_DM) đang hiển thị trên tab Bài tập - KHÔNG bấm gì (chỉ
+# verify tồn tại + đúng cặp title/due date, không mở bài).
+#
+# TẠI SAO: đã ĐO THẬT trên thiết bị (3201d866d40a1681, 2026-08-12, xem docblock
+# TARGET_LOOKUP_* trong flows/homework/verify-filter-web-vs-app.mjs) rằng MỖI lệnh CLI
+# `maestro` (dù `hierarchy` hay `test` 1 flow nhỏ) tốn ~52-67s - chi phí gần như CỐ ĐỊNH do
+# khởi động lại process/ADB, KHÔNG phụ thuộc việc cuộn bao nhiêu lần. Vòng cũ (swipe ngoài ->
+# `maestro hierarchy` -> parse -> swipe tiếp) trả giá ~55-60s cho MỖI lượt cuộn. `scrollUntilVisible`
+# native cuộn NHIỀU lần bên trong CÙNG 1 lần gọi CLI đó - cùng chi phí ~55-90s nhưng cuộn được
+# sâu hơn nhiều (Maestro tự lặp scroll+check nội bộ, không phải round-trip CLI riêng từng lượt).
+#
+# Neo theo "Hạn nộp DD/MM" (KHÔNG theo title) - COPY NGUYÊN cơ chế ĐÃ VERIFY trong
+# flows/helpers/open-exercise.yaml (dòng scrollUntilVisible theo "Hạn nộp ${EXERCISE_DUE_DATE_DM}")
+# - không invent selector mới. Lý do: title có thể trùng ≥2 card (bài cũ quá hạn + bài mới giao
+# lại cùng tên - ĐÃ GẶP THẬT) nhưng "Hạn nộp DD/MM" cụ thể thường chỉ ứng với ĐÚNG 1 trong số đó.
+# assertVisible ngay sau đó xác nhận card tại vị trí vừa cuộn tới ĐÚNG là title mong đợi (không
+# phải 1 assignment KHÁC vô tình cùng hạn nộp) - vẫn giữ nguyên business rule (title + due date),
+# chỉ đổi CÁCH TÌM.
+#
+# LƯU Ý: helper này KHÔNG tự phân biệt được "2 card giống hệt title+due date cùng tồn tại"
+# (Maestro không có "đếm số match" - xem BLOCKED_AMBIGUOUS_MATCH) - caller
+# (flows/giao_bai_tap/e2e-teacher-assign-student-open.mjs) làm việc đó bằng ĐÚNG 1 lệnh
+# `maestro hierarchy` SAU KHI helper này đã xác nhận tìm thấy (không phải sau mỗi lượt cuộn).
+#
+# Tham số: PHONE, OTP, TARGET_TITLE, TARGET_DUE_DATE_DM ("DD/MM"), SWITCH_TO_MONTH_FILTER
+#   ("true"/"false" - caller tự tính bằng computeRange()/inRange() đã có, xem
+#   flows/homework/verify-filter-web-vs-app.mjs - helper này không tự tính lại business rule ngày).
+appId: ${APP_ID}
+---
+- runFlow: launch-keep-session.yaml
+- runFlow:
+    file: login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: open-tab-homework.yaml
+
+# Đổi filter sang "1 tháng gần nhất" NẾU caller đã xác định Hạn nộp nằm ngoài "2 tuần gần nhất" -
+# gộp vào CHÍNH flow này (không phải 1 lệnh `maestro test` riêng) để đỡ tốn thêm 1 lần khởi động
+# CLI (~55-60s) cho việc đổi filter.
+- runFlow:
+    when:
+      true: ${SWITCH_TO_MONTH_FILTER == 'true'}
+    commands:
+      - tapOn:
+          text: ".*gần nhất.*"
+      - extendedWaitUntil:
+          visible: ".*(Xem bài tập theo).*"
+          timeout: 10000
+      - runFlow: homework-select-month-filter.yaml
+
+- scrollUntilVisible:
+    element:
+      text: "Hạn nộp ${TARGET_DUE_DATE_DM}"
+    direction: DOWN
+    timeout: 90000
+
+- assertVisible:
+    text: "${TARGET_TITLE}"
+    above:
+      text: "Hạn nộp ${TARGET_DUE_DATE_DM}"

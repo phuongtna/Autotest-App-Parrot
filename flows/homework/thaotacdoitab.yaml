@@ -1,0 +1,84 @@
+# HW-24 — Badge số bài chưa làm trên icon tab "Bài tập"
+# Logic code (app/dashboard/(tabs)/_layout.tsx):
+#   - badge = total_not_completed, CHỈ fetch khi pathname thuộc
+#     /dashboard, /dashboard/learningAi, /dashboard/account
+#   - khi ĐANG Ở tab Bài tập thì badge bị ép về 0 (badge={focused ? 0 : homeworkCount})
+# Kỳ vọng: đứng ở tab Vui học/Báo cáo -> badge hiện số; vào tab Bài tập -> badge mất
+# (Xếp Extended theo phương án tối ưu tab Bài tập: chỉ chụp ảnh, không assert số badge thật -
+# bán tự động, QA cần đối chiếu 3 ảnh bằng mắt như ghi chú cuối phần HW-24.)
+#
+# HW-26 — Filter RESET về "2 tuần gần nhất" khi rời tab rồi quay lại
+# Logic code: useFocusEffect với hasFocusedOnce -> mỗi lần focus lại tab thì
+#             setRangeTimeSelected(rangeTimes[0]) và fetch lại từ trang 1.
+# Kỳ vọng: đổi sang "1 tháng gần nhất" -> sang tab khác -> quay lại tab Bài tập
+#          -> nhãn filter trở về "2 tuần gần nhất"
+# GHI CHÚ: đây là hành vi theo code hiện tại. Nếu PO mong muốn GIỮ filter thì đây là defect
+#          — QA ghi vào cột "Ghi nhận" chứ không tự sửa kỳ vọng.
+#
+# Gộp 2 case vì cả hai đều cần rời tab Bài tập rồi quay lại — tận dụng chung
+# bước chuyển tab thay vì lặp lại login + chuyển tab 2 lần.
+# Tags: regression, data-dependent, extended
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+  - extended
+name: HW-24_26 Badge tab Bai tap + Filter reset khi quay lai tab
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# --- HW-24: badge hiện ở tab khác, biến mất khi vào tab Bài tập ---
+
+# Ở tab Vui học -> badge phải hiển thị (số hoặc 9+)
+- tapOn:
+    text: ".*(Vui học).*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*(Bài tập).*"
+    timeout: 20000
+- takeScreenshot: artifacts/HW-24-badge-on-vuihoc
+
+# Sang tab Báo cáo -> badge vẫn phải hiển thị
+- runFlow: ../helpers/open-tab-report.yaml
+- takeScreenshot: artifacts/HW-24-badge-on-baocao
+
+# Vào tab Bài tập -> badge phải biến mất
+- runFlow: ../helpers/open-tab-homework.yaml
+- takeScreenshot: artifacts/HW-24-badge-cleared
+
+# LƯU Ý QA: badge là <Text> số nên không so sánh được bằng assert text ổn định.
+# So sánh 3 ảnh chụp ở trên: 2 ảnh đầu PHẢI có badge đỏ, ảnh cuối PHẢI không có.
+
+# --- HW-26: filter reset về mặc định khi rời tab Bài tập rồi quay lại ---
+
+- tapOn:
+    id: "homework-filter-trigger"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+- tapOn:
+    id: "homework-filter-option-MONTH"
+- tapOn:
+    id: "homework-filter-apply"
+- extendedWaitUntil:
+    visible: ".*(1 tháng gần nhất).*"
+    timeout: 20000
+
+# Rời tab rồi quay lại
+# (không dùng hậu tố ", tab" - chỉ có trên iOS VoiceOver, xem ghi chú trong
+# helpers/open-tab-homework.yaml)
+- tapOn:
+    text: "Vui học"
+- extendedWaitUntil:
+    visible: "Bài tập"
+    timeout: 20000
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# useFocusEffect reset filter về mặc định mỗi lần focus lại tab
+- assertVisible: ".*(2 tuần gần nhất).*"
+- takeScreenshot: artifacts/HW-26-filter-reset

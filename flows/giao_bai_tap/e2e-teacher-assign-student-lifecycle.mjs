@@ -35,7 +35,10 @@ import { formatDMY, formatDM } from "../homework/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..");
-const HW_14_15_FLOW = join(PROJECT_ROOT, "flows", "homework", "HW-14_15-exercise-lifecycle.yaml");
+// ĐÃ SỬA (2026-08-12): HW-14_15-exercise-lifecycle.yaml đã bị đổi tên thành ktra_fullluong_lambai.yaml
+// (cùng nội dung/name field "HW-14_15 Lifecycle..." bên trong file, chỉ đổi tên file) - path cũ
+// không còn tồn tại trên đĩa, cập nhật lại để flow này chạy được.
+const HW_14_15_FLOW = join(PROJECT_ROOT, "flows", "homework", "ktra_fullluong_lambai.yaml");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_teacher_assign_student_lifecycle_report.json");
 
 /** dueDateDm ("DD/MM"): neo tìm/tap card theo Hạn nộp thay vì theo title - ĐÃ GẶP THẬT title trùng
@@ -75,9 +78,11 @@ function finish(result) {
 async function main() {
   const located = await assignHomeworkAndLocateOnApp();
   if (!located.ok) return finish(located);
-  const { assignment, card, startVnYmd, dueVnYmd } = located;
+  const { assignment, card, startVnYmd, dueVnYmd, selection } = located;
 
-  console.log(`[5/5] Chạy HW-14_15 lifecycle (mở -> thoát X -> resume -> hoàn thành -> kết quả) cho "${assignment.title}"...`);
+  console.log(
+    `[5/5] Chạy HW-14_15 lifecycle (mở -> thoát X -> resume -> hoàn thành -> kết quả) cho "${assignment.title}" (unit="${selection.unitName}", lesson="${selection.lessonName}")...`,
+  );
   let output = "";
   try {
     output = runLifecycleFlow(assignment.title, formatDM(dueVnYmd));
@@ -87,15 +92,20 @@ async function main() {
     // "BLOCKED_MISSING_EXERCISE_HANDLER" đã cố tình nhúng trong
     // flows/helpers/answer-current-exercise-generic.yaml để phân biệt case này với lỗi khác, thay
     // vì đoán mò dựa trên bước nào trong flow đã fail.
+    //
+    // QUAN TRỌNG: đây có thể là kết quả HỢP LỆ của random chọn phải 1 assignment SPEAK (xem
+    // docblock e2e-teacher-assign-student-open.mjs) - KHÔNG tự đổi sang assignment khác để né lỗi
+    // này, chỉ report ĐÚNG unit/lesson/title đã random kèm classification BLOCKED_MISSING_EXERCISE_HANDLER.
     const isMissingHandler = combined.includes("BLOCKED_MISSING_EXERCISE_HANDLER");
     return finish({
       status: isMissingHandler ? "BLOCKED" : "FAIL",
       classification: isMissingHandler ? "BLOCKED_MISSING_EXERCISE_HANDLER" : "HS_LIFECYCLE_STEP_FAILED",
       summary: isMissingHandler
-        ? `Assignment "${assignment.title}" (room_id=${assignment.id}) có câu hỏi dạng SPEAK - repo chưa có handler an toàn để tự động hoá tiếp (xem flows/exercise/README.md mục 2). Không phải flaky.`
-        : `HW-14_15-exercise-lifecycle.yaml thất bại ở 1 bước nào đó (xem maestroOutputTail để biết chính xác bước/selector) cho assignment "${assignment.title}" (room_id=${assignment.id}).`,
+        ? `Assignment "${assignment.title}" (room_id=${assignment.id}, unit="${selection.unitName}", lesson="${selection.lessonName}") có câu hỏi dạng SPEAK - repo chưa có handler an toàn để tự động hoá tiếp (xem flows/exercise/README.md mục 2). Đây là kết quả hợp lệ của random, KHÔNG đổi sang assignment khác. Không phải flaky.`
+        : `HW-14_15-exercise-lifecycle.yaml thất bại ở 1 bước nào đó (xem maestroOutputTail để biết chính xác bước/selector) cho assignment "${assignment.title}" (room_id=${assignment.id}, unit="${selection.unitName}", lesson="${selection.lessonName}").`,
       evidence: {
         assignment: { roomId: assignment.id, title: assignment.title, endTime: assignment.deadline.endTime },
+        selection,
         maestroOutputTail: combined.slice(-4000),
       },
     });
@@ -103,8 +113,9 @@ async function main() {
 
   return finish({
     status: "PASS",
-    summary: `GV giao bài "${assignment.title}" (room_id=${assignment.id}) -> HS mở đúng bài -> thoát X -> resume đúng bài -> hoàn thành bằng exercise handler chung -> màn kết quả. Toàn bộ lifecycle PASS.`,
+    summary: `GV giao bài "${assignment.title}" (room_id=${assignment.id}, unit="${selection.unitName}", lesson="${selection.lessonName}") -> HS mở đúng bài -> thoát X -> resume đúng bài -> hoàn thành bằng exercise handler chung -> màn kết quả. Toàn bộ lifecycle PASS.`,
     evidence: {
+      selection,
       assignment: {
         roomId: assignment.id,
         title: assignment.title,

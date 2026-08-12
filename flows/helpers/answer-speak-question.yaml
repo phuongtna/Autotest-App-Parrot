@@ -1,0 +1,65 @@
+# Helper: trả lời 1 câu SPEAK ("Nhấn để nói") trên màn hình "Bài tập" - TÁI SỬ DỤNG NGUYÊN VẸN kỹ
+# thuật ĐÃ XÁC NHẬN THẬT trong flows/bai_tap/complete_random_homework_success.yaml (2026-08-09,
+# tài khoản "Ngoc" lớp 3B, dòng 124-136) - KHÔNG invent gesture/toạ độ/selector mới.
+#
+# TẠI SAO tap theo TOẠ ĐỘ (point) thay vì selector text/content-desc (xem docblock gốc trong file
+# trên, mục 1): icon mic là ảnh graphic thuần, không có text/content-desc/testID riêng; nhãn tĩnh
+# "Nhấn để nói" nằm ngay dưới icon nhưng bounds bị dồn sát mép màn hình - tapOn theo text đó TAP
+# TRƯỢT ra ngoài vùng chạm thật (đã xác nhận thật khi test). "Nhấn để nói" ở đây CHỈ dùng để nhận
+# diện type (visible check), không dùng để tap.
+#
+# QUAN TRỌNG - KHÁC NGỮ CẢNH VỚI flows/exercise/EX-12-speaking-record-result.yaml: EX-12 test màn
+# SPEAK bên "Vui học" (Book/Unit/Lesson), dùng `tapOn: above: "Nhấn để nói"` - ĐÃ XÁC NHẬN THẬT
+# LẶP LẠI 2/2 LẦN (2026-08-11) rằng cách đó khiến app THOÁT RA NGOÀI, không vào được trạng thái ghi
+# âm (xem flows/exercise/README.md mục 2). Helper này CHỈ dùng cho màn SPEAK bên "Bài tập" (nơi
+# HW-14_15/EX-01..EX-11 hoạt động, qua flows/helpers/open-exercise.yaml) - 2 màn hình SPEAK khác
+# nhau trong app (component/layout khác nhau), KHÔNG giả định hành vi của bên này áp dụng được cho
+# bên kia. KHÔNG sửa EX-12 - vấn đề của nó (nếu còn) là ở màn "Vui học", không liên quan helper này.
+#
+# Chỉ cần bấm mic 1 LẦN - ghi âm tự dừng + tự nộp sau ~3-4s im lặng, tự hiện popup kết quả/chuyển
+# sang câu tiếp theo (đã xác nhận thật - KHÔNG cần bấm lại icon mic lần 2 như mô tả ban đầu trong
+# flows/bai_tap/TESTCASES.md).
+#
+# KHÔNG verify đúng/sai phát âm - không phải trách nhiệm của handler này (giống mọi nhánh khác
+# trong flows/helpers/answer-current-exercise-generic.yaml, handler đó gọi helper này).
+#
+# TIMEOUT (2026-08-12, ĐÃ ĐO THẬT, không phải copy nguyên số 12000 của bai_tap): lần chạy đầu dùng
+# đúng timeout 12000 của file gốc -> "Tiếp theo" KHÔNG xuất hiện trong 12s, rơi vào nhánh BLOCKED.
+# Nhưng đọc `maestro hierarchy` NGAY SAU ĐÓ (thêm ~1 phút wall-clock, không thao tác gì thêm) cho
+# thấy màn hình ĐÃ CÓ kết quả thật ("0%", "Chưa đạt", "Em vừa đọc là...", "Tiếp theo", "Thử lại") -
+# tức là app KHÔNG thoát ra ngoài (khác hẳn bug EX-12 ở context Vui học), ghi âm + upload + chấm
+# điểm phát âm CÓ hoàn thành, chỉ là chậm hơn 12s (network round-trip chấm phát âm, không phải lỗi
+# app). Tăng lên 45000 (45s) - đủ dư so với thời gian đã quan sát thật, vẫn xa ngưỡng an toàn khác
+# của app. Nếu vẫn không đủ ở lần chạy khác, đó là dữ liệu MỚI cần đo lại, không phải đoán tiếp.
+#
+# Kết thúc: nếu "Tiếp theo" xuất hiện trong 45s -> bấm "Tiếp theo", xong câu SPEAK, trả quyền điều
+# khiển lại cho answer-current-exercise-generic.yaml. Nếu KHÔNG (app thoát ra ngoài/treo như bug đã
+# biết ở EX-12, hoặc chấm điểm phát âm chậm hơn cả 45s) -> TỰ báo BLOCKED_MISSING_EXERCISE_HANDLER
+# ngay tại đây (không im lặng trả về, không để caller đoán) - extendedWaitUntil dùng optional:true
+# CHỈ để tránh lỗi Maestro chung chung làm mất dấu marker ngay bên dưới, KHÔNG phải để bỏ qua case
+# fail.
+appId: ${APP_ID}
+---
+- tapOn:
+    point: "50%,92%"
+- extendedWaitUntil:
+    visible:
+      text: "Tiếp theo"
+    timeout: 45000
+    optional: true
+# QUAN TRỌNG: kiểm tra "not visible" TRƯỚC khi tap "Tiếp theo", KHÔNG PHẢI sau (bug đã gặp thật
+# 2026-08-12: 2 runFlow.when SAU tapOn KHÔNG phải if/else - sau khi nhánh "visible" tap thành công
+# và làm "Tiếp theo" biến mất khỏi màn hình, nhánh "notVisible" bên dưới ĐÁNH GIÁ LẠI trên trạng
+# thái MỚI đó và SAI LẦM coi là BLOCKED dù vừa mới PASS. Đánh giá "notVisible" 1 LẦN DUY NHẤT ngay
+# sau extendedWaitUntil, trước khi bất kỳ hành động nào làm đổi trạng thái, để loại trừ khả năng đó).
+- runFlow:
+    when:
+      notVisible: "Tiếp theo"
+    commands:
+      # Maestro 2.8.0 chặn takeScreenshot có ".." (xem cùng lý do đã sửa ở
+      # flows/homework/HW-14_15-exercise-lifecycle.yaml/answer-current-exercise-generic.yaml) -
+      # dùng path plain ngay từ đầu ở helper mới này.
+      - takeScreenshot: BLOCKED-missing-exercise-handler-speak
+      - assertVisible:
+          text: "BLOCKED_MISSING_EXERCISE_HANDLER: cau SPEAK - da thu ky thuat tap toa do (50%,92%) da xac nhan that trong flows/bai_tap/complete_random_homework_success.yaml nhung khong thay Tiep theo sau 45s tren item nay (co the app da thoat/treo, bug tuong tu EX-12 o context Vui hoc - xem flows/exercise/README.md muc 2 - hoac cham diem phat am cham hon ca 45s)"
+- tapOn: "Tiếp theo"

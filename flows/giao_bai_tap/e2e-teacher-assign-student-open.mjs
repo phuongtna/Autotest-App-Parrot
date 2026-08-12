@@ -22,12 +22,31 @@
  *     scrape UI Web GV (endpoint room_id-cho-bài-mới-tinh không tồn tại - xem comment homeworkModel.js
  *     "assignedDate"/"examId" UNRESOLVED - nên phải suy ra room mới bằng diff before/after).
  *   - flows/homework/verify-filter-web-vs-app.mjs (export sẵn, có guard argv nên import an toàn) -
- *     toàn bộ engine điều hướng+thu thập+match card App HS đã verify thật (login, mở tab Bài tập,
- *     đổi filter WEEK/MONTH, cuộn theo TOẠ ĐỘ, parse card từ hierarchy, quy đổi giờ VN, khoá match
- *     title+Hạn nộp). Không viết lại bất kỳ phần nào trong số này.
+ *     quy đổi giờ VN, computeRange/inRange (business rule filter WEEK/MONTH), appDueDateKeyFragment
+ *     (khoá match title+Hạn nộp), readHomeworkHierarchyOnce (1 lệnh `maestro hierarchy` DUY NHẤT
+ *     dùng để phân biệt duplicate SAU KHI đã tìm thấy - KHÔNG dùng để tự cuộn/tìm nữa, xem mục
+ *     "KIẾN TRÚC DISCOVERY" dưới). collectAllVisibleHomeworkCards() (swipe-ngoài+hierarchy theo
+ *     TOẠ ĐỘ, budget TARGET_LOOKUP_*) VẪN CÒN trong file đó (không rollback, xem lịch sử) nhưng
+ *     KHÔNG còn được import/gọi ở ĐÂY - xem lý do đo thật (~52-67s/lệnh CLI) trong docblock hằng
+ *     số TARGET_LOOKUP_* của chính file đó.
  *   - flows/helpers/open-exercise.yaml (không sửa) - bước tap "Làm bài" cuối cùng + cổng xác nhận
  *     "đã vào màn làm bài" generic (`exercise_close_button`, verify KHÔNG phụ thuộc loại câu hỏi -
  *     xem comment trong chính file đó).
+ *   - flows/helpers/locate-assignment-card.yaml (MỚI) - native `scrollUntilVisible` (Maestro tự
+ *     cuộn bên trong 1 lần gọi CLI) tìm card theo (title, Hạn nộp DD/MM) - xem "KIẾN TRÚC
+ *     DISCOVERY" dưới.
+ *
+ * KIẾN TRÚC DISCOVERY (2026-08-12, thay thế bản polling swipe-ngoài+`maestro hierarchy` cũ):
+ *   ĐÃ ĐO THẬT (thiết bị 3201d866d40a1681, ≥25 lệnh qua 3 lần chạy sống) rằng MỖI lệnh CLI
+ *   `maestro` (dù `hierarchy` hay `test` 1 flow nhỏ) tốn ~52-67s gần như CỐ ĐỊNH (chi phí khởi
+ *   động lại process/kết nối ADB, không phụ thuộc độ phức tạp thao tác) - nên vòng "swipe ngoài
+ *   -> đọc `maestro hierarchy` -> parse -> swipe tiếp" trả giá 1 lệnh CLI CHO MỖI LƯỢT CUỘN, quá
+ *   đắt để dò sâu 1 danh sách dài. Native `scrollUntilVisible` (locate-assignment-card.yaml) cuộn
+ *   NHIỀU LẦN BÊN TRONG CÙNG 1 lệnh CLI (Maestro tự lặp scroll+check nội bộ, timeout 90s) - cùng
+ *   chi phí ~1 lệnh CLI nhưng không nhân theo số lượt cuộn. `maestro hierarchy` ngoài giờ CHỈ còn
+ *   dùng ĐÚNG 1 LẦN, NGAY SAU KHI native locate đã assertVisible thành công - để phân biệt
+ *   duplicate (App HS có ≥2 card giống hệt title+Hạn nộp không, xem BLOCKED_AMBIGUOUS_MATCH),
+ *   KHÔNG dùng để tự tìm/cuộn.
  *
  * KHÔNG đụng tới EX-06/EX-12/các EX testcase khác, KHÔNG tạo selector mới, KHÔNG thao tác mic.
  *
@@ -38,26 +57,39 @@
  *
  * XỬ LÝ DUPLICATE: nếu Web GV có >1 room mới cùng title (double-submit bug đã biết - xem
  * flows/giao_bai_tap/TESTCASES.md) hoặc App HS có >1 card cùng khoá (title, Hạn nộp) mà không thể
- * quy về đúng 1 assignment vừa tạo -> BLOCKED_AMBIGUOUS_ASSIGNMENT_MATCH, KHÔNG tự chọn đại 1 card.
+ * quy về đúng 1 assignment vừa tạo -> BLOCKED_AMBIGUOUS_MATCH, KHÔNG tự chọn đại 1 card.
+ *
+ * CHỌN UNIT/LESSON/ASSIGNMENT (2026-08-12, thay hẳn bản cũ hardcode "G3-U1-Lesson 1: Listen and
+ * repeat" - bài đó là Speaking nên LUÔN rơi vào BLOCKED_MISSING_EXERCISE_HANDLER, chưa từng chứng
+ * minh được GV có thể giao bài KHÁC): MẶC ĐỊNH random 1 Unit thật (đọc từ Radix Select) -> random 1
+ * Lesson thật của Unit đó (đọc từ các button "Lesson N") -> random 1 assignment thật của Lesson đó
+ * (đọc theo dấu hiệu "Xem chi tiết"+"N câu hỏi") - xem
+ * automation/giao_bai_tap/navigation/teacherAssignmentDiscovery.js (tái sử dụng heuristic đã xác
+ * nhận thật trong dataDiscovery.mjs, không viết lại cách dò khác) +
+ * automation/giao_bai_tap/runtime/assignHomeworkFlow.js#selectUnitLessonHomework. Unit/Lesson/
+ * assignment RANDOM CHỌN ĐƯỢC PHẢI LÀ SPEAKING vẫn là 1 kết quả hợp lệ - KHÔNG được né bằng cách tự
+ * chọn lại; nếu vậy, testcase downstream (HW-14_15 qua e2e-teacher-assign-student-lifecycle.mjs) sẽ
+ * tự báo BLOCKED_MISSING_EXERCISE_HANDLER kèm đúng title/unit/lesson đã random, KHÔNG PASS giả.
+ * ASSIGN_UNIT_NAME/ASSIGN_LESSON_NAME/ASSIGN_HOMEWORK_ITEM_NAME (xem ENV dưới) vẫn còn để ÉP CỐ
+ * ĐỊNH khi cần debug/tái hiện lại 1 case cụ thể - để trống (mặc định) mới là random.
  *
  * CHẠY (cần .env có TEACHER_USERNAME/PASSWORD/TEACHER_ACCESS_TOKEN, test_data/accounts.env có
  * PHONE/OTP của học sinh lớp tương ứng, thiết bị Android đã kết nối - xem README.md):
  *   node flows/giao_bai_tap/e2e-teacher-assign-student-open.mjs
- * ENV (đều optional, có default khớp dữ liệu ĐÃ XÁC NHẬN THẬT trong TESTCASES.md):
+ * ENV (đều optional):
  *   ASSIGN_PRIMARY_CLASS (default "3B"), ASSIGN_OTHER_GROUP_CLASS (default "6D"),
- *   ASSIGN_DUE_DATE "DD/MM/YYYY" (default hôm nay+7 ngày), ASSIGN_UNIT_NAME (default "Unit 1: Hello"),
- *   ASSIGN_LESSON_NAME (default "Lesson 1"), ASSIGN_HOMEWORK_ITEM_NAME
- *   (default "G3-U1-Lesson 1: Listen and repeat" - bài ĐÃ xác nhận thật tồn tại cho lớp 3B),
+ *   ASSIGN_DUE_DATE "DD/MM/YYYY" (default hôm nay+7 ngày),
+ *   ASSIGN_UNIT_NAME/ASSIGN_LESSON_NAME/ASSIGN_HOMEWORK_ITEM_NAME (KHÔNG có default - để trống ->
+ *   random thật trên UI, xem mục "CHỌN UNIT/LESSON/ASSIGNMENT" trên; chỉ set khi cần ép cố định),
  *   ASSIGN_HEADLESS (default true), ASSIGN_DEBUG_DUMP (default true - chụp screenshot khi FAIL),
  *   TARGET_CLASS_ID (default id lớp "3B", PHẢI cùng trỏ 1 lớp thật với ASSIGN_PRIMARY_CLASS),
  *   APP_ID/PHONE/OTP/MAESTRO_DEVICE - đọc .env/test_data/accounts.env giống các script khác.
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import os from "node:os";
 
 import { assignHomeworkFlow } from "../../automation/giao_bai_tap/runtime/assignHomeworkFlow.js";
 import { fetchAllHomeworkRooms } from "../../automation/bai_tap/discovery/homeworks.js";
@@ -70,16 +102,23 @@ import {
   formatDM,
   formatDMY,
   appDueDateKeyFragment,
-  openHomeworkTabAtDefaultFilter,
-  switchFilterToOneMonth,
-  collectAllVisibleHomeworkCards,
+  readHomeworkHierarchyOnce,
 } from "../homework/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const HELPERS_DIR = join(SELF_DIR, "..", "helpers");
 const OPEN_EXERCISE_FLOW = join(HELPERS_DIR, "open-exercise.yaml");
+const LOCATE_ASSIGNMENT_FLOW = join(HELPERS_DIR, "locate-assignment-card.yaml");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_teacher_assign_student_open_report.json");
+
+// ĐO THẬT (2026-08-12, thiết bị 3201d866d40a1681): mỗi lệnh CLI `maestro` ~52-67s bất kể nội
+// dung - nên KHÔNG retry "native locate" hàng chục lần (mỗi lần retry vẫn là 1 lệnh CLI đầy đủ,
+// gồm cả login lại). Giữ nhỏ (2) đúng yêu cầu "không retry hàng chục lần" - nếu native
+// scrollUntilVisible (đã có timeout nội bộ RỘNG, 90s, đủ cho rất nhiều lượt cuộn NATIVE bên
+// trong CÙNG 1 lệnh CLI đó) thất bại 2 lần độc lập, coi là bằng chứng khá chắc "không tồn tại"
+// (khác hẳn bản cũ chỉ cuộn được 3-6 lần qua vòng swipe-ngoài+hierarchy trước khi hết ngân sách).
+const LOCATE_MAX_ATTEMPTS = 2;
 
 // Cùng 1 lớp thật với ASSIGN_PRIMARY_CLASS (mặc định "3B") - id lấy từ
 // verify-filter-web-vs-app.mjs (đã xác nhận thật, không đoán).
@@ -87,9 +126,11 @@ const TARGET_CLASS_ID = process.env.TARGET_CLASS_ID || "b3336062-cacd-4d1a-a0af-
 
 const ASSIGN_PRIMARY_CLASS = process.env.ASSIGN_PRIMARY_CLASS || "3B";
 const ASSIGN_OTHER_GROUP_CLASS = process.env.ASSIGN_OTHER_GROUP_CLASS || "6D";
-const ASSIGN_UNIT_NAME = process.env.ASSIGN_UNIT_NAME || "Unit 1: Hello";
-const ASSIGN_LESSON_NAME = process.env.ASSIGN_LESSON_NAME || "Lesson 1";
-const ASSIGN_HOMEWORK_ITEM_NAME = process.env.ASSIGN_HOMEWORK_ITEM_NAME || "G3-U1-Lesson 1: Listen and repeat";
+// KHÔNG có default - để trống nghĩa là RANDOM thật trên UI (xem docblock đầu file). Chỉ set qua
+// ENV khi cần ép cố định Unit/Lesson/assignment để debug/tái hiện lại 1 case cụ thể.
+const ASSIGN_UNIT_NAME = process.env.ASSIGN_UNIT_NAME || undefined;
+const ASSIGN_LESSON_NAME = process.env.ASSIGN_LESSON_NAME || undefined;
+const ASSIGN_HOMEWORK_ITEM_NAME = process.env.ASSIGN_HOMEWORK_ITEM_NAME || undefined;
 const ASSIGN_HEADLESS = process.env.ASSIGN_HEADLESS !== "false";
 const ASSIGN_DEBUG_DUMP = process.env.ASSIGN_DEBUG_DUMP !== "false";
 
@@ -124,25 +165,6 @@ export const APP_ID = process.env.APP_ID || rootEnv.APP_ID;
 export const PHONE = process.env.PHONE || accountsEnv.PHONE;
 export const OTP = process.env.OTP || accountsEnv.OTP;
 
-/** Cuộn về đầu danh sách "Bài tập" - dùng ngay trước khi gọi open-exercise.yaml, vì
- * collectAllVisibleHomeworkCards() (import ở trên) có thể đã cuộn xuống rất sâu (full scan) khi
- * tìm card - nếu không cuộn lại về đầu, scrollUntilVisible DOWN của open-exercise.yaml sẽ không
- * thấy lại card đã cuộn qua (chỉ cuộn 1 chiều từ vị trí hiện tại). */
-export function scrollToTopBeforeTap() {
-  const dir = mkdtempSync(join(os.tmpdir(), "e2e-scrolltop-"));
-  const flowPath = join(dir, "step.yaml");
-  const steps = Array.from({ length: 8 }, () => `- swipe:\n    direction: DOWN\n    duration: 250`).join("\n");
-  writeFileSync(flowPath, `appId: ${APP_ID}\n---\n${steps}\n`, "utf8");
-  try {
-    execFileSync("maestro", [...deviceArgs(), "test", flowPath, "-e", `APP_ID=${APP_ID}`], {
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-    });
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
-
 /** Bấm "Làm bài" đúng card đã xác nhận (tái sử dụng nguyên vẹn open-exercise.yaml - không tự viết
  * lại thao tác scroll/tap/consent-AI/chờ exercise_close_button, đều đã verify thật trong file đó).
  * Truyền dueDateDm (Hạn nộp "DD/MM") để helper neo theo đó thay vì theo title - ĐÃ GẶP THẬT title
@@ -169,6 +191,47 @@ function tapAndOpenExercise(exerciseName, dueDateDm) {
   );
 }
 
+/**
+ * NATIVE locate (xem flows/helpers/locate-assignment-card.yaml) - scrollUntilVisible cuộn BÊN
+ * TRONG 1 lần gọi CLI thay cho vòng swipe-ngoài+`maestro hierarchy` cũ. Throw nếu không tìm thấy
+ * trong timeout nội bộ (90s) của scrollUntilVisible - caller tự quyết định retry.
+ */
+function runLocateAssignmentCard(title, dueDateDm, switchToMonthFilter) {
+  return execFileSync(
+    "maestro",
+    [
+      ...deviceArgs(),
+      "test",
+      LOCATE_ASSIGNMENT_FLOW,
+      "-e",
+      `APP_ID=${APP_ID}`,
+      "-e",
+      `PHONE=${PHONE}`,
+      "-e",
+      `OTP=${OTP}`,
+      "-e",
+      `TARGET_TITLE=${title}`,
+      "-e",
+      `TARGET_DUE_DATE_DM=${dueDateDm}`,
+      "-e",
+      `SWITCH_TO_MONTH_FILTER=${switchToMonthFilter ? "true" : "false"}`,
+    ],
+    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+  );
+}
+
+/** Best-effort: đọc hierarchy MỘT LẦN ngay khi 1 lượt native locate thất bại, chỉ để ghi log
+ * [DISCOVERY_STALL] (title/Hạn nộp ĐANG THẤY được lúc đó) - phục vụ debug, KHÔNG dùng để quyết
+ * định PASS/FAIL/BLOCKED (quyết định đó dựa trên số lần native locate thất bại, xem gọi hàm này). */
+function peekVisibleCardsForStallLog(title) {
+  try {
+    const cards = readHomeworkHierarchyOnce();
+    return cards.filter((c) => c.title === title).map((c) => ({ dueDateText: c.dueDateText, cta: c.cta }));
+  } catch {
+    return null;
+  }
+}
+
 /** Quan sát THÔNG TIN (không dùng để quyết định PASS/FAIL - xem mục 8/9 yêu cầu) loại câu hỏi vừa
  * mở, chỉ để ghi vào report "App evidence". */
 function observeExerciseTypeBestEffort() {
@@ -186,11 +249,13 @@ function observeExerciseTypeBestEffort() {
   }
 }
 
-async function fetchClassDatasetByTitle(title) {
+/** title optional: không truyền -> lấy TOÀN BỘ room của lớp (dùng làm snapshot "before" khi title
+ * vừa random chọn CHƯA XÁC ĐỊNH được tại thời điểm gọi - xem assignHomeworkAndLocateOnApp). */
+async function fetchClassDataset(title) {
   const rawRooms = await fetchAllHomeworkRooms({ period: "MONTH" });
   return rawRooms
     .map(normalizeHomework)
-    .filter((h) => h.classIds.includes(TARGET_CLASS_ID) && h.title === title);
+    .filter((h) => h.classIds.includes(TARGET_CLASS_ID) && (title === undefined || h.title === title));
 }
 
 /**
@@ -200,18 +265,27 @@ async function fetchClassDatasetByTitle(title) {
  * e2e-teacher-assign-student-lifecycle.mjs) tự quyết định bước tiếp theo (mở rồi dừng, hay mở rồi
  * chạy tiếp lifecycle đầy đủ).
  *
- * @returns {Promise<{ok:false, status, classification, summary, evidence} | {ok:true, assignment, card, scanOutcome, startVnYmd, dueVnYmd}>}
+ * @returns {Promise<{ok:false, status, classification, summary, evidence} | {ok:true, assignment, card, scanOutcome, startVnYmd, dueVnYmd, selection}>}
  */
 export async function assignHomeworkAndLocateOnApp() {
   requireTeacherPortalConfig();
   if (!APP_ID) throw new Error("Thiếu APP_ID - kiểm tra .env.");
   if (!PHONE || !OTP) throw new Error("Thiếu PHONE/OTP - kiểm tra test_data/accounts.env.");
 
-  console.log("[1/4] Snapshot Web GV TRƯỚC khi giao bài (để diff tìm room mới sau khi giao)...");
-  const before = await fetchClassDatasetByTitle(ASSIGN_HOMEWORK_ITEM_NAME);
+  // KHÔNG lọc theo title ở bước snapshot "before": title của assignment sẽ giao CHƯA XÁC ĐỊNH
+  // được tại đây khi ASSIGN_HOMEWORK_ITEM_NAME để trống (random) - beforeIds phải là TOÀN BỘ id
+  // hiện có của lớp để diff đúng sau khi biết title thật đã random chọn (xem bước [3/4]).
+  console.log("[1/4] Snapshot Web GV TRƯỚC khi giao bài (toàn bộ room của lớp, để diff tìm room mới sau khi biết title vừa random)...");
+  const before = await fetchClassDataset();
   const beforeIds = new Set(before.map((h) => h.id));
 
-  console.log(`[2/4] Giao bài qua Web GV (Playwright): lớp=${ASSIGN_PRIMARY_CLASS}, hạn nộp=${ASSIGN_DUE_DATE}, bài="${ASSIGN_HOMEWORK_ITEM_NAME}"...`);
+  console.log(
+    `[2/4] Giao bài qua Web GV (Playwright): lớp=${ASSIGN_PRIMARY_CLASS}, hạn nộp=${ASSIGN_DUE_DATE}${
+      ASSIGN_HOMEWORK_ITEM_NAME
+        ? `, bài (ép cố định qua ENV)="${ASSIGN_HOMEWORK_ITEM_NAME}"`
+        : " (Unit/Lesson/assignment RANDOM trên dữ liệu thật, xem docblock đầu file)"
+    }...`,
+  );
   const assignResult = await assignHomeworkFlow({
     primaryClass: ASSIGN_PRIMARY_CLASS,
     otherGroupClass: ASSIGN_OTHER_GROUP_CLASS,
@@ -223,26 +297,51 @@ export async function assignHomeworkAndLocateOnApp() {
     debugDump: ASSIGN_DEBUG_DUMP,
   });
 
+  // selection phản ánh Unit/Lesson/assignment THẬT đã dùng (random hoặc ép cố định) - bước
+  // selectUnitLessonHomework luôn chạy TRƯỚC bước submit nên selection có giá trị kể cả khi giao
+  // bài thất bại ở bước sau đó (submitAssign) - log NGAY ở đây, trước khi biết PASS/FAIL, để mọi
+  // lần chạy đều để lại bằng chứng đã random cái gì.
+  const selection = assignResult.selection || {};
+  console.log(`[RANDOM_SELECTION]`);
+  console.log(`unit: ${selection.unitName ?? "unknown"}`);
+  console.log(`lesson: ${selection.lessonName ?? "unknown"}`);
+  console.log(`assignment: ${selection.homeworkItemName ?? "unknown"}`);
+  console.log(`exerciseId: ${selection.exerciseId ?? "unknown"}`);
+  console.log(`type: ${selection.type ?? "unknown"}`);
+  console.log(`questionCount: ${selection.questionCount ?? "unknown"}`);
+
   if (assignResult.status !== "PASS") {
     const failedStep = assignResult.steps.find((s) => s.status === "FAIL");
-    const classification = failedStep?.name === "submitAssign" ? "GV_SUCCESS_MESSAGE_MISSING" : "GV_ASSIGNMENT_FAILED";
+    // "resolveAssignmentSelection" fail = cây eligible rỗng (BLOCKED_NO_ELIGIBLE_ASSIGNMENT, xem
+    // navigation/teacherAssignmentApiDiscovery.js#pickRandomEligibleAssignment) - phân biệt với
+    // GV_ASSIGNMENT_FAILED (fail ở bước UI khác) bằng dò marker trong message, cùng quy ước đã
+    // dùng cho BLOCKED_MISSING_EXERCISE_HANDLER ở e2e-teacher-assign-student-lifecycle.mjs.
+    const isNoEligible = (assignResult.error || "").includes("BLOCKED_NO_ELIGIBLE_ASSIGNMENT");
+    const classification = isNoEligible
+      ? "BLOCKED_NO_ELIGIBLE_ASSIGNMENT"
+      : failedStep?.name === "submitAssign"
+        ? "GV_SUCCESS_MESSAGE_MISSING"
+        : "GV_ASSIGNMENT_FAILED";
+    console.log(`[TEACHER_ASSIGN]\n${isNoEligible ? "BLOCKED" : "FAIL"}`);
     return {
       ok: false,
-      status: "FAIL",
+      status: isNoEligible ? "BLOCKED" : "FAIL",
       classification,
-      summary:
-        classification === "GV_SUCCESS_MESSAGE_MISSING"
-          ? `Bấm "Giao bài đã chọn" nhưng không thấy toast "Giao bài tập mới thành công" (hoặc bấm nút thất bại) trong 15s.`
+      summary: isNoEligible
+        ? "Không còn Unit/Lesson/assignment nào thực sự có exam để random trong bộ sách 'Kết nối tri thức' của lớp này (xem evidence.error để biết chi tiết cây eligible tại thời điểm chạy)."
+        : classification === "GV_SUCCESS_MESSAGE_MISSING"
+          ? `Bấm "Giao bài đã chọn" nhưng không thấy toast "Giao bài tập mới thành công" (hoặc bấm nút thất bại) trong 15s. Unit/Lesson/assignment đã chọn trước khi fail: unit="${selection.unitName}" lesson="${selection.lessonName}" assignment="${selection.homeworkItemName}".`
           : `Giao bài thất bại ở bước "${failedStep?.name}" (trước khi tới bước bấm giao bài).`,
-      evidence: { steps: assignResult.steps, error: assignResult.error },
+      evidence: { steps: assignResult.steps, error: assignResult.error, selection },
     };
   }
   console.log(`  [PASS] Toast "Giao bài tập mới thành công" đã hiện - Web GV giao bài OK.`);
+  console.log(`[TEACHER_ASSIGN]\nPASS`);
 
   console.log("[3/4] Lấy metadata assignment vừa tạo (diff before/after qua API room.json)...");
   let after = [];
   for (let attempt = 1; attempt <= 3; attempt++) {
-    after = await fetchClassDatasetByTitle(ASSIGN_HOMEWORK_ITEM_NAME);
+    after = await fetchClassDataset(selection.homeworkItemName);
     if (after.some((h) => !beforeIds.has(h.id))) break;
     if (attempt < 3) {
       console.log(`  Chưa thấy room mới (lần ${attempt}/3) - chờ 3s rồi thử lại (API có thể chưa kịp cập nhật)...`);
@@ -252,25 +351,28 @@ export async function assignHomeworkAndLocateOnApp() {
   const newRooms = after.filter((h) => !beforeIds.has(h.id));
 
   if (newRooms.length === 0) {
+    console.log(`[APP_MATCH]\nBLOCKED`);
     return {
       ok: false,
       status: "BLOCKED",
       classification: "ASSIGNMENT_METADATA_MISSING",
-      summary: `Web GV báo giao bài thành công nhưng không tìm thấy room mới nào qua GET /api/user/exams/room.json (lớp=${TARGET_CLASS_ID}, title="${ASSIGN_HOMEWORK_ITEM_NAME}") sau 3 lần thử.`,
-      evidence: { beforeCount: before.length, afterCount: after.length },
+      summary: `Web GV báo giao bài thành công nhưng không tìm thấy room mới nào qua GET /api/user/exams/room.json (lớp=${TARGET_CLASS_ID}, title="${selection.homeworkItemName}") sau 3 lần thử.`,
+      evidence: { beforeCount: before.length, afterCount: after.length, selection },
     };
   }
   if (newRooms.length > 1) {
+    console.log(`[APP_MATCH]\nBLOCKED`);
     return {
       ok: false,
       status: "BLOCKED",
       classification: "BLOCKED_AMBIGUOUS_ASSIGNMENT_MATCH",
       summary: `Web GV tạo ${newRooms.length} room MỚI cùng title+lớp sau 1 lượt giao bài (nghi vấn bug double-submit đã ghi nhận ở flows/giao_bai_tap/TESTCASES.md) - không thể xác định đâu là "đúng 1" assignment vừa giao để đối chiếu App HS, không đoán.`,
       evidence: {
-        title: ASSIGN_HOMEWORK_ITEM_NAME,
+        title: selection.homeworkItemName,
         deadline: newRooms.map((r) => formatDMY(isoToVnYmd(r.deadline.endTime))),
         soAssignmentTrung: newRooms.length,
         roomIds: newRooms.map((r) => r.id),
+        selection,
       },
     };
   }
@@ -283,60 +385,102 @@ export async function assignHomeworkAndLocateOnApp() {
     `  [PASS] room_id=${assignment.id} title="${assignment.title}" ngày giao(VN)=${formatDMY(startVnYmd)} hạn nộp(VN)=${formatDMY(dueVnYmd)}`,
   );
 
-  console.log("[4/4] App HS: login, mở tab Bài tập, tìm đúng card vừa giao...");
-  try {
-    openHomeworkTabAtDefaultFilter();
-    const weekRange = computeRange("WEEK");
-    if (!inRange(dueVnYmd, weekRange.rangeStart, weekRange.rangeEnd)) {
-      console.log(`  Hạn nộp (${formatDMY(dueVnYmd)}) ngoài "2 tuần gần nhất" - đổi filter sang "1 tháng gần nhất"...`);
-      switchFilterToOneMonth();
+  // Không có selector/helper cho icon "thông báo" trong app (đã xác nhận CHƯA tự động hoá được ở
+  // flows/teacher/testcases/teacher-assign-homework-success.yaml, automation/README.md và
+  // assignHomeworkFlow.js/giao_bai_tap/cli.js - Playwright không điều khiển được app mobile). Vì
+  // vậy dùng chính bước tìm-đúng-card-chưa-hoàn-thành dưới đây làm proxy cho "trạng thái assignment
+  // mới theo UI thực tế" (card của bài vừa giao xuất hiện, CTA còn "Làm bài"/chưa "Làm lại").
+  //
+  // KIẾN TRÚC (2026-08-12, thay thế bản polling swipe-ngoài+`maestro hierarchy` cũ): ĐÃ ĐO THẬT
+  // trên thiết bị 3201d866d40a1681 rằng MỖI lệnh CLI `maestro` (dù `hierarchy` hay `test` 1 flow
+  // nhỏ) tốn ~52-67s gần như CỐ ĐỊNH (chi phí khởi động lại process/ADB, không phụ thuộc độ phức
+  // tạp thao tác) - nên vòng "swipe ngoài -> hierarchy -> parse -> swipe tiếp" trả giá 1 lệnh CLI
+  // CHO MỖI LƯỢT CUỘN. Native `scrollUntilVisible` (flows/helpers/locate-assignment-card.yaml)
+  // cuộn NHIỀU LẦN BÊN TRONG CÙNG 1 lệnh CLI đó (Maestro tự lặp scroll+check nội bộ) - cùng chi
+  // phí ~1 lệnh CLI nhưng cuộn được sâu hơn nhiều, không nhân với số lượt cuộn. `maestro hierarchy`
+  // ngoài giờ CHỈ còn dùng ĐÚNG 1 LẦN, SAU KHI native locate đã xác nhận tìm thấy - để phân biệt
+  // duplicate (BLOCKED_AMBIGUOUS_ASSIGNMENT_MATCH), không phải để tự tìm/cuộn.
+  console.log("[4/4] App HS: native scroll (Maestro scrollUntilVisible) tìm đúng card vừa giao (proxy cho notification - xem comment)...");
+  const weekRange = computeRange("WEEK");
+  const switchToMonthFilter = !inRange(dueVnYmd, weekRange.rangeStart, weekRange.rangeEnd);
+  if (switchToMonthFilter) {
+    console.log(`  Hạn nộp (${formatDMY(dueVnYmd)}) ngoài "2 tuần gần nhất" - flow locate sẽ tự đổi filter sang "1 tháng gần nhất".`);
+  }
+
+  const discoveryStartedAt = Date.now();
+  let locateError = null;
+  let locateAttempts = 0;
+  const stallLog = [];
+  for (; locateAttempts < LOCATE_MAX_ATTEMPTS; locateAttempts++) {
+    try {
+      runLocateAssignmentCard(assignment.title, dueDM, switchToMonthFilter);
+      locateError = null;
+      break;
+    } catch (err) {
+      locateError = err;
+      const visibleSameTitle = peekVisibleCardsForStallLog(assignment.title);
+      const entry = {
+        target: `${assignment.title}|${dueDM}`,
+        scroll_attempt: locateAttempts + 1,
+        elapsed_ms: Date.now() - discoveryStartedAt,
+        last_visible_due_dates: visibleSameTitle ? visibleSameTitle.map((c) => c.dueDateText) : null,
+        last_visible_titles: visibleSameTitle ? visibleSameTitle.map(() => assignment.title) : null,
+      };
+      stallLog.push(entry);
+      console.log(`[DISCOVERY_STALL] ${JSON.stringify(entry)}`);
     }
-  } catch (err) {
+  }
+
+  if (locateError) {
+    // 2 lần native locate ĐỘC LẬP đều thất bại, MỖI lần scrollUntilVisible đã có timeout nội bộ
+    // rộng (90s, đủ cho rất nhiều lượt cuộn native) - đây là bằng chứng khá chắc "không tồn tại"
+    // (KHÁC bản cũ chỉ cuộn được vài lượt qua vòng swipe-ngoài+hierarchy trước khi hết ngân sách
+    // nhỏ) -> BLOCKED_ASSIGNMENT_NOT_FOUND, KHÔNG phải BLOCKED_DISCOVERY_BUDGET_EXCEEDED.
+    console.log(`[APP_MATCH]\nBLOCKED`);
     return {
       ok: false,
-      status: "FAIL",
-      classification: "HS_HOMEWORK_TAB_FAILED",
-      summary: `Không mở được tab "Bài tập" trên App HS (hoặc login thất bại): ${err.message}`,
-      evidence: { assignment: { roomId: assignment.id, title: assignment.title } },
+      status: "BLOCKED",
+      classification: "BLOCKED_ASSIGNMENT_NOT_FOUND",
+      summary: `Không tìm thấy card "${assignment.title}" / Hạn nộp ${formatDMY(dueVnYmd)} trên App HS sau ${LOCATE_MAX_ATTEMPTS} lượt native locate độc lập (mỗi lượt scrollUntilVisible timeout nội bộ 90s) - xem [DISCOVERY_STALL] để biết card/Hạn nộp thực tế đang thấy tại thời điểm thất bại.`,
+      evidence: {
+        assignment: { roomId: assignment.id, title: assignment.title, endTime: assignment.deadline.endTime },
+        stallLog,
+        lastError: locateError.message,
+        selection,
+      },
     };
   }
 
-  const targetKey = `${assignment.title}|${dueDM}`;
-  const { cards, stopReason, scrollCount } = collectAllVisibleHomeworkCards({
-    targetMatch: {
-      key: targetKey,
-      expectedCount: 1,
-      keyFn: (card) => (card.completed || !card.dueDateText ? null : `${card.title}|${appDueDateKeyFragment(card, dueVnYmd)}`),
-    },
-  });
-  const scanOutcome = { stopReason, scrollCount };
+  console.log(`  [PASS] Native scroll tìm thấy đúng cặp title+Hạn nộp sau ${locateAttempts + 1} lượt "maestro test" locate.`);
 
-  const cardsByTitle = cards.filter((c) => !c.completed && c.title === assignment.title);
-  if (cardsByTitle.length === 0) {
-    return {
-      ok: false,
-      status: "FAIL",
-      classification: "HS_CARD_NOT_FOUND",
-      summary: `Không thấy card nào tiêu đề "${assignment.title}" trên App HS sau khi thu thập (${scrollCount} lượt cuộn, dừng vì ${stopReason}).${
-        stopReason !== "NO_NEW_CARDS" && stopReason !== "TARGET_REACHED"
-          ? " CẢNH BÁO: thu thập dừng SỚM ngoài ý muốn (chưa cuộn hết) - không loại trừ khả năng card nằm ngoài phạm vi đã quét."
-          : ""
-      }`,
-      evidence: { assignment: { roomId: assignment.id, title: assignment.title, endTime: assignment.deadline.endTime }, scanOutcome },
-    };
-  }
+  // ĐÚNG 1 lệnh `maestro hierarchy` - CHỈ để lấy card object cho report + phân biệt duplicate
+  // (App HS có ≥2 card giống hệt title+Hạn nộp không) - KHÔNG dùng để tự tìm/cuộn (đã xong ở trên).
+  const hierarchyCards = readHomeworkHierarchyOnce();
+  const cardsMatchingDeadline = hierarchyCards.filter(
+    (c) => !c.completed && c.title === assignment.title && appDueDateKeyFragment(c, dueVnYmd) === dueDM,
+  );
+  const scanOutcome = { method: "NATIVE_SCROLL", nativeLocateAttempts: locateAttempts + 1, hierarchyCallCount: 1 };
 
-  const cardsMatchingDeadline = cardsByTitle.filter((c) => appDueDateKeyFragment(c, dueVnYmd) === dueDM);
   if (cardsMatchingDeadline.length === 0) {
+    // Hiếm: native locate VỪA assertVisible thành công nhưng lượt `maestro hierarchy` đọc lại
+    // (2 lệnh CLI riêng, có khoảng trễ giữa 2 lần) không thấy - CHƯA ĐỦ BẰNG CHỨNG để khẳng định
+    // không tồn tại (native đã CONFIRM tồn tại ngay trước đó) -> BLOCKED_DISCOVERY_BUDGET_EXCEEDED,
+    // không phải BLOCKED_ASSIGNMENT_NOT_FOUND (sẽ mâu thuẫn với việc native vừa mới xác nhận thấy).
+    console.log(`[APP_MATCH]\nBLOCKED`);
     return {
       ok: false,
-      status: "FAIL",
-      classification: "HS_DEADLINE_MISMATCH",
-      summary: `Tìm thấy card "${assignment.title}" nhưng Hạn nộp trên App HS không khớp: kỳ vọng ${formatDMY(dueVnYmd)}, thực tế card hiện "${cardsByTitle.map((c) => c.dueDateText).join(", ")}".`,
-      evidence: { assignment: { roomId: assignment.id, title: assignment.title, expectedDueDate: formatDMY(dueVnYmd) }, actualDueDateTexts: cardsByTitle.map((c) => c.dueDateText), scanOutcome },
+      status: "BLOCKED",
+      classification: "BLOCKED_DISCOVERY_BUDGET_EXCEEDED",
+      summary: `Native locate đã assertVisible thành công cho "${assignment.title}" / Hạn nộp ${formatDMY(dueVnYmd)} nhưng lệnh "maestro hierarchy" đọc lại ngay sau đó không thấy card này (có thể do timing giữa 2 lệnh CLI riêng) - không đủ bằng chứng để khẳng định không tồn tại.`,
+      evidence: {
+        assignment: { roomId: assignment.id, title: assignment.title, expectedDueDate: formatDMY(dueVnYmd) },
+        scanOutcome,
+        selection,
+      },
     };
   }
   if (cardsMatchingDeadline.length > 1) {
+    console.log(`[APP_MATCH]\nBLOCKED`);
     return {
       ok: false,
       status: "BLOCKED",
@@ -349,13 +493,15 @@ export async function assignHomeworkAndLocateOnApp() {
         roomIds: [assignment.id],
         soCardTuongUng: cardsMatchingDeadline.length,
         scanOutcome,
+        selection,
       },
     };
   }
 
   console.log(`  [PASS] Đúng 1 card khớp title+Hạn nộp - title="${cardsMatchingDeadline[0].title}" hạn nộp="${cardsMatchingDeadline[0].dueDateText}" CTA="${cardsMatchingDeadline[0].cta}".`);
+  console.log(`[APP_MATCH]\nPASS`);
 
-  return { ok: true, assignment, card: cardsMatchingDeadline[0], scanOutcome, startVnYmd, dueVnYmd };
+  return { ok: true, assignment, card: cardsMatchingDeadline[0], scanOutcome, startVnYmd, dueVnYmd, selection };
 }
 
 function finish(result) {
@@ -371,10 +517,12 @@ function finish(result) {
 async function main() {
   const located = await assignHomeworkAndLocateOnApp();
   if (!located.ok) return finish(located);
-  const { assignment, card, scanOutcome, startVnYmd, dueVnYmd } = located;
+  const { assignment, card, scanOutcome, startVnYmd, dueVnYmd, selection } = located;
 
+  // KHÔNG scroll-to-top trước khi gọi open-exercise.yaml (bản cũ cần vì collector cũ có thể đã
+  // cuộn rất sâu) - native locate-assignment-card.yaml vừa để app ĐỨNG YÊN tại đúng vị trí target
+  // đang hiển thị, scrollUntilVisible DOWN của open-exercise.yaml thấy ngay, không cần cuộn lại.
   console.log('[5/5] Bấm "Làm bài" và xác nhận màn làm bài đã mở...');
-  scrollToTopBeforeTap();
   try {
     tapAndOpenExercise(assignment.title, formatDM(dueVnYmd));
   } catch (err) {
@@ -382,16 +530,21 @@ async function main() {
       status: "FAIL",
       classification: "HS_EXERCISE_NOT_OPENED",
       summary: `Đã xác định đúng card ("${assignment.title}") nhưng không mở được màn làm bài (open-exercise.yaml thất bại): ${err.message}`,
-      evidence: { assignment: { roomId: assignment.id, title: assignment.title }, card },
+      evidence: { assignment: { roomId: assignment.id, title: assignment.title }, card, selection },
     });
   }
   const observedType = observeExerciseTypeBestEffort();
   console.log(`  [PASS] Màn làm bài đã mở (exercise_close_button visible). Loại câu hỏi quan sát được: ${observedType}.`);
 
+  // GHI CHÚ (yêu cầu "expose fixture cho HW-14_15"): selection + assignment ở đây là NGUỒN SỰ
+  // THẬT duy nhất cho assignment vừa random giao - e2e-teacher-assign-student-lifecycle.mjs tái sử
+  // dụng CHÍNH assignHomeworkAndLocateOnApp() này (import, không lặp lại logic) nên tự động nhận
+  // được cùng fixture khi cần chạy tiếp lifecycle đầy đủ (mở -> thoát -> resume -> hoàn thành).
   return finish({
     status: "PASS",
-    summary: `GV giao bài thành công -> HS nhận đúng assignment (room_id=${assignment.id}) -> HS mở đúng bài "${assignment.title}".`,
+    summary: `GV giao bài thành công (unit="${selection.unitName}", lesson="${selection.lessonName}") -> HS nhận đúng assignment (room_id=${assignment.id}) -> HS mở đúng bài "${assignment.title}".`,
     evidence: {
+      selection,
       assignment: {
         roomId: assignment.id,
         title: assignment.title,

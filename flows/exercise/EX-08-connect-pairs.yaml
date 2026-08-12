@@ -1,38 +1,129 @@
-# EX-08 — Câu NỐI (CONNECT): nối lần lượt trái i <-> phải i cho đến hết
+# EX-08 — Câu NỐI (CONNECT) trên CẢ HAI màn có câu nối.
 #
-# Giới hạn đã biết: testID của CONNECT chỉ mang VỊ TRÍ (left_i / right_i), không
-# mang tính đúng/sai — cặp đúng do BE quyết định và app chỉ lộ ra sau khi nối.
-# Nên case này KIỂM CƠ CHẾ, không kiểm điểm: nối hết cặp thì footer phải hiện
-# nút tiếp tục và app không crash.
-appId: ${APP_ID}
+# Màn 1 — tab "Bài tập":  app/dashboard/exercise/doing.tsx
+# Màn 2 — màn "Vui học":  app/dashboard/learning/unit/[id].tsx
+#
+# Hai màn render HAI biến thể khác nhau, quyết định bởi 1 dòng:
+#   LessonExerciseContent.tsx:692
+#   const isConnectV2 = enableCheckAnswer === false && type === "CONNECT";
+#
+#   |                   | Bài tập             | Vui học             |
+#   |-------------------|---------------------|---------------------|
+#   | enableCheckAnswer | false (truyền tay)  | true (mặc định)     |
+#   | component         | ConnectAnswerListV2 | ConnectAnswerList   |
+#   | cặp sai           | vẫn giữ             | bị bỏ ngay          |
+#   | footer hiện khi   | nối kín hết ô       | nối ĐÚNG hết        |
+#
+# Bản cũ của case này (tap left_.* / right_.* theo vị trí) chỉ đúng cho tab Bài
+# tập; sang Vui học thì cặp sai bị bỏ nên footer không bao giờ render.
+#
+# Cách xử lý: build bật EXPO_PUBLIC_E2E=1 thì ô cột phải mang hậu tố
+# "_for_left_{i}" -> nối đúng được cả hai màn. Xem helpers/solve-connect.yaml.
+#
+# Cờ E2E TẮT: nhánh Bài tập rút về kiểm cơ chế theo vị trí như bản cũ; nhánh Vui
+# học skip (không nối đúng được thì assert chỉ tạo fail giả).
+#
+# Tham số tuỳ chọn:
+#   EXERCISE_NAME_CONNECT — tên bài ở tab Bài tập để mở (mặc định "Read and choose")
+#   VUIHOC_LESSON_INDEX   — card bài học thứ mấy trên màn Vui học (mặc định 0)
+appId: com.inet.parrotedu
 tags:
   - regression
   - writes
-name: EX-08 Noi cap - hoan thanh co che
+name: EX-08 Noi cap - Bai tap va Vui hoc
 ---
 - runFlow:
     file: ../helpers/open-exercise.yaml
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME_CONNECT}
 
-- runFlow:
-    when:
-      visible:
-        id: "exercise_connect_left_0"
+# ============================================================
+# PHẦN A — tab "Bài tập" (ConnectAnswerListV2)
+# ============================================================
+# Quét tới câu CONNECT: thứ tự câu do BE trả về, không nhắm trực tiếp được.
+- repeat:
+    times: 12
     commands:
-      - repeat:
-          times: 6
+      - runFlow:
+          when:
+            notVisible:
+              id: "exercise_connect_left_0"
           commands:
             - tapOn:
-                id: "exercise_connect_left_.*"
+                id: "exercise_answer_.*_correct"
                 optional: true
             - tapOn:
-                id: "exercise_connect_right_.*"
+                id: "exercise_fillword_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_show_answer_next_button"
                 optional: true
 
-      - extendedWaitUntil:
-          visible:
-            id: "exercise_check_button"
-          timeout: 20000
-      - takeScreenshot: ../artifacts/EX-08-connect
+# CHỐT CỨNG thay cho skip im lặng của bản cũ
+- assertVisible:
+    id: "exercise_connect_left_0"
+    label: "KHONG TIM DUOC CAU NOI trong bai nay sau 12 cau. BLOCKED - doi bai qua EXERCISE_NAME_CONNECT."
+- assertVisible:
+    id: "exercise_connect_right_.*_for_left_.*"
+    label: "BUILD SAI CO - o cot phai khong co hau to _for_left_. APK phai build bang EXPO_PUBLIC_E2E=1. Xem QA-README.md."
+
+- runFlow: ../helpers/solve-connect.yaml
+
+# Nối kín hết ô -> CheckAnswerFooter nhánh isConnectV2AllMatched hiện nút "Tiếp tục".
+# V2 KHÔNG render nhãn đúng/sai nên chỉ chốt tới đây.
+- extendedWaitUntil:
+    visible:
+      id: "exercise_check_button"
+    timeout: 20000
+- takeScreenshot: artifacts/EX-08-connect-baitap
+
+# Thoát bài để không mang state sang phần B
+- tapOn:
+    id: "exercise_close_button"
+- extendedWaitUntil:
+    visible:
+      id: "homework_screen"
+    timeout: 30000
+
+# ============================================================
+# PHẦN B — màn "Vui học" (ConnectAnswerList v1)
+# ============================================================
+- runFlow:
+    file: ../helpers/open-vuihoc-connect.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      VUIHOC_LESSON_INDEX: ${VUIHOC_LESSON_INDEX}
+
+- assertVisible:
+    id: "exercise_connect_left_0"
+    label: "KHONG TIM DUOC CAU NOI o man Vui hoc. BLOCKED - doi bai hoc qua VUIHOC_LESSON_INDEX."
+- assertVisible:
+    id: "exercise_connect_right_.*_for_left_.*"
+    label: "BUILD SAI CO - man Vui hoc bo cap sai nen KHONG the noi dung neu thieu hau to _for_left_. Can EXPO_PUBLIC_E2E=1."
+
+- runFlow: ../helpers/solve-connect.yaml
+
+# v1: nối đúng hết -> isConnectAllMatched -> auto-check -> footer báo thành công.
+# Chốt được cả nhãn kết quả, mạnh hơn phần A.
+- extendedWaitUntil:
+    visible:
+      id: "exercise_result_correct"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "exercise_check_button"
+    timeout: 20000
+- takeScreenshot: artifacts/EX-08-connect-vuihoc
+
+- tapOn:
+    id: "learning_close_button"
+    optional: true

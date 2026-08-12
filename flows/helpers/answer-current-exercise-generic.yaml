@@ -5,12 +5,14 @@
 # thật trong flows/exercise/EX-10-full-run-all-correct.yaml (không viết lại cách khác) - testID lấy
 # từ flows/exercise/README.md.
 #
-# SPEAK ("Nhấn để nói"): KHÔNG có handler an toàn - ĐÃ XÁC NHẬN THẬT 2/2 lần (2026-08-11, thiết bị
-# 3201d866d40a1681, xem flows/exercise/EX-12-speaking-record-result.yaml dòng 18-29 +
-# flows/exercise/README.md mục 2): bấm mic thật khiến app THOÁT RA NGOÀI về danh sách Lesson,
-# không bao giờ vào được trạng thái ghi âm. Vì vậy helper này CHỦ ĐỘNG dừng bằng 1 assertVisible
-# chắc chắn fail mang thông điệp "BLOCKED_MISSING_EXERCISE_HANDLER" ngay khi phát hiện màn SPEAK,
-# thay vì lặp 25 lần vô ích rồi fail mơ hồ ở bước chờ màn kết quả (khó phân biệt với flaky thật).
+# SPEAK ("Nhấn để nói"): gọi flows/helpers/answer-speak-question.yaml - helper đó TÁI SỬ DỤNG kỹ
+# thuật tap TOẠ ĐỘ đã XÁC NHẬN THẬT trong flows/bai_tap/complete_random_homework_success.yaml
+# (2026-08-09, CÙNG context "Bài tập" với file này - KHÁC context "Vui học" mà
+# flows/exercise/EX-12-speaking-record-result.yaml dùng `above: "Nhấn để nói"` và ĐÃ XÁC NHẬN THẬT
+# 2/2 lần app THOÁT RA NGOÀI, xem flows/exercise/README.md mục 2 - 2 màn hình SPEAK khác nhau,
+# không dùng chung 1 kỹ thuật). Nếu kỹ thuật đó KHÔNG hoạt động cho item cụ thể đang gặp, helper đó
+# TỰ báo BLOCKED_MISSING_EXERCISE_HANDLER (không bypass, không giả lập mic) - xem chi tiết trong
+# chính file đó.
 #
 # SORT/SENTENCE_BUILDER/DRAG_DROP: cũng KHÔNG tự động hoá được (cần pan gesture, xem README.md mục
 # 1) - vòng lặp không có selector nào khớp nên sẽ không thao tác được gì; case gọi helper này sẽ
@@ -25,9 +27,8 @@ appId: ${APP_ID}
           when:
             visible: ".*(Nhấn để nói).*"
           commands:
-            - takeScreenshot: ../artifacts/BLOCKED-missing-exercise-handler-speak
-            - assertVisible:
-                text: "BLOCKED_MISSING_EXERCISE_HANDLER: cau SPEAK chua co handler an toan tren real device (xem flows/exercise/README.md muc 2 + EX-12)"
+            - runFlow:
+                file: answer-speak-question.yaml
 
       # FILL_WORD
       - runFlow:
@@ -45,21 +46,42 @@ appId: ${APP_ID}
                 id: "exercise_fillword_next_button"
                 optional: true
 
-      # CONNECT
+      # CONNECT - testID chỉ mang VỊ TRÍ (xem flows/exercise/README.md mục 4: "id chỉ mang vị trí
+      # trái i / phải i, cặp đúng do BE quyết định" - KHÔNG kiểm đúng/sai ở đây, khớp đúng tinh
+      # thần "Bài tập không check đúng sai như Vui học").
+      #
+      # ĐÃ SỬA (2026-08-12): bản cũ dùng regex "left_.*"/"right_.*" lặp 6 lần - LUÔN khớp về ĐÚNG 1
+      # index (element left_0/right_0 vẫn còn trong tree sau khi nối, chỉ đổi trạng thái hiển thị,
+      # không bị gỡ khỏi tree, nên tapOn theo regex cứ resolve lại về match ĐẦU TIÊN) - ĐÃ GẶP THẬT
+      # (random qua flows/giao_bai_tap chọn "G3-U19-L3: Listen and choose" - "Listen and match", 5
+      # cặp): 4/5 cặp còn lại KHÔNG BAO GIỜ được nối, footer "Kiểm tra" không bao giờ xuất hiện.
+      # SỬA: nối theo ĐÚNG index 0..9 (đủ dư so với số cặp thực tế đã gặp, tối đa 5 - xem
+      # automation/giao_bai_tap discovery) - mỗi cặp optional (index không tồn tại thì bỏ qua).
       - runFlow:
           when:
             visible:
               id: "exercise_connect_left_0"
           commands:
-            - repeat:
-                times: 6
-                commands:
-                  - tapOn:
-                      id: "exercise_connect_left_.*"
-                      optional: true
-                  - tapOn:
-                      id: "exercise_connect_right_.*"
-                      optional: true
+            - tapOn: { id: "exercise_connect_left_0", optional: true }
+            - tapOn: { id: "exercise_connect_right_0", optional: true }
+            - tapOn: { id: "exercise_connect_left_1", optional: true }
+            - tapOn: { id: "exercise_connect_right_1", optional: true }
+            - tapOn: { id: "exercise_connect_left_2", optional: true }
+            - tapOn: { id: "exercise_connect_right_2", optional: true }
+            - tapOn: { id: "exercise_connect_left_3", optional: true }
+            - tapOn: { id: "exercise_connect_right_3", optional: true }
+            - tapOn: { id: "exercise_connect_left_4", optional: true }
+            - tapOn: { id: "exercise_connect_right_4", optional: true }
+            - tapOn: { id: "exercise_connect_left_5", optional: true }
+            - tapOn: { id: "exercise_connect_right_5", optional: true }
+            - tapOn: { id: "exercise_connect_left_6", optional: true }
+            - tapOn: { id: "exercise_connect_right_6", optional: true }
+            - tapOn: { id: "exercise_connect_left_7", optional: true }
+            - tapOn: { id: "exercise_connect_right_7", optional: true }
+            - tapOn: { id: "exercise_connect_left_8", optional: true }
+            - tapOn: { id: "exercise_connect_right_8", optional: true }
+            - tapOn: { id: "exercise_connect_left_9", optional: true }
+            - tapOn: { id: "exercise_connect_right_9", optional: true }
 
       # CHOICE (ONE / MULTI / TRUE_FALSE) - tap mọi đáp án "_correct" đang hiện (không quan tâm số
       # lượng, MULTI có thể cần nhiều tap - optional vì không phải câu nào cũng còn đáp án ở vị trí đó)

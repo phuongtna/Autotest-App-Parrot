@@ -1,46 +1,104 @@
-# EX-03 — Sai -> "Thử lại" -> chọn đúng -> báo "Chính xác"
-# Kiểm tra: sau khi bấm Thử lại, đáp án được mở lại cho chọn (isCheckAnswer reset).
+# EX-03 — Bấm "Thử lại" phải MỞ LẠI đáp án cho chọn (isCheckAnswer được reset)
+#
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# KIỂM CÁI GÌ
+#   Sau khi chấm SAI và bấm "Thử lại", màn câu hỏi phải quay về trạng thái có
+#   thể trả lời tiếp:
+#       - nhãn kết quả biến mất
+#       - ô đáp án tap được và bật lại được trạng thái `selected`
+#   Đây chính là lỗi dễ lọt nhất của luồng retry: app xoá nhãn kết quả nhưng
+#   quên reset `isCheckAnswer`, khiến ô đáp án bị disable -> người dùng kẹt cứng.
+#
+# KHÔNG KIỂM
+#   Ô nào mới là đáp án đúng. Xem EX-14 cho phần chấm điểm đúng/sai.
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   Bản cũ bọc toàn bộ assert trong `runFlow.when: visible:
+#   exercise_answer_.*_wrong` — skip mà vẫn PASS trên build không cờ. Assert
+#   cứng `exercise_result_(correct|incorrect)` nằm ngoài mọi nhánh nên luôn
+#   chạy. Nhánh "sai" mới là nhánh kiểm retry — nếu lượt đầu ra ĐÚNG thì không
+#   có gì để retry, nhánh "đúng" chốt lại điều đó (không được hiện Thử lại).
+#
+# LƯU Ý KHI ĐỌC KẾT QUẢ
+#   Nhánh retry chỉ chạy khi lượt đầu ra SAI — phụ thuộc dữ liệu đề. Chạy lại
+#   hoặc đổi bài qua EXERCISE_NAME nếu cần phủ chắc nhánh đó.
+# ══════════════════════════════════════════════════════════════════════════════
 appId: ${APP_ID}
 tags:
   - regression
   - writes
-name: EX-03 Sai roi thu lai chon dung
+name: EX-03 Bam Thu lai mo lai dap an cho chon
 ---
 - runFlow:
     file: ../helpers/open-exercise.yaml
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+- runFlow: ../helpers/goto-tap-question.yaml
 
+- tapOn:
+    id: "exercise_answer_0"
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+
+# ── CHỐT CỨNG ────────────────────────────────────────────────────────────────
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da cham nhung khong hien nhan ket qua nao."
+
+# ── Nhánh SAI: bấm "Thử lại" -> đáp án phải mở lại ──────────────────────────
 - runFlow:
     when:
       visible:
-        id: "exercise_answer_.*_wrong"
+        id: "exercise_result_incorrect"
     commands:
-      - tapOn:
-          id: "exercise_answer_.*_wrong"
+      - assertVisible:
+          text: ".*Thử lại.*"
+          label: "LOI APP: tra loi sai luot 1 nhung khong hien nut 'Thu lai'."
+      - takeScreenshot: ../artifacts/EX-03-wrong-before-retry
+      # "Thử lại" dùng CHUNG id với nút chính, footer chỉ đổi nhãn
       - tapOn:
           id: "exercise_check_button"
-      - extendedWaitUntil:
-          visible:
-            id: "exercise_result_incorrect"
-          timeout: 15000
 
-      # Thử lại
-      - tapOn:
-          id: "exercise_check_button"
+      # Nhãn kết quả phải biến mất khi quay về trạng thái trả lời
       - extendedWaitUntil:
           notVisible:
             id: "exercise_result_incorrect"
           timeout: 15000
 
-      # Lần 2 chọn đúng
+      # Và ô đáp án phải tap + bật `selected` được lại. Đây là chốt chính của
+      # case: nếu isCheckAnswer không được reset thì ô đáp án vẫn disable và
+      # assert này đỏ.
       - tapOn:
-          id: "exercise_answer_.*_correct"
+          id: "exercise_answer_1"
+      - assertVisible:
+          id: "exercise_answer_1"
+          selected: true
+          label: "LOI APP: sau khi bam 'Thu lai', o dap an KHONG chon lai duoc (accessibilityState.selected khong bat). Nhieu kha nang isCheckAnswer chua duoc reset -> nguoi dung ket cung o cau nay."
+      - takeScreenshot: ../artifacts/EX-03-reopened-after-retry
+
+      # Chấm lại lượt 2 -> app phải kết luận lại
       - tapOn:
           id: "exercise_check_button"
       - extendedWaitUntil:
           visible:
-            id: "exercise_result_correct"
+            id: "exercise_result_(correct|incorrect)"
           timeout: 15000
-      - takeScreenshot: ../artifacts/EX-03-retry-correct
+
+# ── Nhánh ĐÚNG: không có gì để retry ─────────────────────────────────────────
+- runFlow:
+    when:
+      visible:
+        id: "exercise_result_correct"
+    commands:
+      - assertNotVisible:
+          text: ".*Thử lại.*"
+          label: "LOI APP: tra loi DUNG ma van hien nut 'Thu lai'."
+      - takeScreenshot: ../artifacts/EX-03-correct-first-try

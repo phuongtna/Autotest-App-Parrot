@@ -1,0 +1,127 @@
+# Helper: mở tab "Vui học" và QUÉT tới câu NỐI (CONNECT) đầu tiên trong bài.
+#
+# Kết thúc helper (khi tìm thấy): đang đứng ở câu CONNECT của màn tự học
+# (app/dashboard/learning/unit/[id].tsx), ô "exercise_connect_left_0" đã render.
+# Kết thúc helper (khi không tìm thấy): vẫn ở trong bài, không có ô nối nào.
+# Case gọi helper phải tự bọc phần assert trong `when.visible` để skip, không fail giả.
+#
+# Vì sao phải quét: khác tab "Bài tập" (mở đúng bài theo tên), thứ tự câu trong
+# bài tự học do BE trả về và không có tên câu để nhắm. Nên vào bài rồi trả lời
+# đúng từng câu cho tới khi gặp CONNECT.
+#
+# Tham số:
+#   PHONE, OTP              — đăng nhập
+#   VUIHOC_LESSON_INDEX     — thứ tự card bài học trên màn Vui học (mặc định 0)
+#   DEVICE_MODE=true        — bỏ qua launchApp + login (xem open-exercise.yaml)
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      true: ${DEVICE_MODE != 'true'}
+    commands:
+      - runFlow: launch-keep-session.yaml
+      - runFlow:
+          file: login.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+
+# Máy thật không launchApp được -> state rớt lại từ case trước. Đưa về tab bar.
+- runFlow:
+    when:
+      true: ${DEVICE_MODE == 'true'}
+    commands:
+      - tapOn:
+          id: "exercise_close_button"
+          optional: true
+      - tapOn:
+          id: "learning_close_button"
+          optional: true
+      - tapOn:
+          id: "exercise_show_answer_next_button"
+          optional: true
+      - tapOn:
+          text: ".*(Hoàn thành|Đóng|Thoát).*"
+          optional: true
+
+# Tap bằng id (tabBarButtonTestID trong (tabs)/_layout.tsx) — không phụ thuộc
+# locale, không dính nhãn a11y kiểu "Vui học, tab, 1 of 6".
+- tapOn:
+    id: "tab_happy_learning"
+
+- extendedWaitUntil:
+    visible:
+      id: "happy_learning_lesson_${VUIHOC_LESSON_INDEX == null ? 0 : VUIHOC_LESSON_INDEX}"
+    timeout: 30000
+
+- tapOn:
+    id: "happy_learning_lesson_${VUIHOC_LESSON_INDEX == null ? 0 : VUIHOC_LESSON_INDEX}"
+
+# Consent AI (mục GROUP / EXERCISE đều hỏi) — dialog dùng ConfirmBottomSheet chung
+- runFlow:
+    when:
+      visible:
+        id: "app_dialog_ok_button"
+    commands:
+      - tapOn:
+          id: "app_dialog_ok_button"
+- runFlow:
+    when:
+      visible: "AI hỗ trợ học tập"
+    commands:
+      - tapOn: "Tiếp tục"
+
+# Gói miễn phí hết lượt tự học -> hiện sheet nâng cấp. Đóng để không kẹt.
+- tapOn:
+    text: ".*(Để sau|Bỏ qua|Đóng).*"
+    optional: true
+
+# Chốt: đã vào màn học của tab Vui học.
+- extendedWaitUntil:
+    visible:
+      id: "learning_close_button"
+    timeout: 60000
+
+# === Quét tới câu CONNECT ===
+#
+# Mỗi vòng: nếu ĐANG ở câu nối thì không làm gì (điều kiện notVisible chặn cả
+# khối). Nếu chưa thì trả lời đúng câu hiện tại rồi sang câu kế.
+#
+# tapOn exercise_check_button 2 lần: lần 1 = "Kiểm tra", lần 2 = "Tiếp tục" ở
+# trạng thái đã báo kết quả. Tất cả đều optional vì mỗi dạng câu có footer khác
+# nhau (FILL_WORD dùng nút riêng, SPEAK không có footer này).
+#
+# times cố định 12: `repeat.times` không nhận biểu thức ternary một cách đáng tin
+# (Maestro parse nó thành string), nên không tham số hoá. 12 câu là đủ để gặp
+# CONNECT trong mọi bài hiện có.
+- repeat:
+    times: 12
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "exercise_connect_left_0"
+          commands:
+            # Chọn đại ô đầu tiên: mục tiêu chỉ là đi tiếp tới câu NỐI, đúng
+            # hay sai không quan trọng. (Trước đây dùng id mang đáp án
+            # `_correct` — hậu tố đó chỉ tồn tại khi build bật EXPO_PUBLIC_E2E=1,
+            # nên trên bản build store dòng đó luôn no-op và vòng quét đứng yên.
+            # Xem exercise/README.md.)
+            - tapOn:
+                id: "exercise_answer_0"
+                optional: true
+            - tapOn:
+                id: "exercise_answer_1"
+                optional: true
+            - tapOn:
+                id: "exercise_fillword_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_show_answer_next_button"
+                optional: true

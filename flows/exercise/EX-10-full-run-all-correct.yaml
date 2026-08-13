@@ -1,87 +1,137 @@
-# EX-10 — Làm ĐÚNG hết cả bài -> ra màn kết quả
+# EX-10 — Làm hết một bài tập -> ra màn kết quả, màn đó hiện đủ số liệu
 #
-# Vòng lặp tối đa 25 câu. Mỗi câu:
-#   - dạng tap chọn: tap mọi đáp án đúng (theo index) rồi Kiểm tra
-#   - dạng điền từ:  nhập chuỗi bất kỳ (không suy ra được đáp án đúng)
-#   - dạng nối:      nối lần lượt theo vị trí
-#   - dạng kéo thả / sắp xếp / nói: KHÔNG tự động hoá được (xem README.md),
-#     vòng lặp vẫn bấm nút chính nên bài có thể dừng ở đó -> case sẽ fail ở
-#     bước chốt và cần QA làm tay.
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# VÌ SAO KHÔNG CÒN LÀ "làm ĐÚNG hết bài"
+#   Bản cũ tap thẳng vào đáp án đúng qua id `_correct` — id đó chỉ tồn tại khi
+#   build với cờ EXPO_PUBLIC_E2E=1. Cờ đó đã bị BỎ HẲN vì chỉ cần nó lọt vào
+#   một lệnh build là bản đẩy store lộ đáp án (xem constants/e2e.ts). Các dòng
+#   tap `_correct` trong bản cũ đều `optional: true` nên trên build không có
+#   cờ chúng lặng lẽ no-op — không sai cú pháp, nhưng tên case "làm ĐÚNG hết
+#   bài" không còn đúng với việc case thực sự kiểm.
+#
+#   Điểm số cuối bài vì vậy KHÔNG còn đoán trước được, và case này không assert
+#   điểm. Nó chốt cái quan trọng hơn và không phụ thuộc đáp án: bài chạy hết
+#   được, và màn kết quả hiện đủ số liệu.
+#
+# LUẬT XỬ LÝ MỖI CÂU (theo đúng cơ chế của app)
+#   - Chọn đại 1 đáp án -> bấm Kiểm tra
+#   - ĐÚNG   -> footer thành "Tiếp tục" -> bấm -> sang câu sau
+#   - SAI l1 -> footer thành "Thử lại"  -> bấm -> chọn ô KHÁC -> Kiểm tra
+#   - SAI l2 -> hết lượt, footer thành "Tiếp tục" -> bấm -> bỏ qua câu đó
+#   (getExplainActionButtonsState: showRetry chỉ khi checkCounter === 1)
+#   Cả 3 nút dùng CHUNG id exercise_check_button nên bấm lặp là luồng tự chạy.
+#
+# GIỚI HẠN đã biết
+#   Câu SORT (phải kéo thật) và SPEAK (cần mic) KHÔNG tự động hoá được. Gặp 2
+#   dạng đó thì vòng lặp đứng yên và case fail ở assert cuối -> BLOCKED, không
+#   phải lỗi app. Đổi bài khác qua EXERCISE_NAME.
+# ══════════════════════════════════════════════════════════════════════════════
 appId: ${APP_ID}
 tags:
   - regression
   - writes
-name: EX-10 Lam dung het bai den man ket qua
+name: EX-10 Lam het bai - man ket qua hien du so lieu
 ---
 - runFlow:
     file: ../helpers/open-exercise.yaml
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
 
+- extendedWaitUntil:
+    visible:
+      id: "exercise_close_button"
+    timeout: 40000
+- takeScreenshot: ../artifacts/EX-10-start
+
+# Quét tối đa 25 câu. Mỗi vòng thử đủ mọi dạng; dạng nào không có trên màn thì
+# tapOn optional thành no-op nên vô hại.
 - repeat:
     times: 25
     commands:
-      # dạng điền từ
-      - runFlow:
-          when:
-            visible:
-              id: "exercise_fillword_input"
-          commands:
-            - tapOn:
-                id: "exercise_fillword_input"
-            - inputText: "test"
-            - tapOn:
-                id: "exercise_fillword_check_button"
-                optional: true
-
-      # dạng nối
+      # ── Câu NỐI ở tab Bài tập (V2 giữ cả cặp sai): nối kín hết ô là đủ ──
       - runFlow:
           when:
             visible:
               id: "exercise_connect_left_0"
           commands:
-            - repeat:
-                times: 6
-                commands:
-                  - tapOn:
-                      id: "exercise_connect_left_.*"
-                      optional: true
-                  - tapOn:
-                      id: "exercise_connect_right_.*"
-                      optional: true
+            - runFlow: ../helpers/solve-connect-fill.yaml
 
-      # dạng tap chọn — chọn hết đáp án đúng
+      # ── Các dạng tap chip/từ theo vị trí ──
       - tapOn:
-          id: "exercise_answer_0_correct"
+          id: "exercise_dragdrop_option_0"
           optional: true
       - tapOn:
-          id: "exercise_answer_1_correct"
+          id: "exercise_dragdrop_option_1"
           optional: true
       - tapOn:
-          id: "exercise_answer_2_correct"
+          id: "exercise_dragdrop_option_2"
           optional: true
       - tapOn:
-          id: "exercise_answer_3_correct"
+          id: "exercise_sentence_word_0"
           optional: true
       - tapOn:
-          id: "exercise_answer_4_correct"
+          id: "exercise_sentence_word_1"
           optional: true
       - tapOn:
-          id: "exercise_answer_5_correct"
+          id: "exercise_sentence_word_2"
+          optional: true
+      - tapOn:
+          id: "exercise_sentence_word_3"
+          optional: true
+      - tapOn:
+          id: "exercise_fillword_blank_0"
+          optional: true
+      - inputText: "test"
+      - hideKeyboard
+      - tapOn:
+          id: "exercise_fillword_check_button"
           optional: true
 
-      # Kiểm tra -> Tiếp tục (cùng 1 nút, bấm 2 lần)
+      # ── Câu chọn đáp án: lượt 1 chọn ô 0 ──
+      - tapOn:
+          id: "exercise_answer_0"
+          optional: true
+      - tapOn:
+          id: "exercise_check_button"
+          optional: true
+
+      # Sai lượt 1 -> "Thử lại" -> chọn ô KHÁC -> Kiểm tra
       - tapOn:
           id: "exercise_check_button"
           optional: true
       - tapOn:
+          id: "exercise_answer_1"
+          optional: true
+      - tapOn:
           id: "exercise_check_button"
           optional: true
+      # Sai lượt 2 -> hết lượt -> "Tiếp tục" -> bỏ qua câu đó
+      - tapOn:
+          id: "exercise_check_button"
+          optional: true
+      - tapOn:
+          id: "exercise_show_answer_next_button"
+          optional: true
 
-# Chốt: đã ra màn kết quả
+# ── CHỐT — ra được màn kết quả ───────────────────────────────────────────────
+# Fail ở đây = kẹt ở một câu nào đó (thường SORT hoặc SPEAK) -> BLOCKED, xem
+# QA-README.md mục "Đọc kết quả".
 - extendedWaitUntil:
     visible:
-      text: ".*(Điểm số|Chính xác|Hoàn thành).*"
-    timeout: 60000
+      id: "exercise_result_screen"
+    timeout: 90000
+
+# ── CHỐT — màn kết quả render đủ số liệu ────────────────────────────────────
+# Không chốt GIÁ TRỊ (không đoán trước được vì không biết đáp án), chỉ chốt
+# các ô số liệu có tồn tại.
+- assertVisible:
+    id: "exercise_result_score_value"
+    label: "LOI APP: man ket qua thieu o DIEM SO."
+- assertVisible:
+    id: "exercise_result_correct_value"
+    label: "LOI APP: man ket qua thieu o SO CAU DUNG."
 - takeScreenshot: ../artifacts/EX-10-result

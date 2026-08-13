@@ -1,0 +1,1 @@
+output.beforeCardProgress = maestro.copiedText;

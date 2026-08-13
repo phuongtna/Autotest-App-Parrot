@@ -1,38 +1,73 @@
-# EX-04 — Sai 2 lần liên tiếp -> KHÔNG còn "Thử lại", chuyển sang "Tiếp tục"
+# EX-04 — Hết lượt "Thử lại": sau lượt chấm thứ 2 phải chuyển sang "Tiếp tục"
 #
-# Nguồn kỳ vọng: getExplainActionButtonsState() — CheckAnswerFooter.tsx
-#   showRetry = sai && checkCounter === 1
-#   showNext  = sai && checkCounter  > 1
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# NGUỒN KỲ VỌNG
+#   getExplainActionButtonsState() — CheckAnswerFooter.tsx:
+#       showRetry = isWrong && checkCounter === 1
+#       showNext  = isWrong && checkCounter  > 1
+#   Nghĩa là app chỉ cho ĐÚNG MỘT lượt "Thử lại". Sai lần 2 thì hết lượt.
+#
+#   Đây là lỗi dễ lọt: nếu điều kiện viết nhầm thành `checkCounter >= 1` thì
+#   người dùng thử lại được vô hạn, câu nào cũng làm đúng được -> hỏng chấm điểm.
+#
+# VÌ SAO KHÔNG "ép" cho ra 2 lần sai
+#   Ép được thì phải biết ô nào sai — tức phải có testID mang đáp án, thứ đã bị
+#   bỏ hẳn (xem constants/e2e.ts). Case này đi theo phản hồi của app: chỉ khi
+#   thực sự sai 2 lần mới kiểm được mệnh đề showNext.
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   Mỗi bước đều có assert cứng `exercise_result_(correct|incorrect)` đặt
+#   NGOÀI nhánh điều kiện của bước đó, nên luôn có assert chạy — không còn kiểu
+#   "bọc cả khối trong runFlow.when" của bản cũ.
+#
+# LƯU Ý KHI ĐỌC KẾT QUẢ
+#   Chuỗi "sai 2 lần liên tiếp" phụ thuộc dữ liệu đề. Ảnh chụp cho biết đã đi
+#   tới đâu. Nếu cần phủ chắc nhánh này, chọn bài có câu >= 3 lựa chọn qua
+#   EXERCISE_NAME (TRUE_FALSE không bao giờ sai được 2 lần: chỉ có 2 ô).
+# ══════════════════════════════════════════════════════════════════════════════
 appId: ${APP_ID}
 tags:
   - regression
   - negative
   - writes
-name: EX-04 Sai 2 lan - chuyen sang Tiep tuc
+name: EX-04 Het luot Thu lai sau luot cham thu 2
 ---
 - runFlow:
     file: ../helpers/open-exercise.yaml
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+- runFlow: ../helpers/goto-tap-question.yaml
 
+# ── Lượt chấm 1 ────────────────────────────────────────────────────────────
+- tapOn:
+    id: "exercise_answer_0"
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da cham luot 1 nhung khong hien nhan ket qua nao."
+
+# ── Chỉ khi lượt 1 SAI mới có "Thử lại" để tiêu ──────────────────────────────
 - runFlow:
     when:
       visible:
-        id: "exercise_answer_.*_wrong"
+        id: "exercise_result_incorrect"
     commands:
-      # Sai lần 1
-      - tapOn:
-          id: "exercise_answer_.*_wrong"
-      - tapOn:
-          id: "exercise_check_button"
-      - extendedWaitUntil:
-          visible:
-            id: "exercise_result_incorrect"
-          timeout: 15000
-      - assertVisible: ".*(Thử lại).*"
+      - assertVisible:
+          text: ".*Thử lại.*"
+          label: "LOI APP: sai luot 1 nhung khong hien 'Thu lai'."
+      - takeScreenshot: ../artifacts/EX-04-first-wrong
 
-      # Thử lại rồi sai tiếp
+      # Thử lại -> chọn ô KHÁC -> chấm lượt 2
       - tapOn:
           id: "exercise_check_button"
       - extendedWaitUntil:
@@ -40,14 +75,51 @@ name: EX-04 Sai 2 lan - chuyen sang Tiep tuc
             id: "exercise_result_incorrect"
           timeout: 15000
       - tapOn:
-          id: "exercise_answer_.*_wrong"
+          id: "exercise_answer_1"
       - tapOn:
           id: "exercise_check_button"
       - extendedWaitUntil:
           visible:
-            id: "exercise_result_incorrect"
+            id: "exercise_explain_button"
           timeout: 15000
 
-      # Lần sai thứ 2 -> hết lượt thử lại
-      - assertNotVisible: ".*(Thử lại).*"
-      - takeScreenshot: ../artifacts/EX-04-wrong-twice
+      # Chốt cứng của lượt 2 — đặt ngoài 2 nhánh con ở dưới
+      - assertVisible:
+          id: "exercise_result_(correct|incorrect)"
+          label: "LOI APP: da cham luot 2 nhung khong hien nhan ket qua nao."
+
+      # Sai lần 2 -> HẾT lượt: không còn "Thử lại", nút chính thành "Tiếp tục"
+      - runFlow:
+          when:
+            visible:
+              id: "exercise_result_incorrect"
+          commands:
+            - assertNotVisible:
+                text: ".*Thử lại.*"
+                label: "LOI APP: sai 2 lan lien tiep ma van con nut 'Thu lai'. showRetry phai false khi checkCounter > 1 - kiem tra lai dieu kien trong getExplainActionButtonsState (viet nham '>= 1' se cho thu lai vo han)."
+            - assertVisible:
+                id: "exercise_check_button"
+                label: "Het luot thu lai thi nut chinh phai con do duoi dang 'Tiep tuc' de di sang cau sau."
+            - takeScreenshot: ../artifacts/EX-04-no-more-retry
+
+      # Lượt 2 đúng -> không còn gì để kiểm ở case này
+      - runFlow:
+          when:
+            visible:
+              id: "exercise_result_correct"
+          commands:
+            - assertNotVisible:
+                text: ".*Thử lại.*"
+                label: "LOI APP: da tra loi DUNG o luot 2 ma van hien 'Thu lai'."
+            - takeScreenshot: ../artifacts/EX-04-correct-on-retry
+
+# ── Lượt 1 đúng -> không vào được luồng hết lượt ─────────────────────────────
+- runFlow:
+    when:
+      visible:
+        id: "exercise_result_correct"
+    commands:
+      - assertNotVisible:
+          text: ".*Thử lại.*"
+          label: "LOI APP: tra loi DUNG ngay luot 1 ma van hien 'Thu lai'."
+      - takeScreenshot: ../artifacts/EX-04-correct-first-try

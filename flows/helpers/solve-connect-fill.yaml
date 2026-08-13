@@ -1,0 +1,58 @@
+# Helper: nối KÍN hết ô của câu NỐI ở tab Bài tập (ConnectAnswerListV2).
+#
+# Biến thể V2 GIỮ cả cặp sai, và footer hiện ra khi đã nối kín mọi ô — không
+# cần nối ĐÚNG. Nên chỉ cần ghép theo vị trí: trái_0-phải_0, trái_1-phải_1, ...
+#
+# Khác helpers/solve-connect.yaml (đòi hỏi cờ EXPO_PUBLIC_E2E=1 để nối ĐÚNG
+# từng cặp qua hậu tố `_for_left_{i}`): helper này chạy được trên MỌI bản build,
+# vì chỉ ghép theo vị trí, không cần biết đáp án.
+appId: ${APP_ID}
+---
+- tapOn:
+    id: "exercise_connect_left_0"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_0"
+    optional: true
+- tapOn:
+    id: "exercise_connect_left_1"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_1"
+    optional: true
+- tapOn:
+    id: "exercise_connect_left_2"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_2"
+    optional: true
+- tapOn:
+    id: "exercise_connect_left_3"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_3"
+    optional: true
+- tapOn:
+    id: "exercise_connect_left_4"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_4"
+    optional: true
+- tapOn:
+    id: "exercise_connect_left_5"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_5"
+    optional: true
+- tapOn:
+    id: "exercise_connect_left_6"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_6"
+    optional: true
+- tapOn:
+    id: "exercise_connect_left_7"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_7"
+    optional: true

@@ -1,0 +1,121 @@
+# EX-15 — Câu CHỌN 1 ĐÁP ÁN (ONE): cơ chế chấm điểm + lượt "Thử lại".
+#
+# CHẠY ĐƯỢC TRÊN BẢN BUILD STORE.
+#
+# KHÁC EX-14: câu ONE có nhiều hơn 2 lựa chọn nên KHÔNG vét cạn được trong 2 lượt
+# thử mà app cho phép. Vì vậy case này không chốt "phải ra Chính xác", mà chốt
+# những tính chất ĐÚNG BẤT KỂ đáp án là gì:
+#
+#   1. Chấm xong PHẢI ra đúng một nhãn kết quả (không được im lặng).
+#   2. Hai nhãn "Chính xác" / "Chưa chính xác" LOẠI TRỪ nhau.
+#   3. Sai lần 1  -> PHẢI hiện "Thử lại"   (checkCounter === 1)
+#   4. Sai lần 2  -> PHẢI hết "Thử lại"    (checkCounter > 1 -> showNext)
+#   5. Đúng       -> không còn "Thử lại", chuyển sang "Tiếp tục"
+#
+# Muốn chốt "chọn đúng ô đúng thì app báo đúng" thì phải dùng bản build có
+# EXPO_PUBLIC_E2E=1 — xem EX-01. Id mang đáp án không thể ship lên store.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-15 Cau chon 1 dap an - co che cham diem (moi ban build)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- runFlow:
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_answer_list_one"
+      TYPE_LABEL: "CHON 1 DAP AN (ONE)"
+
+- takeScreenshot: ../artifacts/EX-15-one-question
+
+# ── Chọn 1 đáp án: ô được chọn phải bật trạng thái selected ──────────────────
+- assertVisible:
+    id: "exercise_answer_0.*"
+    selected: false
+- tapOn:
+    id: "exercise_answer_0.*"
+- assertVisible:
+    id: "exercise_answer_0.*"
+    selected: true
+
+# Đặc trưng của ONE: chọn ô khác thì ô cũ PHẢI bỏ chọn (khác hẳn MULTI, xem EX-16)
+- tapOn:
+    id: "exercise_answer_1.*"
+- assertVisible:
+    id: "exercise_answer_1.*"
+    selected: true
+- assertVisible:
+    id: "exercise_answer_0.*"
+    selected: false
+    label: "Cau ONE nhung chon o moi khong bo chon o cu -> dang hanh xu nhu MULTI. Loi app."
+
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+
+# ── (1) Chấm xong PHẢI có đúng một nhãn kết quả ──────────────────────────────
+# Maestro khớp id bằng regex FULL-MATCH nên alternation dưới đây khớp CẢ HAI
+# nhãn, và KHÔNG khớp `exercise_result_correct_value` (id của màn kết quả).
+# Assert này nằm ngoài mọi runFlow.when nên không thể bị skip im lặng.
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da bam Kiem tra ma khong hien nhan ket qua nao (khong Chinh xac, khong Chua chinh xac)."
+- takeScreenshot: ../artifacts/EX-15-checked
+
+# ── (2)(3)(4) Nhánh TRẢ LỜI SAI ───────────────────────────────────────────────
+- runFlow:
+    when:
+      visible:
+        id: "exercise_result_incorrect"
+    commands:
+      - assertNotVisible:
+          id: "exercise_result_correct"
+          label: "LOI APP: hien dong thoi ca 'Chinh xac' va 'Chua chinh xac'."
+      - assertVisible:
+          text: ".*Thử lại.*"
+          label: "Sai lan 1 nhung khong hien 'Thu lai'. Xem getExplainActionButtonsState: showRetry = isWrong && checkCounter === 1."
+      # Thử lại -> sai lần 2 -> hết lượt
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_answer_0.*"
+          timeout: 15000
+      - tapOn:
+          id: "exercise_answer_0.*"
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_explain_button"
+          timeout: 15000
+      # Sai lần 2 thì hết lượt Thử lại. Nếu lần 2 lại đúng thì cũng không còn
+      # "Thử lại" -> assert dưới đúng cho cả hai trường hợp.
+      - assertNotVisible:
+          text: ".*Thử lại.*"
+          label: "LOI APP: sau luot cham thu 2 van con nut 'Thu lai'. showRetry chi duoc true khi checkCounter === 1."
+      - takeScreenshot: ../artifacts/EX-15-no-more-retry
+
+# ── (2)(5) Nhánh TRẢ LỜI ĐÚNG ─────────────────────────────────────────────────
+- runFlow:
+    when:
+      visible:
+        id: "exercise_result_correct"
+    commands:
+      - assertNotVisible:
+          id: "exercise_result_incorrect"
+          label: "LOI APP: hien dong thoi ca 'Chinh xac' va 'Chua chinh xac'."
+      - assertNotVisible:
+          text: ".*Thử lại.*"
+          label: "LOI APP: tra loi DUNG ma van hien nut 'Thu lai'."
+      - takeScreenshot: ../artifacts/EX-15-correct

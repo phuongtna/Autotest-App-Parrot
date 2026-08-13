@@ -1,0 +1,77 @@
+# Helper: nối ĐÚNG toàn bộ cặp của câu CONNECT đang hiển thị.
+#
+# Yêu cầu build có EXPO_PUBLIC_E2E=1. Khi bật cờ, ô cột phải mang thêm hậu tố
+# "_for_left_{i}" chỉ ra nó là cặp đúng của ô trái thứ i (xem constants/e2e.ts).
+# Nhờ vậy chỉ cần tap left_i rồi tap right_.*_for_left_i là ra cặp đúng, không
+# cần biết nội dung đáp án.
+#
+# Cờ TẮT thì hậu tố không tồn tại, mọi tapOn dưới đây thành no-op (optional) —
+# case gọi helper phải tự kiểm tra cờ trước, xem EX-08.
+#
+# Vì sao phải nối ĐÚNG chứ không nối bừa: hai màn dùng hai biến thể khác nhau.
+#   - Bài tập  (exercise/doing.tsx, enableCheckAnswer={false}) -> ConnectAnswerListV2:
+#     giữ mọi cặp người dùng ghép, nối bừa cũng đủ điều kiện hiện footer.
+#   - Vui học  (learning/unit/[id].tsx, enableCheckAnswer mặc định true) -> ConnectAnswerList:
+#     cặp SAI bị bỏ ngay, footer chỉ hiện khi đã nối đúng HẾT (auto-check).
+# Nối đúng thì chạy được cả hai.
+#
+# Số hàng: unroll 8 hàng. Maestro không cho lấy biến chạy của `repeat` nên không
+# viết được vòng lặp theo chỉ số. 8 phủ hết mọi câu nối hiện có trên BE; hàng
+# không tồn tại thì tapOn optional bỏ qua.
+appId: ${APP_ID}
+---
+- tapOn:
+    id: "exercise_connect_left_0"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_.*_for_left_0"
+    optional: true
+
+- tapOn:
+    id: "exercise_connect_left_1"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_.*_for_left_1"
+    optional: true
+
+- tapOn:
+    id: "exercise_connect_left_2"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_.*_for_left_2"
+    optional: true
+
+- tapOn:
+    id: "exercise_connect_left_3"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_.*_for_left_3"
+    optional: true
+
+- tapOn:
+    id: "exercise_connect_left_4"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_.*_for_left_4"
+    optional: true
+
+- tapOn:
+    id: "exercise_connect_left_5"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_.*_for_left_5"
+    optional: true
+
+- tapOn:
+    id: "exercise_connect_left_6"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_.*_for_left_6"
+    optional: true
+
+- tapOn:
+    id: "exercise_connect_left_7"
+    optional: true
+- tapOn:
+    id: "exercise_connect_right_.*_for_left_7"
+    optional: true

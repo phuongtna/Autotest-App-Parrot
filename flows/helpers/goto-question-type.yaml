@@ -1,0 +1,140 @@
+# Helper: đưa màn LÀM BÀI tới câu thuộc MỘT DẠNG CỤ THỂ — chạy được trên MỌI
+# bản build, không cần EXPO_PUBLIC_E2E=1.
+#
+# Tham số:
+#   TARGET_ID   regex id KHUNG của dạng cần tìm (Maestro khớp full-match)
+#   TYPE_LABEL  tên dạng, chỉ để in trong thông báo lỗi cho dễ đọc
+#
+# Bảng TARGET_ID theo dạng câu:
+#   ONE               exercise_answer_list_one
+#   MULTI             exercise_answer_list_multi
+#   TRUE_FALSE        exercise_answer_list_true_false
+#   CONNECT           exercise_connect_left_0
+#   FILL_WORD         exercise_fillword_blanks
+#   DRAG_DROP         exercise_drag_drop_area
+#   SENTENCE_BUILDER  exercise_sentence_builder_area
+#   SORT              exercise_sort_area
+#   SPEAK             exercise_speak_section
+#
+# VÌ SAO CÓ HELPER NÀY:
+# Trước đây ONE / MULTI / TRUE_FALSE dùng chung id `exercise_answer_{i}` nên
+# flow KHÔNG phân biệt được dạng câu -> không viết được case riêng cho từng
+# dạng. Nay khung danh sách đáp án mang theo dạng câu (constants/e2e.ts ->
+# answerListTestID) và id đó KHÔNG bị gate bởi cờ E2E, nên nhận diện được trên
+# cả bản build store.
+#
+# CÁCH ĐI QUA MỘT CÂU MÀ KHÔNG BIẾT ĐÁP ÁN:
+# Trả lời đại rồi bấm tiếp. Sai lần 1 -> footer thành "Thử lại" -> bấm -> chọn ô
+# khác -> sai lần 2 -> hết lượt -> "Tiếp tục" -> bỏ qua câu đó.
+# (getExplainActionButtonsState: showRetry chỉ khi checkCounter === 1)
+# Cả 3 nút Kiểm tra / Thử lại / Tiếp tục dùng CHUNG id exercise_check_button.
+#
+# GIỚI HẠN đã biết: gặp câu SORT hoặc SPEAK thì vòng quét ĐỨNG YÊN (SORT phải
+# kéo thật, SPEAK cần mic). Nếu dạng cần tìm nằm SAU một câu như vậy thì helper
+# fail ở assert cuối -> BLOCKED, đổi bài khác qua EXERCISE_NAME.
+#
+# Điều kiện: đang đứng ở màn làm bài (exercise_doing_screen hoặc learning_screen).
+appId: ${APP_ID}
+---
+# Quét tối đa 20 câu. Điều kiện notVisible chặn cả khối -> tới nơi rồi thì vòng
+# lặp thành no-op, không làm bẩn trạng thái câu đích.
+- repeat:
+    times: 20
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: ${TARGET_ID}
+          commands:
+            # ── Câu NỐI: nối kín hết ô (biến thể V2 không đòi nội dung) ──
+            - runFlow:
+                when:
+                  visible:
+                    id: "exercise_connect_left_0"
+                commands:
+                  - runFlow: solve-connect-fill.yaml
+
+            # ── Câu ĐIỀN TỪ: gõ đại, sai cũng được ──
+            - runFlow:
+                when:
+                  visible:
+                    id: "exercise_fillword_blanks"
+                commands:
+                  - tapOn:
+                      id: "exercise_fillword_blank_0"
+                      optional: true
+                  - inputText: "test"
+                  - hideKeyboard
+                  - tapOn:
+                      id: "exercise_fillword_check_button"
+                      optional: true
+
+            # ── Câu KÉO THẢ: tap chip theo vị trí, không cần đúng ──
+            - runFlow:
+                when:
+                  visible:
+                    id: "exercise_dragdrop_options"
+                commands:
+                  - tapOn:
+                      id: "exercise_dragdrop_option_0"
+                      optional: true
+                  - tapOn:
+                      id: "exercise_dragdrop_option_1"
+                      optional: true
+                  - tapOn:
+                      id: "exercise_dragdrop_option_2"
+                      optional: true
+                  - tapOn:
+                      id: "exercise_dragdrop_option_3"
+                      optional: true
+
+            # ── Câu GHÉP CÂU: tap từ theo vị trí ──
+            - runFlow:
+                when:
+                  visible:
+                    id: "exercise_sentence_builder"
+                commands:
+                  - tapOn:
+                      id: "exercise_sentence_word_0"
+                      optional: true
+                  - tapOn:
+                      id: "exercise_sentence_word_1"
+                      optional: true
+                  - tapOn:
+                      id: "exercise_sentence_word_2"
+                      optional: true
+                  - tapOn:
+                      id: "exercise_sentence_word_3"
+                      optional: true
+
+            # ── Câu CHỌN ĐÁP ÁN: lần 1 chọn ô 0, lần 2 chọn ô 1 ──
+            - tapOn:
+                id: "exercise_answer_0.*"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_answer_1.*"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_show_answer_next_button"
+                optional: true
+
+# CHỐT — KHÔNG skip im lặng.
+#
+# Fail ở đây nghĩa là bài đang mở KHÔNG có câu dạng cần tìm (hoặc vòng quét bị
+# chặn bởi một câu SORT/SPEAK đứng trước). Đây là BLOCKED vì thiếu dữ liệu,
+# KHÔNG phải lỗi app — xem README.md mục "Bộ case theo TỪNG DẠNG CÂU".
+- assertVisible:
+    id: ${TARGET_ID}
+    label: "BLOCKED - thieu data: bai nay khong co cau dang ${TYPE_LABEL} trong 20 cau dau (hoac bi cau SORT/SPEAK chan duong). Doi bai khac qua EXERCISE_NAME. KHONG phai loi app."

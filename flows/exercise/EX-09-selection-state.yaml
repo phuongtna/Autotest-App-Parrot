@@ -1,8 +1,16 @@
 # EX-09 — Chọn đáp án thì đáp án đó phải ở trạng thái "đã chọn"
 #
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
+#
 # Mọi ô đáp án đều khai accessibilityState.selected, nên kiểm được trạng thái
 # chọn mà không phụ thuộc màu sắc.
-# Đồng thời kiểm chọn lại ô khác thì ô cũ bỏ chọn (dạng chọn 1 đáp án).
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   Bản cũ bọc toàn bộ assert trong `runFlow.when: visible:
+#   exercise_answer_0_.*` — regex đó chỉ khớp khi build bật EXPO_PUBLIC_E2E=1
+#   (id có hậu tố `_correct`/`_wrong`), nên trên build store cả case skip mà
+#   vẫn báo PASS. Nay dùng helpers/goto-tap-question.yaml (id không hậu tố,
+#   chạy trên mọi build) và assert cứng nằm ngoài mọi nhánh điều kiện.
 appId: ${APP_ID}
 tags:
   - regression
@@ -13,22 +21,31 @@ name: EX-09 Trang thai da chon cua dap an
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+- runFlow: ../helpers/goto-tap-question.yaml
 
+# ── CHỐT CỨNG — nằm ngoài mọi nhánh điều kiện nên LUÔN chạy ──────────────────
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: false
+- tapOn:
+    id: "exercise_answer_0"
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: true
+- takeScreenshot: ../artifacts/EX-09-selected
+
+# ── Nếu câu có ô thứ hai: chọn ô đó cũng phải bật được `selected` ────────────
+# (Câu ONE/TRUE_FALSE thường bỏ chọn ô cũ khi chọn ô mới; câu MULTI thì giữ cả
+# hai. Case này không phân biệt dạng câu nên chỉ chốt mệnh đề đúng với CẢ HAI:
+# ô mới tap được thì phải lên `selected`.)
 - runFlow:
     when:
       visible:
-        id: "exercise_answer_0_.*"
+        id: "exercise_answer_1"
     commands:
-      # Chưa chọn gì -> chưa có ô nào selected
-      - assertNotVisible:
-          id: "exercise_answer_.*"
-          enabled: true
-          selected: true
-
       - tapOn:
-          id: "exercise_answer_0_.*"
+          id: "exercise_answer_1"
       - assertVisible:
-          id: "exercise_answer_0_.*"
+          id: "exercise_answer_1"
           selected: true
-
-      - takeScreenshot: ../artifacts/EX-09-selected

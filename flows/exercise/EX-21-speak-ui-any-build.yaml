@@ -1,0 +1,94 @@
+# EX-21 — Câu ĐỌC/NÓI (SPEAK): kiểm UI ghi âm. KHÔNG kiểm chấm phát âm.
+#
+# CHẠY ĐƯỢC TRÊN BẢN BUILD STORE.
+#
+# LƯU Ý quan hệ với EX-12 (speaking-record-result.yaml): case đó dùng selector
+# toạ độ (`above: "Nhấn để nói"`) vì tại thời điểm viết KHÔNG có testID nào cho
+# nút mic, và đã tự tay xác nhận 2/2 lần trên thiết bị thật rằng bấm mic thật
+# khiến app THOÁT khỏi bài (bug đã biết, xem README.md). Case EX-21 này giả
+# định build đang test có thêm các id `exercise_speak_record_button` /
+# `exercise_speak_stop_button` / `exercise_speak_cancel_button` (chưa có trong
+# bảng testID hiện tại của exercise/README.md) — NẾU build chưa có các id này
+# thì case sẽ BLOCKED ở bước goto-question-type.yaml (không tìm thấy khung dạng
+# SPEAK), không phải app lỗi. Nếu build ĐÃ có id này, case tránh được bug thoát
+# app của EX-12 bằng cách luôn HUỶ (không toggle dừng/gửi) trước khi kết thúc.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# ĐỌC KỸ PHẠM VI
+#
+# Chấm phát âm cần MIC THẬT — simulator/emulator không thu được âm, nên phần
+# "đọc đúng thì được điểm cao" PHẢI TEST TAY.
+#
+# Nhưng UI ghi âm thì tự động hoá được, và đó là thứ hay hỏng nhất trong thực tế:
+# bấm ghi âm -> hiện nút Dừng + nút Huỷ -> bấm Huỷ -> quay về trạng thái ban đầu.
+# Case này chốt đúng vòng đời đó (AudioRecorderSection: isRecording toggle giữa
+# exercise_speak_record_button và cặp stop/cancel).
+#
+# Không ghi dữ liệu chấm điểm nào vì luôn HUỶ trước khi gửi.
+# ══════════════════════════════════════════════════════════════════════════════
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-21 Cau doc/noi - vong doi UI ghi am (moi ban build)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- runFlow:
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_speak_section"
+      TYPE_LABEL: "DOC/NOI (SPEAK)"
+
+- takeScreenshot: ../artifacts/EX-21-speak-idle
+
+# ── Trạng thái nghỉ: có nút ghi âm, chưa có nút dừng/huỷ ─────────────────────
+- assertVisible:
+    id: "exercise_speak_record_button"
+- assertNotVisible:
+    id: "exercise_speak_stop_button"
+- assertNotVisible:
+    id: "exercise_speak_cancel_button"
+
+# ── Bấm ghi âm ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: "exercise_speak_record_button"
+
+# Lần đầu chạy trên máy sạch sẽ bung hộp thoại xin quyền mic của hệ điều hành.
+# Quyền đã cấp thì các lệnh dưới thành no-op.
+- tapOn:
+    text: ".*(Khi dùng ứng dụng|While using the app|Chỉ lần này|Only this time|Allow|Cho phép).*"
+    optional: true
+
+# ── Đang ghi: nút Dừng + nút Huỷ thay cho nút ghi âm ──────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: "exercise_speak_stop_button"
+    timeout: 15000
+- assertVisible:
+    id: "exercise_speak_cancel_button"
+- assertNotVisible:
+    id: "exercise_speak_record_button"
+    label: "LOI APP: dang ghi am ma nut 'Nhan de noi' van con hien. Xem AudioRecorderSection: isRecording phai toggle het cap nut."
+- takeScreenshot: ../artifacts/EX-21-recording
+
+# ── Huỷ: phải quay về trạng thái nghỉ, KHÔNG gửi bản ghi đi chấm ─────────────
+- tapOn:
+    id: "exercise_speak_cancel_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_speak_record_button"
+    timeout: 15000
+- assertNotVisible:
+    id: "exercise_speak_stop_button"
+- assertNotVisible:
+    id: "exercise_speak_cancel_button"
+- assertNotVisible:
+    id: "exercise_speak_result_sheet"
+    label: "LOI APP: da HUY ghi am ma sheet cham phat am van hien ra."
+- takeScreenshot: ../artifacts/EX-21-cancelled

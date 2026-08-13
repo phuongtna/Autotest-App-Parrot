@@ -1,0 +1,428 @@
+# Helper: giải câu NỐI mà KHÔNG cần biết đáp án — đo bằng phản hồi của app.
+#
+# CƠ SỞ: màn Vui học dùng ConnectAnswerList (v1). Ghép sai thì cặp bị BỎ NGAY và
+# lựa chọn bị xoá. Nghĩa là mỗi lần ghép đều có phản hồi:
+#     cặp còn dính -> đúng
+#     cặp bị bung  -> sai, thử cặp khác
+# Nhờ vậy quét lần lượt sẽ hội tụ, không cần biết trước đáp án.
+#
+# CÁCH QUÉT: với mỗi ô TRÁI thử lần lượt mỗi ô PHẢI. Cặp đúng sẽ dính lại; cặp
+# sai bị bỏ nên không làm bẩn trạng thái. Sau khi quét hết, mọi cặp đúng đã
+# hình thành -> app tự auto-check.
+#
+# GIỚI HẠN: quét 6x6 = 36 cặp. Đủ cho mọi câu NỐI hiện có (thường 4-5 cặp).
+# `repeat` của Maestro không cho lấy biến chạy theo chỉ số nên phải unroll.
+#
+# LƯU Ý: tab Bài tập dùng ConnectAnswerListV2 — biến thể đó GIỮ cả cặp sai, nên
+# không có phản hồi để đo. Ở màn đó chỉ cần nối kín hết ô là footer hiện ra,
+# dùng helpers/solve-connect-fill.yaml.
+appId: ${APP_ID}
+---
+# ── ô TRÁI 0: thử lần lượt các ô PHẢI ──
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_0"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_0"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_0"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_0"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_0"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_1"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_0"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_0"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_2"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_0"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_0"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_3"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_0"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_0"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_4"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_0"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_0"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_5"
+          optional: true
+
+# ── ô TRÁI 1: thử lần lượt các ô PHẢI ──
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_1"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_1"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_0"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_1"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_1"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_1"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_1"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_1"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_2"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_1"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_1"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_3"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_1"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_1"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_4"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_1"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_1"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_5"
+          optional: true
+
+# ── ô TRÁI 2: thử lần lượt các ô PHẢI ──
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_2"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_2"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_0"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_2"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_2"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_1"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_2"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_2"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_2"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_2"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_2"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_3"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_2"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_2"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_4"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_2"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_2"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_5"
+          optional: true
+
+# ── ô TRÁI 3: thử lần lượt các ô PHẢI ──
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_3"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_3"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_0"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_3"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_3"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_1"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_3"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_3"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_2"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_3"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_3"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_3"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_3"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_3"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_4"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_3"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_3"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_5"
+          optional: true
+
+# ── ô TRÁI 4: thử lần lượt các ô PHẢI ──
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_4"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_4"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_0"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_4"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_4"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_1"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_4"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_4"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_2"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_4"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_4"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_3"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_4"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_4"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_4"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_4"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_4"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_5"
+          optional: true
+
+# ── ô TRÁI 5: thử lần lượt các ô PHẢI ──
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_5"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_5"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_0"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_5"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_5"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_1"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_5"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_5"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_2"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_5"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_5"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_3"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_5"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_5"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_4"
+          optional: true
+- runFlow:
+    when:
+      visible:
+        id: "exercise_connect_left_5"
+    commands:
+      - tapOn:
+          id: "exercise_connect_left_5"
+          optional: true
+      - tapOn:
+          id: "exercise_connect_right_5"
+          optional: true
+

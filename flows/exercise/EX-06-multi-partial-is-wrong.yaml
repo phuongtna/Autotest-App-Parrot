@@ -1,7 +1,30 @@
-# EX-06 — Câu MULTI: chọn THIẾU (chỉ 1 trong nhiều đáp án đúng) -> phải báo SAI
+# EX-06 — Câu MULTI: chọn THIẾU (chỉ 1 ô) phải bị tính SAI
 #
-# Đây là case dễ lọt nhất: nếu app so sánh sai (dùng "có chứa" thay vì "khớp
-# đúng tập hợp") thì chọn thiếu vẫn được tính đúng.
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# KIỂM CÁI GÌ
+#   Đây là case dễ lọt nhất của phần chấm điểm: nếu app so sánh kiểu "có chứa"
+#   (subset) thay vì "khớp đúng tập hợp" thì chọn thiếu vẫn được tính ĐÚNG —
+#   người dùng chỉ cần tích 1 ô là qua được mọi câu MULTI.
+#
+# LẬP LUẬN — vì sao chốt được mà KHÔNG cần biết đáp án
+#   Dạng câu là MULTI, tức đề có NHIỀU HƠN MỘT đáp án đúng. Chọn đúng 1 ô thì
+#   chắc chắn là một tập con THỰC SỰ của tập đáp án đúng -> bắt buộc phải bị
+#   tính SAI. Không cần biết ô nào đúng.
+#
+#   Dạng câu đọc từ id khung `exercise_answer_list_multi` — id này chỉ nói DẠNG
+#   CÂU, không hề lộ đáp án (xem constants/e2e.ts).
+#
+# KHI CASE NÀY ĐỎ, có đúng 2 nguyên nhân, cả hai đều là lỗi phải báo:
+#   (a) LỖI APP  — chấm điểm so sánh kiểu subset thay vì khớp tập hợp.
+#   (b) LỖI DATA — câu này bị gán nhầm dạng MULTI trong khi chỉ có 1 đáp án đúng.
+#   Label của assert dưới đây nói rõ cả hai để người đọc kết quả không đoán mò.
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   helpers/goto-question-type.yaml fail thẳng nếu bài không có câu MULTI.
+#   Assert chốt nằm ngoài mọi nhánh điều kiện.
+# ══════════════════════════════════════════════════════════════════════════════
 appId: ${APP_ID}
 tags:
   - regression
@@ -14,23 +37,53 @@ name: EX-06 MULTI chon thieu - phai bao sai
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
 
 - runFlow:
-    when:
-      visible:
-        id: "exercise_answer_.*_correct"
-        index: 1
-    commands:
-      # Chỉ chọn 1 đáp án đúng rồi kiểm tra
-      - tapOn:
-          id: "exercise_answer_.*_correct"
-      - tapOn:
-          id: "exercise_check_button"
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_answer_list_multi"
+      TYPE_LABEL: "NHIEU LUA CHON (MULTI)"
 
-      - extendedWaitUntil:
-          visible:
-            id: "exercise_result_incorrect"
-          timeout: 15000
-      - assertNotVisible:
-          id: "exercise_result_correct"
-      - takeScreenshot: ../artifacts/EX-06-multi-partial
+# ── Câu MULTI phải có >= 2 lựa chọn, nếu không lập luận trên không còn đúng ──
+- assertVisible:
+    id: "exercise_answer_0"
+- assertVisible:
+    id: "exercise_answer_1"
+    label: "Cau MULTI chi co 1 lua chon - sai du lieu de, lap luan 'chon thieu' khong ap dung. Bao dev."
+
+- assertNotVisible:
+    id: "exercise_result_correct"
+- assertNotVisible:
+    id: "exercise_result_incorrect"
+
+# ── Chọn ĐÚNG MỘT ô rồi chấm ────────────────────────────────────────────────
+- tapOn:
+    id: "exercise_answer_0"
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: true
+# Chốt không lỡ tay chọn nhầm ô thứ hai
+- assertVisible:
+    id: "exercise_answer_1"
+    selected: false
+    label: "O thu hai dang o trang thai da chon - case nay phai chon DUNG MOT o moi co nghia."
+- takeScreenshot: ../artifacts/EX-06-multi-one-selected
+
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+
+# ── CHỐT CỨNG — nằm ngoài mọi nhánh điều kiện nên LUÔN chạy ─────────────────
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da cham nhung khong hien nhan ket qua nao."
+- assertVisible:
+    id: "exercise_result_incorrect"
+    label: "PHAI BAO DEV. Cau dang MULTI (nhieu dap an dung) ma chi chon 1 o van duoc tinh DUNG. Hai kha nang: (a) LOI APP - cham diem so sanh kieu 'co chua' thay vi khop dung tap hop, nguoi dung chi can tich 1 o la qua moi cau MULTI; (b) LOI DATA - cau nay bi gan nham dang MULTI trong khi chi co 1 dap an dung. Kem anh chup EX-06-multi-one-selected khi bao."
+- assertNotVisible:
+    id: "exercise_result_correct"
+- takeScreenshot: ../artifacts/EX-06-multi-partial-wrong

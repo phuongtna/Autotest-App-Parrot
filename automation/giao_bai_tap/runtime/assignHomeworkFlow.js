@@ -32,7 +32,7 @@ function parseDdMmYyyy(value) {
   return { day: Number(dd), month: Number(mm), year: Number(yyyy) };
 }
 
-const REQUIRED_PARAMS = ["primaryClass", "otherGroupClass", "dueDate"];
+const REQUIRED_PARAMS = ["primaryClass", "dueDate"];
 
 // ĐÃ THAY THẾ (2026-08-12): bản cũ random Unit/Lesson MÙ trên UI rồi reroll-từ-đầu tối đa 20 lần
 // khi gặp Lesson toàn item rỗng (~2/3 Unit/Lesson của bộ "Kết nối tri thức" KHÔNG có exercise item
@@ -54,8 +54,11 @@ const REQUIRED_PARAMS = ["primaryClass", "otherGroupClass", "dueDate"];
  * @param {object} params
  * @param {string} params.primaryClass - lớp chọn đầu tiên (vd "3B" - ĐÃ XÁC NHẬN THẬT với tài
  *   khoản GV "Phương" hiện có trong .env).
- * @param {string} params.otherGroupClass - lớp KHÁC khối với primaryClass, dùng để xác nhận bị
- *   disable ngay sau khi chọn primaryClass (vd "6D").
+ * @param {string} [params.otherGroupClass] - lớp KHÁC khối với primaryClass, dùng để xác nhận bị
+ *   disable ngay sau khi chọn primaryClass (vd "6D"). OPTIONAL - bỏ qua bước xác nhận này nếu
+ *   không truyền (2026-08-13: lớp "6D" đã bị xoá khỏi tài khoản GV test hiện tại - theo xác nhận
+ *   trực tiếp của user - nên không còn lớp khối khác nào để verify business rule này; giữ tham số
+ *   optional thay vì hardcode lại 1 lớp khác, để không tự đoán tên lớp thay thế).
  * @param {string} [params.sameGroupClass] - lớp CÙNG khối với primaryClass, dùng để xác nhận
  *   vẫn chọn được thêm. OPTIONAL - bỏ qua bước này nếu không truyền, vì tài khoản GV hiện tại
  *   KHÔNG có 2 lớp cùng khối để test (xem "GIỚI HẠN" trong TESTCASES.md).
@@ -143,21 +146,23 @@ export async function assignHomeworkFlow(params) {
     // ĐÃ XÁC NHẬN THẬT (2026-08-09, debug screenshot/DOM dump): mỗi lớp là 1 <label> bọc 1
     // <input type="checkbox">; lớp bị disable có checkbox.disabled = true (label thêm class
     // "opacity-60 cursor-not-allowed" chỉ để hiển thị, không dùng để detect logic).
-    await step(
-      "assertOtherGroupClassDisabled",
-      async () => {
-        const labelText = page.getByText(otherGroupClass, { exact: false }).first();
-        const checkbox = labelText.locator("xpath=ancestor::label[1]//input[@type='checkbox']");
-        const isDisabled = await checkbox.isDisabled();
-        if (!isDisabled) {
-          throw new AssignHomeworkAssertionError(
-            `Lớp "${otherGroupClass}" (khối khác) chưa chuyển sang trạng thái disable sau khi ` +
-              `chọn "${primaryClass}".`,
-          );
-        }
-      },
-      { page },
-    )();
+    if (otherGroupClass) {
+      await step(
+        "assertOtherGroupClassDisabled",
+        async () => {
+          const labelText = page.getByText(otherGroupClass, { exact: false }).first();
+          const checkbox = labelText.locator("xpath=ancestor::label[1]//input[@type='checkbox']");
+          const isDisabled = await checkbox.isDisabled();
+          if (!isDisabled) {
+            throw new AssignHomeworkAssertionError(
+              `Lớp "${otherGroupClass}" (khối khác) chưa chuyển sang trạng thái disable sau khi ` +
+                `chọn "${primaryClass}".`,
+            );
+          }
+        },
+        { page },
+      )();
+    }
 
     if (sameGroupClass) {
       await step(

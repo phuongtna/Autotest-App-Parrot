@@ -50,6 +50,8 @@ maestro test "$TARGET" \
   -e PHONE="${PHONE:-}" \
   -e OTP="${OTP:-}" \
   -e PROFILE_NAME_B="${PROFILE_NAME_B:-}" \
+  -e PROFILE_BASIC_NAME="${PROFILE_BASIC_NAME:-}" \
+  -e PROFILE_PRO_NAME="${PROFILE_PRO_NAME:-}" \
   --format junit \
   --output "$REPORT_DIR/report.xml"
 

@@ -61,6 +61,43 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
     above: "Bài tập về nhà"
 - runScript: ../../test_data/hw_fullluong_save_before_progress.js
 
+# --- PROGRESS_BEFORE: đọc progress RIÊNG của ĐÚNG assignment sắp làm (vd "9/10") - KHÁC với
+# thanh tiến độ TỔNG "Bài tập X/Y" vừa đọc ở trên. Dùng lại NGUYÊN compound selector (title + Hạn
+# nộp) đã verify thật ở khối "Xác nhận vẫn ĐÚNG assignment" cuối flow này - không viết cách tìm
+# card khác. Phải đọc TRƯỚC khi gọi open-exercise.yaml (chưa cuộn/thao tác gì lên card).
+- runFlow:
+    when:
+      true: ${EXERCISE_DUE_DATE_DM != null}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+            below:
+              text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+          direction: DOWN
+          timeout: 90000
+          waitToSettleTimeoutMs: 500
+      - copyTextFrom:
+          below:
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+          above:
+            text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+- runFlow:
+    when:
+      true: ${EXERCISE_DUE_DATE_DM == null}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+          direction: DOWN
+          timeout: 90000
+          waitToSettleTimeoutMs: 500
+      - copyTextFrom:
+          below:
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+- runScript: ../../test_data/hw_fullluong_save_before_card_progress.js
+- takeScreenshot: HW-14_15-before-open-assignment
+
 # --- Mở ĐÚNG assignment (không index 0 - open-exercise.yaml scroll+tap theo EXERCISE_NAME) ---
 # DEVICE_MODE=true (ĐÃ SỬA 2026-08-12): file này ĐÃ launch-keep-session.yaml + login.yaml +
 # open-tab-homework.yaml ở đầu chính flow này (xem 2 dòng đầu file) - KHÔNG truyền DEVICE_MODE thì
@@ -211,13 +248,14 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
 # KHÔNG về danh sách) hoặc "Hoàn thành" (hết bài chưa làm - bấm về thẳng danh sách) - khớp mô tả
 # flows/bai_tap/TESTCASES.md TC1 mục Output ("Tiếp theo" sang bài tập kế tiếp). Mục tiêu ở đây là
 # VỀ DANH SÁCH (không phải sang bài khác) để verify lại đúng card vừa hoàn thành ở bước sau - vì
-# vậy KHÔNG bấm "Tiếp theo" - dùng icon Close (X) góc phải trên, tap theo toạ độ ĐÃ XÁC NHẬN THẬT
-# trong flows/bai_tap/complete_random_homework_success.yaml dòng 172-173. Toạ độ này ĐÃ ĐƯỢC KIỂM
-# CHỨNG LẠI THẬT (2026-08-12, debug riêng bằng maestro hierarchy trên máy thật, xem
-# flows/homework/DEBUG-result-x-probe-*.yaml) - icon X thực ra CÓ resource-id riêng
-# (`exercise_result_close_button`, bounds đo thật [959,130][1038,166] trên màn 1080x2340), điểm
-# 92%,6% rơi ĐÚNG vào bounds đó nên KHÔNG đổi toạ độ/cách tap - nguyên nhân treo thật nằm ở bước
-# chờ NGAY DƯỚI đây, không phải ở bước tap.
+# vậy KHÔNG bấm "Tiếp theo" - dùng icon Close (X) góc phải trên.
+#
+# ĐÃ SỬA (2026-08-13): đổi từ tapOn theo toạ độ ("point: 92%,6%") sang tapOn theo id thật
+# `exercise_result_close_button` - id này đã được xác nhận thật từ 2026-08-12 (debug bằng maestro
+# hierarchy, xem flows/homework/DEBUG-result-x-probe-*.yaml, bounds đo thật [959,130][1038,166]
+# trên màn 1080x2340, đúng vị trí điểm 92%,6% cũ) nhưng trước đó vẫn giữ toạ độ vì nguyên nhân
+# treo thật nằm ở bước chờ phía dưới, không phải ở bước tap - nay ưu tiên selector ổn định hơn khi
+# không còn lý do phải giữ nguyên.
 - runFlow:
     when:
       visible: "Hoàn thành"
@@ -229,7 +267,7 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
       visible: "Tiếp theo"
     commands:
       - tapOn:
-          point: "92%,6%"
+          id: "exercise_result_close_button"
 # ĐÃ SỬA (2026-08-12, root cause thật qua debug máy thật): "visible: '.*(Bài tập).*'" KHÔNG PHẢI
 # tín hiệu "đã về danh sách" đáng tin - chính màn Kết quả (nơi vừa đứng, TRƯỚC khi tap X) cũng có
 # header hiển thị "Bài tập X/Y" (đã xác nhận thật qua `maestro hierarchy`: text "Bài tập 19/47"
@@ -246,39 +284,48 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
     visible:
       id: "homework_screen"
     timeout: 30000
+- takeScreenshot: HW-14_15-after-result-close
 
 # --- Xác nhận vẫn ĐÚNG assignment (card vẫn tồn tại, giờ đã hoàn thành) ---
-# ĐÃ SỬA (2026-08-12): cùng lý do/cùng cách đã sửa ở khối "Tìm ĐÚNG card vừa thoát" phía trên -
-# compound selector element:{text: Hạn nộp, below: title} khi có due date (bắt buộc cả 2 điều kiện
-# đồng thời + đảm bảo title đã lọt khung nhìn trước khi due date hiện), chỉ neo theo title khi
-# không có due date.
-- runFlow:
-    when:
-      true: ${EXERCISE_DUE_DATE_DM != null}
-    commands:
-      # waitToSettleTimeoutMs (ĐÃ GẶP THẬT 2026-08-12, xem chi tiết trong flows/helpers/
-      # open-exercise.yaml cùng vị trí sửa): thiếu tham số này, scrollUntilVisible báo COMPLETED
-      # ngay khi target chớm đủ ngưỡng visible nhưng scroll còn trớn, khiến lệnh NGAY SAU (assert/
-      # tapOn, đọc hierarchy MỚI) không còn thấy target - set 500ms để chờ layout ổn định hẳn.
-      - scrollUntilVisible:
-          element:
-            text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
-            below:
-              text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
-          direction: DOWN
-          timeout: 90000
-          waitToSettleTimeoutMs: 500
-- runFlow:
-    when:
-      true: ${EXERCISE_DUE_DATE_DM == null}
-    commands:
-      - scrollUntilVisible:
-          element:
-            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
-          direction: DOWN
-          timeout: 90000
-          waitToSettleTimeoutMs: 500
+# ĐÃ SỬA (2026-08-13, real device evidence thật, fixture "G3-U19-L3: Listen and choose"): SAU khi
+# hoàn thành, card KHÔNG còn dòng "Hạn nộp DATE" nữa - layout đổi hẳn sang dạng "card đã hoàn
+# thành" (badge "Điểm"/<số> phía TRÊN title, dòng "N/M" + "Điểm <số>" + "Xem bài đã làm" phía
+# DƯỚI title, nút "Làm lại" thay cho "Làm bài"/"Tiếp tục") - đã xác nhận qua hierarchy dump thật
+# TRƯỚC/SAU hoàn thành (scrollUntilVisible neo "Hạn nộp ${EXERCISE_DUE_DATE_DM}" FAILED thật ở
+# bước này, trong khi neo theo title vẫn tìm thấy ngay). Vì vậy khối này LUÔN neo theo title
+# (bỏ hẳn nhánh due-date) - KHÔNG áp dụng cho các bước TRƯỚC khi hoàn thành phía trên (due date
+# vẫn còn nguyên lúc đó, đã verify thật, không đổi).
+- scrollUntilVisible:
+    element:
+      text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+    direction: DOWN
+    timeout: 90000
+    waitToSettleTimeoutMs: 500
 - takeScreenshot: HW-14_15-card-completed
+
+# --- PROGRESS_AFTER: xác nhận card đã chuyển sang trạng thái HOÀN THÀNH - KHÁC với thanh tiến độ
+# TỔNG "Bài tập X/Y" đọc ở khối dưới đây (đã có sẵn từ trước).
+#
+# ĐÃ SỬA (2026-08-13, real device evidence thật): KHÔNG dùng dòng "N/M" làm tín hiệu hoàn thành -
+# đã xác nhận thật dòng này mang 2 Ý NGHĨA KHÁC NHAU tuỳ thời điểm dù CÙNG VỊ TRÍ trên card: TRƯỚC
+# khi làm, "N/M" = số câu ĐÃ TRẢ LỜI/tổng số câu (vd "0/1" = chưa làm câu nào). SAU khi hoàn thành,
+# "N/M" ở CÙNG vị trí đó lại là số câu ĐÚNG/tổng số câu (vd "0/1" = đã làm nhưng đúng 0/1 câu) -
+# tái hiện thật với fixture "G3-U19-L3: Listen and choose" (1 câu CONNECT, dispatcher chỉ nối cặp
+# không quan tâm đúng/sai nên ra kết quả đúng 0/1): CẢ 2 LẦN ĐỌC ĐỀU RA CHUỖI "0/1" GIỐNG HỆT NHAU
+# dù bản chất khác hẳn - nếu chỉ so sánh số (before.n < after.n) sẽ báo SAI là "không tăng" dù bài
+# ĐÃ THẬT SỰ hoàn thành. Tín hiệu đáng tin cậy hơn (đã xác nhận thật qua hierarchy dump): dòng
+# "Điểm <số>" (1 node hợp nhất, đứng NGAY SAU dòng N/M, phía DƯỚI title) - dòng này CHỈ xuất hiện
+# trên card ĐÃ hoàn thành, card CHƯA làm không có dòng này ở bất kỳ đâu (đã xác nhận cả 2 chiều
+# trước/sau bằng hierarchy dump thật). Regex tách biệt với badge điểm số phía TRÊN title (badge đó
+# là 2 node RIÊNG "Điểm" và "<số>", không khớp regex "Điểm\s*[\d.,]+" gộp 1 dòng).
+- copyTextFrom:
+    text: ".*Điểm\\s*[0-9.,]+.*"
+    below:
+      text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+- runScript: ../../test_data/hw_fullluong_save_after_card_progress.js
+- runScript: ../../test_data/hw_fullluong_compare_card_progress.js
+- assertTrue: ${output.cardProgressOk}
+- takeScreenshot: HW-14_15-progress-after
 
 # --- Cuộn về đầu danh sách để đọc lại thanh tiến độ tổng "Bài tập X/Y" SAU khi hoàn thành ---
 # Bước xác nhận card ở trên đã cuộn XUỐNG sâu để tìm card - header tiến độ (đầu danh sách) đang bị

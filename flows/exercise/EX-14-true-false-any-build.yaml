@@ -1,0 +1,118 @@
+# EX-14 — Câu ĐÚNG/SAI (TRUE_FALSE): app phải chấm điểm đúng.
+#
+# CHẠY ĐƯỢC TRÊN BẢN BUILD STORE. Không dùng id nào bị gate bởi EXPO_PUBLIC_E2E.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# VÌ SAO KHÔNG CẦN BIẾT ĐÁP ÁN VẪN CHỐT ĐƯỢC TÍNH ĐÚNG/SAI
+#
+# TRUE_FALSE chỉ có ĐÚNG 2 lựa chọn, và app cho ĐÚNG 1 lượt "Thử lại"
+# (CheckAnswerFooter.tsx:44 — showRetry: isWrong && checkCounter === 1).
+# Nghĩa là 2 lượt thử vét cạn toàn bộ không gian đáp án:
+#
+#     chọn ô 0 -> đúng  => xong, phải báo "Chính xác"
+#     chọn ô 0 -> sai   => ô 1 BẮT BUỘC là đáp án đúng
+#                          -> Thử lại -> chọn ô 1 -> phải báo "Chính xác"
+#
+# Dù đi nhánh nào, kết quả CUỐI CÙNG bắt buộc phải là "Chính xác". Assert đó đặt
+# NGOÀI mọi runFlow.when nên luôn chạy — không có đường skip im lặng.
+#
+# Case này bắt được lỗi thật: app chấm sai (báo "Chưa chính xác" cho cả hai ô),
+# hoặc nút "Thử lại" không hiện khi trả lời sai.
+#
+# KHÔNG kiểm: ô nào mới LÀ đáp án đúng theo BE. Muốn kiểm điều đó phải có bản
+# build EXPO_PUBLIC_E2E=1 (xem EX-01) — id mang đáp án không thể ship lên store.
+# ══════════════════════════════════════════════════════════════════════════════
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-14 Cau Dung/Sai - cham diem dung (moi ban build)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- runFlow:
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_answer_list_true_false"
+      TYPE_LABEL: "DUNG/SAI (TRUE_FALSE)"
+
+- takeScreenshot: ../artifacts/EX-14-true-false-question
+
+# ── Chốt cấu trúc dạng câu: đúng 2 lựa chọn, không hơn ───────────────────────
+# Nếu BE trả về câu TRUE_FALSE có 3 lựa chọn trở lên thì lập luận vét cạn ở
+# trên không còn đúng, và case này phải fail chứ không được chạy tiếp im lặng.
+- assertVisible:
+    id: "exercise_answer_0.*"
+- assertVisible:
+    id: "exercise_answer_1.*"
+- assertNotVisible:
+    id: "exercise_answer_2.*"
+    label: "Cau TRUE_FALSE co qua 2 lua chon -> sai du lieu de, hoac dang cau bi map nham. Bao dev."
+
+# ── Trước khi chấm: chưa có nhãn kết quả nào ──────────────────────────────────
+- assertNotVisible:
+    id: "exercise_result_correct"
+- assertNotVisible:
+    id: "exercise_result_incorrect"
+
+# ── Lượt 1: chọn ô 0 ──────────────────────────────────────────────────────────
+- tapOn:
+    id: "exercise_answer_0.*"
+# Ô vừa chọn phải ở trạng thái đã chọn (khai accessibilityState.selected)
+- assertVisible:
+    id: "exercise_answer_0.*"
+    selected: true
+- tapOn:
+    id: "exercise_check_button"
+
+# Đã chấm xong chưa? Nút "Giải thích thêm" hiện ngay khi đã trả lời, bất kể
+# đúng hay sai (CheckAnswerFooter.tsx:43 — showExplain: hasAnswered).
+# Dùng nó làm mốc chờ, vì extendedWaitUntil không có mệnh đề OR.
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+
+# ── Nếu lượt 1 SAI: phải có "Thử lại", và ô còn lại BẮT BUỘC đúng ────────────
+- runFlow:
+    when:
+      visible:
+        id: "exercise_result_incorrect"
+    commands:
+      - assertVisible:
+          text: ".*Thử lại.*"
+          label: "Tra loi sai lan 1 nhung KHONG hien nut Thu lai. Xem getExplainActionButtonsState: showRetry phai true khi checkCounter === 1."
+      - takeScreenshot: ../artifacts/EX-14-wrong-first-try
+      # Bấm "Thử lại" (cùng id với nút chính, footer chỉ đổi nhãn)
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_answer_1.*"
+          timeout: 15000
+      - tapOn:
+          id: "exercise_answer_1.*"
+      - assertVisible:
+          id: "exercise_answer_1.*"
+          selected: true
+      - tapOn:
+          id: "exercise_check_button"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_explain_button"
+          timeout: 15000
+
+# ── CHỐT CỨNG — nằm ngoài mọi runFlow.when nên LUÔN chạy ────────────────────
+# Đã vét cạn cả 2 lựa chọn thì kết quả cuối bắt buộc là "Chính xác".
+# Fail ở đây = app chấm điểm SAI. Đây là lỗi app, không phải thiếu data.
+- assertVisible:
+    id: "exercise_result_correct"
+    label: "LOI APP: da thu ca 2 lua chon cua cau DUNG/SAI ma app khong bao 'Chinh xac' lan nao. Cau nay chi co 2 dap an nen mot trong hai BAT BUOC dung."
+- assertNotVisible:
+    id: "exercise_result_incorrect"
+- takeScreenshot: ../artifacts/EX-14-correct

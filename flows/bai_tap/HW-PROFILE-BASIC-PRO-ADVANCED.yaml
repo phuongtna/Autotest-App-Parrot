@@ -1,0 +1,212 @@
+# HW-PROFILE-BASIC-PRO-ADVANCED — Entitlement BASIC/PRO theo PROFILE, CÙNG 1 tài khoản PH.
+#
+# Mô hình đã audit + xác nhận thật (KHÔNG giả định, xem test_data/accounts.env
+# PROFILE_BASIC_NAME/PROFILE_PRO_NAME):
+#   PH (${PHONE}) -> hồ sơ Gia Linh (BASIC/thường) + hồ sơ Ngoc (PRO), CÙNG lớp 3B.
+#   Bằng chứng entitlement theo PROFILE (không theo account): message thật app hiển thị "Gói Pro
+#   hiện đang được áp dụng cho hồ sơ <tên>..." (xem flows/report/RP-16-restore-subscription.yaml) -
+#   phân biệt rõ "hồ sơ hiện tại" vs "hồ sơ khác" CÙNG 1 tài khoản.
+#
+# Bài NÂNG CAO dùng để test - CHỐT QUA CMS API (không random), xem test_data/assignment_config.js +
+# automation/bai_tap/discovery/findAdvancedAssignmentCli.js/validateAssignmentConfigCli.js:
+#   room_id=566ffb0b-... | Unit 18: Playing and doing | Lesson 3 | lessonItem="Các hoạt động ở
+#   trường học" | level=ADVANCED (CMS GET /api/cms/lesson-items/:id) | Hạn nộp 15/08.
+#   XÁC NHẬN THẬT trên thiết bị (2026-08-13, device 3201d866d40a1681, hồ sơ Ngoc/PRO): card nằm
+#   ĐÚNG giữa section "Bài tập nâng cao" và "Kiến thức trong bài" (đúng 3 section GV mô tả). Text
+#   ĐẦY ĐỦ hiển thị trên app là "Trò chuyện cùng Parrot: Các hoạt động ở trường học" (UI thêm tiền
+#   tố so với lessonItem.name CMS) - dùng regex theo lessonItem.name (KHÔNG hardcode tiền tố) để
+#   không phụ thuộc UI có đổi tiền tố hay không. CTA "Chinh phục" (nút xanh, không icon khoá) khi
+#   xem bằng hồ sơ Ngoc/PRO.
+#
+# QUAN TRỌNG - RỦI RO ĐÃ BIẾT (không giả định ngược): tên đầy đủ "Trò chuyện cùng Parrot: ..." gợi ý
+# đây có thể là dạng "AI Role Play" - automation/README.md đã ghi nhận thật "AI Role Play luôn là
+# bài nâng cao" VÀ loại này KHÔNG có Question/Exam pipeline chuẩn (room.exams luôn null, xem
+# model/homeworkModel.js) - repo CHƯA có handler xác nhận cho dạng hội thoại AI. Vì vậy bước D dưới
+# đây có guard riêng: nếu KHÔNG vào được màn làm bài chuẩn (exercise_close_button) trong thời gian
+# hợp lý, phân loại BLOCKED_MISSING_EXERCISE_HANDLER NGAY (không đoán selector màn hình khác), thay
+# vì coi là FAIL. Nếu vào được màn chuẩn, dùng lại dispatcher answer-current-exercise-generic.yaml
+# (đã có sẵn "Unknown-type guard" tự báo BLOCKED_MISSING_EXERCISE_HANDLER nếu gặp type lạ, xem file
+# đó) - không viết lại logic phát hiện type.
+#
+# QUAN TRỌNG - danh sách "Bài tập" của lớp 3B RẤT SÂU (60+ Room, phần lớn là bản trùng lặp do các
+# lượt automation trước đó tự tạo lặp lại - xem automation/output/find_advanced_assignment_report.json)
+# - ĐÃ ĐO THẬT (2026-08-13): scrollUntilVisible timeout 150000ms/speed 60 CHƯA đủ để tới section
+# "Bài tập nâng cao" (xác nhận qua adb thủ công: card có thật, tồn tại, chỉ là cần cuộn RẤT sâu) -
+# dùng timeout 300000ms (5 phút) - CHẤP NHẬN ĐƯỢC vì đây là vấn đề dữ liệu (rác tích luỹ), không
+# phải bug flow, và đã đo thật scroll vẫn tiến triển đều (không bị kẹt) trong toàn bộ ngân sách này.
+#
+# BẮT BUỘC chạy trước (validate config qua CMS API, KHÔNG tự random bài khác nếu BLOCKED):
+#   node automation/bai_tap/discovery/validateAssignmentConfigCli.js
+#
+# Tham số: PHONE, OTP (test_data/accounts.env), PROFILE_BASIC_NAME, PROFILE_PRO_NAME (cùng file).
+appId: ${APP_ID}
+tags:
+  - writes
+  - regression
+  - pro-basic-entitlement
+name: HW-PROFILE-BASIC-PRO-ADVANCED - Entitlement theo profile, cung 1 PH
+---
+# --- A. LOGIN + đảm bảo đang ở profile BASIC (Gia Linh) ---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runScript: ../../test_data/assignment_config.js
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# Nếu đang KHÔNG ở đúng hồ sơ Gia Linh (session cũ có thể đang đứng ở Ngoc từ lần chạy trước) ->
+# chuyển về Gia Linh trước.
+#
+# ĐÃ SỬA (2026-08-13, real-device evidence - xem step-018/020 debug output của lần chạy đầu):
+# giả định cũ (copy từ flows/report/RP-23-profile-switch-reloads-report.yaml: tap "Chuyển profile"
+# header mở 1 bottom sheet "Chuyển profối học tập" có danh sách hồ sơ + nút xác nhận trùng chữ với
+# header) SAI với hành vi THẬT hiện tại của tài khoản có ĐÚNG 2 hồ sơ (Gia Linh/Ngoc): tap "Chuyển
+# profile" (index 0) TOGGLE TRỰC TIẾP sang hồ sơ còn lại, KHÔNG mở sheet nào cả - đã xác nhận thật
+# qua maestro.log (bước "Assert Chuyển profối học tập" FAILED sau khi tap, nhưng hierarchy dump
+# NGAY SAU tap đã cho thấy header đổi tên đúng ngay). Có thể app đã đổi UX so với thời điểm RP-23
+# được verify - KHÔNG kết luận RP-23 sai, chỉ ghi nhận hành vi THẬT quan sát được bây giờ. Xử lý CẢ
+# 2 khả năng (toggle trực tiếp HOẶC vẫn còn mở sheet ở phiên bản khác) để không phụ thuộc 1 giả
+# định duy nhất - nếu sheet có xuất hiện, vẫn xử lý đúng bằng exact-text "Chuyển profile" + index:1
+# (tránh lại đúng bug cũ RP-23 đã fix: index:0 sẽ tap nhầm header phía sau sheet).
+- runFlow:
+    when:
+      notVisible: ".*(${PROFILE_BASIC_NAME}).*"
+    commands:
+      - tapOn:
+          text: ".*(Chuyển profile).*"
+          index: 0
+      - runFlow:
+          when:
+            visible: ".*(Chuyển profile học tập).*"
+          commands:
+            - tapOn:
+                text: ".*(${PROFILE_BASIC_NAME}).*"
+            - tapOn:
+                text: "Chuyển profile"
+                index: 1
+      - extendedWaitUntil:
+          visible: ".*(${PROFILE_BASIC_NAME}).*"
+          timeout: 20000
+      - takeScreenshot: artifacts/HW-PROFILE-switched-to-basic
+      - runFlow: ../helpers/open-tab-homework.yaml
+
+# --- B. BASIC PROFILE (Gia Linh): mở ĐÚNG bài ADVANCED đã cấu hình -> kỳ vọng sheet nâng cấp ---
+- scrollUntilVisible:
+    element:
+      text: ".*(${output.HOMEWORK_ITEM_NAME}).*"
+    direction: DOWN
+    timeout: 300000
+    speed: 65
+    waitToSettleTimeoutMs: 400
+- takeScreenshot: artifacts/HW-PROFILE-BASIC-advanced-card-found
+- tapOn:
+    text: ".*(Chinh phục).*"
+    below:
+      text: ".*(${output.HOMEWORK_ITEM_NAME}).*"
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nâng cấp để con thực hành nâng cao|Bài tập nâng cao dành cho tài khoản PRO|Nâng cấp tài khoản|Không thể bắt đầu làm bài).*"
+    timeout: 30000
+- takeScreenshot: artifacts/HW-PROFILE-BASIC-advanced-upgrade
+
+# Đóng sheet bằng cách restart tiến trình app (giữ session) - cùng kỹ thuật đã verify trong
+# HW-21_22-upgrade-sheet-lifecycle.yaml (không đoán gesture/selector đóng riêng cho sheet này).
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+- assertVisible: ".*(${PROFILE_BASIC_NAME}).*"
+
+# --- C. SWITCH PROFILE: Gia Linh -> Ngoc (PRO) ---
+# Cùng cơ chế đã xác nhận thật ở khối A phía trên (toggle trực tiếp KHÔNG sheet, hoặc sheet với
+# exact-text "Chuyển profile" + index:1 nếu có) - không lặp lại giả định sai đã sửa.
+- tapOn:
+    text: ".*(Chuyển profile).*"
+    index: 0
+- runFlow:
+    when:
+      visible: ".*(Chuyển profile học tập).*"
+    commands:
+      - tapOn:
+          text: ".*(${PROFILE_PRO_NAME}).*"
+      - tapOn:
+          text: "Chuyển profile"
+          index: 1
+- extendedWaitUntil:
+    visible: ".*(${PROFILE_PRO_NAME}).*"
+    timeout: 20000
+- assertVisible: ".*(${PROFILE_PRO_NAME}).*"
+- takeScreenshot: artifacts/HW-PROFILE-switched-to-pro
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# --- D. PRO PROFILE (Ngoc): mở lại CHÍNH XÁC bài ADVANCED đó -> kỳ vọng KHÔNG có sheet nâng cấp ---
+- scrollUntilVisible:
+    element:
+      text: ".*(${output.HOMEWORK_ITEM_NAME}).*"
+    direction: DOWN
+    timeout: 300000
+    speed: 65
+    waitToSettleTimeoutMs: 400
+- takeScreenshot: artifacts/HW-PROFILE-PRO-advanced-card-found
+- tapOn:
+    text: ".*(Chinh phục).*"
+    below:
+      text: ".*(${output.HOMEWORK_ITEM_NAME}).*"
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+# Đối chiếu chéo: message nâng cấp của BASIC KHÔNG được xuất hiện ở đây (cùng kỹ thuật đối chiếu
+# đã verify trong HW-21_22-upgrade-sheet-lifecycle.yaml dòng 80).
+- assertNotVisible: ".*(Nâng cấp để con thực hành nâng cao|Bài tập nâng cao dành cho tài khoản PRO|Nâng cấp tài khoản|Không thể bắt đầu làm bài).*"
+
+# Guard: xác nhận ĐÃ vào màn làm bài CHUẨN (exercise_close_button) trước khi giao cho dispatcher.
+# KHÔNG giả định "Trò chuyện cùng Parrot" chắc chắn tương thích pipeline chuẩn (xem docblock đầu
+# file) - nếu timeout ở đây, đây là bằng chứng đủ để phân loại BLOCKED_MISSING_EXERCISE_HANDLER
+# NGAY, không đoán selector màn hình AI Role Play khác.
+- runFlow:
+    when:
+      notVisible:
+        id: "exercise_close_button"
+    commands:
+      - takeScreenshot: artifacts/HW-PROFILE-PRO-unknown-screen-after-tap
+- extendedWaitUntil:
+    visible:
+      id: "exercise_close_button"
+    timeout: 40000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "exercise_close_button"
+    commands:
+      - takeScreenshot: artifacts/HW-PROFILE-PRO-blocked-no-doing-screen
+      - assertVisible:
+          text: "BLOCKED_MISSING_EXERCISE_HANDLER - PRO da bam Chinh phuc, KHONG bi chan boi upgrade sheet (dung entitlement), nhung khong vao duoc man lam bai chuan (exercise_close_button khong xuat hien sau 40s) - co the la man AI Role Play/hoi thoai rieng chua co selector xac nhan trong repo. Assignment: ${output.HOMEWORK_ITEM_NAME}, room_id=${output.ROOM_ID}."
+- takeScreenshot: artifacts/HW-PROFILE-PRO-advanced-opened
+
+# --- Hoàn thành bằng dispatcher chung (tự phát hiện type, tự báo BLOCKED nếu type lạ - không viết
+# lại logic phát hiện) ---
+- runFlow:
+    file: ../helpers/answer-current-exercise-generic.yaml
+    env:
+      EXERCISE_NAME: ${output.HOMEWORK_ITEM_NAME}
+
+# --- E. COMPLETE: màn kết quả ---
+- extendedWaitUntil:
+    visible:
+      id: "exercise_result_screen"
+    timeout: 60000
+- takeScreenshot: artifacts/HW-PROFILE-PRO-advanced-complete

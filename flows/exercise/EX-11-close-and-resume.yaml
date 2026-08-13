@@ -1,7 +1,18 @@
 # EX-11 — Thoát giữa bài rồi vào lại: phải tiếp tục ở câu chưa làm, không mất tiến độ
 #
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
+#
 # Nguồn kỳ vọng: getExam() trong app/dashboard/exercise/doing.tsx tìm
 # nextIndex = câu đầu tiên chưa có trong answer đã lưu; nếu làm hết thì reset về câu 1.
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   Bản cũ bọc bước "làm xong câu 1" trong `runFlow.when: visible:
+#   exercise_answer_.*_correct` — build không bật cờ EXPO_PUBLIC_E2E=1 thì
+#   bước đó skip: case thoát ngay khi CHƯA làm câu 1 nào, làm sai lệch ý nghĩa
+#   "thoát GIỮA bài, có tiến độ đã lưu". Nay dùng
+#   helpers/goto-tap-question.yaml + trả lời câu 1 bằng đáp án bất kỳ (đúng hay
+#   sai không quan trọng, chỉ cần app đã LƯU một answer cho câu đó trước khi
+#   thoát) — không còn phụ thuộc biết đáp án đúng.
 appId: ${APP_ID}
 tags:
   - regression
@@ -13,23 +24,47 @@ name: EX-11 Thoat giua bai roi vao lai
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+- runFlow: ../helpers/goto-tap-question.yaml
 
-# Làm xong câu 1
+# Làm xong câu 1 — đúng hay sai không quan trọng, chỉ cần app đã LƯU một
+# answer cho câu này trước khi thoát (đó là điều kiện getExam() dùng để tính
+# nextIndex).
+- tapOn:
+    id: "exercise_answer_0"
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da cham cau 1 nhung khong hien nhan ket qua nao."
+
+# Nếu sai lượt 1 thì còn "Thử lại" — tiêu lượt đó bằng cách chọn ô khác rồi
+# chấm lại, để chắc câu 1 đã có answer đã lưu (không dừng ở trạng thái "đang
+# thử lại, chưa lưu gì") trước khi thoát.
 - runFlow:
     when:
       visible:
-        id: "exercise_answer_.*_correct"
+        text: ".*Thử lại.*"
     commands:
       - tapOn:
-          id: "exercise_answer_.*_correct"
+          id: "exercise_check_button"
+      - tapOn:
+          id: "exercise_answer_1"
       - tapOn:
           id: "exercise_check_button"
       - extendedWaitUntil:
           visible:
-            id: "exercise_result_correct"
+            id: "exercise_result_(correct|incorrect)"
           timeout: 15000
-      - tapOn:
-          id: "exercise_check_button"
+
+# Bấm "Tiếp tục" để sang câu 2 (dù đúng ngay lượt 1, hay đã hết lượt thử ở
+# nhánh trên, nút chính lúc này đều là "Tiếp tục").
+- tapOn:
+    id: "exercise_check_button"
 
 - takeScreenshot: ../artifacts/EX-11-before-close
 

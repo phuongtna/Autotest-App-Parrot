@@ -1,52 +1,92 @@
-# EX-05 — Câu MULTI: chọn HẾT đáp án đúng -> "Chính xác"
+# EX-05 — Câu MULTI: phải cho chọn NHIỀU ô cùng lúc (khác hẳn ONE)
 #
-# MULTI có nhiều đáp án đúng, mỗi cái là 1 id riêng exercise_answer_{i}_correct.
-# Maestro tap vào match đầu tiên nên phải tap theo index tăng dần; các index
-# không tồn tại được bỏ qua bằng optional: true.
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
 #
-# Case chỉ chạy khi câu hiện tại có >= 2 đáp án đúng (đặc trưng MULTI).
+# ══════════════════════════════════════════════════════════════════════════════
+# KIỂM CÁI GÌ
+#   Đặc trưng phân biệt MULTI với ONE: chọn ô thứ hai KHÔNG được bỏ chọn ô thứ
+#   nhất. Cả hai phải cùng ở trạng thái `selected`.
+#
+#   Đây là lỗi dễ lọt và rất khó thấy bằng mắt: nếu MULTI bị map nhầm vào
+#   handler của ONE thì người dùng không bao giờ chọn đủ đáp án -> mọi câu
+#   MULTI đều sai, mà giao diện nhìn vẫn bình thường.
+#
+#   Chốt này HOÀN TOÀN KHÔNG cần biết đáp án: nó chỉ kiểm cơ chế chọn.
+#
+# KHÔNG KIỂM
+#   Ô nào mới là đáp án đúng. Xem EX-14 cho phần chấm điểm.
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   helpers/goto-question-type.yaml fail thẳng (BLOCKED) nếu bài không có câu
+#   MULTI, ghi rõ là thiếu dữ liệu đề chứ không phải lỗi app. Mọi assert đều
+#   nằm ngoài nhánh điều kiện.
+# ══════════════════════════════════════════════════════════════════════════════
 appId: ${APP_ID}
 tags:
   - regression
   - writes
-name: EX-05 MULTI chon het dap an dung
+name: EX-05 MULTI cho chon nhieu o cung luc
 ---
 - runFlow:
     file: ../helpers/open-exercise.yaml
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
 
 - runFlow:
-    when:
-      visible:
-        id: "exercise_answer_.*_correct"
-        index: 1
-    commands:
-      # Tối đa 6 đáp án đúng
-      - tapOn:
-          id: "exercise_answer_0_correct"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_1_correct"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_2_correct"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_3_correct"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_4_correct"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_5_correct"
-          optional: true
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_answer_list_multi"
+      TYPE_LABEL: "NHIEU LUA CHON (MULTI)"
 
-      - tapOn:
-          id: "exercise_check_button"
-      - extendedWaitUntil:
-          visible:
-            id: "exercise_result_correct"
-          timeout: 15000
-      - takeScreenshot: ../artifacts/EX-05-multi-correct
+- takeScreenshot: ../artifacts/EX-05-multi-question
+
+# ── Câu MULTI phải có ít nhất 2 lựa chọn để chọn được nhiều ──────────────────
+- assertVisible:
+    id: "exercise_answer_0"
+- assertVisible:
+    id: "exercise_answer_1"
+    label: "Cau MULTI chi co 1 lua chon - sai du lieu de. Bao dev."
+
+# ── Chọn ô 0 ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: "exercise_answer_0"
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: true
+    label: "Tap o dap an dau tien nhung accessibilityState.selected khong bat."
+
+# ── Chọn thêm ô 1: ô 0 PHẢI vẫn còn được chọn ───────────────────────────────
+- tapOn:
+    id: "exercise_answer_1"
+- assertVisible:
+    id: "exercise_answer_1"
+    selected: true
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: true
+    label: "LOI APP: day la cau MULTI nhung chon o thu hai lai BO CHON o thu nhat - dang cu xu nhu cau ONE. Nguoi dung se khong bao gio chon du dap an, moi cau MULTI deu bi tinh sai."
+- takeScreenshot: ../artifacts/EX-05-multi-two-selected
+
+# ── Bỏ chọn lại ô 0: MULTI phải cho bỏ chọn từng ô ──────────────────────────
+- tapOn:
+    id: "exercise_answer_0"
+- assertVisible:
+    id: "exercise_answer_1"
+    selected: true
+    label: "LOI APP: bo chon o 0 lam mat luon trang thai chon cua o 1."
+
+# ── Chọn lại rồi chấm: app phải kết luận ────────────────────────────────────
+- tapOn:
+    id: "exercise_answer_0"
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da cham cau MULTI nhung khong hien nhan ket qua nao."
+- takeScreenshot: ../artifacts/EX-05-multi-graded

@@ -103,7 +103,7 @@ import {
   formatDMY,
   appDueDateKeyFragment,
   readHomeworkHierarchyOnce,
-} from "../homework/verify-filter-web-vs-app.mjs";
+} from "../bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..");
@@ -125,7 +125,10 @@ const LOCATE_MAX_ATTEMPTS = 2;
 const TARGET_CLASS_ID = process.env.TARGET_CLASS_ID || "b3336062-cacd-4d1a-a0af-4de44acf33d2";
 
 const ASSIGN_PRIMARY_CLASS = process.env.ASSIGN_PRIMARY_CLASS || "3B";
-const ASSIGN_OTHER_GROUP_CLASS = process.env.ASSIGN_OTHER_GROUP_CLASS || "6D";
+// KHÔNG còn default "6D" (2026-08-13: lớp "6D" đã bị xoá khỏi tài khoản GV test - xác nhận trực
+// tiếp từ user) - để trống (undefined) nghĩa là bỏ qua bước assertOtherGroupClassDisabled trong
+// assignHomeworkFlow.js (tham số đã đổi thành optional), KHÔNG tự đoán 1 lớp khác khối thay thế.
+const ASSIGN_OTHER_GROUP_CLASS = process.env.ASSIGN_OTHER_GROUP_CLASS || undefined;
 // KHÔNG có default - để trống nghĩa là RANDOM thật trên UI (xem docblock đầu file). Chỉ set qua
 // ENV khi cần ép cố định Unit/Lesson/assignment để debug/tái hiện lại 1 case cụ thể.
 const ASSIGN_UNIT_NAME = process.env.ASSIGN_UNIT_NAME || undefined;

@@ -1,0 +1,61 @@
+# EX-19 — Câu NỐI (CONNECT) ở tab Bài tập: nối kín hết ô rồi chấm điểm.
+#
+# CHẠY ĐƯỢC TRÊN BẢN BUILD STORE — khác EX-08 (đòi hỏi EXPO_PUBLIC_E2E=1 để nối
+# ĐÚNG từng cặp qua hậu tố `_for_left_{i}`, và hard-fail nếu cờ tắt).
+#
+# Cơ sở: tab Bài tập dùng ConnectAnswerListV2 — biến thể này GIỮ cả cặp sai, và
+# footer hiện ra khi đã nối KÍN mọi ô, không đòi nội dung. Nên ghép theo vị trí
+# (trái_0-phải_0, trái_1-phải_1, ...) là đủ để đẩy câu tới bước chấm điểm.
+# Xem exercise/README.md mục "Hai biến thể CONNECT".
+#
+# Chốt những tính chất đúng bất kể đáp án là gì:
+#   1. Câu nối render được cả hai cột.
+#   2. Nối kín hết ô -> footer cho Kiểm tra.
+#   3. Chấm xong ra đúng một nhãn kết quả.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-19 Cau noi - noi kin va cham diem (moi ban build)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- runFlow:
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_connect_left_0"
+      TYPE_LABEL: "NOI (CONNECT)"
+
+- takeScreenshot: ../artifacts/EX-19-connect-question
+
+# ── (1) Cả hai cột render được ────────────────────────────────────────────────
+- assertVisible:
+    id: "exercise_connect_left_0"
+- assertVisible:
+    id: "exercise_connect_left_1"
+- assertVisible:
+    id: "exercise_connect_right_0.*"
+
+# ── (2) Nối kín hết ô ─────────────────────────────────────────────────────────
+- runFlow: ../helpers/solve-connect-fill.yaml
+- takeScreenshot: ../artifacts/EX-19-all-paired
+
+# ── (3) Chấm điểm ─────────────────────────────────────────────────────────────
+- assertVisible:
+    id: "exercise_check_button"
+    label: "BLOCKED: da ghep het cac cap ma footer khong hien. Cau nay co the nhieu hon so cap ma solve-connect-fill.yaml phu (8 hang). Doi bai khac qua EXERCISE_NAME."
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da bam Kiem tra ma khong hien nhan ket qua nao."
+- takeScreenshot: ../artifacts/EX-19-checked

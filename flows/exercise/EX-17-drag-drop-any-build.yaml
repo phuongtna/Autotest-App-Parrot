@@ -1,0 +1,103 @@
+# EX-17 — Câu KÉO THẢ (DRAG_DROP): điền ô trống bằng TAP, gỡ ra, rồi chấm điểm.
+#
+# CHẠY ĐƯỢC TRÊN BẢN BUILD STORE.
+#
+# Cơ sở: DragDropAnswer2 có `onTap` -> `selectAnswerAuto` -> `fillGap(ô trống
+# đầu tiên còn rỗng)`. Nên KHÔNG cần kéo thật, tap là điền được.
+#
+# Chốt những tính chất đúng bất kể đáp án là gì:
+#   1. Tap một chip -> ô trống đầu tiên chuyển sang trạng thái ĐÃ ĐIỀN.
+#   2. Tap ô đã điền -> GỠ chip ra, ô quay về trạng thái trống.
+#   3. Điền kín hết ô -> footer cho Kiểm tra -> chấm xong ra đúng một nhãn kết quả.
+#
+# Muốn chốt "điền đúng ô thì báo đúng" phải dùng bản build có EXPO_PUBLIC_E2E=1
+# (chip mang hậu tố `_for_slot_{n}`).
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-17 Cau keo tha - dien bang tap va go ra (moi ban build)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- runFlow:
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_drag_drop_area"
+      TYPE_LABEL: "KEO THA (DRAG_DROP)"
+
+- takeScreenshot: ../artifacts/EX-17-dragdrop-question
+
+# ── Trạng thái đầu: ô trống thứ 0 chưa được điền ─────────────────────────────
+- assertVisible:
+    id: "exercise_dragdrop_options"
+- assertVisible:
+    id: "exercise_dragdrop_zone_0"
+
+# ── (1) Tap chip -> ô trống đầu tiên được điền ───────────────────────────────
+- tapOn:
+    id: "exercise_dragdrop_option_0.*"
+- assertVisible:
+    id: "exercise_dragdrop_zone_0_filled"
+    label: "LOI APP: tap chip DRAG_DROP ma o trong dau tien khong duoc dien. Xem DragDropAnswer2 -> selectAnswerAuto -> fillGap."
+- assertNotVisible:
+    id: "exercise_dragdrop_zone_0"
+- takeScreenshot: ../artifacts/EX-17-filled-one
+
+# ── (2) Tap ô đã điền -> gỡ chip ra ───────────────────────────────────────────
+- tapOn:
+    id: "exercise_dragdrop_zone_0_filled"
+- assertVisible:
+    id: "exercise_dragdrop_zone_0"
+    label: "LOI APP: tap o da dien ma khong go duoc chip ra."
+- assertNotVisible:
+    id: "exercise_dragdrop_zone_0_filled"
+
+# ── (3) Điền kín hết ô rồi chấm ────────────────────────────────────────────────
+# Số ô trống thay đổi theo đề nên tap optional; ô nào hết thì tap thành no-op.
+# `repeat` của Maestro không cho lấy biến chạy theo chỉ số -> phải unroll.
+- tapOn:
+    id: "exercise_dragdrop_option_0.*"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_1.*"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_2.*"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_3.*"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_4.*"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_5.*"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_6.*"
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_7.*"
+    optional: true
+
+# Điền kín thì footer phải cho chấm. Fail ở đây = còn ô trống chưa điền được
+# bằng tap (đề có nhiều ô hơn số chip đã thử) -> đổi bài qua EXERCISE_NAME.
+- assertVisible:
+    id: "exercise_check_button"
+    label: "BLOCKED: chua dien kin het o trong sau 8 luot tap (de co nhieu o hon). Doi bai khac qua EXERCISE_NAME."
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da bam Kiem tra ma khong hien nhan ket qua nao."
+- takeScreenshot: ../artifacts/EX-17-checked

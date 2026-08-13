@@ -1,7 +1,16 @@
 # EX-07 — Câu ĐIỀN TỪ (FILL_WORD): nhập từ chắc chắn sai -> báo SAI
 #
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
+#
 # Không thể tự sinh case "điền đúng": đáp án nằm ở BE, testID không mang nội
 # dung đáp án. Muốn test nhánh đúng cần đề seed cố định — xem README.md.
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   Bản cũ bọc toàn bộ assert trong `runFlow.when: visible:
+#   exercise_fillword_input` — nếu câu đầu tiên (do resume hoặc BE trả về) KHÔNG
+#   phải FILL_WORD thì cả case skip mà vẫn báo PASS. Nay dùng
+#   helpers/goto-question-type.yaml để QUÉT tới đúng dạng câu và fail rõ ràng
+#   (BLOCKED) nếu không tìm thấy trong 20 câu đầu, thay vì im lặng bỏ qua.
 appId: ${APP_ID}
 tags:
   - regression
@@ -14,20 +23,28 @@ name: EX-07 Dien tu sai - bao sai
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
 
 - runFlow:
-    when:
-      visible:
-        id: "exercise_fillword_input"
-    commands:
-      - tapOn:
-          id: "exercise_fillword_input"
-      - inputText: "zzqqxx"
-      - tapOn:
-          id: "exercise_fillword_check_button"
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_fillword_blanks"
+      TYPE_LABEL: "DIEN TU (FILL_WORD)"
 
-      - extendedWaitUntil:
-          visible:
-            id: "exercise_result_incorrect"
-          timeout: 20000
-      - takeScreenshot: ../artifacts/EX-07-fillword-wrong
+# Gõ đáp án chắc chắn SAI -> phải báo sai.
+# (Nhánh ĐÚNG không tự động hoá được: đáp án nằm ở BE, testID không mang nội
+# dung đáp án.)
+- tapOn:
+    id: "exercise_fillword_blank_0"
+- inputText: "zzzsaizzz"
+- hideKeyboard
+- tapOn:
+    id: "exercise_fillword_check_button"
+
+- extendedWaitUntil:
+    visible:
+      id: "exercise_result_incorrect"
+    timeout: 20000
+- assertNotVisible:
+    id: "exercise_result_correct"
+- takeScreenshot: ../artifacts/EX-07-fillword-wrong

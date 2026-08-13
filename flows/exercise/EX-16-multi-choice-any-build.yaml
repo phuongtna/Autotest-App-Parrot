@@ -1,0 +1,74 @@
+# EX-16 — Câu CHỌN NHIỀU ĐÁP ÁN (MULTI): hành vi chọn/bỏ chọn + chấm điểm.
+#
+# CHẠY ĐƯỢC TRÊN BẢN BUILD STORE.
+#
+# Chốt đặc trưng của MULTI, đúng bất kể đáp án là gì:
+#   1. Chọn nhiều ô thì CẢ HAI cùng ở trạng thái selected (khác ONE — xem EX-15).
+#   2. Tap lại ô đã chọn thì BỎ chọn (toggle).
+#   3. Chấm xong phải ra đúng một nhãn kết quả.
+#
+# Muốn chốt "chọn đủ đáp án đúng thì báo đúng, chọn thiếu thì báo sai" phải dùng
+# bản build có EXPO_PUBLIC_E2E=1 — xem EX-05 / EX-06.
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-16 Cau chon nhieu dap an - chon/bo chon (moi ban build)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- runFlow:
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_answer_list_multi"
+      TYPE_LABEL: "CHON NHIEU DAP AN (MULTI)"
+
+- takeScreenshot: ../artifacts/EX-16-multi-question
+
+# ── (1) Chọn 2 ô -> cả hai cùng selected ─────────────────────────────────────
+- assertVisible:
+    id: "exercise_answer_0.*"
+    selected: false
+- tapOn:
+    id: "exercise_answer_0.*"
+- assertVisible:
+    id: "exercise_answer_0.*"
+    selected: true
+- tapOn:
+    id: "exercise_answer_1.*"
+- assertVisible:
+    id: "exercise_answer_1.*"
+    selected: true
+- assertVisible:
+    id: "exercise_answer_0.*"
+    selected: true
+    label: "Cau MULTI nhung chon o thu 2 lam bo chon o thu 1 -> dang hanh xu nhu ONE. Loi app."
+- takeScreenshot: ../artifacts/EX-16-two-selected
+
+# ── (2) Tap lại ô đã chọn -> bỏ chọn ──────────────────────────────────────────
+- tapOn:
+    id: "exercise_answer_1.*"
+- assertVisible:
+    id: "exercise_answer_1.*"
+    selected: false
+    label: "LOI APP: tap lai o da chon cua cau MULTI ma khong bo chon (toggle hong)."
+- assertVisible:
+    id: "exercise_answer_0.*"
+    selected: true
+
+# ── (3) Chấm điểm ─────────────────────────────────────────────────────────────
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da bam Kiem tra ma khong hien nhan ket qua nao."
+- takeScreenshot: ../artifacts/EX-16-checked

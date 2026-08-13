@@ -1,0 +1,49 @@
+# EX-20 — Câu SẮP XẾP (SORT): kiểm RENDER. KHÔNG kiểm giải câu.
+#
+# CHẠY ĐƯỢC TRÊN BẢN BUILD STORE.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# ĐỌC KỸ PHẠM VI — đừng hiểu nhầm case này là "đã phủ dạng SORT"
+#
+# SORT là dạng DUY NHẤT không tự động hoá được phần GIẢI CÂU, kể cả khi build có
+# EXPO_PUBLIC_E2E=1. Lý do ở SortableWord.tsx:174 — `tapGesture` gọi `emitOnDrop`
+# với vị trí HIỆN TẠI của từ, tức chỉ *báo cáo*, KHÔNG di chuyển. Đây là danh
+# sách sắp xếp tại chỗ (tay cầm ≡ bên phải), đổi thứ tự phải pan thật và Maestro
+# không tạo được gesture đó. Đã kiểm trên máy thật: tap đủ 5 từ đúng thứ tự ->
+# danh sách không xê dịch, nút "Tiếp theo" vẫn disabled.
+#
+# Vì vậy case này CHỈ chốt phần tự động hoá được: câu SORT render ra đúng, có
+# đủ từ để sắp xếp. Phần SẮP XẾP + CHẤM ĐIỂM vẫn PHẢI TEST TAY.
+#
+# Ảnh chụp ở cuối để QA đối chiếu bằng mắt.
+# ══════════════════════════════════════════════════════════════════════════════
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-20 Cau sap xep - kiem render (giai cau phai test tay)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- runFlow:
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_sort_area"
+      TYPE_LABEL: "SAP XEP (SORT)"
+
+# ── Khung câu và các từ phải render ───────────────────────────────────────────
+- assertVisible:
+    id: "exercise_sort_area"
+- assertVisible:
+    id: "exercise_sort_word_0.*"
+- assertVisible:
+    id: "exercise_sort_word_1.*"
+- assertVisible:
+    id: "exercise_question_header"
+
+- takeScreenshot: ../artifacts/EX-20-sort-render

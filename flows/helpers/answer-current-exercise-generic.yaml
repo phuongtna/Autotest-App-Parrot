@@ -133,25 +133,34 @@ appId: ${APP_ID}
             - runFlow:
                 file: answer-drag-drop-question.yaml
 
-      # CHOICE (ONE / MULTI / TRUE_FALSE) - tap moi dap an "_correct" dang hien (khong quan tam so
-      # luong, MULTI co the can nhieu tap - optional vi khong phai cau nao cung con dap an o vi tri do)
+      # CHOICE (ONE / MULTI / TRUE_FALSE) - DA SUA (2026-08-13, real-device evidence): id
+      # "exercise_answer_{i}_correct" KHONG TON TAI tren build hien tai (xac nhan that qua ~17 lan
+      # tapOn optional deu WARNED khi chay ktra_fullluong_lambai.yaml, xem step-069..298 trong
+      # ~/.maestro/tests/2026-08-13_093844/.../screen-hierarchy/ + doc chi tiet trong
+      # flows/exercise/EX-01-answer-correct.yaml). Id THAT tren build nay la id PHANG, khong mang
+      # thong tin dung/sai: exercise_answer_0/exercise_answer_1 (vd TRUE_FALSE: "True"/"False").
+      # QUAN TRONG: nut exercise_check_button ("Tiep theo") DISABLED cho toi khi it nhat 1 dap an
+      # duoc chon - ban cu (toan bo 6 tap deu no-op vi id khong ton tai) bam vao nut dang disable
+      # nen KHONG BAO GIO tien duoc qua cau 1 (da tai hien that: 17 lan lap deu quay lai dung 1
+      # cau). Doi sang tap theo VI TRI PHANG (khong quan tam dung/sai, dung tinh than nhanh CONNECT
+      # o tren - "Bai tap khong check dung sai") de dam bao co >=1 dap an duoc chon, nut duoc bat.
       - tapOn:
-          id: "exercise_answer_0_correct"
+          id: "exercise_answer_0"
           optional: true
       - tapOn:
-          id: "exercise_answer_1_correct"
+          id: "exercise_answer_1"
           optional: true
       - tapOn:
-          id: "exercise_answer_2_correct"
+          id: "exercise_answer_2"
           optional: true
       - tapOn:
-          id: "exercise_answer_3_correct"
+          id: "exercise_answer_3"
           optional: true
       - tapOn:
-          id: "exercise_answer_4_correct"
+          id: "exercise_answer_4"
           optional: true
       - tapOn:
-          id: "exercise_answer_5_correct"
+          id: "exercise_answer_5"
           optional: true
 
       # Kiem tra -> Tiep tuc / Thu lai / Hoan thanh (cung 1 nut, bam 2 lan cho du chu ky)

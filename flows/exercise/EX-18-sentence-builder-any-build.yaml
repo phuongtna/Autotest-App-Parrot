@@ -1,0 +1,94 @@
+# EX-18 — Câu GHÉP CÂU (SENTENCE_BUILDER): tap từ để ghép, rồi chấm điểm.
+#
+# CHẠY ĐƯỢC TRÊN BẢN BUILD STORE.
+#
+# Cơ sở: SentenceBuilder.tsx:526 `handleTap` — từ đang ở kho (`order === -1`)
+# được đẩy xuống CUỐI hàng trả lời. Nên tap là ghép được, không cần kéo thật.
+#
+# LƯU Ý quan hệ với EX-13 (sentence-builder-blocked.yaml): case đó đi vào
+# SENTENCE_BUILDER qua dispatcher CMS-random (answer-current-exercise-generic.yaml)
+# và CHỦ ĐÍCH fail vì dispatcher chưa phân biệt được SORT/SENTENCE_BUILDER chỉ
+# bằng bằng chứng UI khi đó. Case EX-18 này đi bằng đường KHÁC hẳn — nhận diện
+# qua id khung `exercise_sentence_builder_area` (không đụng dispatcher CMS) —
+# nên không phụ thuộc vào việc phân biệt được 2 type kia. Nếu id khung này tồn
+# tại trên bản build đang test thì EX-18 tự vào đúng câu SENTENCE_BUILDER mà
+# không cần đi qua toàn bộ investigation của EX-13.
+#
+# Chốt những tính chất đúng bất kể đáp án là gì:
+#   1. Khung câu ghép render được, có ít nhất 2 từ để chọn.
+#   2. Tap lần lượt các từ -> footer cho Kiểm tra.
+#   3. Chấm xong ra đúng một nhãn kết quả.
+#
+# Muốn chốt "ghép đúng thứ tự thì báo đúng" phải dùng bản build có
+# EXPO_PUBLIC_E2E=1 (từ mang hậu tố `_for_slot_{n}`).
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: EX-18 Cau ghep cau - tap de ghep (moi ban build)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- runFlow:
+    file: ../helpers/goto-question-type.yaml
+    env:
+      TARGET_ID: "exercise_sentence_builder_area"
+      TYPE_LABEL: "GHEP CAU (SENTENCE_BUILDER)"
+
+- takeScreenshot: ../artifacts/EX-18-sentence-question
+
+# ── (1) Render được, có từ để ghép ───────────────────────────────────────────
+- assertVisible:
+    id: "exercise_sentence_builder"
+- assertVisible:
+    id: "exercise_sentence_word_0.*"
+- assertVisible:
+    id: "exercise_sentence_word_1.*"
+
+# ── (2) Tap lần lượt các từ ───────────────────────────────────────────────────
+# Số từ thay đổi theo đề nên tap optional; hết từ thì tap thành no-op.
+- tapOn:
+    id: "exercise_sentence_word_0.*"
+    optional: true
+- tapOn:
+    id: "exercise_sentence_word_1.*"
+    optional: true
+- tapOn:
+    id: "exercise_sentence_word_2.*"
+    optional: true
+- tapOn:
+    id: "exercise_sentence_word_3.*"
+    optional: true
+- tapOn:
+    id: "exercise_sentence_word_4.*"
+    optional: true
+- tapOn:
+    id: "exercise_sentence_word_5.*"
+    optional: true
+- tapOn:
+    id: "exercise_sentence_word_6.*"
+    optional: true
+- tapOn:
+    id: "exercise_sentence_word_7.*"
+    optional: true
+- takeScreenshot: ../artifacts/EX-18-words-tapped
+
+# ── (3) Chấm điểm ─────────────────────────────────────────────────────────────
+- assertVisible:
+    id: "exercise_check_button"
+    label: "BLOCKED: ghep xong ma footer khong cho Kiem tra (de co nhieu hon 8 tu). Doi bai khac qua EXERCISE_NAME."
+- tapOn:
+    id: "exercise_check_button"
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da bam Kiem tra ma khong hien nhan ket qua nao."
+- takeScreenshot: ../artifacts/EX-18-checked

@@ -1,0 +1,88 @@
+# Helper: đưa màn LÀM BÀI tới câu dạng CHỌN ĐÁP ÁN (ONE / MULTI / TRUE_FALSE) và
+# CHỐT CỨNG là đã tới nơi — chạy được trên MỌI bản build, không cần
+# EXPO_PUBLIC_E2E=1.
+#
+# VÌ SAO CÓ HELPER NÀY — sửa lỗi "PASS giả"
+# Bản cũ của các case EX-01..EX-04/EX-09/EX-11 bọc toàn bộ assert trong
+# `runFlow.when: visible: exercise_answer_.*_correct`. Không tìm thấy id đó
+# (build không có cờ EXPO_PUBLIC_E2E=1, hoặc bài resume vào đúng câu không phải
+# dạng tap chọn) thì cả khối bị bỏ qua và case báo PASS dù không kiểm gì cả.
+# Helper này thay cơ chế skip im lặng đó bằng FAIL có thông điệp rõ ràng
+# (xem assert cuối file).
+#
+# VÌ SAO KHÔNG CÒN DÙNG HẬU TỐ _correct/_wrong
+# testID `exercise_answer_{i}_correct` / `_wrong` chỉ tồn tại khi build bật cờ
+# EXPO_PUBLIC_E2E=1 — cờ đó lộ đáp án đúng lên accessibility tree, không được
+# ship lên bản đẩy store. `exercise_answer_{i}` (không hậu tố) là id CỐ ĐỊNH
+# trên MỌI bản build, không phụ thuộc cờ nào. Xem exercise/README.md.
+#
+# Điều kiện: đang đứng ở màn làm bài (đã gọi open-exercise.yaml).
+appId: ${APP_ID}
+---
+# Quét tối đa 12 câu để tới câu chọn đáp án đầu tiên.
+#
+# Mỗi vòng: trả lời câu hiện tại bằng lựa chọn đầu tiên của dạng đó (đúng hay
+# sai không quan trọng — mục tiêu chỉ là đi tiếp), rồi bấm nút chính để sang
+# câu sau. Các nút Kiểm tra / Thử lại / Tiếp tục dùng CHUNG id
+# exercise_check_button nên bấm lặp là luồng tự chạy.
+#
+# Điều kiện notVisible chặn cả khối -> tới nơi rồi thì vòng lặp thành no-op,
+# không làm bẩn trạng thái câu đích.
+- repeat:
+    times: 12
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "exercise_answer_0"
+          commands:
+            # Trả lời câu hiện tại (dạng nào có trên màn thì trúng, còn lại no-op)
+            - tapOn:
+                id: "exercise_connect_left_0"
+                optional: true
+            - tapOn:
+                id: "exercise_connect_right_0"
+                optional: true
+            - tapOn:
+                id: "exercise_dragdrop_option_0"
+                optional: true
+            - tapOn:
+                id: "exercise_dragdrop_option_1"
+                optional: true
+            - tapOn:
+                id: "exercise_sentence_word_0"
+                optional: true
+            - tapOn:
+                id: "exercise_sentence_word_1"
+                optional: true
+            - tapOn:
+                id: "exercise_fillword_blank_0"
+                optional: true
+            - inputText: "test"
+            - hideKeyboard
+            - tapOn:
+                id: "exercise_fillword_check_button"
+                optional: true
+            # Kiểm tra -> (Thử lại) -> Tiếp tục: cùng 1 nút, footer đổi nhãn
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_check_button"
+                optional: true
+            - tapOn:
+                id: "exercise_show_answer_next_button"
+                optional: true
+
+# CHỐT — KHÔNG skip im lặng.
+#
+# Fail ở đây nghĩa là bài đang mở không có câu dạng chọn đáp án nào trong 12
+# câu đầu, thường vì bài chỉ gồm SORT / SPEAK — 2 dạng KHÔNG tự động hoá được
+# (SORT phải kéo thật, SPEAK cần mic). Đây là BLOCKED vì thiếu dữ liệu, KHÔNG
+# phải lỗi app. Đổi bài khác qua EXERCISE_NAME.
+- assertVisible:
+    id: "exercise_answer_0"
+    label: "BLOCKED - KHONG TIM DUOC CAU CHON DAP AN sau 12 cau. Bai nay co the chi co SORT/SPEAK (khong tu dong hoa duoc). Doi bai khac qua EXERCISE_NAME. KHONG phai loi app."

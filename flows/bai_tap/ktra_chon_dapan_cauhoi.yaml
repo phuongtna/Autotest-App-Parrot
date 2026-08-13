@@ -1,0 +1,68 @@
+# Kiểm tra thao tác CHỌN 1 đáp án (CHOICE/TRUE_FALSE) trên route "Bài tập" -> câu hỏi tiến lên
+# được. KHÔNG xác định/khẳng định đúng-sai qua id (xem lý do bên dưới) - mục tiêu DUY NHẤT là
+# chứng minh thao tác tap có bấm được thật, giúp câu hỏi tiến lên (khác hẳn mục tiêu ban đầu của
+# flows/exercise/EX-01-answer-correct.yaml là assert "Chính xác" - file đó GIỮ NGUYÊN không sửa,
+# xem docblock của nó để biết vì sao id "_correct/_wrong" không dùng được trên route "Bài tập").
+#
+# BỐI CẢNH (2026-08-13, real-device evidence, thiết bị 3201d866d40a1681, tài khoản "Ngoc" lớp 3B):
+# Khi debug flows/homework/ktra_fullluong_lambai.yaml cho assignment "G3-U3-Lesson 2: Read and
+# tick True or False" (TRUE_FALSE, 5 câu), dispatcher flows/helpers/answer-current-exercise-generic.yaml
+# bị KẸT VĨNH VIỄN ở câu 1/5 - lặp 17 lần (repeat tối đa 25) đều quay lại đúng 1 câu, không bao
+# giờ tiến được. Root cause xác nhận thật qua `maestro hierarchy` dump tại đúng màn hình đó (xem
+# ~/.maestro/tests/2026-08-13_093844/.../screen-hierarchy/step-069-tapOnElement-exercise_answer_0_correct.json):
+#   - id "exercise_answer_{i}_correct/_wrong" (giả định build bật EXPO_PUBLIC_E2E=1) KHÔNG TỒN TẠI
+#     trên build hiện tại (com.inet.parrotedu) - toàn bộ 6 lần tap optional đều WARNED (no-op).
+#   - id THẬT trên màn hình là id PHẲNG, không mang thông tin đúng/sai:
+#       exercise_answer_0 (clickable, chứa TextView "True")
+#       exercise_answer_1 (clickable, chứa TextView "False")
+#   - nút exercise_check_button hiển thị nhãn "Tiếp theo" NGAY TỪ ĐẦU (route "Bài tập" không có
+#     bước "Kiểm tra" riêng như route "exercise") nhưng ở trạng thái DISABLED tới khi ít nhất 1
+#     đáp án được chọn - vì vậy bấm vào nút đang disable (do bước chọn đáp án phía trên là no-op)
+#     không làm gì, câu hỏi không bao giờ tiến lên - đây LÀ nguyên nhân bị kẹt, không phải flaky.
+#
+# FILE NÀY xác nhận độc lập phát hiện trên bằng cách tap ĐÚNG id thật (exercise_answer_0) rồi mới
+# bấm exercise_check_button, và verify có tiến lên (câu 1/5 -> câu khác, hoặc tới màn Kết quả nếu
+# chỉ có 1 câu). KHÔNG dùng chung code với EX-01 (không import/gọi file đó) - viết độc lập trong
+# thư mục homework theo đúng yêu cầu giữ nguyên cây flows/exercise/.
+#
+# Tham số: PHONE, OTP, EXERCISE_NAME (tuỳ chọn, mặc định "Read and choose" giống open-exercise.yaml),
+# EXERCISE_DUE_DATE_DM (tuỳ chọn, "DD/MM").
+appId: ${APP_ID}
+tags:
+  - regression
+  - writes
+name: Kiem tra chon dap an CHOICE/TRUE_FALSE tien cau hoi (Bai tap)
+---
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+      EXERCISE_DUE_DATE_DM: ${EXERCISE_DUE_DATE_DM}
+
+# Đọc chỉ số câu hiện tại ("x/N") TRƯỚC khi bấm - dùng để verify THẬT có tiến lên (khác câu cũ),
+# không suy đoán qua screenshot.
+- copyTextFrom:
+    id: "exercise_progress_bar"
+    optional: true
+
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_0"
+    commands:
+      - takeScreenshot: ktra-chondapan-before-tap
+      - tapOn:
+          id: "exercise_answer_0"
+      - takeScreenshot: ktra-chondapan-after-select
+      - tapOn:
+          id: "exercise_check_button"
+      - takeScreenshot: ktra-chondapan-after-check
+      # Tien len that: hoac sang cau khac (id cau hoi/dap an render lai - khong con dung id cu tren
+      # cung 1 vi tri voi cung noi dung), hoac toi thang man Ket qua (bai chi co 1 cau). Dung
+      # extendedWaitUntil thay vi assert tuc thi vi UI can vai trawm ms de chuyen man.
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_check_button|exercise_result_screen"
+          timeout: 15000

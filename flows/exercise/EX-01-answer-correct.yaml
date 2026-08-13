@@ -1,39 +1,85 @@
-# EX-01 — Trả lời ĐÚNG 1 câu -> app báo "Chính xác"
+# EX-01 — Chấm một câu chọn đáp án: app phải chấm và hiện ĐÚNG MỘT nhãn kết quả
 #
-# Cơ chế: build test (EXPO_PUBLIC_E2E=1) gắn testID chứa tính đúng/sai:
-#   exercise_answer_{i}_correct / exercise_answer_{i}_wrong
-# nên flow chọn được đáp án đúng mà không cần biết nội dung đề.
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
 #
-# Chỉ áp dụng cho câu dạng tap chọn (ONE / MULTI / TRUE_FALSE). Nếu câu đầu là
-# dạng khác (điền từ, kéo thả, nói) thì không có id nào khớp -> case này skip
-# bằng runFlow.when, xem EX-07 cho dạng điền từ.
+# ══════════════════════════════════════════════════════════════════════════════
+# KIỂM CÁI GÌ
+#   Cơ chế chấm điểm hoạt động: bấm "Kiểm tra" -> app phải kết luận, hiện đúng
+#   MỘT trong hai nhãn (`exercise_result_correct` HOẶC `exercise_result_incorrect`),
+#   không được hiện cả hai, không được treo không hiện gì.
+#
+# KHÔNG KIỂM
+#   Ô nào MỚI là đáp án đúng theo BE. Kiểm điều đó đòi hỏi testID mang đáp án —
+#   thứ đã bị bỏ hẳn vì lộ đáp án lên bản store (xem constants/e2e.ts).
+#   Tính đúng đắn của việc chấm điểm được chốt ở EX-14 (TRUE_FALSE vét cạn được
+#   cả 2 lựa chọn nên suy ra được kết quả bắt buộc) và EX-06 (MULTI chọn thiếu
+#   phải ra sai).
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   Bản cũ của case này bọc toàn bộ assert trong `runFlow.when: visible:
+#   exercise_answer_.*_correct` — không tìm thấy id đó (build không bật cờ
+#   EXPO_PUBLIC_E2E=1) thì cả khối bị bỏ qua và Maestro báo PASS dù không kiểm
+#   gì cả. Nay dùng helpers/goto-tap-question.yaml (fail rõ ràng nếu không tới
+#   được câu chọn đáp án) và assert `exercise_result_(correct|incorrect)` nằm
+#   NGOÀI mọi runFlow.when nên LUÔN chạy.
+# ══════════════════════════════════════════════════════════════════════════════
 appId: ${APP_ID}
 tags:
   - regression
   - writes
-name: EX-01 Tra loi dung - bao Chinh xac
+name: EX-01 Cham cau chon dap an - hien dung mot nhan ket qua
 ---
 - runFlow:
     file: ../helpers/open-exercise.yaml
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+- runFlow: ../helpers/goto-tap-question.yaml
 
+# ── Trước khi chấm: chưa được có nhãn kết quả nào ────────────────────────────
+- assertNotVisible:
+    id: "exercise_result_correct"
+- assertNotVisible:
+    id: "exercise_result_incorrect"
+
+# ── Chọn ô đầu tiên rồi chấm ──────────────────────────────────────────────────
+- tapOn:
+    id: "exercise_answer_0"
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: true
+    label: "LOI APP: tap vao o dap an nhung accessibilityState.selected khong bat - trang thai chon khong len duoc accessibility tree."
+- tapOn:
+    id: "exercise_check_button"
+
+# Nút "Giải thích thêm" hiện ngay khi đã trả lời, bất kể đúng hay sai
+# (CheckAnswerFooter.tsx — showExplain: hasAnswered). Dùng nó làm mốc chờ.
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+
+# ── CHỐT CỨNG — nằm ngoài mọi nhánh điều kiện nên LUÔN chạy ──────────────────
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da bam Kiem tra va app da coi la 'da tra loi' (nut Giai thich them hien) nhung KHONG hien nhan ket qua nao."
+- takeScreenshot: ../artifacts/EX-01-graded
+
+# ── Hai nhãn không được hiện cùng lúc ────────────────────────────────────────
 - runFlow:
     when:
       visible:
-        id: "exercise_answer_.*_correct"
+        id: "exercise_result_correct"
     commands:
-      - tapOn:
-          id: "exercise_answer_.*_correct"
-      - tapOn:
-          id: "exercise_check_button"
-
-      # Footer phải hiện trạng thái đúng
-      - extendedWaitUntil:
-          visible:
-            id: "exercise_result_correct"
-          timeout: 15000
       - assertNotVisible:
           id: "exercise_result_incorrect"
-      - takeScreenshot: ../artifacts/EX-01-correct
+          label: "LOI APP: hien DONG THOI ca 'Chinh xac' va 'Chua chinh xac'."
+- runFlow:
+    when:
+      visible:
+        id: "exercise_result_incorrect"
+    commands:
+      - assertNotVisible:
+          id: "exercise_result_correct"
+          label: "LOI APP: hien DONG THOI ca 'Chua chinh xac' va 'Chinh xac'."

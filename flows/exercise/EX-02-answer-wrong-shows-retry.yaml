@@ -1,38 +1,86 @@
-# EX-02 — Trả lời SAI lần 1 -> báo "Chưa chính xác" + nút đổi thành "Thử lại"
+# EX-02 — Nút "Thử lại" chỉ được xuất hiện khi trả lời SAI (lượt chấm đầu tiên)
 #
-# Nguồn kỳ vọng: getExplainActionButtonsState() trong
-# components/lessons/units/LessonExercise/CheckAnswerFooter.tsx
-#   showRetry = sai && checkCounter === 1
+# CHẠY ĐƯỢC TRÊN MỌI BẢN BUILD, kể cả bản đẩy store.
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# NGUỒN KỲ VỌNG
+#   getExplainActionButtonsState() — components/lessons/units/LessonExercise/
+#   CheckAnswerFooter.tsx:
+#       showRetry = isWrong && checkCounter === 1
+#
+#   Suy ra hai mệnh đề, và case này kiểm CẢ HAI:
+#       chấm lượt 1 ra SAI  => "Thử lại" PHẢI hiện
+#       chấm lượt 1 ra ĐÚNG => "Thử lại" KHÔNG được hiện
+#
+# VÌ SAO KHÔNG "ép" cho ra đáp án sai
+#   Ép được thì phải biết ô nào sai — tức phải có testID mang đáp án, thứ đã bị
+#   bỏ hẳn (xem constants/e2e.ts). Case đọc PHẢN HỒI của app rồi kiểm mệnh đề
+#   tương ứng. Cả hai nhánh đều assert, không nhánh nào rỗng.
+#
+# KHÔNG CÓ ĐƯỜNG PASS GIẢ
+#   Bản cũ bọc toàn bộ assert trong `runFlow.when: visible:
+#   exercise_answer_.*_wrong` — build không bật cờ EXPO_PUBLIC_E2E=1 thì cả
+#   khối skip mà vẫn báo PASS. Assert cứng `exercise_result_(correct|incorrect)`
+#   dưới đây nằm NGOÀI mọi runFlow.when nên luôn chạy, và bảo đảm ĐÚNG MỘT
+#   trong hai nhánh phía dưới sẽ chạy.
+#
+# LƯU Ý KHI ĐỌC KẾT QUẢ
+#   Nhánh nào chạy phụ thuộc dữ liệu đề. Ảnh chụp sẽ cho biết lượt đó đúng hay
+#   sai. Muốn chắc chắn phủ được nhánh SAI thì chạy thêm EX-14 (TRUE_FALSE chỉ
+#   có 2 lựa chọn nên vét cạn được cả hai).
+# ══════════════════════════════════════════════════════════════════════════════
 appId: ${APP_ID}
 tags:
   - regression
   - negative
   - writes
-name: EX-02 Tra loi sai lan 1 - hien Thu lai
+name: EX-02 Nut Thu lai chi hien khi tra loi sai
 ---
 - runFlow:
     file: ../helpers/open-exercise.yaml
     env:
       PHONE: ${PHONE}
       OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+- runFlow: ../helpers/goto-tap-question.yaml
 
+- tapOn:
+    id: "exercise_answer_0"
+- tapOn:
+    id: "exercise_check_button"
+
+- extendedWaitUntil:
+    visible:
+      id: "exercise_explain_button"
+    timeout: 15000
+
+# ── CHỐT CỨNG — bảo đảm đúng một trong hai nhánh dưới sẽ chạy ────────────────
+- assertVisible:
+    id: "exercise_result_(correct|incorrect)"
+    label: "LOI APP: da cham nhung khong hien nhan ket qua nao."
+
+# ── Nhánh SAI: "Thử lại" PHẢI hiện (checkCounter === 1) ──────────────────────
 - runFlow:
     when:
       visible:
-        id: "exercise_answer_.*_wrong"
+        id: "exercise_result_incorrect"
     commands:
-      - tapOn:
-          id: "exercise_answer_.*_wrong"
-      - tapOn:
-          id: "exercise_check_button"
-
-      - extendedWaitUntil:
-          visible:
-            id: "exercise_result_incorrect"
-          timeout: 15000
+      - assertVisible:
+          text: ".*Thử lại.*"
+          label: "LOI APP: tra loi SAI o luot cham dau tien nhung KHONG hien nut 'Thu lai'. Xem getExplainActionButtonsState: showRetry phai true khi isWrong && checkCounter === 1."
       - assertNotVisible:
           id: "exercise_result_correct"
+      - takeScreenshot: ../artifacts/EX-02-wrong-shows-retry
 
-      # Lần sai đầu tiên -> nút phải là "Thử lại", chưa phải "Tiếp tục"
-      - assertVisible: ".*(Thử lại).*"
-      - takeScreenshot: ../artifacts/EX-02-wrong-retry
+# ── Nhánh ĐÚNG: "Thử lại" KHÔNG được hiện ────────────────────────────────────
+- runFlow:
+    when:
+      visible:
+        id: "exercise_result_correct"
+    commands:
+      - assertNotVisible:
+          text: ".*Thử lại.*"
+          label: "LOI APP: tra loi DUNG ma van hien nut 'Thu lai'. showRetry phai false khi khong sai."
+      - assertNotVisible:
+          id: "exercise_result_incorrect"
+      - takeScreenshot: ../artifacts/EX-02-correct-no-retry

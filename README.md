@@ -170,6 +170,8 @@ Nếu 1 "card" trong danh sách cao hơn màn hình (ảnh + tiêu đề + mô t
     direction: DOWN
 ```
 
+Cùng bài học này áp dụng cho màn làm bài (CHOICE/CONNECT/DRAG_DROP/FILL_WORD): dispatcher `flows/helpers/answer-current-exercise-generic.yaml` gọi `flows/helpers/ensure-exercise-controls-visible.yaml` TRƯỚC khi tapOn đáp án, dùng `repeat: { while: notVisible: <control cuối cùng>, times: N }` để scroll từng bước và tự dừng ngay khi đủ - neo scroll luôn là control CUỐI CÙNG cần bấm (vd `exercise_check_button`), không phải 1 đáp án đơn lẻ, để tránh đúng lỗi dừng sớm nói trên. Nếu đã hiển thị đủ ngay từ đầu, `repeat.while` không lặp lần nào (0 scroll) - đã verify thật trên thiết bị (`maestro test` với id đã visible → SKIPPED; với id không tồn tại → lặp đúng `times` rồi dừng, không treo vô hạn).
+
 ## Cài đặt Maestro (nếu máy khác chưa có)
 
 ```bash

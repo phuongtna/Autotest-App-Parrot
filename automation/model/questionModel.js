@@ -62,6 +62,9 @@ function extractAnswers(rawQuestion) {
  * "correct" thô quan sát được có nhiều dạng:
  *   - 1 id string khớp với answers[].id                   (ONE/TRUE_FALSE)
  *   - mảng string thuần khớp trực tiếp giá trị answers      (DRAG_DROP, có thể nhiều hơn 1 chỗ trống)
+ *   - object map {idAnswer -> idAnswer}                     (CONNECT - ghép cặp 2 group, xem
+ *     runtime/handlers/matchingHandler.js; ĐÃ XÁC NHẬN THẬT 2026-08-14 qua
+ *     teacherMaterialsExamResolver.js, đối chiếu với trang "Báo cáo lớp" thật)
  * null/undefined nếu dạng bài không có đáp án đúng rời rạc (vd SPEAK).
  */
 function extractCorrectAnswer(rawQuestion) {
@@ -85,6 +88,17 @@ function extractCorrectAnswer(rawQuestion) {
   if (Array.isArray(correct)) {
     const resolved = correct.map(resolveOne).filter((v) => v !== null && v !== "");
     return resolved.length > 0 ? resolved.join(", ") : null;
+  }
+  if (typeof correct === "object") {
+    if (!answersAreObjects) return null;
+    const pairs = Object.entries(correct)
+      .map(([leftId, rightId]) => {
+        const left = resolveOne(leftId);
+        const right = resolveOne(rightId);
+        return left && right ? `${left} ↔ ${right}` : null;
+      })
+      .filter(Boolean);
+    return pairs.length > 0 ? pairs.join(", ") : null;
   }
   return resolveOne(correct);
 }

@@ -64,13 +64,31 @@ appId: ${APP_ID}
 # khung nhìn phía dưới - assertVisible ngay sau đó luôn FAILED dù đang đứng ĐÚNG card, không phải
 # do bấm nhầm card khác.
 #
-# BẢN ĐÚNG: dùng compound selector CỦA CHÍNH scrollUntilVisible (Maestro hỗ trợ thật -
-# element:{text, below} - ĐÃ VERIFY dùng thật trong flows/exercise/EX-12-speaking-record-result.yaml
-# + flows/vui_hoc/study_unit9_protecting_environment.yaml, không phải cú pháp mới bịa ra) - cuộn
-# tới khi ĐÚNG dòng "Hạn nộp DATE" nằm NGAY DƯỚI dòng title mong muốn cùng hiển thị - bắt buộc CẢ 2
-# điều kiện (đúng title VÀ đúng due date, đúng card) thoả mãn ĐỒNG THỜI trước khi dừng cuộn, đồng
-# thời do "Hạn nộp" luôn nằm THẤP hơn title trong 1 card, cuộn tới khi nó hiện đảm bảo cả title
-# phía trên cũng đã lọt vào khung nhìn (không còn bug "title hé mép" ở lượt sửa trước).
+# ĐÃ THỬ VÀ REVERT (2026-08-14): từng đổi sang containsDescendants (field có thật trong
+# maestro.orchestra.yaml.YamlElementSelector, xác nhận qua javap bytecode) + childOf cho tapOn, để
+# tránh ambiguity của "below" (below chỉ so Y-coordinate MỘT CHIỀU với anchor, không có biên trên/
+# "gần nhất" - 1 due-date của card KHÁC vẫn thoả "below title" y hệt due-date của ĐÚNG card nếu
+# card đó cũng nằm dưới title trong cùng khung nhìn, dù xa hơn nhiều - xác nhận thật qua
+# screen-hierarchy, xem cùng vị trí sửa trong flows/bai_tap/ktra_fullluong_lambai.yaml khối
+# PROGRESS_BEFORE). NHƯNG containsDescendants ĐÃ CHỨNG MINH KHÔNG HOẠT ĐỘNG trong bản Maestro
+# 2.8.0 này - xác nhận qua 4 test cô lập độc lập (assertVisible tĩnh, không scroll, target đang
+# hiển thị THẬT trên màn hình lúc chạy, xác nhận bằng screenshot): containsDescendants với 2 item
+# (dạng {text:...} lẫn string thường) VÀ với CHỈ 1 item (text chính xác, không regex) - TẤT CẢ đều
+# FAILED "Assertion is false" dù target visible 100%. REVERT về "below" gốc (3 cấp cho tapOn), chỉ
+# giữ speed/timeout đã xác minh có tác dụng thật. Root cause ambiguity ("below" không có biên
+# trên) vẫn ĐÚNG và CHƯA CÓ FIX khả thi - cần hướng khác nếu gặp lại (không phải containsDescendants).
+#
+# ĐÃ SỬA LẦN 2 (2026-08-14, root cause thật xác nhận qua run mới, room_id=a1b4e34a-9313-4895-8b10-
+# 52731880d01a, title "G3-U2-Lesson 2: Listen and repeat", due 21/08): dùng due-date làm SCROLL
+# TARGET (element.text = "Hạn nộp DATE", below = title) vẫn FAILED "No visible element found" ở
+# flows/helpers/locate-assignment-card.yaml dù screen-hierarchy chụp đúng frame FAILED xác nhận
+# card mục tiêu đang hiển thị đầy đủ - lý do: due-date KHÔNG unique (mọi room test tự động trong
+# ngày đều mặc định dueDate=hôm nay+N giống nhau), 1 card KHÁC cũng cùng due-date nằm liền kề khiến
+# cơ chế phát hiện "cuộn không còn tiến triển" của scrollUntilVisible bị đánh lừa. ĐỔI CHIẾN LƯỢC
+# (đồng bộ với locate-assignment-card.yaml): SCROLL TARGET = TITLE, due-date CHỈ dùng để VERIFY
+# (assertVisible riêng, sau khi title đã visible) - không còn ghép due-date vào compound selector
+# của scrollUntilVisible nữa. tapOn CTA bên dưới GIỮ NGUYÊN nested "below" cũ (title -> due-date ->
+# CTA) - cơ chế đó đã verify hoạt động đúng cho bước TAP (khác bước SCROLL bị lỗi), không đổi.
 - runFlow:
     when:
       true: ${EXERCISE_DUE_DATE_DM != null}
@@ -82,14 +100,29 @@ appId: ${APP_ID}
       # tái hiện thật: "G3-U3-Lesson 1: Read and complete" - scrollUntilVisible COMPLETED nhưng
       # tapOn theo ĐÚNG cùng selector ngay sau đó FAILED "Element not found"). Set 500ms để Maestro
       # tự chờ layout ổn định hẳn trước khi coi là xong, khớp gợi ý chính CLI đưa ra khi gặp lỗi này.
+      #
+      # speed: 70 (2026-08-14, cùng fix flows/helpers/locate-assignment-card.yaml): tốc độ mặc
+      # định (40) từng khiến scrollUntilVisible dừng sớm NGAY TRƯỚC card mục tiêu khi danh sách có
+      # ≥2 card liền nhau trùng hệt title+Hạn nộp - nghi cơ chế phát hiện "cuộn không còn tiến
+      # triển" bị đánh lừa bởi nội dung trùng lặp.
+      #
+      # timeout: 150000 (2026-08-14): danh sách "Bài tập" của tài khoản test đã dài thêm do tích
+      # luỹ room test qua nhiều lần chạy - tăng timeout để bù vấn đề "chưa cuộn đủ sâu". Giữ nguyên
+      # sau khi revert selector vì độc lập với vấn đề containsDescendants.
       - scrollUntilVisible:
           element:
-            text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
-            below:
-              text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
           direction: DOWN
-          timeout: 90000
+          timeout: 150000
+          speed: 70
           waitToSettleTimeoutMs: 500
+      # VERIFY (không phải target scroll): đúng "Hạn nộp DATE" phải hiện ngay dưới đúng title vừa
+      # cuộn tới - nếu FAILED, title vừa tìm được KHÔNG phải card đúng hạn nộp mong đợi, không tự
+      # đoán tiếp/thử lại (caller tự quyết định BLOCKED kèm evidence).
+      - assertVisible:
+          text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+          below:
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
       # ĐÃ GẶP THẬT (2026-08-12): tapOn "below: Hạn nộp DATE" (KHÔNG kèm title) tại đây vẫn có thể
       # bấm NHẦM dù scrollUntilVisible phía trên đã cuộn ĐÚNG vị trí - vì ≥2 card cùng "Hạn nộp
       # 19/08" có thể CÙNG hiển thị trong 1 khung nhìn (card liền kề nhau trong danh sách), "below"
@@ -116,6 +149,7 @@ appId: ${APP_ID}
             text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
           direction: DOWN
           timeout: 90000
+          speed: 70
           waitToSettleTimeoutMs: 500
       - tapOn:
           text: ".*(Làm bài|Làm lại|Tiếp tục).*"

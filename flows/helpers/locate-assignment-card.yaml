@@ -50,13 +50,39 @@ appId: ${APP_ID}
           timeout: 10000
       - runFlow: homework-select-month-filter.yaml
 
+# ĐÃ SỬA (2026-08-14, xác nhận thật qua run lỗi thật, 3 lượt): "maestro test" FAILED "No visible
+# element found: Hạn nộp 21/08" dù card THẬT SỰ tồn tại - xác nhận bằng tay qua uiautomator dump +
+# swipe tăng dần: card nằm ở khoảng lượt cuộn thứ 12 (~5-6 màn hình, danh sách 34 bài không sắp
+# xếp chặt theo Hạn nộp - nhiều card TRÙNG HỆT title+due date chen giữa, vd 2 card liền nhau
+# "G3-U1-Lesson 1: Listen and repeat" / "Hạn nộp 20/08"). Thêm waitToSettleTimeoutMs (500ms,
+# lượt sửa đầu) KHÔNG đủ - screenshot debug (step-018) cho thấy Maestro dừng lại NGAY TRƯỚC card
+# mục tiêu, đúng tại cụm card trùng lặp đó: nghi cơ chế phát hiện "cuộn không còn tiến triển" của
+# scrollUntilVisible (so sánh hierarchy giữa 2 lượt cuộn) bị đánh lừa bởi nội dung text trùng lặp
+# liên tiếp, tưởng đã chạm đáy danh sách nên dừng sớm dù còn card thật ở dưới. Tăng `speed` (40 ->
+# 70) để mỗi lượt cuộn đi xa hơn, vượt qua cụm trùng lặp nhanh hơn trước khi cơ chế đó kích hoạt.
+#
+# ĐÃ SỬA LẦN 2 (2026-08-14, root cause thật xác nhận qua run mới, room_id=a1b4e34a-9313-4895-8b10-
+# 52731880d01a, title "G3-U2-Lesson 2: Listen and repeat", due 21/08): tăng speed vẫn KHÔNG đủ - 2
+# lượt native locate ĐỘC LẬP đều FAILED y hệt "No visible element found: Hạn nộp 21/08", nhưng
+# screen-hierarchy chụp NGAY TẠI FRAME FAILED (step-018, CẢ 2 lượt) xác nhận card mục tiêu (đúng
+# title, đúng "Hạn nộp 21/08" ngay dưới title) đang hiển thị ĐẦY ĐỦ, không che, không disable - lý
+# do FAILED là có 1 card KHÁC cũng "Hạn nộp 21/08" nằm ngay tiếp theo bên dưới (mọi room test tự
+# động trong ngày đều mặc định dueDate=hôm nay+N giống nhau nên due-date THEO BẢN CHẤT không unique,
+# khác hẳn title). ĐỔI CHIẾN LƯỢC: SCROLL TARGET = TITLE (title không bị lặp liên tiếp kiểu này),
+# due-date CHỈ còn dùng để VERIFY đúng card SAU KHI title đã visible (assertVisible, không phải
+# target scroll nữa) - nếu verify FAILED ở đây, nghĩa là title vừa cuộn tới KHÔNG phải card đúng
+# hạn nộp mong đợi (vd trùng title với 1 card cũ khác hạn nộp) - caller tự quyết định BLOCKED, đây
+# không tự đoán/thử lại. Giữ nguyên speed 70 (đã xác minh có tác dụng thật), tăng timeout 90000 ->
+# 150000 (đồng bộ với flows/helpers/open-exercise.yaml, danh sách đã dài thêm qua nhiều lần chạy).
 - scrollUntilVisible:
     element:
-      text: "Hạn nộp ${TARGET_DUE_DATE_DM}"
+      text: "${TARGET_TITLE}"
     direction: DOWN
-    timeout: 90000
+    timeout: 150000
+    speed: 70
+    waitToSettleTimeoutMs: 500
 
 - assertVisible:
-    text: "${TARGET_TITLE}"
-    above:
-      text: "Hạn nộp ${TARGET_DUE_DATE_DM}"
+    text: "Hạn nộp ${TARGET_DUE_DATE_DM}"
+    below:
+      text: "${TARGET_TITLE}"

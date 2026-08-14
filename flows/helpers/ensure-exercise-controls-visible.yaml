@@ -1,0 +1,66 @@
+# Helper dung chung: dam bao control CUOI CUNG can thao tac cua CAU HIEN TAI (vd nut
+# exercise_check_button cho CHOICE/CONNECT/DRAG_DROP, exercise_fillword_check_button cho
+# FILL_WORD) da hien thi tren man hinh TRUOC KHI tapOn - goi TU BEN TRONG nhanh da xac dinh
+# dung TYPE (nghia la top-anchor dung de detect TYPE do, vd exercise_connect_left_0, da CHAC
+# CHAN visible roi moi vao den day).
+#
+# THAM SO (bat buoc, do caller truyen qua runFlow.env):
+#   CONTROL_ID   - id cua control cuoi cung (bottom anchor) can thao tac cua type hien tai.
+#   TOP_ANCHOR_ID - id/text dung de detect type hien tai (da biet chac chan dang visible tai
+#                   thoi diem goi helper nay - dung de CANH BAO (khong chan flow) neu qua trinh
+#                   scroll o duoi lam noi dung cau hoi bi day ra khoi khung hinh - xem muc GIOI
+#                   HAN ben duoi).
+#
+# TAI SAO dung CONTROL_ID (control CUOI CUNG) lam neo scroll, KHONG PHAI 1 dap an/phuong an rieng
+# le (vd exercise_answer_2, exercise_connect_left_3...):
+#   Da co bai hoc THAT trong README.md muc "scrollUntilVisible dung som khi card qua cao": neu
+#   neo scroll la 1 phan tu nam GIUA noi dung (vd 1 dap an bat ky), scroll se DUNG NGAY khi rieng
+#   phan tu do vua hien ra - cac dap an/control KHAC nam DUOI no (vd nut Kiem tra, hoac dap an co
+#   index lon hon) van con ngoai khung hinh, khien buoc tapOn ke tiep tren nhung phan tu do FAIL.
+#   Vi cac man CHOICE/CONNECT/DRAG_DROP/FILL_WORD trong app nay xep noi dung THEO CHIEU DOC, tren
+#   xuong duoi (cau hoi -> dap an/phuong an -> control), dung CONTROL_ID (phan tu CUOI CUNG trong
+#   thu tu do) lam neo scroll dam bao: khi no da visible thi TOAN BO dap an/phuong an nam TRUOC no
+#   (o phia tren trong layout) DA di qua khung hinh it nhat 1 lan trong qua trinh scroll tung buoc.
+#
+# CASE 1 - da hien thi du (CONTROL_ID DA visible ngay tu dau, vd cau it dap an vua man hinh):
+#   repeat.while KIEM TRA DIEU KIEN TRUOC MOI LAN LAP - neu da visible tu dau, 0 lan lap, KHONG
+#   scroll gi ca, chuyen thang sang thao tac. KHONG dung logic kieu scrollUntilVisible(1 dap an
+#   don le) - se scroll ngay ca khi thuc ra man hinh DA hien thi du (scrollUntilVisible khong tu
+#   biet "da du chua", chi biet "target da visible chua").
+#
+# CASE 2 - chua hien thi du: scroll TUNG BUOC nho (30% chieu cao man hinh/lan, khong scroll 1
+# phat het ca man hinh - tranh scroll qua da lam mat dau ca cau hoi lan control), sau MOI buoc
+# Maestro tu doc lai hierarchy that (khong dung cache) va repeat.while tu danh gia lai dieu kien -
+# DUNG NGAY lap tuc khi CONTROL_ID da visible (khong scroll them buoc nao nua).
+#
+# GIOI HAN (khong bia them): `times` o day dong thoi la SO LAN LAP TOI DA cho ca truong hop dung
+# `while` (xac nhan qua bytecode maestro-orchestra.jar 2.8.0 - RepeatCommand.getTimes() duoc
+# parse thanh gioi han lap ngay ca khi co `while`, mac dinh Integer.MAX_VALUE neu KHONG dat
+# `times`) - BAT BUOC dat `times` cung `while` de tranh scroll vo han neu CONTROL_ID khong bao
+# gio xuat hien (vd sai id, hoac type thuc te khac voi type da detect). Neu sau 8 lan scroll van
+# chua thay CONTROL_ID, dung lai (KHONG assert loi o day - de nhanh goi helper nay tu quyet dinh,
+# vi day chi la buoc CHUAN BI truoc khi tapOn, khong phai buoc kiem tra dung/sai).
+#
+# Sau khi scroll xong (hoac khong can scroll), neu TOP_ANCHOR_ID (da biet chac visible truoc khi
+# goi helper) lai KHONG con visible nua - noi dung cau hoi + toan bo dap an + control cao hon ca
+# man hinh, khong the vua ca dau tren lan dau duoi cung lat (gioi han vat ly cua thiet bi/UI,
+# khong phai loi cua co che scroll nay) - chi CANH BAO bang screenshot, KHONG chan flow (buoc
+# tapOn ke tiep van co the thanh cong tren control da visible).
+appId: ${APP_ID}
+---
+- repeat:
+    while:
+      notVisible:
+        id: ${CONTROL_ID}
+    times: 8
+    commands:
+      - swipe:
+          start: 50%, 75%
+          end: 50%, 45%
+          duration: 400
+- runFlow:
+    when:
+      notVisible:
+        id: ${TOP_ANCHOR_ID}
+    commands:
+      - takeScreenshot: WARN-question-content-scrolled-offscreen

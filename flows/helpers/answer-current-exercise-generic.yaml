@@ -63,6 +63,14 @@ appId: ${APP_ID}
             visible:
               id: "exercise_fillword_input"
           commands:
+            # Dam bao nut exercise_fillword_check_button da hien thi truoc khi go input - xem
+            # flows/helpers/ensure-exercise-controls-visible.yaml (CASE 1: da du -> khong scroll;
+            # CASE 2: scroll tung buoc, dung ngay khi du - KHONG scrollUntilVisible mot dap an rieng le).
+            - runFlow:
+                file: ensure-exercise-controls-visible.yaml
+                env:
+                  CONTROL_ID: "exercise_fillword_check_button"
+                  TOP_ANCHOR_ID: "exercise_fillword_input"
             - tapOn:
                 id: "exercise_fillword_input"
             - inputText: "test"
@@ -89,6 +97,15 @@ appId: ${APP_ID}
             visible:
               id: "exercise_connect_left_0"
           commands:
+            # Dam bao nut exercise_check_button da hien thi truoc khi noi cap - xem
+            # flows/helpers/ensure-exercise-controls-visible.yaml (neo scroll la CONTROL CUOI
+            # CUNG can bam, khong phai 1 cap noi rieng le - tranh dung scroll som khi cap dau tien
+            # vua hien nhung cac cap con lai + nut Kiem tra van con ngoai khung hinh).
+            - runFlow:
+                file: ensure-exercise-controls-visible.yaml
+                env:
+                  CONTROL_ID: "exercise_check_button"
+                  TOP_ANCHOR_ID: "exercise_connect_left_0"
             - tapOn: { id: "exercise_connect_left_0", optional: true }
             - tapOn: { id: "exercise_connect_right_0", optional: true }
             - tapOn: { id: "exercise_connect_left_1", optional: true }
@@ -125,11 +142,55 @@ appId: ${APP_ID}
 
       # DRAG_DROP - CONFIRMED (xem answer-drag-drop-question.yaml). testID chi mang VI TRI
       # (option_{i}), khong gan voi noi dung - tong quat hoa duoc cho bat ky tu/cau nao.
+      #
+      # DA SUA (2026-08-14, root cause that xac nhan qua run FAILED that + probe truc tiep tren
+      # thiet bi song, /home/mt/.maestro/tests/2026-08-14_142659, fixture "G3-U1-Lesson 3: Read
+      # and choose" 5 cho trong): dieu kien cu "visible: id: exercise_dragdrop_options" KHONG BAO
+      # GIO dung cho fixture nay - xac nhan qua maestro hierarchy that tai dung khoanh khac FAILED
+      # (step-352): cay view CHI co exercise_dragdrop_zone_0..4, KHONG co exercise_dragdrop_options
+      # o bat ky dau (grep toan bo file JSON dump, 0 ket qua) - o lua chon (word-bank) nam duoi
+      # doan hoi thoai dai, CHUA duoc render/ao hoa (lazy list) cho toi khi cuon toi noi dung do
+      # (probe song tren thiet bi 3201d866d40a1681: cuon xuong that su lam xuat hien
+      # exercise_dragdrop_options/exercise_dragdrop_option_0..4 ngay lap tuc trong maestro
+      # hierarchy). Vi dieu kien nhanh nay chi kiem tra exercise_dragdrop_options (chua ton tai) nen
+      # dispatcher KHONG BAO GIO vao nhanh DRAG_DROP - roi vao vong lap tap exercise_check_button
+      # (dang disabled vi cho trong chua dien) 25 lan vo ich, cuoi cung FAILED o
+      # extendedWaitUntil exercise_result_screen tang goi (khong bao gio toi man ket qua).
+      # SUA: doi dieu kien detect sang "exercise_dragdrop_zone_0" - testID nay LUON co mat ngay tu
+      # dau (khong can cuon, da xac nhan trong ca 2 nguon: hierarchy dump FAILED that lan run truoc
+      # VA probe song) vi no la o trong DAU TIEN nam ngay trong doan van/hoi thoai dang hien thi,
+      # khac voi options (nam sau, ngoai khung hinh). TOP_ANCHOR_ID doi tuong ung sang cung id nay
+      # (dung id da CHAC CHAN visible luc detect type, dung tinh than helper
+      # ensure-exercise-controls-visible.yaml). KHONG doi answer-drag-drop-question.yaml (handler
+      # dien o trong da CONFIRMED dung that qua probe song: tapOn option_0 "I'm" -> tu dong dien
+      # vao zone_0 - dung y nhu docblock file do da mo ta, khong can sua).
       - runFlow:
           when:
             visible:
-              id: "exercise_dragdrop_options"
+              id: "exercise_dragdrop_zone_0"
           commands:
+            # CONTROL_ID = exercise_dragdrop_option_0 (KHONG PHAI exercise_check_button) - DA SUA
+            # (2026-08-14, cung root cause tren): xac nhan that qua hierarchy dump 2 thoi diem
+            # KHAC NHAU (truoc/sau khi tu cuon bang tay tren thiet bi that) rang exercise_check_button
+            # co bounds [42,2110][1038,2250] GIONG HET nhau o CA 2 lan do - day la FOOTER CO DINH
+            # (fixed), LUON nam trong khung nhin bat ke da cuon bao nhieu, khac han cac man
+            # CHOICE/CONNECT/FILL_WORD (noi check_button la phan tu THAT SU nam o CUOI noi dung,
+            # can cuon moi toi). Neu van dung check_button lam CONTROL_ID, dieu kien
+            # "notVisible: id: CONTROL_ID" cua ensure-exercise-controls-visible.yaml se dung TRUE
+            # (da visible tu dau) ngay lap tuc, 0 lan cuon - trong khi exercise_dragdrop_options/
+            # exercise_dragdrop_option_0 (word-bank, nam duoi doan hoi thoai dai) VAN CHUA duoc
+            # render/mount (lazy list, xac nhan qua 0 ket qua grep exercise_dragdrop_options tren
+            # hierarchy FAILED that) - answer-drag-drop-question.yaml se tapOn vao id chua ton tai,
+            # optional:true tu bo qua am tham, KHONG dien duoc o nao ca, lap lai y het loi cu.
+            # SUA: doi CONTROL_ID sang "exercise_dragdrop_option_0" (phan tu THAT SU can cuon toi
+            # de lo dien/mount) - repeat.while cua ensure-exercise-controls-visible.yaml se tu cuon
+            # tung buoc cho toi khi option_0 xuat hien that (da xac nhan that qua probe song: cuon
+            # xuong lam word-bank hien ra ngay trong maestro hierarchy).
+            - runFlow:
+                file: ensure-exercise-controls-visible.yaml
+                env:
+                  CONTROL_ID: "exercise_dragdrop_option_0"
+                  TOP_ANCHOR_ID: "exercise_dragdrop_zone_0"
             - runFlow:
                 file: answer-drag-drop-question.yaml
 
@@ -144,24 +205,44 @@ appId: ${APP_ID}
       # nen KHONG BAO GIO tien duoc qua cau 1 (da tai hien that: 17 lan lap deu quay lai dung 1
       # cau). Doi sang tap theo VI TRI PHANG (khong quan tam dung/sai, dung tinh than nhanh CONNECT
       # o tren - "Bai tap khong check dung sai") de dam bao co >=1 dap an duoc chon, nut duoc bat.
-      - tapOn:
-          id: "exercise_answer_0"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_1"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_2"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_3"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_4"
-          optional: true
-      - tapOn:
-          id: "exercise_answer_5"
-          optional: true
+      #
+      # BOC vao runFlow.when.visible (MOI, khong doi behavior happy-path cu): truoc day 6 tapOn
+      # nay chay VO DIEU KIEN (chi optional:true tu bao ve khi id khong ton tai) - tac dung khi
+      # KHONG phai CHOICE giong het (6 no-op). Boc lai de CHI kich hoat scroll-check
+      # (ensure-exercise-controls-visible.yaml) dung luc man hinh THAT SU la CHOICE, tranh scroll
+      # thua khi dang o type khac.
+      - runFlow:
+          when:
+            visible:
+              id: "exercise_answer_0"
+          commands:
+            # Dam bao nut exercise_check_button da hien thi truoc khi chon dap an - xem
+            # flows/helpers/ensure-exercise-controls-visible.yaml (neo scroll la CONTROL CUOI
+            # CUNG, khong phai 1 dap an rieng le - vd exercise_answer_2 vua hien khong co nghia
+            # exercise_answer_4/5 hoac nut Kiem tra da vao khung hinh).
+            - runFlow:
+                file: ensure-exercise-controls-visible.yaml
+                env:
+                  CONTROL_ID: "exercise_check_button"
+                  TOP_ANCHOR_ID: "exercise_answer_0"
+            - tapOn:
+                id: "exercise_answer_0"
+                optional: true
+            - tapOn:
+                id: "exercise_answer_1"
+                optional: true
+            - tapOn:
+                id: "exercise_answer_2"
+                optional: true
+            - tapOn:
+                id: "exercise_answer_3"
+                optional: true
+            - tapOn:
+                id: "exercise_answer_4"
+                optional: true
+            - tapOn:
+                id: "exercise_answer_5"
+                optional: true
 
       # Kiem tra -> Tiep tuc / Thu lai / Hoan thanh (cung 1 nut, bam 2 lan cho du chu ky)
       - tapOn:

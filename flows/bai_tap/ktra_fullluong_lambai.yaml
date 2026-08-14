@@ -62,21 +62,62 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
 - runScript: ../../test_data/hw_fullluong_save_before_progress.js
 
 # --- PROGRESS_BEFORE: đọc progress RIÊNG của ĐÚNG assignment sắp làm (vd "9/10") - KHÁC với
-# thanh tiến độ TỔNG "Bài tập X/Y" vừa đọc ở trên. Dùng lại NGUYÊN compound selector (title + Hạn
-# nộp) đã verify thật ở khối "Xác nhận vẫn ĐÚNG assignment" cuối flow này - không viết cách tìm
-# card khác. Phải đọc TRƯỚC khi gọi open-exercise.yaml (chưa cuộn/thao tác gì lên card).
+# thanh tiến độ TỔNG "Bài tập X/Y" vừa đọc ở trên. Phải đọc TRƯỚC khi gọi open-exercise.yaml
+# (chưa cuộn/thao tác gì lên card).
+#
+# ĐÃ THỬ VÀ REVERT (2026-08-14): từng đổi sang `containsDescendants` (field có thật trong
+# maestro.orchestra.yaml.YamlElementSelector, xác nhận qua javap bytecode) để tránh ambiguity của
+# "below" (below chỉ so Y-coordinate MỘT CHIỀU, không có biên trên/"gần nhất" - xác nhận thật qua
+# screen-hierarchy run /home/mt/.maestro/tests/2026-08-14_095027: 2 node "Hạn nộp 21/08" khác card
+# cùng thoả "below" 1 title). NHƯNG containsDescendants ĐÃ CHỨNG MINH KHÔNG HOẠT ĐỘNG trong bản
+# Maestro 2.8.0 này - xác nhận qua 4 test cô lập độc lập (assertVisible tĩnh, KHÔNG scroll, target
+# "G3-U1_ Lesson 1:Listen and choose"/"Hạn nộp 19/08" ĐANG HIỂN THỊ THẬT trên màn hình lúc chạy,
+# xác nhận bằng screenshot): containsDescendants với 2 item (dạng {text:...} lẫn dạng string
+# thường), và với CHỈ 1 item duy nhất (text chính xác, không regex) - TẤT CẢ đều FAILED "Assertion
+# is false" dù target visible 100%. Kết luận: containsDescendants không dùng được làm selector độc
+# lập trong bản Maestro này (có thể cần 1 anchor khác đi kèm mà chưa xác định được, hoặc field này
+# chưa hoạt động đúng như bytecode gợi ý) - REVERT về "below" gốc, chỉ giữ lại speed/timeout đã xác
+# minh có tác dụng thật (xem 2 comment ngay dưới). Root cause ambiguity ("below" không có biên
+# trên) vẫn ĐÚNG và CHƯA CÓ FIX - xử lý bằng cách khác nếu gặp lại (xem báo cáo cùng ngày).
+#
+# Cũng xác nhận qua hierarchy: title node có resource-id "homework_card_basic_<N>_title" (N = vị
+# trí trong danh sách, KHÔNG phải id theo room) - app KHÔNG expose id ổn định theo
+# room/assignment, nên không thể né ambiguity bằng cách đổi sang neo theo id.
+#
+# ĐÃ SỬA LẦN 2 (2026-08-14, root cause thật xác nhận qua run mới, room_id=a1b4e34a-9313-4895-8b10-
+# 52731880d01a, title "G3-U2-Lesson 2: Listen and repeat", due 21/08): dùng due-date làm SCROLL
+# TARGET vẫn FAILED "No visible element found: Hạn nộp 21/08" ở flows/helpers/locate-assignment-
+# card.yaml dù screen-hierarchy chụp đúng frame FAILED xác nhận card mục tiêu đang hiển thị đầy đủ -
+# lý do: due-date KHÔNG unique (mọi room test tự động trong ngày đều mặc định dueDate=hôm nay+N
+# giống nhau), 1 card KHÁC cũng cùng due-date nằm liền kề khiến cơ chế phát hiện "cuộn không còn
+# tiến triển" của scrollUntilVisible bị đánh lừa. ĐỔI CHIẾN LƯỢC: SCROLL TARGET = TITLE, due-date
+# CHỈ dùng để VERIFY (assertVisible riêng, sau khi title đã visible) - copyTextFrom đọc progress vẫn
+# neo "below title / above due-date" NHƯ CŨ (không đổi - đó là VỊ TRÍ đọc, không phải TARGET scroll,
+# và range đó đã verify đúng vùng progress của card qua run PASS trước đây).
 - runFlow:
     when:
       true: ${EXERCISE_DUE_DATE_DM != null}
     commands:
+      # timeout: 150000 (2026-08-14, xác nhận thật qua diagnostic run /home/mt/.maestro/tests/
+      # 2026-08-14_103346: hierarchy tại thời điểm FAILED xác nhận title mục tiêu KHÔNG tồn tại
+      # trên cây view lúc đó - scroll chưa cuộn tới nơi trong 90s, KHÔNG liên quan containsDescendants).
+      # Danh sách "Bài tập" của tài khoản test đã dài thêm do các room test tích luỹ qua nhiều lần
+      # chạy trong ngày - tăng timeout để bù đúng vấn đề "chưa cuộn đủ sâu". Giữ nguyên giá trị này
+      # sau khi revert selector vì vẫn là cải thiện hợp lệ, độc lập với vấn đề containsDescendants.
       - scrollUntilVisible:
           element:
-            text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
-            below:
-              text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
           direction: DOWN
-          timeout: 90000
+          timeout: 150000
+          speed: 70
           waitToSettleTimeoutMs: 500
+      # VERIFY (không phải target scroll): xác nhận đúng "Hạn nộp DATE" hiện ngay dưới đúng title
+      # vừa cuộn tới - nếu FAILED, title vừa tìm được KHÔNG phải card đúng hạn nộp mong đợi, dừng
+      # lại (không tự đoán tiếp), không dùng copyTextFrom bên dưới cho tới khi verify này pass.
+      - assertVisible:
+          text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+          below:
+            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
       - copyTextFrom:
           below:
             text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
@@ -91,6 +132,7 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
             text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
           direction: DOWN
           timeout: 90000
+          speed: 70
           waitToSettleTimeoutMs: 500
       - copyTextFrom:
           below:
@@ -106,14 +148,49 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
 # mở tab đó xong), tốn thời gian + tăng số lần relaunch app không cần thiết trên máy thật (góp phần
 # vào tình trạng thiết bị/adb kém ổn định khi chạy nhiều lượt liên tiếp trong ngày). Đã ĐĂNG NHẬP +
 # ĐANG Ở ĐÚNG tab "Bài tập" nên an toàn để bỏ qua bước relaunch+login này.
+#
+# ĐÃ SỬA (2026-08-14, root cause thật xác nhận qua run FAILED thật, /home/mt/.maestro/tests/
+# 2026-08-14_141542, commands.json index 24-44): khi chạy flow này ĐỘC LẬP không truyền -e
+# EXERCISE_NAME/-e EXERCISE_DUE_DATE_DM (đúng mode dev/kiểm tra riêng mà docblock đầu file mô tả -
+# "mặc định này CHỈ để chạy độc lập lúc dev"), forward THẲNG "${EXERCISE_NAME}"/
+# "${EXERCISE_DUE_DATE_DM}" (JS undefined ở scope ngoài) vào env: của runFlow bên dưới khiến Maestro
+# STRINGIFY undefined thành CHUỖI "undefined" (xác nhận qua evaluatedCommand index 25:
+# defineVariablesCommand.env = {"EXERCISE_NAME": "undefined", "EXERCISE_DUE_DATE_DM": "undefined"}
+# - chuỗi thật, không phải null/undefined JS nữa). open-exercise.yaml bên trong chỉ so sánh
+# "== null" (đúng với JS undefined thật) nên KHÔNG bắt được chuỗi "undefined" này: branch
+# "${EXERCISE_DUE_DATE_DM != null}" bị đánh giá TRUE sai (chuỗi "undefined" không phải null), dẫn
+# tới scrollUntilVisible/assertVisible tìm "Hạn nộp undefined" - FAILED "No visible element found:
+# .*undefined.*" ngay ở lần mở bài ĐẦU TIÊN (chưa từng tới màn làm bài, index 44 là command CUỐI
+# CÙNG chạy được trong run FAILED đó). Caller thật duy nhất (flows/giao_bai_tap/
+# e2e-teacher-assign-student-lifecycle.mjs dòng 61-64) LUÔN truyền cả 2 biến này qua -e thật (không
+# bao giờ để trống) nên không tự tái hiện bug này ở route đó - chỉ lộ ra khi chạy file này độc lập.
+# SỬA: tách 2 nhánh theo EXERCISE_NAME == null (giống idiom 2 nhánh true/false đã dùng sẵn ở khối
+# PROGRESS_BEFORE phía trên) - nhánh null KHÔNG đưa EXERCISE_NAME/EXERCISE_DUE_DATE_DM vào env: của
+# open-exercise.yaml, để 2 biến đó giữ nguyên trạng thái JS-undefined thật bên trong nested flow
+# (đúng như đã verify PASS ở scrollUntilVisible/copyTextFrom PROGRESS_BEFORE phía trên, index 20-21
+# cùng run) thay vì bị ép thành chuỗi "undefined".
 - runFlow:
-    file: ../helpers/open-exercise.yaml
-    env:
-      PHONE: ${PHONE}
-      OTP: ${OTP}
-      EXERCISE_NAME: ${EXERCISE_NAME}
-      EXERCISE_DUE_DATE_DM: ${EXERCISE_DUE_DATE_DM}
-      DEVICE_MODE: "true"
+    when:
+      true: ${EXERCISE_NAME != null}
+    commands:
+      - runFlow:
+          file: ../helpers/open-exercise.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            EXERCISE_NAME: ${EXERCISE_NAME}
+            EXERCISE_DUE_DATE_DM: ${EXERCISE_DUE_DATE_DM}
+            DEVICE_MODE: "true"
+- runFlow:
+    when:
+      true: ${EXERCISE_NAME == null}
+    commands:
+      - runFlow:
+          file: ../helpers/open-exercise.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            DEVICE_MODE: "true"
 - takeScreenshot: HW-14_15-opened
 
 # --- Thoát ngay bằng X (chưa trả lời câu nào) ---
@@ -168,6 +245,7 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
               text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
           direction: DOWN
           timeout: 90000
+          speed: 70
           waitToSettleTimeoutMs: 500
       # ĐÃ GẶP THẬT (2026-08-12): "below: Hạn nộp DATE" 1 cấp (không kèm title) tại đây có thể khớp
       # NHẦM khi ≥2 card cùng "Hạn nộp 19/08" hiển thị đồng thời trong 1 khung nhìn (đã tái hiện:
@@ -195,6 +273,7 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
             text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
           direction: DOWN
           timeout: 90000
+          speed: 70
           waitToSettleTimeoutMs: 500
       - assertVisible:
           text: "Tiếp tục"
@@ -300,6 +379,7 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
       text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
     direction: DOWN
     timeout: 90000
+    speed: 70
     waitToSettleTimeoutMs: 500
 - takeScreenshot: HW-14_15-card-completed
 

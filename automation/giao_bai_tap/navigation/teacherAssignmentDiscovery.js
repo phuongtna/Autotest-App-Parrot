@@ -72,10 +72,19 @@ export async function listLessonCandidates(page) {
 }
 
 /** Chọn lessonName nếu truyền vào, hoặc random 1 Lesson thật của Unit hiện tại nếu không truyền.
- * Giữ nguyên cơ chế "chỉ click nếu chưa active" (class `bg-surface-action-sub`) đã verify thật. */
+ * Giữ nguyên cơ chế "chỉ click nếu chưa active" (class `bg-surface-action-sub`) đã verify thật.
+ *
+ * ĐÃ SỬA (2026-08-14, xác nhận thật qua run lỗi thật): lessonName khi đến từ
+ * teacherAssignmentApiDiscovery.js (random qua API, field `lesson.name` thô từ CMS) có thể khác
+ * case với nút thật trên DOM (đã tái hiện: API trả "LESSON 3", nút DOM là "Lesson 3") - getByText
+ * exact:true phân biệt hoa/thường nên không bao giờ khớp, timeout 30s ở bước click. Đối chiếu
+ * case-insensitive với availableLessons (nguồn DOM thật) để lấy đúng case hiển thị trước khi tìm
+ * nút bấm. */
 export async function resolveAndSelectLesson(page, lessonName) {
   const availableLessons = await listLessonCandidates(page);
-  const resolvedLessonName = lessonName || availableLessons[Math.floor(Math.random() * availableLessons.length)];
+  const resolvedLessonName = lessonName
+    ? availableLessons.find((l) => l.toLowerCase() === lessonName.toLowerCase())
+    : availableLessons[Math.floor(Math.random() * availableLessons.length)];
   if (!resolvedLessonName) {
     throw new Error("Không tìm thấy Lesson nào trên Web GV để random/chọn - BLOCKED, không đoán tên.");
   }

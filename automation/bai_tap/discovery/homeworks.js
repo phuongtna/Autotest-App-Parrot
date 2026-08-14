@@ -53,6 +53,27 @@ async function rawGet(url) {
 }
 
 /**
+ * GET /api/user/exams/room_details.json?id=<roomId> - bản chi tiết của 1 Room (KHÁC
+ * /api/user/exams/room.json ở chỗ CÓ thêm "tag_id" (đã xác nhận thật 2026-08-14: field này KHÔNG
+ * có trong data[] của endpoint list) - "tag_id" là tham số bắt buộc cho
+ * teacherAssignmentApiDiscovery.js#fetchLessonItems() (= POST /api/learn/items), cần để tra catalog
+ * Teacher Materials cho ĐÚNG Lesson của Room này (xem teacherMaterialsExamResolver.js).
+ * @param {string} roomId
+ */
+export async function fetchRoomDetails(roomId) {
+  requireTeacherPortalConfig();
+  const url = `${config.teacherPortalBaseUrl}/api/user/exams/room_details.json?id=${encodeURIComponent(roomId)}`;
+  const result = await rawGet(url);
+  if (!result.ok) {
+    throw new TeacherPortalApiError(
+      `GET ${url} trả về status ${result.status}`,
+      { status: result.status, url, body: result.body },
+    );
+  }
+  return result.body?.data ?? result.body;
+}
+
+/**
  * Gọi đúng 1 trang của GET /api/user/exams/room.json - KHÔNG tự lọc/diễn giải gì thêm, trả
  * nguyên response đã parse JSON (đúng shape đã xác nhận thật ở trên).
  * @param {{ period?: string, page?: number, limit?: number }} options

@@ -77,6 +77,19 @@ async function resolveCurrentAcademicYearId() {
   );
 }
 
+/**
+ * POST /api/learn/items {tag_ids:[tagId], unit_id} - trả nguyên mảng Exercise item[] của ĐÚNG 1
+ * Lesson (xác định bằng tagId, KHÔNG phải lesson.id - xem docblock đầu file). Export riêng (tách
+ * khỏi fetchEligibleAssignmentTree()) để dùng cho teacherMaterialsExamResolver.js - nơi cần tra
+ * catalog của ĐÚNG 1 Lesson đã biết trước (từ 1 Room cụ thể), không cần duyệt toàn bộ cây.
+ * @param {{ unitId: string, tagId: string }} params
+ * @returns {Promise<Array<{id: string, name: string, exam_ids: string[], question_count: number,
+ *   skills: string[], room_id: string}>>}
+ */
+export async function fetchLessonItems({ unitId, tagId }) {
+  return rawFetch("/api/learn/items", { method: "POST", body: { tag_ids: [tagId], unit_id: unitId } });
+}
+
 /** className hiển thị trên UI (vd "3B") -> class_id thật dùng cho query param. */
 export async function resolveClassId(className) {
   const academicYearId = await resolveCurrentAcademicYearId();

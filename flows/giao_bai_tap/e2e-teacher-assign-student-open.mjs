@@ -134,6 +134,11 @@ const ASSIGN_OTHER_GROUP_CLASS = process.env.ASSIGN_OTHER_GROUP_CLASS || undefin
 const ASSIGN_UNIT_NAME = process.env.ASSIGN_UNIT_NAME || undefined;
 const ASSIGN_LESSON_NAME = process.env.ASSIGN_LESSON_NAME || undefined;
 const ASSIGN_HOMEWORK_ITEM_NAME = process.env.ASSIGN_HOMEWORK_ITEM_NAME || undefined;
+// ASSIGN_HOMEWORK_ITEM_ID (MỚI 2026-08-17, xem teacherAssignmentDiscovery.js#resolveAndSelectAssignmentById):
+// id ổn định của catalog item - dùng khi caller ĐÃ BIẾT TRƯỚC Lesson mục tiêu có ≥2 item trùng
+// ASSIGN_HOMEWORK_ITEM_NAME (AmbiguousAssignmentNameError) - bỏ qua hẳn so khớp theo tên, chọn
+// CHẮC CHẮN đúng item. Không có default - để trống thì hành vi giữ nguyên như cũ (chọn theo tên).
+const ASSIGN_HOMEWORK_ITEM_ID = process.env.ASSIGN_HOMEWORK_ITEM_ID || undefined;
 const ASSIGN_HEADLESS = process.env.ASSIGN_HEADLESS !== "false";
 const ASSIGN_DEBUG_DUMP = process.env.ASSIGN_DEBUG_DUMP !== "false";
 
@@ -296,6 +301,7 @@ export async function assignHomeworkAndLocateOnApp() {
     unitName: ASSIGN_UNIT_NAME,
     lessonName: ASSIGN_LESSON_NAME,
     homeworkItemName: ASSIGN_HOMEWORK_ITEM_NAME,
+    homeworkItemId: ASSIGN_HOMEWORK_ITEM_ID,
     headless: ASSIGN_HEADLESS,
     debugDump: ASSIGN_DEBUG_DUMP,
   });

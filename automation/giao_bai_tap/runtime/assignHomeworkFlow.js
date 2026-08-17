@@ -7,6 +7,8 @@ import {
   resolveAndSelectUnit,
   resolveAndSelectLesson,
   resolveAndSelectAssignment,
+  resolveAndSelectAssignmentById,
+  AmbiguousAssignmentNameError,
 } from "../navigation/teacherAssignmentDiscovery.js";
 import {
   fetchEligibleAssignmentTree,
@@ -15,7 +17,7 @@ import {
   NoEligibleAssignmentError,
 } from "../navigation/teacherAssignmentApiDiscovery.js";
 
-export { NoEligibleAssignmentError };
+export { NoEligibleAssignmentError, AmbiguousAssignmentNameError };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = join(__dirname, "..", "..", "output", "screenshots");
@@ -70,7 +72,17 @@ const REQUIRED_PARAMS = ["primaryClass", "dueDate"];
  * @param {string} [params.lessonName] - giống unitName, không truyền -> random 1 Lesson thật của
  *   Unit đã chọn.
  * @param {string} [params.homeworkItemName] - giống unitName, không truyền -> random 1 assignment
- *   thật trong "Danh sách bài tập" của Lesson đã chọn.
+ *   thật trong "Danh sách bài tập" của Lesson đã chọn. CẢNH BÁO (2026-08-17, xem
+ *   navigation/teacherAssignmentDiscovery.js#listAssignmentCandidates): title KHÔNG unique - 1
+ *   Lesson có thể có ≥2 item cùng title nhưng khác nội dung/exam_id. Nếu Lesson mục tiêu CÓ THỂ có
+ *   duplicate title, dùng `homeworkItemId` (dưới) thay vì tên để chọn CHẮC CHẮN đúng item, tránh
+ *   AmbiguousAssignmentNameError.
+ * @param {string} [params.homeworkItemId] - MỚI (2026-08-17) - id ổn định của catalog item (khớp
+ *   `item.id` từ `POST /api/learn/items` VÀ id DOM `lesson-item-{id}` trên Web GV, xem
+ *   teacherAssignmentDiscovery.js#listAssignmentCandidates) - khi truyền, chọn assignment TRỰC
+ *   TIẾP bằng id này (resolveAndSelectAssignmentById), bỏ qua hoàn toàn việc so khớp theo title -
+ *   AN TOÀN TUYỆT ĐỐI kể cả khi Lesson có nhiều item cùng title. Ưu tiên dùng tham số này khi đã
+ *   biết trước id (vd từ 1 lượt discovery CMS read-only riêng) thay vì homeworkItemName.
  * @param {boolean} [params.headless=true]
  * @returns {Promise<{status:"PASS"|"FAIL", steps, error?, selection:{unitName,lessonName,homeworkItemName,questionCount}}>}
  *   selection luôn phản ánh Unit/Lesson/assignment THẬT đã dùng (dù được caller chỉ định sẵn hay
@@ -91,6 +103,7 @@ export async function assignHomeworkFlow(params) {
     unitName,
     lessonName,
     homeworkItemName,
+    homeworkItemId,
     headless = true,
   } = params;
 
@@ -224,6 +237,17 @@ export async function assignHomeworkFlow(params) {
     await step(
       "resolveAssignmentSelection",
       async () => {
+        if (homeworkItemId) {
+          // Đã biết id ổn định trước (vd từ 1 lượt discovery CMS read-only riêng) - bỏ qua hẳn
+          // việc so khớp theo title ở bước selectUnitLessonHomework (xem dưới), AN TOÀN kể cả khi
+          // Lesson có nhiều item cùng title. homeworkItemName (nếu có truyền kèm) chỉ dùng để log/
+          // debug, KHÔNG dùng để chọn.
+          selection.unitName = unitName;
+          selection.lessonName = lessonName;
+          selection.homeworkItemName = homeworkItemName ?? null;
+          selection.exerciseId = homeworkItemId;
+          return;
+        }
         if (homeworkItemName) {
           selection.unitName = unitName;
           selection.lessonName = lessonName;
@@ -267,7 +291,16 @@ export async function assignHomeworkFlow(params) {
         await resolveAndSelectLesson(page, selection.lessonName);
         await page.waitForTimeout(1000);
 
-        const picked = await resolveAndSelectAssignment(page, selection.homeworkItemName);
+        // selection.exerciseId đã có sẵn (pinned qua homeworkItemId HOẶC vừa random qua API ở
+        // bước trên, cả 2 nhánh đều set exerciseId) -> chọn bằng id ổn định, KHÔNG so khớp title
+        // (an toàn tuyệt đối với duplicate title). CHỈ khi selection.exerciseId null (case pinned
+        // CHỈ bằng homeworkItemName, không có id) mới rơi về so khớp theo title - nhánh đó giờ tự
+        // throw AmbiguousAssignmentNameError nếu phát hiện ≥2 item trùng title, không tự chọn đại.
+        const picked = selection.exerciseId
+          ? await resolveAndSelectAssignmentById(page, selection.exerciseId)
+          : await resolveAndSelectAssignment(page, selection.homeworkItemName);
+        selection.homeworkItemName = picked.homeworkItemName;
+        selection.exerciseId = picked.id ?? selection.exerciseId;
         // questionCount đã có từ API discovery (chính xác hơn, luôn có số) - chỉ dùng lại giá trị
         // đọc từ DOM khi selection đến từ case chỉ định sẵn (API discovery không chạy, questionCount
         // vẫn null từ lúc khởi tạo selection).

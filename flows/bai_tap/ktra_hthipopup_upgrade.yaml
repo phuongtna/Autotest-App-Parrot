@@ -1,3 +1,13 @@
+# !!! SUPERSEDED (2026-08-17) !!! - dùng flows/bai_tap/hw21-22-upgrade-sheets.mjs thay cho file này.
+# LÝ DO: 2 bước `scrollUntilVisible` bên dưới target THẲNG vào text CTA ("Chinh phục"/"Làm lại") -
+# ĐÚNG pattern đã bị xác nhận lỗi thật trong repo này (xem
+# flows/giao_bai_tap/e2e-teacher-assign-partial-resume-scored.mjs, comment scrollToCard(): 1 lượt
+# scrollUntilVisible target "Làm bài" khiến app tự CHUYỂN THẲNG vào màn làm bài dù không có tapOn
+# nào) - rủi ro thật, không phải giả thuyết. Filter "1 tháng gần nhất" thêm vào bản vá trước đó cũng
+# SAI (đo thật qua API: MONTH=142 room/47 title/23 nhóm trùng > WEEK=45/22/6 - không hề rút ngắn).
+# Giữ file .yaml này lại để đối chiếu/rollback, KHÔNG chạy nó cho tới khi 2 vấn đề trên được sửa lại
+# ở đây (xem docblock đầu file .mjs để biết chiến lược an toàn thay thế).
+#
 # HW-21_22 — FREE + 403: sheet nâng cấp bài NÂNG CAO, rồi sheet nâng cấp LÀM LẠI
 # Gộp từ HW-21 (bấm "Chinh phục" ở bài nâng cao -> sheet "thực hành nâng cao") và HW-22 (bấm
 # "Làm lại" ở bài đã hoàn thành -> sheet "học không giới hạn"). File HW-22 gốc đã tự
@@ -9,6 +19,18 @@
 # (chỉ restart tiến trình app, GIỮ session - không cần OTP lại) thay vì đoán gesture/selector
 # đóng riêng cho bottom sheet đó (không có bằng chứng nào trong YAML gốc về cách đóng sheet
 # này). Vẫn tiết kiệm được bước OTP/login so với 2 file tách rời.
+# Danh sách "Bài tập" của lớp 3B rất sâu (60+ Room, xem ghi chú trong
+# HW-PROFILE-BASIC-PRO-ADVANCED.yaml) - timeout 25000ms không đủ để cuộn tới section
+# "Bài tập nâng cao" (xác nhận thật 2026-08-17: FAIL "No visible element found" dù card
+# tồn tại). Thử tăng timeout lên 300000ms (5 phút) vẫn KHÔNG đủ (xác nhận thật cùng ngày:
+# sau 5m51s cuộn mới tới khoảng G3-U18-Lesson 2, còn thiếu 1 đoạn ngắn mới tới bài nâng cao
+# Unit 18 Lesson 3) - danh sách đã dài thêm ra so với lúc viết ghi chú kia (2026-08-13).
+# ĐỔI CHIẾN LƯỢC theo đúng pattern đã đo thật trong flows/helpers/locate-assignment-card.yaml:
+# lọc "1 tháng gần nhất" trước khi cuộn (rút ngắn danh sách đáng kể) + speed:70 cho
+# scrollUntilVisible (speed mặc định 40 dễ bị bộ phát hiện "cuộn không tiến triển" đánh lừa bởi
+# nội dung trùng lặp liên tiếp trong danh sách, dừng cuộn sớm dù card thật vẫn còn ở dưới).
+# Áp dụng lại filter sau MỖI lần launch-fresh vì restart tiến trình có thể reset filter về mặc
+# định "2 tuần gần nhất".
 # Tags: pro-only, negative, extended
 appId: ${APP_ID}
 tags:
@@ -24,18 +46,28 @@ name: HW-21_22 Free account - sheet nang cap (bai nang cao vs lam lai)
       PHONE: ${PHONE}
       OTP: ${OTP}
 - runFlow: ../helpers/open-tab-homework.yaml
+- tapOn:
+    text: ".*gần nhất.*"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+- runFlow: ../helpers/homework-select-month-filter.yaml
 
 # --- HW-21: FREE + bài NÂNG CAO -> 403 -> sheet "thực hành nâng cao" ---
 - scrollUntilVisible:
     element:
       text: ".*(Bài tập nâng cao).*"
     direction: DOWN
-    timeout: 25000
+    timeout: 90000
+    speed: 70
+    waitToSettleTimeoutMs: 500
 - scrollUntilVisible:
     element:
       text: ".*(Chinh phục).*"
     direction: DOWN
     timeout: 20000
+    speed: 70
+    waitToSettleTimeoutMs: 500
 - tapOn:
     text: ".*(Chinh phục).*"
     index: 0
@@ -54,13 +86,21 @@ name: HW-21_22 Free account - sheet nang cap (bai nang cao vs lam lai)
 # Đóng sheet bằng cách restart tiến trình app (giữ session), không đoán gesture đóng sheet
 - runFlow: ../helpers/launch-fresh.yaml
 - runFlow: ../helpers/open-tab-homework.yaml
+- tapOn:
+    text: ".*gần nhất.*"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+- runFlow: ../helpers/homework-select-month-filter.yaml
 
 # --- HW-22: FREE + LÀM LẠI bài đã hoàn thành -> 403 -> sheet "học không giới hạn" ---
 - scrollUntilVisible:
     element:
       text: ".*(Làm lại).*"
     direction: DOWN
-    timeout: 25000
+    timeout: 60000
+    speed: 70
+    waitToSettleTimeoutMs: 500
 - tapOn:
     text: ".*(Làm lại).*"
     index: 0

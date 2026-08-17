@@ -87,6 +87,52 @@ export async function resolveExamIdFromTeacherMaterials({ unitId, tagId, lessonI
 }
 
 /**
+ * Biến thể theo ROOM ID TRỰC TIẾP của `resolveHomeworkExamQuestionsFromTeacherMaterials()` bên
+ * dưới - dùng khi ĐÃ BIẾT CHẮC `room.id` thật (vd từ diff before/after lúc Giao bài qua Web GV) và
+ * KHÔNG muốn dò lại theo title (`getHomeworks().filter(h => h.title === title)` có thể trả về
+ * NHIỀU room trùng title - đã gặp THẬT 2026-08-17, lớp 3B có tới 5 room cùng title "Choose the
+ * correct answer." tích tụ từ các lần chạy test trước, `matches[0]` có thể chọn NHẦM 1 room CŨ
+ * thay vì room vừa tạo). `fetchRoomDetails(roomId)` đã có sẵn ĐỦ CẢ 3 field cần
+ * (`tag_id`/`unit_id`/`lesson_item_id`) - KHÔNG cần gọi `getHomeworks()` để tra `room.unit.id`/
+ * `room.lessonItem.id` như bản title-based bên dưới.
+ * @param {string} roomId
+ * @returns {Promise<
+ *     { status: "RESOLVED", examId: string, examName: string, questions: import("../../model/questionModel.js").QuestionModel[], roomDetails: Object, catalogItem: Object }
+ *   | { status: "ROOM_NOT_FOUND", reason: string }
+ *   | { status: "ITEM_NOT_FOUND"|"NO_EXAM_ID"|"AMBIGUOUS_EXAM_ID", reason: string, roomDetails: Object }
+ *   | { status: "SESSION_ERROR", reason: string, examId: string, roomDetails: Object }
+ * >}
+ */
+export async function resolveHomeworkExamQuestionsForRoomId(roomId) {
+  const roomDetails = await fetchRoomDetails(roomId);
+  if (!roomDetails?.room) {
+    return { status: "ROOM_NOT_FOUND", reason: `fetchRoomDetails("${roomId}") không trả về room hợp lệ.` };
+  }
+  const { tag_id: tagId, unit_id: unitId, lesson_item_id: lessonItemId } = roomDetails;
+
+  const resolved = await resolveExamIdFromTeacherMaterials({ unitId, tagId, lessonItemId });
+  if (resolved.status !== "RESOLVED") {
+    return { ...resolved, roomDetails };
+  }
+
+  let examData;
+  try {
+    examData = await parseQuestionsFromExamPage(resolved.examId);
+  } catch (err) {
+    return { status: "SESSION_ERROR", reason: err.message, examId: resolved.examId, roomDetails };
+  }
+
+  return {
+    status: "RESOLVED",
+    examId: resolved.examId,
+    examName: examData.examName,
+    questions: normalizeQuestions(examData),
+    roomDetails,
+    catalogItem: resolved.item,
+  };
+}
+
+/**
  * Bản thay thế của homeworkExamResolver.js#resolveHomeworkExamQuestions() - CÙNG chữ ký/shape trả
  * về (drop-in) nhưng dùng examId catalog Teacher Materials thay vì attempts[].examId, nên hoạt
  * động được kể cả khi Room CHƯA có học sinh nào làm.

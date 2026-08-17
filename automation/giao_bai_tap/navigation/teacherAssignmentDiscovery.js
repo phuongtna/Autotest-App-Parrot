@@ -59,15 +59,30 @@ export async function resolveAndSelectUnit(page, unitName) {
   return chosen;
 }
 
-/** Lesson là các <button> phẳng (KHÔNG phải dropdown) - COPY NGUYÊN query đã verify thật trong
- * dataDiscovery.mjs, không invent selector khác. */
+/** Lesson là các <button> phẳng (KHÔNG phải dropdown) - dùng cho CẢ Unit thường ("Lesson 1",
+ * "Lesson 2"...) VÀ Unit dạng Review (nhóm nút category "Vocabulary"/"Sentence patterns"/"Other" -
+ * KHÔNG khớp pattern "Lesson N").
+ *
+ * SỬA (2026-08-17, xác nhận thật qua random E2E FAIL thật: random chọn "Review 3" -> lỗi "Không
+ * tìm thấy Lesson nào trên Web GV"): bản cũ lọc <button> toàn trang bằng regex `/^Lesson\s+\d+/i`
+ * - giả định SAI rằng MỌI Unit đều đặt tên Lesson theo dạng "Lesson N". Đã xác nhận thật qua
+ * Playwright DOM dump (headless, Unit "Review 3" VS Unit 1: Hello): CẢ 2 dạng Unit đều render
+ * đúng CÙNG cấu trúc DOM - field "Chọn Lesson" là 1 <div class="group/field ..."> chứa label
+ * text="Chọn Lesson" + 1 nhóm <button class="...rounded-xl border..."> con (Unit thường:
+ * "Lesson 1"/"Lesson 2"/"Lesson 3"; Unit Review: "Vocabulary"/"Sentence patterns"/"Other") - CHỈ
+ * KHÁC ở TÊN nút, không khác cấu trúc. SỬA: định vị field container qua chính label "Chọn Lesson"
+ * (ổn định, không phụ thuộc nội dung tên Lesson) rồi lấy TẤT CẢ <button> con của field đó -
+ * KHÔNG còn giả định format tên. */
 export async function listLessonCandidates(page) {
   return page.evaluate(() => {
-    const nodes = Array.from(document.querySelectorAll("button")).filter((b) => {
-      const t = (b.innerText || "").trim();
-      return /^Lesson\s+\d+/i.test(t);
-    });
-    return nodes.map((n) => n.innerText.trim());
+    const label = Array.from(document.querySelectorAll("*")).find(
+      (el) => el.children.length === 0 && el.textContent.trim() === "Chọn Lesson",
+    );
+    if (!label) return [];
+    const fieldContainer = label.closest(".group\\/field") ?? label.parentElement;
+    return Array.from(fieldContainer.querySelectorAll("button"))
+      .map((n) => n.innerText.trim())
+      .filter(Boolean);
   });
 }
 
@@ -96,10 +111,24 @@ export async function resolveAndSelectLesson(page, lessonName) {
   return resolvedLessonName;
 }
 
-/** Danh sách assignment thật của Lesson đang chọn: {title, questionCount}[], theo ĐÚNG thứ tự
- * DOM (dùng làm index tham chiếu cho clickAssignmentAtIndex). COPY NGUYÊN heuristic "Xem chi
- * tiết" + "N câu hỏi" đã verify thật trong dataDiscovery.mjs, CHỈ THÊM trích xuất questionCount
- * (dataDiscovery.mjs trước đây bỏ dòng "N câu hỏi" đi, ở đây giữ lại để phục vụ report metadata). */
+/** Danh sách assignment thật của Lesson đang chọn: {title, questionCount, id}[], theo ĐÚNG thứ tự
+ * DOM (dùng làm index tham chiếu cho clickAssignmentAtIndex, giữ tương thích ngược). COPY NGUYÊN
+ * heuristic "Xem chi tiết" + "N câu hỏi" đã verify thật trong dataDiscovery.mjs, CHỈ THÊM trích
+ * xuất questionCount + id (dataDiscovery.mjs trước đây bỏ dòng "N câu hỏi" đi, ở đây giữ lại để
+ * phục vụ report metadata).
+ *
+ * `id` (MỚI, 2026-08-17): xác nhận THẬT qua audit DOM trực tiếp (Playwright, headless, Unit 1:
+ * Hello/Lesson 1 - fixture có ĐÚNG 2 item cùng title "Choose the correct answer." khác nội dung) -
+ * mỗi item có 1 <button role="checkbox"> với id DOM dạng CỐ ĐỊNH `lesson-item-{catalogItemId}`,
+ * catalogItemId đó KHỚP 100% với `item.id` trả về từ `POST /api/learn/items` (đã đối chiếu trực
+ * tiếp: node "Choose the correct answer." đầu tiên trong DOM có
+ * id="lesson-item-d8c84564-9d6f-4f1a-badd-892d2d82f1cd", CHÍNH XÁC bằng `item.id` của phần tử đầu
+ * trong response API cho cùng Lesson). Đây là STABLE IDENTITY thật giữa CMS catalog <-> DOM Web GV
+ * - trước đây KHÔNG được capture, khiến `resolveAndSelectAssignment(page, name)` phải dùng
+ * `findIndex` theo title (SAI khi ≥2 item trùng title, luôn chọn NHẦM/không xác định được item đầu
+ * tiên có phải đúng ý định hay không - xem lỗi thật đã audit 2026-08-17, root cause của case "2 bài
+ * cùng title khác nội dung"). Từ nay ưu tiên chọn qua `id` (xem resolveAndSelectAssignmentById),
+ * KHÔNG còn phụ thuộc thứ tự DOM/title để xác định đúng item nữa. */
 export async function listAssignmentCandidates(page) {
   return page.evaluate(() => {
     const xemChiTietEls = Array.from(document.querySelectorAll("*")).filter(
@@ -124,7 +153,9 @@ export async function listAssignmentCandidates(page) {
           if (titleLine) {
             const qLine = lines.find((l) => /câu hỏi/i.test(l));
             const m = qLine ? /(\d+)\s*câu hỏi/i.exec(qLine) : null;
-            results.push({ title: titleLine, questionCount: m ? Number(m[1]) : null });
+            const checkboxEl = node.querySelector('button[role="checkbox"][id^="lesson-item-"]');
+            const id = checkboxEl ? checkboxEl.id.replace(/^lesson-item-/, "") : null;
+            results.push({ title: titleLine, questionCount: m ? Number(m[1]) : null, id });
             break;
           }
         }
@@ -133,6 +164,40 @@ export async function listAssignmentCandidates(page) {
     }
     return results;
   });
+}
+
+/** Bấm ĐÚNG 1 item bằng stable id (KHÔNG phụ thuộc title/thứ tự DOM) - xem docblock
+ * listAssignmentCandidates. Throw nếu không tìm thấy ĐÚNG 1 phần tử khớp id (0 hoặc >1 đều là lỗi
+ * thật cần biết, không đoán). */
+export async function clickAssignmentById(page, itemId) {
+  const locator = page.locator(`#lesson-item-${itemId}`);
+  const count = await locator.count();
+  if (count === 0) {
+    throw new Error(`clickAssignmentById: không tìm thấy item nào với id="${itemId}" trong Lesson đang chọn.`);
+  }
+  if (count > 1) {
+    throw new Error(`clickAssignmentById: id="${itemId}" khớp ${count} phần tử (không unique) - dừng lại, không đoán.`);
+  }
+  await locator.click();
+}
+
+export class AmbiguousAssignmentNameError extends Error {}
+
+/** Chọn 1 assignment bằng id ổn định đã biết trước (caller đã resolve id qua CMS/API - vd
+ * teacherAssignmentApiDiscovery.js#fetchEligibleAssignmentTree hoặc 1 lượt discovery read-only
+ * riêng) - ĐƯỜNG AN TOÀN NHẤT khi ≥2 item cùng title (không cần phân biệt bằng title/index nữa).
+ * @returns {Promise<{homeworkItemName: string, questionCount: number|null, id: string}>}
+ */
+export async function resolveAndSelectAssignmentById(page, itemId) {
+  const availableItems = await listAssignmentCandidates(page);
+  const item = availableItems.find((it) => it.id === itemId);
+  if (!item) {
+    throw new Error(
+      `resolveAndSelectAssignmentById: không tìm thấy item id="${itemId}" trong "Danh sách bài tập" đang hiển thị - BLOCKED, không đoán/không bấm nhầm item khác.`,
+    );
+  }
+  await clickAssignmentById(page, itemId);
+  return { homeworkItemName: item.title, questionCount: item.questionCount, id: item.id };
 }
 
 /** Click ĐÚNG item tại index (thứ tự DOM giống hệt listAssignmentCandidates) bằng cách chạy lại
@@ -212,35 +277,36 @@ export async function resolveAndSelectAssignment(page, homeworkItemName) {
       );
     }
     const picked = withRealExam[Math.floor(Math.random() * withRealExam.length)];
-    await clickAssignmentAtIndex(page, picked.index);
-    return { homeworkItemName: picked.title, questionCount: picked.questionCount };
+    await clickAssignmentById(page, picked.id);
+    return { homeworkItemName: picked.title, questionCount: picked.questionCount, id: picked.id };
   }
 
-  // ĐÃ SỬA (2026-08-12): trước đây bấm bằng page.getByText(homeworkItemName).first() - SAI khi
-  // ≥2 item trùng title thật (đã xác nhận thật qua discovery API: 1 Lesson có thể có nhiều item
-  // tên khác nhau nhưng KHÔNG loại trừ khả năng trùng - cùng rủi ro đã ghi nhận cho
-  // clickAssignmentAtIndex ở trên). Tìm ĐÚNG index khớp title trong danh sách đọc theo cùng thứ
-  // tự DOM rồi bấm theo index - AN TOÀN kể cả khi title trùng nhau, KHÔNG bao giờ dùng index cố
-  // định (0) - index ở đây LUÔN suy ra từ chính title cần chọn.
-  //
-  // ĐÃ GẶP THẬT (2026-08-12, "Review 4"/"Vocabulary"): tên item từ API discovery
-  // (teacherAssignmentApiDiscovery.js, field item.name) có thể chứa 2 dấu cách liên tiếp do lỗi
-  // gõ trong CMS (vd "...Vocabulary -  Match the word..."), trong khi browser LUÔN collapse nhiều
-  // khoảng trắng liên tiếp thành 1 khi render text - node.innerText đọc được ở đây vì vậy luôn có
-  // đúng 1 khoảng trắng. So khớp CHÍNH XÁC (===) giữa 2 nguồn này sẽ luôn FAIL dù là CÙNG 1 item
-  // thật (không phải khác nội dung, chỉ khác cách hiển thị khoảng trắng) - chuẩn hoá khoảng trắng
-  // (collapse + trim) cho CẢ 2 vế trước khi so sánh. Đây KHÔNG phải nới lỏng matcher theo nghĩa
-  // rủi ro (không làm tăng khả năng khớp NHẦM sang item khác - 2 item khác nhau thật vẫn khác
-  // nhau sau khi chuẩn hoá khoảng trắng), chỉ bỏ qua sai khác thuần hiển thị do chính trình duyệt
-  // tạo ra, ngoài tầm kiểm soát của dữ liệu/DOM.
-  const matchIndex = availableItems.findIndex(
+  // ĐÃ SỬA LẦN 2 (2026-08-17, root cause thật xác nhận qua audit DOM trực tiếp - xem
+  // docblock listAssignmentCandidates): bản 2026-08-12 dùng `findIndex` theo title - CHỈ đúng khi
+  // title unique. ĐÃ XÁC NHẬN THẬT title KHÔNG unique (Unit 1: Hello/Lesson 1 có ĐÚNG 2 item cùng
+  // title "Choose the correct answer.", khác hẳn nội dung/exam_id/correctAnswer - xem
+  // automation/bai_tap/discovery/teacherMaterialsExamResolver.js). `findIndex` khi đó LUÔN chọn
+  // item ĐẦU TIÊN theo thứ tự DOM một cách ÂM THẦM, không có cách nào biết đó có phải đúng ý định
+  // của caller hay không - RỦI RO THẬT, không phải giả thuyết. SỬA: đếm TẤT CẢ candidate khớp title
+  // (chuẩn hoá khoảng trắng, giữ nguyên lý do chuẩn hoá cũ) - nếu ĐÚNG 1, bấm qua id (ổn định, xem
+  // resolveAndSelectAssignmentById); nếu ≥2, throw AmbiguousAssignmentNameError kèm đủ id của từng
+  // candidate - KHÔNG tự chọn đại, caller (assignHomeworkFlow.js) phải tự quyết định (vd yêu cầu
+  // truyền thẳng homeworkItemId thay vì tên khi biết trước sẽ đụng Lesson có duplicate).
+  const matches = availableItems.filter(
     (it) => normalizeWhitespace(it.title) === normalizeWhitespace(homeworkItemName),
   );
-  if (matchIndex === -1) {
+  if (matches.length === 0) {
     throw new Error(
       `Không tìm thấy assignment "${homeworkItemName}" trong "Danh sách bài tập" đang hiển thị của Lesson này - BLOCKED, không đoán/không bấm nhầm item khác.`,
     );
   }
-  await clickAssignmentAtIndex(page, matchIndex);
-  return { homeworkItemName, questionCount: availableItems[matchIndex].questionCount };
+  if (matches.length > 1) {
+    throw new AmbiguousAssignmentNameError(
+      `AMBIGUOUS_ASSIGNMENT_NAME: ${matches.length} item cùng title "${homeworkItemName}" trong Lesson này ` +
+        `(id: ${matches.map((m) => m.id).join(", ")}) - không thể xác định đúng ý định chỉ bằng title, ` +
+        `không đoán. Truyền homeworkItemId (1 trong các id trên) để chọn chính xác.`,
+    );
+  }
+  await clickAssignmentById(page, matches[0].id);
+  return { homeworkItemName, questionCount: matches[0].questionCount, id: matches[0].id };
 }

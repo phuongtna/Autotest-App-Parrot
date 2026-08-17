@@ -1,0 +1,86 @@
+{
+  "id": "TC-ADD-FULL",
+  "title": "Thêm mới lớp học thành công (luồng đầy đủ, happy path)",
+  "feature": "Quản lý lớp học > Thêm mới lớp học",
+  "source_markdown": "flows/teacher/testcases/quan-ly-lop-hoc-them-lop.md",
+  "source_requirement": "Tài liệu yêu cầu mục 3. Quản lý lớp học > 3.1. CRUD lớp học, acceptance criteria 3.1.4",
+  "environment": "Web GV (https://parrotedu.vn/teacher/class) - test thủ công, repo không có automation Playwright/Maestro cho web",
+  "status": "ĐÃ XÁC NHẬN THẬT",
+  "verified_at": "2026-08-17",
+  "verified_by_account": {
+    "role": "Giáo viên",
+    "display_name": "Phương",
+    "phone": "0912312312",
+    "note": "trùng TEACHER_USERNAME/TEACHER_PASSWORD trong .env, không phải tài khoản GV thật ngoài dự án"
+  },
+  "precondition": [
+    "Có tài khoản GV đã được cấp quyền, đăng nhập được vào web GV tại https://parrotedu.vn (form đăng nhập số điện thoại + mật khẩu).",
+    "Đang đứng ở menu \"Lớp phụ trách\" (/teacher/class)."
+  ],
+  "steps": [
+    "Bấm nút \"+ Thêm lớp học\" ở góc trên phải màn \"Lớp phụ trách\".",
+    "Ở popup \"Thêm mới lớp học\": chọn 1 giá trị bất kỳ ở dropdown \"Khối học\".",
+    "Nhập tên lớp (freetext) vào ô \"Tên lớp\", ví dụ \"7A\".",
+    "Giữ nguyên hoặc chọn 1 giá trị ở dropdown \"Năm học\".",
+    "Bấm nút \"Lưu\"."
+  ],
+  "expected_output": [
+    "Popup đóng ngay sau khi bấm \"Lưu\" thành công, quay lại màn \"Lớp phụ trách\".",
+    "Tiêu đề \"Danh sách lớp học (n)\" tăng thêm đúng 1 so với trước khi thêm.",
+    "Lớp mới xuất hiện đúng trong danh sách với đúng tên/Khối đã chọn, Năm học đã chọn (nếu bộ lọc năm học đang xem trùng năm học vừa chọn), Sĩ số: 0, Học sinh Pro: 0, không có nút \"Xem yêu cầu\".",
+    "Các lớp đã có từ trước không bị thay đổi thông tin."
+  ],
+  "evidence": {
+    "test_data_used": {
+      "khoi": "Khối 7",
+      "ten_lop": "7QA-Test",
+      "nam_hoc": "2025-2026"
+    },
+    "state_before": {
+      "danh_sach_lop_hoc_count": 1,
+      "classes": [
+        {
+          "name": "3B",
+          "nam_hoc": "2025-2026",
+          "si_so": 6,
+          "hoc_sinh_pro": 0
+        }
+      ]
+    },
+    "api_request": {
+      "method": "POST",
+      "url": "https://parrotedu.vn/api/classes",
+      "http_status": 201
+    },
+    "api_response_body": {
+      "status": true,
+      "message": "Tạo lớp thành công",
+      "data": {
+        "id": "da3efdea-e0ea-4627-b119-a11c329d3d4e",
+        "name": "7QA-Test",
+        "school_id": "5dadbd5d-7d54-4faa-95b7-7f1aec60cdeb",
+        "grade_id": "aa9b85d2-b6eb-11f0-95e3-366756151bd8",
+        "academic_year_id": "db2c61ad-5e49-4f78-872f-b0adda0d8441",
+        "teacher_id": "a7436d6f-4e2d-41ba-8d4a-e7ce8155a412",
+        "status": "active",
+        "student_count": 0
+      }
+    },
+    "state_after": {
+      "danh_sach_lop_hoc_count": 2,
+      "new_class_card": {
+        "name": "7QA-Test",
+        "si_so": 0,
+        "hoc_sinh_pro": 0,
+        "xem_yeu_cau_button_shown": false
+      },
+      "unchanged_classes": [
+        "3B"
+      ]
+    }
+  },
+  "notes": [
+    "Dropdown \"Khối\" hiển thị đủ 12 khối (Khối 1 -> Khối 12), không thấy giới hạn theo cấp học của trường như AC1 mô tả - CHƯA kết luận là lỗi, cần đối chiếu dữ liệu trường/cấp học thật của GV \"Phương\" trước khi báo lỗi cho dev.",
+    "Lớp test \"7QA-Test\" (id da3efdea-e0ea-4627-b119-a11c329d3d4e) vẫn còn tồn tại thật trong tài khoản GV \"Phương\" - được GIỮ LẠI theo yêu cầu người dùng để tái sử dụng làm dữ liệu cho test case Sửa/Xóa lớp học."
+  ]
+}

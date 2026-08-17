@@ -64,6 +64,28 @@ function collectTexts(node, acc = []) {
   return acc;
 }
 
+/** BUG ĐÃ AUDIT + FIX (2026-08-17, xem memory/root-cause report cùng ngày, đo thật trên thiết bị
+ * 3201d866d40a1681: 1 lượt `maestro hierarchy` tốn ~53-59s - KHÔNG rẻ như comment cũ của
+ * `MaestroBridge.isVisible()` giả định, CÙNG bậc chi phí với 1 lượt `maestro test`): trước đây
+ * `answerCurrentQuestionOneShot()` truyền `isVisible = (t) => this.bridge.isVisible(t)` cho
+ * `decideAnswerAction()` - hàm đó gọi `isVisible` cho TỪNG answer (`Array.filter` không
+ * short-circuit, tối đa 4 lượt/câu) + `isResultScreen()` gọi thêm 2 lượt nữa - mỗi lượt
+ * `bridge.isVisible()` tự spawn 1 tiến trình `maestro hierarchy` MỚI, bỏ qua hẳn `tree` đã có sẵn
+ * trong cùng lượt gọi. Đo được TỔNG 8 lượt hierarchy + 1 lượt `maestro test` (runSteps) cho MỖI
+ * câu không phải câu cuối - ~9-10 phút/câu, khớp đúng hiện tượng "run quá lâu" đã báo (2 câu hết
+ * ~35 phút kể cả phase giao bài).
+ *
+ * SỬA: tra cứu trực tiếp trên mảng text ĐÃ CÓ SẴN trong bộ nhớ (từ CHÍNH `tree` đã fetch ở đầu
+ * hàm) - hàm này CHỈ đọc dữ liệu đã có, không gọi ADB/Maestro. KHÔNG đổi `decideAnswerAction()`
+ * (thuật toán quyết định đáp án, đã verify, ngoài phạm vi sửa) - CHỈ đổi cách `isVisible` được
+ * cung cấp cho nó. CÙNG kỹ thuật đã verify trước đó trong flows/giao_bai_tap/
+ * e2e-teacher-assign-partial-resume-scored.mjs#isVisibleInTree() (bản đó tự có bản sao riêng cho
+ * lượt TÌM câu - bản NÀY vá cho lượt TRẢ LỜI câu, nơi bug thật sự còn tồn tại). */
+function isVisibleInTree(texts, textPattern) {
+  const pattern = new RegExp(`^${textPattern}$`);
+  return texts.some((t) => pattern.test(t));
+}
+
 function flattenNodes(node, acc) {
   acc.push(node);
   for (const child of node?.children ?? []) flattenNodes(child, acc);
@@ -202,7 +224,16 @@ export class HomeworkExamEngine {
     }
   }
 
-  isResultScreen() {
+  /** @param {Object} [tree] - nếu đã có sẵn `bridge.hierarchy()` từ lượt gọi trước đó (SAME state,
+   * chưa thao tác gì thêm), truyền vào để tránh spawn thêm 1 lượt `maestro hierarchy` mới (xem
+   * bug/fix 2026-08-17 ở đầu file) - không truyền thì giữ nguyên hành vi cũ (tự đọc state live qua
+   * `bridge.isVisible()`), dùng cho caller ngoài (vd flow .mjs gọi `exam.isResultScreen()` sau khi
+   * đã hoàn thành TOÀN BỘ câu, không có tree nào đang cầm sẵn). */
+  isResultScreen(tree) {
+    if (tree) {
+      const texts = collectTexts(tree);
+      return texts.some((t) => t.startsWith(RESULT_SCORE_LABEL)) || texts.some((t) => t.startsWith(RESULT_CORRECT_LABEL));
+    }
     return this.bridge.isVisible(`${RESULT_SCORE_LABEL}.*`) || this.bridge.isVisible(`${RESULT_CORRECT_LABEL}.*`);
   }
 
@@ -310,18 +341,29 @@ export class HomeworkExamEngine {
    * không tìm thấy phần tử).
    *
    * @param {import("../../model/questionModel.js").QuestionModel | null} questionModel
-   * @param {{ wantCorrect?: boolean, resultLabel?: string|null }} [options] - `resultLabel`: nếu
-   *   đây là câu CUỐI (biết trước qua tổng số câu đã resolve), truyền tên screenshot màn Kết thúc
-   *   để GỘP LUÔN vào lượt `runSteps()` này - tránh phải tốn thêm 1 lượt `maestro test` riêng chỉ
-   *   để chụp màn Kết thúc ở phase RESULT.
+   * @param {{ wantCorrect?: boolean, resultLabel?: string|null, snapshot?: {tree: Object, texts: string[]}|null }} [options] -
+   *   `resultLabel`: nếu đây là câu CUỐI (biết trước qua tổng số câu đã resolve), truyền tên
+   *   screenshot màn Kết thúc để GỘP LUÔN vào lượt `runSteps()` này - tránh phải tốn thêm 1 lượt
+   *   `maestro test` riêng chỉ để chụp màn Kết thúc ở phase RESULT. `snapshot` (MỚI, 2026-08-17,
+   *   audit performance lần 2): nếu caller ĐÃ CÓ SẴN `{tree, texts}` từ 1 lượt `bridge.hierarchy()`
+   *   TRƯỚC ĐÓ mà CHỨNG MINH ĐƯỢC state chưa đổi (KHÔNG có tap/thao tác thiết bị nào xảy ra giữa
+   *   lúc fetch snapshot đó và lúc gọi hàm này - vd `findMatchingQuestion()` gọi ngay trước, cùng
+   *   luồng đồng bộ, không await xen giữa), truyền vào để hàm này BỎ QUA việc tự fetch 1 lượt
+   *   `maestro hierarchy` MỚI (tiết kiệm 1 lượt/câu). KHÔNG truyền (mặc định null) thì giữ NGUYÊN
+   *   hành vi cũ (tự fetch state live) - AN TOÀN TUYỆT ĐỐI, dùng khi không chắc chắn state chưa đổi.
    * @returns {Promise<
-   *     { supported: true, type: "TEXT_CHOICE"|"IMAGE_CHOICE_GRID", isTargetCorrect: boolean|null }
-   *   | { supported: false, reason: string, texts: string[] }>}
+   *     { supported: true, type: "TEXT_CHOICE"|"IMAGE_CHOICE_GRID", isTargetCorrect: boolean|null, finalTree: Object }
+   *   | { supported: false, reason: string, texts: string[] }>} `finalTree` - tree đọc NGAY SAU khi
+   *   tap (dùng để confirm chuyển câu/màn Kết thúc) - trả kèm để caller (vd bước RESULT cuối exam)
+   *   tái sử dụng cho `isResultScreen(tree)`/`readResult(tree)`, tránh fetch lại hierarchy cho ĐÚNG
+   *   cùng 1 trạng thái màn hình vừa đọc xong ở đây.
    */
-  async answerCurrentQuestionOneShot(questionModel = null, { wantCorrect = true, resultLabel = null } = {}) {
-    const tree = this.bridge.hierarchy();
-    const textsBefore = collectTexts(tree);
-    const isVisible = (t) => this.bridge.isVisible(t);
+  async answerCurrentQuestionOneShot(questionModel = null, { wantCorrect = true, resultLabel = null, snapshot = null } = {}) {
+    const tree = snapshot?.tree ?? this.bridge.hierarchy();
+    const textsBefore = snapshot?.texts ?? collectTexts(tree);
+    // isVisible tra cứu trong `textsBefore` ĐÃ CÓ SẴN (KHÔNG spawn `maestro hierarchy` mới cho mỗi
+    // answer - xem bug/fix 2026-08-17 ở đầu file, hàm isVisibleInTree()).
+    const isVisible = (t) => isVisibleInTree(textsBefore, t);
 
     const action = decideAnswerAction(tree, isVisible, questionModel, wantCorrect);
     if (!action) {
@@ -352,24 +394,32 @@ export class HomeworkExamEngine {
     }
 
     // Xác nhận ĐÃ chuyển sang câu tiếp theo (hoặc màn Kết thúc) - CÙNG cách so khớp text
-    // trước/sau như bản gốc, đọc qua `bridge.hierarchy()` (KHÔNG spawn thêm `maestro test`).
-    if (!this.isResultScreen()) {
-      const textsAfter = collectTexts(this.bridge.hierarchy());
+    // trước/sau như bản gốc. State ĐÃ đổi thật (vừa tap) nên 1 lượt hierarchy MỚI ở đây là cần
+    // thiết (không thể tái dùng textsBefore) - NHƯNG chỉ ĐÚNG 1 lượt cho CẢ isResultScreen() lẫn
+    // so sánh textsAfter (bản cũ gọi RIÊNG isResultScreen() - 2 lượt isVisible/hierarchy - RỒI MỚI
+    // gọi thêm bridge.hierarchy() lần nữa cho textsAfter nếu chưa xong - tổng 3 lượt lãng phí cho
+    // đúng 1 lần "xác nhận state mới", xem bug/fix 2026-08-17 ở đầu file).
+    const treeAfter = await this.bridge.hierarchy();
+    const textsAfter = collectTexts(treeAfter);
+    if (!this.isResultScreen(treeAfter)) {
       if (JSON.stringify(textsAfter) === JSON.stringify(textsBefore)) {
         throw new Error("Không chuyển được câu tiếp theo - màn hình không đổi sau khi bấm CTA.");
       }
     }
 
-    return { supported: true, type: action.type, isTargetCorrect: action.isTargetCorrect };
+    return { supported: true, type: action.type, isTargetCorrect: action.isTargetCorrect, finalTree: treeAfter };
   }
 
   /**
    * Đọc điểm/kết quả thật trên màn Kết thúc - KHÔNG suy đoán vị trí cụ thể, chỉ lấy dòng text ĐI
    * NGAY SAU nhãn ("ĐIỂM SỐ" -> giá trị điểm, "CHÍNH XÁC" -> "X/Y").
+   * @param {Object} [tree] - nếu đã có sẵn `bridge.hierarchy()` từ lượt gọi trước đó (SAME state,
+   *   vd `finalTree` trả về từ `answerCurrentQuestionOneShot()` của câu cuối) truyền vào để tránh
+   *   spawn thêm 1 lượt `maestro hierarchy` mới - không truyền thì tự đọc state live như cũ.
    * @returns {{ score: string|null, correct: string|null, correctCount: number|null, totalCount: number|null }}
    */
-  readResult() {
-    const texts = collectTexts(this.bridge.hierarchy());
+  readResult(tree) {
+    const texts = collectTexts(tree ?? this.bridge.hierarchy());
     const scoreIdx = texts.findIndex((t) => t.startsWith(RESULT_SCORE_LABEL));
     const correctIdx = texts.findIndex((t) => t.startsWith(RESULT_CORRECT_LABEL));
     const score = scoreIdx >= 0 ? texts[scoreIdx + 1] ?? null : null;

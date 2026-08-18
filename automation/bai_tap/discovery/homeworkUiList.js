@@ -10,8 +10,8 @@
  * theo mẫu text thật đã quan sát trên thiết bị (không suy đoán):
  *   "Bài tập về nhà" | "Bài tập nâng cao"   (section header)
  *   <title>                                 (tên Homework - dòng bất kỳ, không cố định)
- *   ... (badge "Điểm"/"Điểm N", "Hạn nộp DD/MM (QUÁ HẠN)", "Xem bài đã làm" - bỏ qua) ...
- *   "N / M"                                 (số lần đã làm/số lần được phép - LUÔN có, mọi card)
+ *   ... (badge "Điểm"/"Điểm N", "Xem bài đã làm" - bỏ qua) ...
+ *   "N / M"  hoặc  "Hạn nộp DD/MM (QUÁ HẠN)"  (anchor - xem LƯU Ý bên dưới, KHÔNG phải cả 2 luôn có)
  *   ...
  *   "Làm bài" | "Tiếp tục" | "Làm lại" | "Chinh phục"   (CTA - kết thúc 1 card)
  *
@@ -20,6 +20,15 @@
  * 2): <title> luôn là dòng text đứng NGAY TRƯỚC dòng khớp mẫu "N / M" gần nhất, tính từ sau khi đã
  * thấy 1 section header. Tự loại được dòng đếm tổng ở đầu màn (vd "13 / 32" đứng ngay sau tiêu đề
  * màn "Bài tập") vì dòng đó xuất hiện TRƯỚC section header đầu tiên.
+ *
+ * NGOẠI LỆ đã xác nhận thật (hierarchy dump 2026-08-18, thiết bị 3201d866d40a1681, card "Chinh
+ * phục" dưới section "Bài tập nâng cao" khi CHƯA làm): card này KHÔNG có dòng "N / M" - chỉ có
+ * "Hạn nộp DD/MM" hoặc "Hạn nộp DD/MM (QUÁ HẠN)" đứng ngay sau title. Trước bản vá này,
+ * `PROGRESS_PATTERN` là anchor DUY NHẤT nên card dạng này bị bỏ sót vĩnh viễn dù đang hiển thị
+ * thật trên màn hình (xác nhận qua flows/bai_tap/hw21-22-upgrade-sheets.mjs BLOCKED_LOCATE ở
+ * HW21_LOCATE dù target đã thấy rõ trong hierarchy). `DUE_DATE_PATTERN` được thêm làm anchor thay
+ * thế cho đúng nhóm card này - không thay đổi hành vi của card có "N / M" (title-rejection đã loại
+ * "Hạn nộp..." đứng sau "N / M" của CÙNG card khỏi bị đếm trùng làm anchor thứ 2).
  *
  * LƯU Ý QUAN TRỌNG (phát hiện khi tự đối chiếu dữ liệu hierarchy thật lúc cuộn xuống): section
  * header CHỈ xuất hiện 1 LẦN ở đầu mỗi section rồi cuộn mất khỏi màn hình - các lượt hierarchy đọc
@@ -51,6 +60,11 @@
 const SECTION_HEADERS = ["Bài tập về nhà", "Bài tập nâng cao"];
 const CTA_TEXTS = ["Làm bài", "Tiếp tục", "Làm lại", "Chinh phục"];
 const PROGRESS_PATTERN = /^\d+\s*\/\s*\d+$/;
+// Card "Bài tập nâng cao" chưa làm KHÔNG có dòng "N / M" (chỉ "Bài tập về nhà" mới có) - xác nhận
+// thật qua hierarchy dump 2026-08-18 (thiết bị 3201d866d40a1681): card "Chinh phục" có cấu trúc
+// title -> "Hạn nộp DD/MM" hoặc "Hạn nộp DD/MM (QUÁ HẠN)" -> CTA, không có N/M xen giữa. Dùng thêm
+// mẫu này làm anchor thay thế để không bỏ sót nhóm card này (PROGRESS_PATTERN một mình không đủ).
+const DUE_DATE_PATTERN = /^Hạn nộp \d{2}\/\d{2}(\s*\(QUÁ HẠN\))?$/;
 // Lookahead tối đa (số dòng) từ sau "N / M" tới CTA - đủ rộng cho các dòng phụ đã biết ("Hạn nộp...",
 // "Xem bài đã làm") nhưng vẫn có giới hạn để không lỡ ghép nhầm sang card kế tiếp.
 const MAX_CTA_LOOKAHEAD = 6;
@@ -97,10 +111,16 @@ export function parseHomeworkCardsFromTexts(texts, { sectionSeen: initialSection
       continue;
     }
     if (!sectionSeen) continue;
-    if (!PROGRESS_PATTERN.test(text)) continue;
+    if (!PROGRESS_PATTERN.test(text) && !DUE_DATE_PATTERN.test(text)) continue;
 
     const title = texts[i - 1];
-    if (!title || SECTION_HEADERS.includes(title) || PROGRESS_PATTERN.test(title) || CTA_TEXTS.includes(title)) {
+    if (
+      !title ||
+      SECTION_HEADERS.includes(title) ||
+      PROGRESS_PATTERN.test(title) ||
+      DUE_DATE_PATTERN.test(title) ||
+      CTA_TEXTS.includes(title)
+    ) {
       continue;
     }
     let cta = null;

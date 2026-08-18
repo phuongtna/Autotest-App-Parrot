@@ -1,0 +1,45 @@
+# Helper: đảm bảo ĐÚNG 1 hồ sơ con (profile) đang active trên app, chuyển sang nếu cần.
+#
+# TỔNG QUÁT HOÁ từ khối A/C đã verify thật trong flows/bai_tap/HW-PROFILE-BASIC-PRO-ADVANCED.yaml
+# (dòng 49-93, 130-150) - KHÔNG viết lại cơ chế, chỉ tách ra param hoá để dùng lại cho bất kỳ cặp
+# hồ sơ nào (không riêng Gia Linh/Ngoc). Cùng 2 khả năng ĐÃ xác nhận thật đều được xử lý:
+#   (1) tap "Chuyển profile" (index 0) TOGGLE TRỰC TIẾP sang hồ sơ còn lại (không mở sheet nào) -
+#       hành vi hiện tại của tài khoản chỉ có ĐÚNG 2 hồ sơ.
+#   (2) sheet "Chuyển profối học tập" MỞ RA (phiên bản khác) - dùng exact-text "Chuyển profile" +
+#       index:1 để bấm nút xác nhận TRONG sheet (không phải index:0, chữ đó trùng với link header
+#       phía sau sheet - bug đã fix trước đó, xem RP-23-profile-switch-reloads-report.yaml).
+#
+# Tham số: PHONE, OTP, TARGET_PROFILE_NAME (tên hồ sơ MUỐN đang active sau khi flow này chạy xong -
+# không cần biết tên hồ sơ còn lại, logic chỉ cần "đang KHÔNG phải TARGET_PROFILE_NAME thì toggle").
+appId: ${APP_ID}
+---
+- runFlow: launch-keep-session.yaml
+- runFlow:
+    file: login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: open-tab-homework.yaml
+
+- runFlow:
+    when:
+      notVisible: ".*(${TARGET_PROFILE_NAME}).*"
+    commands:
+      - tapOn:
+          text: ".*(Chuyển profile).*"
+          index: 0
+      - runFlow:
+          when:
+            visible: ".*(Chuyển profile học tập).*"
+          commands:
+            - tapOn:
+                text: ".*(${TARGET_PROFILE_NAME}).*"
+            - tapOn:
+                text: "Chuyển profile"
+                index: 1
+      - extendedWaitUntil:
+          visible: ".*(${TARGET_PROFILE_NAME}).*"
+          timeout: 20000
+      - runFlow: open-tab-homework.yaml
+
+- assertVisible: ".*(${TARGET_PROFILE_NAME}).*"

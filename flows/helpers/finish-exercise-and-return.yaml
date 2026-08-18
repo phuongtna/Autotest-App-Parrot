@@ -1,0 +1,43 @@
+# Helper: hoàn thành CÂU HỎI HIỆN TẠI trên màn Doing bằng dispatcher chung (KHÔNG biết đúng/sai),
+# rồi đóng màn Kết quả, xác nhận đã về lại danh sách Bài tập.
+#
+# GIẢ ĐỊNH: app ĐANG đứng ở màn Doing (exercise_close_button visible) khi flow này bắt đầu chạy -
+# caller (vd sau khi tap "Làm lại"/"Tiếp tục"/mở bài mới) tự đảm bảo điều kiện này. File này KHÔNG
+# launch/login lại - giữ nguyên session/profile hiện có của caller.
+#
+# COPY NGUYÊN phần "Hoàn thành" + "Màn kết quả" + "Đóng kết quả" của
+# flows/bai_tap/ktra_fullluong_lambai.yaml (dòng 298-365, không đổi selector/thứ tự) - tách ra dùng
+# lại cho case KHÔNG đi qua nhánh mở/thoát X/resume (vd case "Làm lại" 1 bài đã hoàn thành trước
+# đó, xem flows/bai_tap/pro_lamlai_fullluong.mjs).
+#
+# Tham số (tuỳ chọn): EXERCISE_NAME - tên assignment đang làm, chỉ để làm giàu report BLOCKED của
+# answer-current-exercise-generic.yaml (không truyền vẫn chạy bình thường).
+appId: ${APP_ID}
+---
+- runFlow:
+    file: answer-current-exercise-generic.yaml
+    env:
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- extendedWaitUntil:
+    visible:
+      id: "exercise_result_screen"
+    timeout: 60000
+
+- runFlow:
+    when:
+      visible: "Hoàn thành"
+    commands:
+      - tapOn:
+          text: ".*(Hoàn thành).*"
+- runFlow:
+    when:
+      visible: "Tiếp theo"
+    commands:
+      - tapOn:
+          id: "exercise_result_close_button"
+
+- extendedWaitUntil:
+    visible:
+      id: "homework_screen"
+    timeout: 30000

@@ -43,6 +43,8 @@ Cột **Auto** = có file Maestro chạy tự động. Cột **Tay** = cần QA 
 | HW-26 | Filter reset khi quay lại tab   |                                         | Đổi sang "1 tháng" → sang tab khác → quay lại                        | Nhãn về **"2 tuần gần nhất"** (theo `useFocusEffect` hiện tại)                                                               | — (nếu PO muốn GIỮ filter thì ghi vào cột Ghi nhận là defect thiết kế)                | ✅   | ✔   |
 | HW-27 | Đổi hồ sơ con → reload list     | ≥2 hồ sơ con                            | Header → Chuyển profile → chọn con khác                              | Toast "Thay đổi tài khoản con thành công!", list + tiến độ đổi theo hồ sơ mới, scroll về đầu                                  | List vẫn của con cũ; tiến độ không đổi                                               | ✅   | ✔   |
 
+_Ghi chú (2026-08-18): HW-16 và HW-17 dùng CHUNG 1 luồng điều hướng liên tiếp (card đã hoàn thành → "Xem bài đã làm" → màn lịch sử → "Xem chi tiết") — HW-17 vốn đã đi qua đúng màn lịch sử mà HW-16 verify trước khi tap "Xem chi tiết", nên đã gộp thành 1 case "HW-16+17" ở CẢ hai bản: `flows/bai_tap/xemchitietbailam.yaml` (Maestro yaml thuần, dùng `scrollUntilVisible` — có rủi ro flaky đã ghi nhận trong file) và `flows/bai_tap/xemchitietbailam.mjs` (Node + MaestroMcpBridge, tự đọc hierarchy để định vị card, đáng tin cậy hơn). `flows/bai_tap/HW-16-attempt-history.yaml` (bản HW-16 tách riêng cũ) đã bị xóa (2026-08-18, nội dung đã gộp hết vào 2 file trên)._
+
 ---
 
 ## B. TAB BÁO CÁO (RP)

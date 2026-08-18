@@ -74,11 +74,16 @@ appId: ${APP_ID}
 # hạn nộp mong đợi (vd trùng title với 1 card cũ khác hạn nộp) - caller tự quyết định BLOCKED, đây
 # không tự đoán/thử lại. Giữ nguyên speed 70 (đã xác minh có tác dụng thật), tăng timeout 90000 ->
 # 150000 (đồng bộ với flows/helpers/open-exercise.yaml, danh sách đã dài thêm qua nhiều lần chạy).
+#
+# ĐÃ SỬA LẦN 3 (2026-08-18, xác nhận thật: 2 lượt native locate ĐỘC LẬP cho room_id=69b2ff65-...
+# đều FAILED, peek hierarchy lúc fail "last_visible_titles": [] - title CHƯA TỪNG xuất hiện trên
+# màn hình dù cuộn ~344s/~318s mỗi lượt; lớp 3B đã tích luỹ 35+ lesson-item/nhiều chục room từ các
+# lần chạy test trước, danh sách dài hơn budget 150000 có thể chạm tới): 150000 -> 240000.
 - scrollUntilVisible:
     element:
       text: "${TARGET_TITLE}"
     direction: DOWN
-    timeout: 150000
+    timeout: 240000
     speed: 70
     waitToSettleTimeoutMs: 500
 

@@ -1,11 +1,30 @@
-# HW-17 — Từ lịch sử vào "Xem chi tiết" (màn show-answer)
-# Kỳ vọng: mở màn xem lại đáp án; hiện số câu, đáp án đúng/sai, có nút quay lại
+# HW-16 + HW-17 (GỘP) — "Xem bài đã làm" (lịch sử làm bài) -> "Xem chi tiết" (màn show-answer)
+# GỘP 2026-08-18: HW-16 (flows/bai_tap/TEST-CASES.md dòng HW-16) và HW-17 (dòng HW-17) dùng CHUNG
+# 1 luồng điều hướng liên tiếp - card đã hoàn thành -> "Xem bài đã làm" -> màn lịch sử -> "Xem chi
+# tiết" -> màn xem lại đáp án. Gộp thành 1 case duy nhất thay vì 2 file login+điều hướng riêng.
+#
+# CẢNH BÁO (giữ nguyên từ bản HW-17 cũ - CHƯA sửa, chỉ gộp thêm assertion của HW-16):
+# `scrollUntilVisible` bên dưới target THẲNG vào text "Xem bài đã làm" (literal CTA/link text) với
+# timeout cố định 25000ms. Lớp test 3B đã tích luỹ rất nhiều room rác từ các lần chạy automation
+# trước (nhiều card TRÙNG title) - đo thật (2026-08-18) cho thấy phải cuộn ~15-20 lượt mới chạm tới
+# 1 card đã hoàn thành; kể cả tăng timeout=150000ms + speed=70 cũng KHÔNG tìm ra (nghi bị đánh lừa
+# bởi nhiều dòng "N/M" trùng lặp liên tiếp - cùng lớp sự cố đã ghi nhận trong
+# flows/helpers/locate-assignment-card.yaml). Target scroll vào chính text CTA cũng là pattern đã
+# bị xác nhận có thể vô tình TAP nhầm ở lượt cuộn cuối (xem docblock flows/bai_tap/hw21-22-upgrade-
+# sheets.mjs, mục 1). Nếu case này fail/flaky do lý do trên, dùng flows/bai_tap/xemchitietbailam.mjs
+# (bản Node + MaestroMcpBridge, tự đọc hierarchy + swipe thô để định vị card, không phụ thuộc
+# scrollUntilVisible) làm bản đối chứng đáng tin cậy hơn.
+#
+# Kỳ vọng màn lịch sử (HW-16): danh sách "Lần 1", mỗi lần có "Điểm", "Đúng", "Thời gian nộp", nút
+# "Xem chi tiết"; cuối màn nút "Làm lại".
+# Kỳ vọng màn xem chi tiết (HW-17): mở màn xem lại đáp án; hiện số câu, đáp án đúng/sai, có nút
+# quay lại.
 # Tags: regression, data-dependent
 appId: ${APP_ID}
 tags:
   - regression
   - data-dependent
-name: HW-17 Lich su - xem chi tiet dap an
+name: HW-16+17 Lich su lam bai - xem chi tiet dap an
 ---
 - runFlow: ../helpers/launch-keep-session.yaml
 - runFlow:
@@ -21,9 +40,20 @@ name: HW-17 Lich su - xem chi tiet dap an
     direction: DOWN
     timeout: 25000
 - tapOn: ".*(Xem bài đã làm).*"
+
+# ===== [HW-16] màn lịch sử =====
 - extendedWaitUntil:
-    visible: ".*(Xem chi tiết).*"
+    visible:
+      text: ".*Lần 1.*"
     timeout: 30000
+- assertVisible: ".*(Điểm).*"
+- assertVisible: ".*(Đúng).*"
+- assertVisible: ".*(Thời gian nộp).*"
+- assertVisible: ".*(Xem chi tiết).*"
+- assertVisible: ".*(Làm lại).*"
+- takeScreenshot: artifacts/HW-16-history
+
+# ===== [HW-17] xem chi tiết đáp án =====
 - tapOn:
     text: ".*(Xem chi tiết).*"
     index: 0

@@ -25,15 +25,15 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseEnvFile } from "../../automation/src/config.js";
-import { MaestroMcpBridge } from "../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../automation/bai_tap/navigation/homeworkExamEngine.js";
-import { resolveHomeworkExamQuestionsForRoomId } from "../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { fetchRoomDetails } from "../../automation/bai_tap/discovery/homeworks.js";
-import { formatDM, formatDMY, isoToVnYmd } from "../bai_tap/verify-filter-web-vs-app.mjs";
+import { parseEnvFile } from "../../../automation/src/config.js";
+import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
+import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
+import { fetchRoomDetails } from "../../../automation/bai_tap/discovery/homeworks.js";
+import { formatDM, formatDMY, isoToVnYmd } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_resume_partial_room_report.json");
 const ACCOUNTS_ENV_PATH = join(PROJECT_ROOT, "test_data", "accounts.env");
 const ROOT_ENV_PATH = join(PROJECT_ROOT, ".env");

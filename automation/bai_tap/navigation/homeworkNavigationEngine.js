@@ -1,5 +1,8 @@
 import { homeworkPageObjects as po } from "./homeworkPageObjects.js";
 import { PendingExamLaunchError } from "../runtime/pendingExamLaunch.js";
+import { findAssignment } from "../discovery/findAssignment.js";
+import { centerPoint } from "../discovery/homeworkUiList.js";
+import { isoToDueDateDM } from "../model/homeworkModel.js";
 
 /**
  * HomeworkNavigationEngine - điều hướng tab "Bài tập" (Homework), tách riêng hoàn toàn khỏi
@@ -52,6 +55,32 @@ export class HomeworkNavigationEngine {
   }
 
   /**
+   * Tìm ĐÚNG 1 card khớp (title, Hạn nộp DD/MM quy đổi từ deadline.endTime, cta nếu có) qua
+   * `findAssignment()` (target-driven, KHÔNG phụ thuộc số lượng assignment - xem
+   * discovery/findAssignment.js) - THAY THẾ hẳn `scrollUntilVisible` native trước đây (title-only,
+   * đã CHỨNG MINH bị đánh lừa bởi card trùng title+Hạn nộp khi danh sách dài). Throw kèm
+   * `diagnostics` đầy đủ (target/scroll count/last visible state/stop reason) nếu không FOUND.
+   * @param {import("../model/homeworkModel.js").HomeworkModel} homework
+   * @param {string} callerLabel - tên hàm gọi (cho message lỗi rõ nguồn).
+   * @returns {Promise<Object>} card {title, titleBounds, dueDate, cta, ctaBounds}
+   */
+  async _locateAssignmentOrThrow(homework, callerLabel) {
+    const dueDateDM = isoToDueDateDM(homework.deadline?.endTime);
+    const located = await findAssignment(this.bridge, {
+      title: homework.title,
+      dueDateDM,
+      cta: homework.cta,
+    });
+    if (located.status !== "FOUND") {
+      throw new Error(
+        `HomeworkNavigationEngine.${callerLabel}: không định vị được card "${homework.title}" ` +
+          `(${located.status}${located.reason ? `/${located.reason}` : ""}).\n${located.diagnostics}`,
+      );
+    }
+    return located.card;
+  }
+
+  /**
    * Mở tab "Bài tập" nếu chưa ở đó (idempotent - bỏ qua nếu section "Bài tập về nhà" đã hiển thị).
    * ĐÃ VERIFY THẬT (2026-08-06) cả 2 chiều: đã ở sẵn tab (bỏ qua tap) và chuyển thật từ tab
    * "Vui học" sang (tapOn theo text "Bài tập" KHÔNG bị nhầm sang tiêu đề màn dù trùng chữ - lúc
@@ -88,35 +117,11 @@ export class HomeworkNavigationEngine {
     if (!homework?.title) {
       throw new Error("assertHomeworkCardVisible() cần homework.title (từ HomeworkModel).");
     }
-    const steps = [
-      {
-        runFlow: {
-          when: { notVisible: homework.title },
-          commands: [
-            {
-              scrollUntilVisible: {
-                element: { text: homework.title },
-                direction: "DOWN",
-                // 45000 (KHÔNG phải 20000 mặc định của Vui học) - ĐÃ ĐO THẬT trên thiết bị
-                // BDB00056877 (2026-08-06): card Bài tập cao hơn nhiều (tiêu đề + progress bar +
-                // deadline + nút CTA) nên ít card/màn hình hơn Vui học - scrollUntilVisible với
-                // timeout 20000/speed mặc định THẤT BẠI THẬT (xác nhận "No visible element
-                // found") khi cuộn từ đầu danh sách tới card thứ 5; tăng lên 45000 (giữ nguyên
-                // speed/visibilityPercentage mặc định) chạy ổn định 2 lần liên tiếp.
-                timeout: 45000,
-              },
-            },
-          ],
-        },
-      },
-      { assertVisible: { text: homework.title } },
-    ];
-    const result = await this.bridge.runSteps(steps);
-    if (!result.success) {
-      throw new Error(
-        `HomeworkNavigationEngine: không thấy card "${homework.title}" trên màn Bài tập: ${result.error}`,
-      );
-    }
+    // ĐÃ ĐỔI (2026-08-19) từ `scrollUntilVisible` native (title-only, timeout tăng dần 20000 ->
+    // 45000 qua nhiều lần "fix" không chạm root cause) sang `findAssignment()` (target-driven,
+    // identity title+Hạn nộp, không phụ thuộc số lượng assignment) - xem docblock
+    // discovery/findAssignment.js để biết lý do đầy đủ.
+    await this._locateAssignmentOrThrow(homework, "assertHomeworkCardVisible");
   }
 
   /** Mở bottom sheet lọc theo khoảng thời gian ("Xem bài tập theo"). */
@@ -161,29 +166,17 @@ export class HomeworkNavigationEngine {
     if (!homework?.title) {
       throw new Error("openAttemptHistory() cần homework.title (từ HomeworkModel).");
     }
+    // ĐÃ ĐỔI (2026-08-19): findAssignment() thay native scrollUntilVisible (cùng lý do
+    // assertHomeworkCardVisible()) - card.dueDate (text THẬT của đúng card đã tìm, không phải suy
+    // đoán) dùng làm lồng "below" cấp 2 để tránh khớp nhầm "Xem bài đã làm" của 1 card trùng title
+    // khác đang cùng hiển thị trong viewport (đúng idiom đã verify trong flows/helpers/
+    // open-exercise.yaml, đoạn tapOn CTA lồng 2 cấp title->Hạn nộp).
+    const card = await this._locateAssignmentOrThrow(homework, "openAttemptHistory");
+    const belowSelector = card.dueDate
+      ? { text: card.dueDate, below: { text: homework.title } }
+      : { text: homework.title };
     const steps = [
-      {
-        runFlow: {
-          when: { notVisible: homework.title },
-          commands: [
-            {
-              scrollUntilVisible: {
-                element: { text: homework.title },
-                direction: "DOWN",
-                // 45000 (KHÔNG phải 20000 mặc định của Vui học) - ĐÃ ĐO THẬT trên thiết bị
-                // BDB00056877 (2026-08-06): card Bài tập cao hơn nhiều (tiêu đề + progress bar +
-                // deadline + nút CTA) nên ít card/màn hình hơn Vui học - scrollUntilVisible với
-                // timeout 20000/speed mặc định THẤT BẠI THẬT (xác nhận "No visible element
-                // found") khi cuộn từ đầu danh sách tới card thứ 5; tăng lên 45000 (giữ nguyên
-                // speed/visibilityPercentage mặc định) chạy ổn định 2 lần liên tiếp.
-                timeout: 45000,
-              },
-            },
-          ],
-        },
-      },
-      { assertVisible: { text: homework.title } },
-      { tapOn: { below: homework.title, text: po.list.viewCompletedLink } },
+      { tapOn: { text: po.list.viewCompletedLink, below: belowSelector } },
       { waitForAnimationToEnd: { timeout: 2000 } },
       { assertVisible: { text: homework.title } },
     ];
@@ -240,26 +233,23 @@ export class HomeworkNavigationEngine {
     if (!homework?.title || !homework?.cta) {
       throw new Error("openHomeworkAndVerifyIdentityOneShot() cần homework.title + homework.cta.");
     }
-    const steps = [
-      {
-        runFlow: {
-          when: { notVisible: { text: homework.title } },
-          commands: [
-            {
-              scrollUntilVisible: {
-                element: { text: homework.title },
-                direction: "DOWN",
-                timeout: 45000, // xem lý do 45000 (không phải 20000 mặc định) ở assertHomeworkCardVisible().
-              },
-            },
-          ],
-        },
-      },
-      { assertVisible: { text: homework.title } },
-    ];
+    // ĐÃ ĐỔI (2026-08-19): findAssignment() thay native scrollUntilVisible - card trả về đã đứng
+    // yên đúng vị trí (không cuộn thêm bước nào), + tap CTA bằng TOẠ ĐỘ thật (`ctaBounds`) thay vì
+    // selector `below` (nguồn lỗi tap-nhầm-card-trùng-lặp đã ghi nhận, xem findAssignment.js) - vẫn
+    // gộp phần còn lại (tap + AI consent + verify) vào ĐÚNG 1 lượt `runSteps()` như tên hàm
+    // "OneShot" yêu cầu.
+    const card = await this._locateAssignmentOrThrow(homework, "openHomeworkAndVerifyIdentityOneShot");
+    const tapCtaStep = card.ctaBounds
+      ? (() => {
+          const point = centerPoint(card.ctaBounds);
+          return { tapOn: { point: `${point.x},${point.y}` } };
+        })()
+      : { tapOn: { below: homework.title, text: homework.cta } };
+
+    const steps = [];
     if (targetScreenshot) steps.push({ takeScreenshot: targetScreenshot });
     steps.push(
-      { tapOn: { below: homework.title, text: homework.cta } },
+      tapCtaStep,
       { waitForAnimationToEnd: { timeout: 3000 } },
       { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
       { extendedWaitUntil: { visible: { text: homework.title }, timeout: 10000 } },

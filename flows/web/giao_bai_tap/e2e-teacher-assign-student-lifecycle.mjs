@@ -31,16 +31,16 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assignHomeworkAndLocateOnApp, APP_ID, PHONE, OTP, deviceArgs } from "./e2e-teacher-assign-student-open.mjs";
-import { formatDMY, formatDM } from "../bai_tap/verify-filter-web-vs-app.mjs";
+import { formatDMY, formatDM } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 // ĐÃ SỬA (2026-08-12): HW-14_15-exercise-lifecycle.yaml đã bị đổi tên thành ktra_fullluong_lambai.yaml
 // (cùng nội dung/name field "HW-14_15 Lifecycle..." bên trong file, chỉ đổi tên file) - path cũ
 // không còn tồn tại trên đĩa, cập nhật lại để flow này chạy được.
 // ĐÃ SỬA (2026-08-14): thư mục cũng đổi tên - flows/homework/ không còn tồn tại, file thật nằm ở
 // flows/bai_tap/ (xác nhận qua `ls flows/`, thư mục flows/homework báo "No such file or directory").
-const HW_14_15_FLOW = join(PROJECT_ROOT, "flows", "bai_tap", "ktra_fullluong_lambai.yaml");
+const HW_14_15_FLOW = join(PROJECT_ROOT, "flows", "app", "bai_tap", "ktra_fullluong_lambai.yaml");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_teacher_assign_student_lifecycle_report.json");
 
 /** dueDateDm ("DD/MM"): neo tìm/tap card theo Hạn nộp thay vì theo title - ĐÃ GẶP THẬT title trùng

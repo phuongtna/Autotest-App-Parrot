@@ -101,12 +101,12 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 
-import { fetchAllHomeworkRooms } from "../../automation/bai_tap/discovery/homeworks.js";
-import { normalizeHomework, resolveMyStatus } from "../../automation/bai_tap/model/homeworkModel.js";
-import { config, requireTeacherPortalConfig } from "../../automation/src/config.js";
+import { fetchAllHomeworkRooms } from "../../../automation/bai_tap/discovery/homeworks.js";
+import { normalizeHomework, resolveMyStatus } from "../../../automation/bai_tap/model/homeworkModel.js";
+import { config, requireTeacherPortalConfig } from "../../../automation/src/config.js";
 
 const HOMEWORK_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(HOMEWORK_DIR, "..", "..");
+const PROJECT_ROOT = join(HOMEWORK_DIR, "..", "..", "..");
 const HELPERS_DIR = join(HOMEWORK_DIR, "..", "helpers");
 const LAUNCH_KEEP_SESSION_FLOW = join(HELPERS_DIR, "launch-keep-session.yaml");
 const LOGIN_FLOW = join(HELPERS_DIR, "login.yaml");

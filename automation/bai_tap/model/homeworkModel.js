@@ -135,3 +135,25 @@ export function resolveMyStatus(homework, userId) {
   if (mine.some((a) => a.status === "done")) return "COMPLETED";
   return "IN_PROGRESS";
 }
+
+// Lệch giờ VN cố định (+7h, không có DST) - CÙNG hằng số đã dùng độc lập ở
+// flows/bai_tap/pro_lamlai_fullluong.mjs, pro_lamlai_fullluong_xemchitiet.mjs,
+// pro_lamlai_beat_previous_score.mjs, verify-filter-web-vs-app.mjs (4 bản copy-paste khác nhau) -
+// đặt CHUNG ở đây (model-level, gắn liền field `deadline` mà nó thao tác) để findAssignment() và
+// mọi caller mới không tự copy-paste thêm lần thứ 5.
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/**
+ * Quy đổi 1 mốc ISO (vd `homework.deadline.endTime`) sang "DD/MM" giờ VN - dùng làm identity phụ
+ * (title + dueDateDM) để phân biệt card trùng title trên UI (xem findAssignment.js). Trả về null
+ * nếu thiếu iso (role_play/homework chưa có deadline).
+ * @param {?string} iso
+ * @returns {?string} "DD/MM" hoặc null
+ */
+export function isoToDueDateDM(iso) {
+  if (!iso) return null;
+  const shifted = new Date(new Date(iso).getTime() + VN_OFFSET_MS);
+  const d = String(shifted.getUTCDate()).padStart(2, "0");
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  return `${d}/${m}`;
+}

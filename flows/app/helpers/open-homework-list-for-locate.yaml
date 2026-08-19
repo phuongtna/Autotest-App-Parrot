@@ -1,0 +1,33 @@
+# Helper: đăng nhập + mở tab "Bài tập" (+ đổi filter "1 tháng gần nhất" nếu cần) - DỪNG LẠI ở đó,
+# KHÔNG tự cuộn/tìm card nào. Đây là PHẦN PREAMBLE tách ra từ flows/helpers/locate-assignment-card.yaml
+# (2026-08-19) - phần cuộn+tìm (repeat.while + swipe + assertVisible) của file đó đã CHUYỂN sang
+# `findAssignment()` (automation/bai_tap/discovery/findAssignment.js), lái qua MaestroMcpSession từ
+# Node (flows/giao_bai_tap/e2e-teacher-assign-student-open.mjs) - xem lý do đầy đủ trong docblock
+# findAssignment.js: `scrollUntilVisible` native bị đánh lừa bởi card trùng title+Hạn nộp khi danh
+# sách dài, đã "fix" 6 lần liên tiếp (tăng speed/timeout, đổi anchor...) mà không chạm root cause.
+#
+# File YAML này CHỈ còn phần không hề bị lỗi đó (login/mở tab/đổi filter) - giữ nguyên 100% logic đã
+# verify thật của locate-assignment-card.yaml, không viết lại.
+#
+# Tham số: PHONE, OTP, SWITCH_TO_MONTH_FILTER ("true"/"false" - caller tự tính bằng
+#   computeRange()/inRange() đã có, xem flows/homework/verify-filter-web-vs-app.mjs).
+appId: ${APP_ID}
+---
+- runFlow: launch-keep-session.yaml
+- runFlow:
+    file: login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: open-tab-homework.yaml
+
+- runFlow:
+    when:
+      true: ${SWITCH_TO_MONTH_FILTER == 'true'}
+    commands:
+      - tapOn:
+          text: ".*gần nhất.*"
+      - extendedWaitUntil:
+          visible: ".*(Xem bài tập theo).*"
+          timeout: 10000
+      - runFlow: homework-select-month-filter.yaml

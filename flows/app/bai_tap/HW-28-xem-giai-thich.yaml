@@ -1,0 +1,126 @@
+# HW-28 — Màn xem chi tiết đáp án: bấm "Giải thích" ở từng câu
+# Điều hướng GIỐNG HỆT flows/bai_tap/xemchitietbailam.yaml (HW-16+17) tới khi vào được màn xem lại
+# đáp án (card đã hoàn thành -> "Xem bài đã làm" -> màn lịch sử -> "Xem chi tiết") - xem docblock
+# gốc file đó để biết CẢNH BÁO về `scrollUntilVisible` (lớp 3B nhiều card trùng title, có thể cần
+# 15-20 lượt cuộn; nếu case này fail/flaky vì lý do đó, đối chiếu bằng bản .mjs dùng
+# MaestroMcpBridge tự đọc hierarchy thay vì scrollUntilVisible).
+#
+# ĐÃ XÁC NHẬN THẬT (2026-08-19): chạy với timeout=25000ms (như bản gốc) FAILED thật - "No visible
+# element found" - lớp 3B của tài khoản test hiện cần nhiều hơn 25s để cuộn tới card completed đầu
+# tiên. Tăng timeout=90000ms ở case này (đã chạy lại PASS) - nếu vẫn flaky, dùng bản .mjs.
+#
+# KHÁC xemchitietbailam.yaml ở dòng "Lần N": file gốc hard-code ".*Lần 1.*", nhưng đo thật
+# (2026-08-19, thiết bị 3201d866d40a1681) tài khoản test đã tích luỹ tới "Lần 8" (không còn "Lần 1"
+# nằm trong viewport không cuộn) - dùng pattern ".*Lần \d+.*" tổng quát hơn, không giả định số lần cụ
+# thể.
+#
+# NỘI DUNG POPUP "Giải thích" (đã xác nhận THẬT trên thiết bị 2026-08-19, xem
+# automation/output không lưu - dump trực tiếp qua MaestroMcpBridge, KHÔNG suy đoán):
+#   - Câu ĐÚNG (vd Câu 3 "cái cửa" -> chọn "door"): popup gồm tiêu đề "Parrot giải thích" rồi
+#     "Kiến thức" (giải thích kiến thức) + "Tóm lại" (chốt ý ghi nhớ) - KHÔNG có "Tại sao sai"/"Gợi ý".
+#   - Câu SAI (vd Câu 1 "cái giường" -> chọn nhầm "window" thay vì "bed"): popup gồm "Kiến thức" +
+#     "Tại sao sai" (giải thích vì sao đáp án đã chọn sai) + "Gợi ý" (gợi ý cách nhớ) - KHÔNG có
+#     "Tóm lại".
+#   2 nhánh loại trừ lẫn nhau (đã xác nhận thật, không cùng xuất hiện) - dùng `runFlow: - when:` để
+#   assert ĐÚNG nhánh đang thật sự hiển thị, KHÔNG giả định trước câu nào đúng/sai (data-dependent,
+#   tỉ lệ đúng/sai đổi theo từng lần làm bài).
+#
+# Đóng popup: dùng nút "Đóng" (bottom sheet tự đóng, ở lại đúng câu đang xem) - ĐÃ xác nhận thật:
+# bấm hardware `back` khi popup đang mở sẽ thoát LUÔN CẢ màn xem lại đáp án về thẳng màn Lịch sử
+# (không chỉ đóng popup) - KHÔNG dùng `back` ở case này.
+#
+# Chỉ thao tác Câu 1 + Câu 2 (rút gọn từ bản đầu vốn thử Câu 1-4) - luôn nằm sẵn trong dải tab đầu,
+# không cần cuộn. KHÔNG đảm bảo chắc chắn gặp đủ cả 2 nhánh đúng/sai (data-dependent, vd lần chạy
+# 2026-08-19 cả Câu 1+2 đều rơi vào card có đáp án đúng) - case verify ĐÚNG NHÁNH THẬT SỰ hiển thị ở
+# mỗi câu (không giả định trước), không cam kết coverage cả 2 nhánh trong 1 lần chạy.
+# Tags: regression, data-dependent
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-28 Xem chi tiet dap an - bam Giai thich
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Xem bài đã làm).*"
+    direction: DOWN
+    timeout: 90000
+- tapOn: ".*(Xem bài đã làm).*"
+
+# ===== màn lịch sử =====
+- extendedWaitUntil:
+    visible:
+      text: ".*Lần \\d+.*"
+    timeout: 30000
+- assertVisible: ".*(Xem chi tiết).*"
+
+# ===== xem chi tiết đáp án (lần mới nhất - đầu tiên trên màn) =====
+- tapOn:
+    text: ".*(Xem chi tiết).*"
+    index: 0
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Câu 1|Chính xác|Đúng|Parrot giải thích).*"
+    timeout: 30000
+- takeScreenshot: artifacts/HW-28-review-start
+
+# ===== Câu 1: bấm "Giải thích", assert đúng nhánh đang hiển thị, đóng bằng nút "Đóng" =====
+- tapOn: "Câu 1"
+- assertVisible: ".*(Giải thích).*"
+- tapOn: "Giải thích"
+- extendedWaitUntil:
+    visible: ".*(Parrot giải thích).*"
+    timeout: 10000
+- runFlow:
+    when:
+      visible: ".*(Tóm lại).*"
+    commands:
+      - assertVisible: ".*(Kiến thức).*"
+      - assertVisible: ".*(Tóm lại).*"
+      - assertNotVisible: ".*(Tại sao sai).*"
+- runFlow:
+    when:
+      visible: ".*(Tại sao sai).*"
+    commands:
+      - assertVisible: ".*(Kiến thức).*"
+      - assertVisible: ".*(Tại sao sai).*"
+      - assertVisible: ".*(Gợi ý).*"
+      - assertNotVisible: ".*(Tóm lại).*"
+- takeScreenshot: artifacts/HW-28-giaithich-cau1
+- tapOn: "Đóng"
+- assertNotVisible: ".*(Parrot giải thích).*"
+
+# ===== Câu 2 =====
+- tapOn: "Câu 2"
+- assertVisible: ".*(Giải thích).*"
+- tapOn: "Giải thích"
+- extendedWaitUntil:
+    visible: ".*(Parrot giải thích).*"
+    timeout: 10000
+- runFlow:
+    when:
+      visible: ".*(Tóm lại).*"
+    commands:
+      - assertVisible: ".*(Kiến thức).*"
+      - assertVisible: ".*(Tóm lại).*"
+      - assertNotVisible: ".*(Tại sao sai).*"
+- runFlow:
+    when:
+      visible: ".*(Tại sao sai).*"
+    commands:
+      - assertVisible: ".*(Kiến thức).*"
+      - assertVisible: ".*(Tại sao sai).*"
+      - assertVisible: ".*(Gợi ý).*"
+      - assertNotVisible: ".*(Tóm lại).*"
+- takeScreenshot: artifacts/HW-28-giaithich-cau2
+- tapOn: "Đóng"
+- assertNotVisible: ".*(Parrot giải thích).*"

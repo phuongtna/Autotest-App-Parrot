@@ -22,31 +22,38 @@
  *     scrape UI Web GV (endpoint room_id-cho-bài-mới-tinh không tồn tại - xem comment homeworkModel.js
  *     "assignedDate"/"examId" UNRESOLVED - nên phải suy ra room mới bằng diff before/after).
  *   - flows/homework/verify-filter-web-vs-app.mjs (export sẵn, có guard argv nên import an toàn) -
- *     quy đổi giờ VN, computeRange/inRange (business rule filter WEEK/MONTH), appDueDateKeyFragment
- *     (khoá match title+Hạn nộp), readHomeworkHierarchyOnce (1 lệnh `maestro hierarchy` DUY NHẤT
- *     dùng để phân biệt duplicate SAU KHI đã tìm thấy - KHÔNG dùng để tự cuộn/tìm nữa, xem mục
- *     "KIẾN TRÚC DISCOVERY" dưới). collectAllVisibleHomeworkCards() (swipe-ngoài+hierarchy theo
- *     TOẠ ĐỘ, budget TARGET_LOOKUP_*) VẪN CÒN trong file đó (không rollback, xem lịch sử) nhưng
- *     KHÔNG còn được import/gọi ở ĐÂY - xem lý do đo thật (~52-67s/lệnh CLI) trong docblock hằng
- *     số TARGET_LOOKUP_* của chính file đó.
+ *     quy đổi giờ VN, computeRange/inRange (business rule filter WEEK/MONTH). appDueDateKeyFragment/
+ *     readHomeworkHierarchyOnce KHÔNG còn dùng ở đây (xem "KIẾN TRÚC DISCOVERY" dưới - phân biệt
+ *     duplicate giờ do chính findAssignment() làm, không cần đọc hierarchy riêng lần 2 nữa).
  *   - flows/helpers/open-exercise.yaml (không sửa) - bước tap "Làm bài" cuối cùng + cổng xác nhận
  *     "đã vào màn làm bài" generic (`exercise_close_button`, verify KHÔNG phụ thuộc loại câu hỏi -
- *     xem comment trong chính file đó).
- *   - flows/helpers/locate-assignment-card.yaml (MỚI) - native `scrollUntilVisible` (Maestro tự
- *     cuộn bên trong 1 lần gọi CLI) tìm card theo (title, Hạn nộp DD/MM) - xem "KIẾN TRÚC
- *     DISCOVERY" dưới.
+ *     xem comment trong chính file đó). An toàn giữ nguyên: findAssignment() đã cuộn app đứng yên
+ *     đúng vị trí target trước khi gọi, nên scrollUntilVisible nội bộ của file này chạy 0 lần
+ *     (target đã visible ngay từ đầu - xem CASE 1 trong ensure-exercise-controls-visible.yaml).
+ *   - automation/bai_tap/discovery/findAssignment.js + maestroMcpSession.js (MỚI, 2026-08-19) - tìm
+ *     card theo (title, Hạn nộp DD/MM), target-driven/không phụ thuộc số lượng assignment, THAY
+ *     THẾ hẳn native `scrollUntilVisible` (flows/helpers/locate-assignment-card.yaml, ĐÃ NGHỈ HƯU -
+ *     xem "KIẾN TRÚC DISCOVERY" dưới + docblock findAssignment.js để biết root cause đầy đủ).
+ *   - flows/helpers/open-homework-list-for-locate.yaml (MỚI) - phần preamble (login/mở tab/đổi
+ *     filter) tách ra từ locate-assignment-card.yaml, phần cuộn+tìm của file đó đã chuyển hẳn
+ *     sang findAssignment().
  *
- * KIẾN TRÚC DISCOVERY (2026-08-12, thay thế bản polling swipe-ngoài+`maestro hierarchy` cũ):
- *   ĐÃ ĐO THẬT (thiết bị 3201d866d40a1681, ≥25 lệnh qua 3 lần chạy sống) rằng MỖI lệnh CLI
- *   `maestro` (dù `hierarchy` hay `test` 1 flow nhỏ) tốn ~52-67s gần như CỐ ĐỊNH (chi phí khởi
- *   động lại process/kết nối ADB, không phụ thuộc độ phức tạp thao tác) - nên vòng "swipe ngoài
- *   -> đọc `maestro hierarchy` -> parse -> swipe tiếp" trả giá 1 lệnh CLI CHO MỖI LƯỢT CUỘN, quá
- *   đắt để dò sâu 1 danh sách dài. Native `scrollUntilVisible` (locate-assignment-card.yaml) cuộn
- *   NHIỀU LẦN BÊN TRONG CÙNG 1 lệnh CLI (Maestro tự lặp scroll+check nội bộ, timeout 90s) - cùng
- *   chi phí ~1 lệnh CLI nhưng không nhân theo số lượt cuộn. `maestro hierarchy` ngoài giờ CHỈ còn
- *   dùng ĐÚNG 1 LẦN, NGAY SAU KHI native locate đã assertVisible thành công - để phân biệt
- *   duplicate (App HS có ≥2 card giống hệt title+Hạn nộp không, xem BLOCKED_AMBIGUOUS_MATCH),
- *   KHÔNG dùng để tự tìm/cuộn.
+ * KIẾN TRÚC DISCOVERY (ĐỔI 2026-08-19, thay bản native scrollUntilVisible 2026-08-12):
+ *   Bản 2026-08-12 đo thật rằng mỗi lệnh CLI `maestro` RIÊNG (`hierarchy`/`test`) tốn ~52-67s cố
+ *   định (chi phí khởi động lại process/ADB) nên tránh vòng Node "swipe -> hierarchy -> parse ->
+ *   swipe tiếp" (1 lệnh CLI/lượt cuộn, quá đắt cho danh sách dài), chọn native `scrollUntilVisible`
+ *   (locate-assignment-card.yaml, cuộn nhiều lần TRONG CÙNG 1 lệnh CLI) làm giải pháp thay thế.
+ *   NHƯNG native `scrollUntilVisible` tự quyết định "hết danh sách" bằng cách so sánh nội dung màn
+ *   hình giữa 2 lượt cuộn - danh sách thật có nhiều card liên tiếp TRÙNG HỆT title+Hạn nộp (room
+ *   test tự động cùng ngày mặc định cùng hạn nộp) đánh lừa được so sánh đó, khiến cuộn DỪNG SỚM
+ *   (xem lịch sử 6 lần "fix" không chạm root cause trong chính file locate-assignment-card.yaml).
+ *   `findAssignment()` (automation/bai_tap/discovery/findAssignment.js) sửa đúng root cause (fingerprint
+ *   TOÀN BỘ card + no-progress detection + identity title+Hạn nộp, không suy đoán vị trí) - chạy
+ *   qua MaestroMcpSession (1 tiến trình `maestro mcp` sống xuyên suốt, ~1.7-7s/lượt sau ~38s cold-
+ *   start 1 LẦN, xem automation/bai_tap/discovery/maestroMcpSession.js) nên KHÔNG còn phải đánh đổi
+ *   giữa "đúng" và "rẻ" như bản 2026-08-12 - vừa đúng vừa không đắt hơn native. Phân biệt duplicate
+ *   (App HS có ≥2 card giống hệt title+Hạn nộp không, xem BLOCKED_AMBIGUOUS_ASSIGNMENT_MATCH) giờ
+ *   do CHÍNH findAssignment() trả về (status AMBIGUOUS) - không cần đọc hierarchy riêng lần 2 nữa.
  *
  * KHÔNG đụng tới EX-06/EX-12/các EX testcase khác, KHÔNG tạo selector mới, KHÔNG thao tác mic.
  *
@@ -91,34 +98,20 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assignHomeworkFlow } from "../../automation/giao_bai_tap/runtime/assignHomeworkFlow.js";
-import { fetchAllHomeworkRooms } from "../../automation/bai_tap/discovery/homeworks.js";
-import { normalizeHomework } from "../../automation/bai_tap/model/homeworkModel.js";
-import { requireTeacherPortalConfig } from "../../automation/src/config.js";
-import {
-  isoToVnYmd,
-  computeRange,
-  inRange,
-  formatDM,
-  formatDMY,
-  appDueDateKeyFragment,
-  readHomeworkHierarchyOnce,
-} from "../bai_tap/verify-filter-web-vs-app.mjs";
+import { assignHomeworkFlow } from "../../../automation/giao_bai_tap/runtime/assignHomeworkFlow.js";
+import { fetchAllHomeworkRooms } from "../../../automation/bai_tap/discovery/homeworks.js";
+import { normalizeHomework } from "../../../automation/bai_tap/model/homeworkModel.js";
+import { requireTeacherPortalConfig } from "../../../automation/src/config.js";
+import { MaestroMcpSession } from "../../../automation/bai_tap/discovery/maestroMcpSession.js";
+import { findAssignment } from "../../../automation/bai_tap/discovery/findAssignment.js";
+import { isoToVnYmd, computeRange, inRange, formatDM, formatDMY } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
-const HELPERS_DIR = join(SELF_DIR, "..", "helpers");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const HELPERS_DIR = join(SELF_DIR, "..", "..", "app", "helpers");
 const OPEN_EXERCISE_FLOW = join(HELPERS_DIR, "open-exercise.yaml");
-const LOCATE_ASSIGNMENT_FLOW = join(HELPERS_DIR, "locate-assignment-card.yaml");
+const OPEN_HOMEWORK_LIST_FOR_LOCATE_FLOW = join(HELPERS_DIR, "open-homework-list-for-locate.yaml");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_teacher_assign_student_open_report.json");
-
-// ĐO THẬT (2026-08-12, thiết bị 3201d866d40a1681): mỗi lệnh CLI `maestro` ~52-67s bất kể nội
-// dung - nên KHÔNG retry "native locate" hàng chục lần (mỗi lần retry vẫn là 1 lệnh CLI đầy đủ,
-// gồm cả login lại). Giữ nhỏ (2) đúng yêu cầu "không retry hàng chục lần" - nếu native
-// scrollUntilVisible (đã có timeout nội bộ RỘNG, 90s, đủ cho rất nhiều lượt cuộn NATIVE bên
-// trong CÙNG 1 lệnh CLI đó) thất bại 2 lần độc lập, coi là bằng chứng khá chắc "không tồn tại"
-// (khác hẳn bản cũ chỉ cuộn được 3-6 lần qua vòng swipe-ngoài+hierarchy trước khi hết ngân sách).
-const LOCATE_MAX_ATTEMPTS = 2;
 
 // Cùng 1 lớp thật với ASSIGN_PRIMARY_CLASS (mặc định "3B") - id lấy từ
 // verify-filter-web-vs-app.mjs (đã xác nhận thật, không đoán).
@@ -200,17 +193,17 @@ function tapAndOpenExercise(exerciseName, dueDateDm) {
 }
 
 /**
- * NATIVE locate (xem flows/helpers/locate-assignment-card.yaml) - scrollUntilVisible cuộn BÊN
- * TRONG 1 lần gọi CLI thay cho vòng swipe-ngoài+`maestro hierarchy` cũ. Throw nếu không tìm thấy
- * trong timeout nội bộ (90s) của scrollUntilVisible - caller tự quyết định retry.
+ * Mở tab "Bài tập" (+ đổi filter nếu cần) - 1 lượt `maestro test` DUY NHẤT, KHÔNG scroll/tìm gì
+ * (đó là việc của `locateAssignmentOnApp()` ngay sau, qua MaestroMcpSession) - xem
+ * flows/helpers/open-homework-list-for-locate.yaml.
  */
-function runLocateAssignmentCard(title, dueDateDm, switchToMonthFilter) {
+function openHomeworkListForLocate(switchToMonthFilter) {
   return execFileSync(
     "maestro",
     [
       ...deviceArgs(),
       "test",
-      LOCATE_ASSIGNMENT_FLOW,
+      OPEN_HOMEWORK_LIST_FOR_LOCATE_FLOW,
       "-e",
       `APP_ID=${APP_ID}`,
       "-e",
@@ -218,25 +211,35 @@ function runLocateAssignmentCard(title, dueDateDm, switchToMonthFilter) {
       "-e",
       `OTP=${OTP}`,
       "-e",
-      `TARGET_TITLE=${title}`,
-      "-e",
-      `TARGET_DUE_DATE_DM=${dueDateDm}`,
-      "-e",
       `SWITCH_TO_MONTH_FILTER=${switchToMonthFilter ? "true" : "false"}`,
     ],
     { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
   );
 }
 
-/** Best-effort: đọc hierarchy MỘT LẦN ngay khi 1 lượt native locate thất bại, chỉ để ghi log
- * [DISCOVERY_STALL] (title/Hạn nộp ĐANG THẤY được lúc đó) - phục vụ debug, KHÔNG dùng để quyết
- * định PASS/FAIL/BLOCKED (quyết định đó dựa trên số lần native locate thất bại, xem gọi hàm này). */
-function peekVisibleCardsForStallLog(title) {
+/**
+ * findAssignment() qua 1 tiến trình `maestro mcp` sống xuyên suốt vòng scroll+đọc (~1.7-7s/lượt,
+ * xem lý do đo thật trong automation/bai_tap/discovery/maestroMcpSession.js) - THAY THẾ hẳn native
+ * `scrollUntilVisible` (flows/helpers/locate-assignment-card.yaml, ĐÃ CHỨNG MINH bị đánh lừa bởi
+ * card trùng title+Hạn nộp khi danh sách dài, xem lịch sử sửa trong chính file yaml đó + docblock
+ * automation/bai_tap/discovery/findAssignment.js). Trước đây phải tránh vòng lặp Node vì mỗi
+ * `maestro test`/`maestro hierarchy` RIÊNG tốn ~52-67s/lệnh (lý do file này từng chọn native
+ * scrollUntilVisible) - MaestroMcpSession xoá bỏ chi phí đó (chỉ ~38s cold-start 1 LẦN cho cả
+ * session, không phải mỗi lượt cuộn) nên giờ Node-driven loop KHÔNG còn đắt hơn native nữa, mà còn
+ * đúng hơn (không bị đánh lừa bởi nội dung trùng lặp).
+ * @returns {Promise<Object>} kết quả findAssignment() - {status, card|matches|reason, scrollCount, diagnostics}
+ */
+async function locateAssignmentOnApp(title, dueDateDm) {
+  const session = new MaestroMcpSession(DEVICE_ID ? { deviceId: DEVICE_ID } : {});
+  await session.start();
   try {
-    const cards = readHomeworkHierarchyOnce();
-    return cards.filter((c) => c.title === title).map((c) => ({ dueDateText: c.dueDateText, cta: c.cta }));
-  } catch {
-    return null;
+    const adapter = {
+      hierarchy: () => session.hierarchy(),
+      runSteps: (steps) => session.run(APP_ID, steps),
+    };
+    return await findAssignment(adapter, { title, dueDateDM: dueDateDm });
+  } finally {
+    await session.stop();
   }
 }
 
@@ -400,117 +403,67 @@ export async function assignHomeworkAndLocateOnApp() {
   // vậy dùng chính bước tìm-đúng-card-chưa-hoàn-thành dưới đây làm proxy cho "trạng thái assignment
   // mới theo UI thực tế" (card của bài vừa giao xuất hiện, CTA còn "Làm bài"/chưa "Làm lại").
   //
-  // KIẾN TRÚC (2026-08-12, thay thế bản polling swipe-ngoài+`maestro hierarchy` cũ): ĐÃ ĐO THẬT
-  // trên thiết bị 3201d866d40a1681 rằng MỖI lệnh CLI `maestro` (dù `hierarchy` hay `test` 1 flow
-  // nhỏ) tốn ~52-67s gần như CỐ ĐỊNH (chi phí khởi động lại process/ADB, không phụ thuộc độ phức
-  // tạp thao tác) - nên vòng "swipe ngoài -> hierarchy -> parse -> swipe tiếp" trả giá 1 lệnh CLI
-  // CHO MỖI LƯỢT CUỘN. Native `scrollUntilVisible` (flows/helpers/locate-assignment-card.yaml)
-  // cuộn NHIỀU LẦN BÊN TRONG CÙNG 1 lệnh CLI đó (Maestro tự lặp scroll+check nội bộ) - cùng chi
-  // phí ~1 lệnh CLI nhưng cuộn được sâu hơn nhiều, không nhân với số lượt cuộn. `maestro hierarchy`
-  // ngoài giờ CHỈ còn dùng ĐÚNG 1 LẦN, SAU KHI native locate đã xác nhận tìm thấy - để phân biệt
-  // duplicate (BLOCKED_AMBIGUOUS_ASSIGNMENT_MATCH), không phải để tự tìm/cuộn.
-  console.log("[4/4] App HS: native scroll (Maestro scrollUntilVisible) tìm đúng card vừa giao (proxy cho notification - xem comment)...");
+  // KIẾN TRÚC (ĐỔI 2026-08-19, thay bản native scrollUntilVisible 2026-08-12): bản cũ tránh vòng
+  // lặp Node vì mỗi `maestro test`/`maestro hierarchy` RIÊNG tốn ~52-67s/lệnh (đo thật, xem lịch sử
+  // dưới git blame nếu cần đối chiếu) - nhưng native `scrollUntilVisible` bị CHỨNG MINH bị đánh lừa
+  // bởi card trùng title+Hạn nộp khi danh sách dài (xem docblock findAssignment.js + lịch sử sửa
+  // trong flows/helpers/locate-assignment-card.yaml - 6 lần "fix" liên tiếp không chạm root cause).
+  // `findAssignment()` qua MaestroMcpSession xoá bỏ chi phí per-iteration đó (~1.7-7s/lượt thay vì
+  // ~52-67s), nên giờ Node-driven, target-driven scroll vừa ĐÚNG hơn vừa KHÔNG đắt hơn.
+  console.log("[4/4] App HS: findAssignment() (target-driven, không phụ thuộc số lượng assignment) tìm đúng card vừa giao...");
   const weekRange = computeRange("WEEK");
   const switchToMonthFilter = !inRange(dueVnYmd, weekRange.rangeStart, weekRange.rangeEnd);
   if (switchToMonthFilter) {
-    console.log(`  Hạn nộp (${formatDMY(dueVnYmd)}) ngoài "2 tuần gần nhất" - flow locate sẽ tự đổi filter sang "1 tháng gần nhất".`);
+    console.log(`  Hạn nộp (${formatDMY(dueVnYmd)}) ngoài "2 tuần gần nhất" - đổi sang "1 tháng gần nhất" trước khi tìm.`);
   }
 
-  const discoveryStartedAt = Date.now();
-  let locateError = null;
-  let locateAttempts = 0;
-  const stallLog = [];
-  for (; locateAttempts < LOCATE_MAX_ATTEMPTS; locateAttempts++) {
-    try {
-      runLocateAssignmentCard(assignment.title, dueDM, switchToMonthFilter);
-      locateError = null;
-      break;
-    } catch (err) {
-      locateError = err;
-      const visibleSameTitle = peekVisibleCardsForStallLog(assignment.title);
-      const entry = {
-        target: `${assignment.title}|${dueDM}`,
-        scroll_attempt: locateAttempts + 1,
-        elapsed_ms: Date.now() - discoveryStartedAt,
-        last_visible_due_dates: visibleSameTitle ? visibleSameTitle.map((c) => c.dueDateText) : null,
-        last_visible_titles: visibleSameTitle ? visibleSameTitle.map(() => assignment.title) : null,
-      };
-      stallLog.push(entry);
-      console.log(`[DISCOVERY_STALL] ${JSON.stringify(entry)}`);
-    }
-  }
+  openHomeworkListForLocate(switchToMonthFilter);
+  const located = await locateAssignmentOnApp(assignment.title, dueDM);
+  const scanOutcome = { method: "FIND_ASSIGNMENT_MCP_SESSION", scrollCount: located.scrollCount, status: located.status };
 
-  if (locateError) {
-    // 2 lần native locate ĐỘC LẬP đều thất bại, MỖI lần scrollUntilVisible đã có timeout nội bộ
-    // rộng (90s, đủ cho rất nhiều lượt cuộn native) - đây là bằng chứng khá chắc "không tồn tại"
-    // (KHÁC bản cũ chỉ cuộn được vài lượt qua vòng swipe-ngoài+hierarchy trước khi hết ngân sách
-    // nhỏ) -> BLOCKED_ASSIGNMENT_NOT_FOUND, KHÔNG phải BLOCKED_DISCOVERY_BUDGET_EXCEEDED.
+  if (located.status === "NOT_FOUND" || located.status === "ERROR") {
     console.log(`[APP_MATCH]\nBLOCKED`);
+    console.log(located.diagnostics ?? located.reason);
     return {
       ok: false,
       status: "BLOCKED",
-      classification: "BLOCKED_ASSIGNMENT_NOT_FOUND",
-      summary: `Không tìm thấy card "${assignment.title}" / Hạn nộp ${formatDMY(dueVnYmd)} trên App HS sau ${LOCATE_MAX_ATTEMPTS} lượt native locate độc lập (mỗi lượt scrollUntilVisible timeout nội bộ 90s) - xem [DISCOVERY_STALL] để biết card/Hạn nộp thực tế đang thấy tại thời điểm thất bại.`,
+      classification: located.status === "ERROR" ? "BLOCKED_ASSIGNMENT_LOCATE_ERROR" : "BLOCKED_ASSIGNMENT_NOT_FOUND",
+      summary:
+        located.status === "ERROR"
+          ? `findAssignment() lỗi ngoài dự kiến khi tìm "${assignment.title}": ${located.reason}`
+          : `Không tìm thấy card "${assignment.title}" / Hạn nộp ${formatDMY(dueVnYmd)} trên App HS sau ${located.scrollCount} lượt cuộn (${located.reason}) - xem evidence.diagnostics.`,
       evidence: {
         assignment: { roomId: assignment.id, title: assignment.title, endTime: assignment.deadline.endTime },
-        stallLog,
-        lastError: locateError.message,
-        selection,
-      },
-    };
-  }
-
-  console.log(`  [PASS] Native scroll tìm thấy đúng cặp title+Hạn nộp sau ${locateAttempts + 1} lượt "maestro test" locate.`);
-
-  // ĐÚNG 1 lệnh `maestro hierarchy` - CHỈ để lấy card object cho report + phân biệt duplicate
-  // (App HS có ≥2 card giống hệt title+Hạn nộp không) - KHÔNG dùng để tự tìm/cuộn (đã xong ở trên).
-  const hierarchyCards = readHomeworkHierarchyOnce();
-  const cardsMatchingDeadline = hierarchyCards.filter(
-    (c) => !c.completed && c.title === assignment.title && appDueDateKeyFragment(c, dueVnYmd) === dueDM,
-  );
-  const scanOutcome = { method: "NATIVE_SCROLL", nativeLocateAttempts: locateAttempts + 1, hierarchyCallCount: 1 };
-
-  if (cardsMatchingDeadline.length === 0) {
-    // Hiếm: native locate VỪA assertVisible thành công nhưng lượt `maestro hierarchy` đọc lại
-    // (2 lệnh CLI riêng, có khoảng trễ giữa 2 lần) không thấy - CHƯA ĐỦ BẰNG CHỨNG để khẳng định
-    // không tồn tại (native đã CONFIRM tồn tại ngay trước đó) -> BLOCKED_DISCOVERY_BUDGET_EXCEEDED,
-    // không phải BLOCKED_ASSIGNMENT_NOT_FOUND (sẽ mâu thuẫn với việc native vừa mới xác nhận thấy).
-    console.log(`[APP_MATCH]\nBLOCKED`);
-    return {
-      ok: false,
-      status: "BLOCKED",
-      classification: "BLOCKED_DISCOVERY_BUDGET_EXCEEDED",
-      summary: `Native locate đã assertVisible thành công cho "${assignment.title}" / Hạn nộp ${formatDMY(dueVnYmd)} nhưng lệnh "maestro hierarchy" đọc lại ngay sau đó không thấy card này (có thể do timing giữa 2 lệnh CLI riêng) - không đủ bằng chứng để khẳng định không tồn tại.`,
-      evidence: {
-        assignment: { roomId: assignment.id, title: assignment.title, expectedDueDate: formatDMY(dueVnYmd) },
+        diagnostics: located.diagnostics,
+        reason: located.reason,
         scanOutcome,
         selection,
       },
     };
   }
-  if (cardsMatchingDeadline.length > 1) {
+  if (located.status === "AMBIGUOUS") {
     console.log(`[APP_MATCH]\nBLOCKED`);
     return {
       ok: false,
       status: "BLOCKED",
       classification: "BLOCKED_AMBIGUOUS_ASSIGNMENT_MATCH",
-      summary: `App HS có ${cardsMatchingDeadline.length} card giống hệt (title="${assignment.title}", hạn nộp=${formatDMY(dueVnYmd)}) - không thể xác định card nào ứng với room_id=${assignment.id} vừa giao, không đoán.`,
+      summary: `App HS có ${located.matches.length} card giống hệt (title="${assignment.title}", hạn nộp=${formatDMY(dueVnYmd)}) - không thể xác định card nào ứng với room_id=${assignment.id} vừa giao, không đoán.`,
       evidence: {
         title: assignment.title,
         deadline: formatDMY(dueVnYmd),
-        soAssignmentTrung: 1,
         roomIds: [assignment.id],
-        soCardTuongUng: cardsMatchingDeadline.length,
+        matches: located.matches,
         scanOutcome,
         selection,
       },
     };
   }
 
-  console.log(`  [PASS] Đúng 1 card khớp title+Hạn nộp - title="${cardsMatchingDeadline[0].title}" hạn nộp="${cardsMatchingDeadline[0].dueDateText}" CTA="${cardsMatchingDeadline[0].cta}".`);
+  const card = { title: located.card.title, dueDateText: located.card.dueDate, cta: located.card.cta };
+  console.log(`  [PASS] findAssignment() tìm thấy sau ${located.scrollCount} lượt cuộn - title="${card.title}" hạn nộp="${card.dueDateText}" CTA="${card.cta}".`);
   console.log(`[APP_MATCH]\nPASS`);
 
-  return { ok: true, assignment, card: cardsMatchingDeadline[0], scanOutcome, startVnYmd, dueVnYmd, selection };
+  return { ok: true, assignment, card, scanOutcome, startVnYmd, dueVnYmd, selection };
 }
 
 function finish(result) {

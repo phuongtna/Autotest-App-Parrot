@@ -8,21 +8,25 @@ Bộ khung test automation cho app Android chạy trên máy ảo (AVD) trong An
 .
 ├── .maestro/config.yaml     # cấu hình workspace Maestro
 ├── flows/
-│   ├── smoke_test.yaml      # test mở app cơ bản
-│   ├── login/               # tất cả testcase riêng cho màn hình đăng nhập
-│   │   ├── login_success_valid_otp.yaml       # TC1: đăng nhập thành công với OTP hợp lệ (đã pass)
-│   │   └── login_fail_unregistered_phone.yaml # TC2: đăng nhập thất bại - số điện thoại chưa đăng ký (đã pass)
-│   ├── profile/              # testcase cho chức năng chuyển profile (tài khoản con)
-│   │   └── switch_profile_success.yaml # TC: chuyển profile thành công Ngoc -> Ha (đã pass)
-│   ├── vui_hoc/               # testcase cho màn hình "Vui học"
-│   │   ├── TESTCASES.md       # template để điền case Step/Output trước khi viết flow
-│   │   └── study_unit9_protecting_environment.yaml # TC: học Unit 9 ở Khối 10 (đã pass)
-│   ├── homework/             # HW-01→27: tab "Bài tập" (port từ maestro_1, xem mục dưới)
-│   ├── exercise/              # EX-01→11: cơ chế làm bài (cần build bật EXPO_PUBLIC_E2E=1)
-│   ├── report/                # RP-01→26: tab "Báo cáo"
-│   ├── helpers/                # subflow dùng chung riêng cho 3 bộ trên (login, mở tab...)
-│   └── subflows/
-│       └── launch_app.yaml  # subflow dùng chung: clear state + mở app (tự cấp quyền notification)
+│   ├── app/                  # testcase/flow chạy trên Android App (Maestro)
+│   │   ├── smoke_test.yaml      # test mở app cơ bản
+│   │   ├── login/               # tất cả testcase riêng cho màn hình đăng nhập
+│   │   │   ├── login_success_valid_otp.yaml       # TC1: đăng nhập thành công với OTP hợp lệ (đã pass)
+│   │   │   └── login_fail_unregistered_phone.yaml # TC2: đăng nhập thất bại - số điện thoại chưa đăng ký (đã pass)
+│   │   ├── profile/              # testcase cho chức năng chuyển profile (tài khoản con)
+│   │   │   └── switch_profile_success.yaml # TC: chuyển profile thành công Ngoc -> Ha (đã pass)
+│   │   ├── vui_hoc/               # testcase cho màn hình "Vui học"
+│   │   │   ├── TESTCASES.md       # template để điền case Step/Output trước khi viết flow
+│   │   │   └── study_unit9_protecting_environment.yaml # TC: học Unit 9 ở Khối 10 (đã pass)
+│   │   ├── bai_tap/              # testcase tab "Bài tập" (HW-*, port từ maestro_1, xem mục dưới)
+│   │   ├── exercise/              # EX-01→11: cơ chế làm bài (cần build bật EXPO_PUBLIC_E2E=1)
+│   │   ├── report/                # RP-01→26: tab "Báo cáo"
+│   │   ├── helpers/                # subflow dùng chung riêng cho các bộ App ở trên (login, mở tab...)
+│   │   └── subflows/
+│   │       └── launch_app.yaml  # subflow dùng chung: clear state + mở app (tự cấp quyền notification)
+│   └── web/                  # testcase/flow chạy trên Web (Playwright, phía GV)
+│       ├── giao_bai_tap/        # e2e GV giao bài (web) <-> HS làm bài (app)
+│       └── teacher/             # spec/testcase Web Teacher Dashboard (quản lý lớp, giao bài)
 ├── scripts/
 │   ├── find_appid.sh        # tìm package name (appId) của app trên máy ảo
 │   └── run_tests.sh         # chạy toàn bộ test và xuất báo cáo JUnit
@@ -56,13 +60,13 @@ App đang test: **ParrotEdu** — package name `com.inet.parrotedu` (React Nativ
 ./scripts/run_tests.sh
 
 # Chỉ chạy toàn bộ testcase của màn login
-./scripts/run_tests.sh flows/login
+./scripts/run_tests.sh flows/app/login
 
 # Chỉ chạy 1 testcase cụ thể
-./scripts/run_tests.sh flows/login/login_success_valid_otp.yaml
+./scripts/run_tests.sh flows/app/login/login_success_valid_otp.yaml
 
 # Chạy trực tiếp bằng maestro CLI
-maestro test flows/login/login_success_valid_otp.yaml -e APP_ID=com.inet.parrotedu -e PHONE_NUMBER=0936021880 -e OTP_CODE=888888
+maestro test flows/app/login/login_success_valid_otp.yaml -e APP_ID=com.inet.parrotedu -e PHONE_NUMBER=0936021880 -e OTP_CODE=888888
 ```
 
 Báo cáo JUnit XML được ghi vào `reports/report.xml` sau mỗi lần chạy `run_tests.sh`.
@@ -73,9 +77,9 @@ Báo cáo JUnit XML được ghi vào `reports/report.xml` sau mỗi lần chạ
    ```bash
    maestro studio
    ```
-2. Mỗi màn hình có 1 thư mục riêng trong `flows/` (vd: `flows/login/`). Mỗi testcase là 1 file `.yaml` riêng trong thư mục đó, đặt tên mô tả rõ case (vd: `login_success_valid_otp.yaml`, `login_invalid_phone.yaml`, `login_wrong_otp.yaml`...). Tham khảo cấu trúc của `flows/login/login_success_valid_otp.yaml`.
-3. Nếu nhiều flow dùng chung bước, tách vào `flows/subflows/` và gọi bằng `runFlow: ../subflows/ten_file.yaml` (đường dẫn tương đối từ thư mục con, ví dụ `flows/login/`).
-4. Thêm đường dẫn thư mục mới vào danh sách `flows:` trong `.maestro/config.yaml` để Maestro nhận diện (đã thêm sẵn `flows/login/*.yaml`, `flows/profile/*.yaml`, `flows/vui_hoc/*.yaml`).
+2. Mỗi màn hình có 1 thư mục riêng trong `flows/app/` (vd: `flows/app/login/`). Mỗi testcase là 1 file `.yaml` riêng trong thư mục đó, đặt tên mô tả rõ case (vd: `login_success_valid_otp.yaml`, `login_invalid_phone.yaml`, `login_wrong_otp.yaml`...). Tham khảo cấu trúc của `flows/app/login/login_success_valid_otp.yaml`.
+3. Nếu nhiều flow dùng chung bước, tách vào `flows/app/subflows/` và gọi bằng `runFlow: ../subflows/ten_file.yaml` (đường dẫn tương đối từ thư mục con, ví dụ `flows/app/login/`).
+4. Thêm đường dẫn thư mục mới vào danh sách `flows:` trong `.maestro/config.yaml` để Maestro nhận diện (đã thêm sẵn `flows/app/login/*.yaml`, `flows/app/profile/*.yaml`, `flows/app/vui_hoc/*.yaml`).
 
 ### Lưu ý khi viết testcase liên quan đến trạng thái tài khoản (vd: chuyển profile)
 
@@ -113,7 +117,7 @@ App React Native thường render input OTP/PIN nhiều ô là **1 vùng bấm �
 
 ### Popup xin quyền hệ thống (thông báo, camera, vị trí...)
 
-Sau `clearState`, Android có thể hiện lại popup xin quyền (vd: "Allow ParrotEdu... to send you notifications?") ngay sau khi đăng nhập, làm flow bị chặn/flaky vì đây là dialog hệ thống, không phải view của app. Khắc phục bằng cách cho `launchApp` tự cấp quyền luôn khi mở app (đã áp dụng trong `flows/subflows/launch_app.yaml`):
+Sau `clearState`, Android có thể hiện lại popup xin quyền (vd: "Allow ParrotEdu... to send you notifications?") ngay sau khi đăng nhập, làm flow bị chặn/flaky vì đây là dialog hệ thống, không phải view của app. Khắc phục bằng cách cho `launchApp` tự cấp quyền luôn khi mở app (đã áp dụng trong `flows/app/subflows/launch_app.yaml`):
 
 ```yaml
 - launchApp:
@@ -170,7 +174,7 @@ Nếu 1 "card" trong danh sách cao hơn màn hình (ảnh + tiêu đề + mô t
     direction: DOWN
 ```
 
-Cùng bài học này áp dụng cho màn làm bài (CHOICE/CONNECT/DRAG_DROP/FILL_WORD): dispatcher `flows/helpers/answer-current-exercise-generic.yaml` gọi `flows/helpers/ensure-exercise-controls-visible.yaml` TRƯỚC khi tapOn đáp án, dùng `repeat: { while: notVisible: <control cuối cùng>, times: N }` để scroll từng bước và tự dừng ngay khi đủ - neo scroll luôn là control CUỐI CÙNG cần bấm (vd `exercise_check_button`), không phải 1 đáp án đơn lẻ, để tránh đúng lỗi dừng sớm nói trên. Nếu đã hiển thị đủ ngay từ đầu, `repeat.while` không lặp lần nào (0 scroll) - đã verify thật trên thiết bị (`maestro test` với id đã visible → SKIPPED; với id không tồn tại → lặp đúng `times` rồi dừng, không treo vô hạn).
+Cùng bài học này áp dụng cho màn làm bài (CHOICE/CONNECT/DRAG_DROP/FILL_WORD): dispatcher `flows/app/helpers/answer-current-exercise-generic.yaml` gọi `flows/app/helpers/ensure-exercise-controls-visible.yaml` TRƯỚC khi tapOn đáp án, dùng `repeat: { while: notVisible: <control cuối cùng>, times: N }` để scroll từng bước và tự dừng ngay khi đủ - neo scroll luôn là control CUỐI CÙNG cần bấm (vd `exercise_check_button`), không phải 1 đáp án đơn lẻ, để tránh đúng lỗi dừng sớm nói trên. Nếu đã hiển thị đủ ngay từ đầu, `repeat.while` không lặp lần nào (0 scroll) - đã verify thật trên thiết bị (`maestro test` với id đã visible → SKIPPED; với id không tồn tại → lặp đúng `times` rồi dừng, không treo vô hạn).
 
 ## Cài đặt Maestro (nếu máy khác chưa có)
 
@@ -217,7 +221,7 @@ gộp được giữ nguyên nội dung tại `homework/_deprecated/` (không n�
 vì thư mục `flows/homework/` tại thời điểm gộp chưa được commit vào git.
 
 Yêu cầu riêng của `exercise/*` (EX-\*): app phải build với `EXPO_PUBLIC_E2E=1` để có
-testID `exercise_answer_{i}_correct/_wrong` (xem `flows/exercise/README.md`) - nếu
+testID `exercise_answer_{i}_correct/_wrong` (xem `flows/app/exercise/README.md`) - nếu
 không case sẽ tự skip qua `runFlow.when`, không fail giả.
 
 Case tag `data-dependent` (cần tài khoản có sẵn dữ liệu cụ thể: bài quá hạn, tài khoản

@@ -60,14 +60,14 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { MaestroMcpBridge } from "../../automation/bridge/maestroMcpBridge.js";
+import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
 import {
   collectTextNodesInsideScrollableList,
   parseHomeworkCardsFromTexts,
-} from "../../automation/bai_tap/discovery/homeworkUiList.js";
+} from "../../../automation/bai_tap/discovery/homeworkUiList.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "hw21_22_upgrade_sheets_report.json");
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 

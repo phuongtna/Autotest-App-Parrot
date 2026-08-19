@@ -70,11 +70,11 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "no
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { MaestroMcpBridge } from "../../automation/bridge/maestroMcpBridge.js";
-import { CTA_TEXTS, SECTION_HEADERS } from "../../automation/bai_tap/discovery/homeworkUiList.js";
+import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
+import { CTA_TEXTS, SECTION_HEADERS } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "hw17_xem_chi_tiet_report.json");
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 

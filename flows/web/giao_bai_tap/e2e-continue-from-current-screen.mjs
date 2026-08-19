@@ -23,12 +23,12 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { MaestroMcpBridge } from "../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../automation/bai_tap/navigation/homeworkExamEngine.js";
-import { resolveHomeworkExamQuestionsForRoomId } from "../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
+import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
+import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_continue_from_current_screen_report.json");
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 const TARGET_SCORE_RANGE_LABEL = "[6.0, 8.0]";

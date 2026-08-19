@@ -49,16 +49,16 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseEnvFile } from "../../automation/src/config.js";
-import { MaestroMcpBridge } from "../../automation/bridge/maestroMcpBridge.js";
-import { getHomeworks } from "../../automation/bai_tap/discovery/homeworks.js";
-import { resolveMyStatus } from "../../automation/bai_tap/model/homeworkModel.js";
-import { CTA_TEXTS, SECTION_HEADERS } from "../../automation/bai_tap/discovery/homeworkUiList.js";
-import { deviceArgs, APP_ID, PHONE, OTP } from "../giao_bai_tap/e2e-teacher-assign-student-open.mjs";
+import { parseEnvFile } from "../../../automation/src/config.js";
+import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
+import { getHomeworks } from "../../../automation/bai_tap/discovery/homeworks.js";
+import { resolveMyStatus } from "../../../automation/bai_tap/model/homeworkModel.js";
+import { CTA_TEXTS, SECTION_HEADERS } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
+import { deviceArgs, APP_ID, PHONE, OTP } from "../../web/giao_bai_tap/e2e-teacher-assign-student-open.mjs";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "pro_lamlai_fullluong_report.json");
 const ACCOUNTS_ENV = parseEnvFile(join(PROJECT_ROOT, "test_data", "accounts.env"));
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
@@ -69,7 +69,7 @@ const MAX_LOCATE_SCROLLS = 60;
 const MAX_CANDIDATE_ATTEMPTS = 10;
 const COMPLETED_CTA = "Làm lại";
 const ADVANCED_SECTION_HEADER = "Bài tập nâng cao";
-const FINISH_FLOW = join(PROJECT_ROOT, "flows", "helpers", "finish-exercise-and-return.yaml");
+const FINISH_FLOW = join(PROJECT_ROOT, "flows", "app", "helpers", "finish-exercise-and-return.yaml");
 
 function log(...args) {
   console.log(...args);

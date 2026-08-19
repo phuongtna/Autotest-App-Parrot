@@ -63,17 +63,17 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { MaestroMcpBridge } from "../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../automation/bai_tap/navigation/homeworkExamEngine.js";
-import { fetchEligibleAssignmentTree } from "../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
-import { parseQuestionsFromExamPage } from "../../automation/discovery/examPageScraper.js";
-import { normalizeQuestions } from "../../automation/model/questionModel.js";
-import { resolveHomeworkExamQuestionsForRoomId } from "../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { fetchRoomDetails } from "../../automation/bai_tap/discovery/homeworks.js";
-import { formatDM, formatDMY, isoToVnYmd } from "../bai_tap/verify-filter-web-vs-app.mjs";
+import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
+import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { fetchEligibleAssignmentTree } from "../../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
+import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
+import { normalizeQuestions } from "../../../automation/model/questionModel.js";
+import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
+import { fetchRoomDetails } from "../../../automation/bai_tap/discovery/homeworks.js";
+import { formatDM, formatDMY, isoToVnYmd } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_teacher_assign_partial_resume_scored_report.json");
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 const TARGET_CLASS = process.env.ASSIGN_PRIMARY_CLASS || "3B";

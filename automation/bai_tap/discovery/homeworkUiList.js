@@ -244,4 +244,111 @@ export async function collectVisibleHomeworkCardsViaMcpSession(mcpSession, appId
   return Array.from(seen.values());
 }
 
+/**
+ * ===== PHẦN MỞ RỘNG cho findAssignment.js (2026-08-19) =====
+ *
+ * Mọi hàm/hằng số PHÍA TRÊN giữ NGUYÊN VẸN (không sửa) - "collect tất cả card đang thấy" vẫn đúng
+ * như cũ. Phần dưới đây bổ sung THÊM 2 thứ mà findAssignment() cần mà các hàm trên chưa cung cấp:
+ *   1. `bounds` (toạ độ) của title/CTA mỗi card - để tap bằng điểm thực tế thay vì lại nhờ Maestro
+ *      tự khớp selector `below`/`text` (chính cơ chế đã CHỨNG MINH có thể khớp nhầm card trùng lặp
+ *      - xem flows/helpers/open-exercise.yaml, đoạn "tapOn below Hạn nộp DATE (KHÔNG kèm title)").
+ *   2. `dueDate` của mỗi card (không chỉ title+cta) - để phân biệt 2 card trùng title (bài bị giao
+ *      lại) bằng (title, Hạn nộp), đúng identity đã dùng trong flows/helpers/open-exercise.yaml.
+ *
+ * Copy đúng công thức parse bounds "[x1,y1][x2,y2]" đã dùng thật trong
+ * flows/bai_tap/pro_lamlai_fullluong.mjs (không bịa định dạng mới).
+ */
+
+/**
+ * @param {?string} boundsStr - vd "[12,340][1068,520]"
+ * @returns {?{x1:number,y1:number,x2:number,y2:number}}
+ */
+export function parseBounds(boundsStr) {
+  const m = /\[(\d+),(\d+)\]\[(\d+),(\d+)\]/.exec(boundsStr ?? "");
+  if (!m) return null;
+  const [x1, y1, x2, y2] = m.slice(1).map(Number);
+  return { x1, y1, x2, y2 };
+}
+
+/** @param {{x1:number,y1:number,x2:number,y2:number}} bounds */
+export function centerPoint(bounds) {
+  return { x: Math.round((bounds.x1 + bounds.x2) / 2), y: Math.round((bounds.y1 + bounds.y2) / 2) };
+}
+
+/**
+ * Giống `collectTextNodesInsideScrollableList()` nhưng giữ lại `bounds` (đã parse số, không phải
+ * chuỗi thô) cùng mỗi text - cần cho tap-bằng-toạ-độ ở findAssignment.js.
+ * @param {Object} node
+ * @param {Array<{text:string, bounds:?{x1:number,y1:number,x2:number,y2:number}}>} acc
+ * @param {boolean} insideScrollableList
+ */
+export function collectTextNodesWithBoundsInsideScrollableList(node, acc, insideScrollableList = false) {
+  const attrs = node?.attributes ?? {};
+  const nowInside = insideScrollableList || isScrollableContainerNode(attrs);
+  const text = attrs.text;
+  if (nowInside && typeof text === "string" && text.trim()) {
+    acc.push({ text: text.trim(), bounds: parseBounds(attrs.bounds) });
+  }
+  for (const child of node?.children ?? []) collectTextNodesWithBoundsInsideScrollableList(child, acc, nowInside);
+  return acc;
+}
+
+/**
+ * Giống `parseHomeworkCardsFromTexts()` nhưng trả thêm `dueDate` (text "Hạn nộp DD/MM..." thật của
+ * CHÍNH card đó, không phải đoán) + `titleBounds`/`ctaBounds` (toạ độ để tap). Cùng bất biến/mẫu
+ * anchor đã verify thật (xem docblock đầu file) - CHỈ thêm field, không đổi logic nhận diện
+ * title/CTA đã có.
+ * @param {Array<{text:string, bounds:?Object}>} nodes
+ * @param {{ sectionSeen?: boolean }} [state]
+ * @returns {{ cards: Array<{title:string, titleBounds:?Object, dueDate:?string, cta:string, ctaBounds:?Object}>, sectionSeen: boolean }}
+ */
+export function parseHomeworkCardsWithDetail(nodes, { sectionSeen: initialSectionSeen = false } = {}) {
+  const cards = [];
+  let sectionSeen = initialSectionSeen;
+  for (let i = 0; i < nodes.length; i++) {
+    const { text } = nodes[i];
+    if (SECTION_HEADERS.includes(text)) {
+      sectionSeen = true;
+      continue;
+    }
+    if (!sectionSeen) continue;
+    const isProgress = PROGRESS_PATTERN.test(text);
+    const isDue = DUE_DATE_PATTERN.test(text);
+    if (!isProgress && !isDue) continue;
+
+    const titleNode = nodes[i - 1];
+    const title = titleNode?.text;
+    if (
+      !title ||
+      SECTION_HEADERS.includes(title) ||
+      PROGRESS_PATTERN.test(title) ||
+      DUE_DATE_PATTERN.test(title) ||
+      CTA_TEXTS.includes(title)
+    ) {
+      continue;
+    }
+
+    let dueDate = isDue ? text : null;
+    let cta = null;
+    let ctaBounds = null;
+    for (let j = i + 1; j < Math.min(nodes.length, i + 1 + MAX_CTA_LOOKAHEAD); j++) {
+      const t = nodes[j].text;
+      if (dueDate === null && DUE_DATE_PATTERN.test(t)) {
+        dueDate = t;
+        continue;
+      }
+      if (CTA_TEXTS.includes(t)) {
+        cta = t;
+        ctaBounds = nodes[j].bounds;
+        break;
+      }
+      if (PROGRESS_PATTERN.test(t) || SECTION_HEADERS.includes(t)) break; // đã sang card/section kế tiếp.
+    }
+    if (!cta) continue;
+
+    cards.push({ title, titleBounds: titleNode.bounds, dueDate, cta, ctaBounds });
+  }
+  return { cards, sectionSeen };
+}
+
 export { CTA_TEXTS, SECTION_HEADERS, collectTextNodesInsideScrollableList };

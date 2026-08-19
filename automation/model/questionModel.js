@@ -133,9 +133,22 @@ export function normalizeQuestion(rawQuestion) {
 }
 
 /**
+ * SỬA (2026-08-19, root cause thật xác nhận qua parseQuestionsFromExamPage() trực tiếp trên 2 exam
+ * thật - examId bb025c39-c0a5-4bc7-b0ad-1570577c8c2a "Read and tick True or False" N=6: item ĐẦU
+ * TIÊN có type="GROUP", answers=[], correct="" - đây KHÔNG PHẢI 1 câu hỏi thật, chỉ là node tiêu đề/
+ * đoạn văn của cả nhóm (group_label = đúng title bài, group_order=1), 5 item CÒN LẠI mới là câu
+ * "ONE" thật (mỗi câu 3 đáp án + correct hợp lệ). Trước đây normalizeQuestions() coi node GROUP này
+ * như 1 QuestionModel thật -> answers=[]/correctAnswer=null CỐ ĐỊNH -> MỌI exam có đoạn văn dẫn đề
+ * (phần lớn bài đọc hiểu/true-false của toàn bộ curriculum) bị loại OAN ở bước kiểm tra correctness
+ * (dù các câu ONE thật bên trong hoàn toàn tự động hoá được) - lộ rõ qua pre-scan
+ * flows/giao_bai_tap/e2e-teacher-assign-partial-resume-scored-pro.mjs ngày 2026-08-19 (33/33
+ * candidate fresh của lớp 3B đều BLOCKED, đa số vì "NO_CORRECT_ANSWER_DEFINED" ngay ở item đầu).
+ * Lọc bỏ node "GROUP" (không phải câu hỏi thật) TRƯỚC khi chuẩn hoá - áp dụng cho MỌI caller của
+ * normalizeQuestions() (candidate feasibility check LẪN nguồn QUESTIONS dùng để trả lời thật qua
+ * teacherMaterialsExamResolver.js#resolveHomeworkExamQuestionsForRoomId(), cùng dùng chung hàm này).
  * @param {Object} examData - trả về từ examPageScraper.js#parseQuestionsFromExamPage
  * @returns {QuestionModel[]}
  */
 export function normalizeQuestions(examData) {
-  return (examData.questions ?? []).map(normalizeQuestion);
+  return (examData.questions ?? []).filter((q) => q.type !== "GROUP").map(normalizeQuestion);
 }

@@ -88,7 +88,7 @@ const os = require("os");
 
 const HOMEWORK_DIR = __dirname;
 // flows/homework -> flows -> repo root ("Autotest app Parrot")
-const PROJECT_ROOT = join(HOMEWORK_DIR, "..", "..");
+const PROJECT_ROOT = join(HOMEWORK_DIR, "..", "..", "..");
 const HELPERS_DIR = join(HOMEWORK_DIR, "..", "helpers");
 const LAUNCH_KEEP_SESSION_FLOW = join(HELPERS_DIR, "launch-keep-session.yaml");
 const LOGIN_FLOW = join(HELPERS_DIR, "login.yaml");

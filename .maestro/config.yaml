@@ -1,11 +1,11 @@
 # Cấu hình chung cho toàn bộ workspace Maestro.
 # Tham khảo: https://maestro.mobile.dev/api-reference/configuration/project-configuration-file
 flows:
-  - "flows/*.yaml"
-  - "flows/login/*.yaml"
-  - "flows/vui_hoc/*.yaml"
-  - "flows/profile/*.yaml"
-  - "flows/bai_tap/*.yaml"
+  - "flows/app/*.yaml"
+  - "flows/app/login/*.yaml"
+  - "flows/app/vui_hoc/*.yaml"
+  - "flows/app/profile/*.yaml"
+  - "flows/app/bai_tap/*.yaml"
   - "flows/homework/*.yaml"
-  - "flows/exercise/*.yaml"
-  - "flows/report/*.yaml"
+  - "flows/app/exercise/*.yaml"
+  - "flows/app/report/*.yaml"

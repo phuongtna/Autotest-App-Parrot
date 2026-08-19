@@ -62,19 +62,19 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "no
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseEnvFile } from "../../automation/src/config.js";
-import { MaestroMcpBridge } from "../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../automation/bai_tap/navigation/homeworkExamEngine.js";
-import { parseQuestionsFromExamPage } from "../../automation/discovery/examPageScraper.js";
-import { normalizeQuestions } from "../../automation/model/questionModel.js";
-import { resolveHomeworkExamQuestionsForRoomId } from "../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { getHomeworks } from "../../automation/bai_tap/discovery/homeworks.js";
-import { resolveMyStatus } from "../../automation/bai_tap/model/homeworkModel.js";
-import { CTA_TEXTS, SECTION_HEADERS } from "../../automation/bai_tap/discovery/homeworkUiList.js";
+import { parseEnvFile } from "../../../automation/src/config.js";
+import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
+import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
+import { normalizeQuestions } from "../../../automation/model/questionModel.js";
+import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
+import { getHomeworks } from "../../../automation/bai_tap/discovery/homeworks.js";
+import { resolveMyStatus } from "../../../automation/bai_tap/model/homeworkModel.js";
+import { CTA_TEXTS, SECTION_HEADERS } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "pro_lamlai_fullluong_xemchitiet_report.json");
 const ACCOUNTS_ENV_PATH = join(PROJECT_ROOT, "test_data", "accounts.env");
 const ROOT_ENV_PATH = join(PROJECT_ROOT, ".env");

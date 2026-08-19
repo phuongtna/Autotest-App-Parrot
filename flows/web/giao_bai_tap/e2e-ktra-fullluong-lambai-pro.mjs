@@ -46,16 +46,16 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseEnvFile } from "../../automation/src/config.js";
+import { parseEnvFile } from "../../../automation/src/config.js";
 import { assignHomeworkAndLocateOnApp, APP_ID, PHONE, OTP, deviceArgs } from "./e2e-teacher-assign-student-open.mjs";
-import { formatDMY, formatDM } from "../bai_tap/verify-filter-web-vs-app.mjs";
+import { formatDMY, formatDM } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const ACCOUNTS_ENV = parseEnvFile(join(PROJECT_ROOT, "test_data", "accounts.env"));
 const PROFILE_PRO_NAME = process.env.PROFILE_PRO_NAME || ACCOUNTS_ENV.PROFILE_PRO_NAME || "Ngoc";
-const ENSURE_PROFILE_FLOW = join(PROJECT_ROOT, "flows", "helpers", "ensure-profile-active.yaml");
-const LIFECYCLE_FLOW = join(PROJECT_ROOT, "flows", "bai_tap", "ktra_fullluong_lambai.yaml");
+const ENSURE_PROFILE_FLOW = join(PROJECT_ROOT, "flows", "app", "helpers", "ensure-profile-active.yaml");
+const LIFECYCLE_FLOW = join(PROJECT_ROOT, "flows", "app", "bai_tap", "ktra_fullluong_lambai.yaml");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_ktra_fullluong_lambai_pro_report.json");
 const YAML_REFERENCE_FILE = "flows/bai_tap/ktra_fullluong_lambai.yaml";
 

@@ -7,9 +7,12 @@
  * resolve qua resolveHomeworkExamQuestionsForRoomId, MaestroMcpBridge, disambiguate/progress
  * reading) - CHỈ khác đúng 2 điểm theo yêu cầu (2026-08-18):
  *
- *   1. Target điểm CUỐI CÙNG (không phải "X/10 câu đúng"): [6.0, 8.0] ĐÓNG cả 2 đầu (bản gốc
- *      [7.0, 8.0) nửa mở) - xem computeScorePlan() bên dưới, center đổi 7.5 -> 7.0 cho khớp tâm
- *      range mới.
+ *   1. Target điểm CUỐI CÙNG (không phải "X/10 câu đúng"): [7.0, 9.0] ĐÓNG cả 2 đầu (bản gốc
+ *      [7.0, 8.0) nửa mở; SỬA LẠI 2026-08-19 theo yêu cầu user "điểm số từ 7-9 điểm", trước đó
+ *      từng là [6.0, 8.0]) - xem computeScorePlan() bên dưới, center = 8.0 cho khớp tâm range mới.
+ *   1b. MỚI (2026-08-19): loại thêm candidate có itemName = "Choose the correct answer." khỏi
+ *      random pool (EXCLUDED_ITEM_NAMES) - theo yêu cầu user cùng ngày ("không muốn giao trùng bài
+ *      có tên Choose the correct answer"), CỘNG THÊM vào dedupe lesson_item_id đã có sẵn (mục 4).
  *   2. Thêm phase [0/10] PROFILE: chuyển + verify hồ sơ học sinh đang active là "Ngoc" (PRO) TRƯỚC
  *      khi giao bài - theo quyết định của user (2026-08-18): verify = tên hồ sơ "Ngoc" hiển thị
  *      đúng sau khi chuyển (KHÔNG double-check thêm bằng 1 bài ADVANCED riêng) - test_data/
@@ -52,22 +55,22 @@
  */
 
 import { writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { parseEnvFile } from "../../automation/src/config.js";
-import { MaestroMcpBridge } from "../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../automation/bai_tap/navigation/homeworkExamEngine.js";
-import { fetchEligibleAssignmentTree } from "../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
-import { parseQuestionsFromExamPage } from "../../automation/discovery/examPageScraper.js";
-import { normalizeQuestions } from "../../automation/model/questionModel.js";
-import { resolveHomeworkExamQuestionsForRoomId } from "../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { fetchRoomDetails, fetchAllHomeworkRooms } from "../../automation/bai_tap/discovery/homeworks.js";
-import { normalizeHomework } from "../../automation/bai_tap/model/homeworkModel.js";
-import { formatDM, formatDMY, isoToVnYmd } from "../bai_tap/verify-filter-web-vs-app.mjs";
+import { parseEnvFile } from "../../../automation/src/config.js";
+import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
+import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { fetchEligibleAssignmentTree } from "../../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
+import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
+import { normalizeQuestions } from "../../../automation/model/questionModel.js";
+import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
+import { fetchRoomDetails, fetchAllHomeworkRooms } from "../../../automation/bai_tap/discovery/homeworks.js";
+import { normalizeHomework } from "../../../automation/bai_tap/model/homeworkModel.js";
+import { formatDM, formatDMY, isoToVnYmd } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_teacher_assign_partial_resume_scored_pro_report.json");
 const ACCOUNTS_ENV_PATH = join(PROJECT_ROOT, "test_data", "accounts.env");
 const ROOT_ENV_PATH = join(PROJECT_ROOT, ".env");
@@ -76,10 +79,30 @@ const ACCOUNTS_ENV = parseEnvFile(ACCOUNTS_ENV_PATH);
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 const TARGET_CLASS = process.env.ASSIGN_PRIMARY_CLASS || "3B";
 const TARGET_CLASS_ID = process.env.TARGET_CLASS_ID || "b3336062-cacd-4d1a-a0af-4de44acf33d2";
-const MAX_PRESCAN_ATTEMPTS = Number(process.env.MAX_PRESCAN_ATTEMPTS || 12);
+// SỬA (2026-08-19, theo yêu cầu user cùng ngày): mặc định KHÔNG còn cap cứng ở 12 - hard cap 12 đã
+// khiến pre-scan dừng lại (BLOCKED) khi mới quét 12/33 candidate fresh, bỏ sót 21 candidate chưa
+// từng thử (evidence thật: automation/output/e2e_teacher_assign_partial_resume_scored_pro_report.json
+// run 2026-08-19, "Đã thử 12/12 candidate... không candidate nào khả thi" trong khi
+// totalFreshCandidates=33). Mặc định giờ là quét HẾT toàn bộ candidate fresh (Infinity, không phải
+// số cứng "33" - pool fresh thay đổi theo thời điểm chạy) - chỉ dừng khi tìm được 1 candidate khả
+// thi HOẶC đã quét hết, đúng yêu cầu "scan all eligible candidates until: 1. tìm được candidate hợp
+// lệ hoặc 2. đã kiểm tra hết candidates". Vẫn CÓ THỂ giới hạn qua env MAX_PRESCAN_ATTEMPTS nếu cần
+// (an toàn/debug), chỉ không còn mặc định cắt ngang.
+const MAX_PRESCAN_ATTEMPTS = process.env.MAX_PRESCAN_ATTEMPTS ? Number(process.env.MAX_PRESCAN_ATTEMPTS) : Infinity;
 const MAX_DISAMBIGUATE_CANDIDATES = Number(process.env.MAX_DISAMBIGUATE_CANDIDATES || 10);
 const PROFILE_PRO_NAME = process.env.PROFILE_PRO_NAME || ACCOUNTS_ENV.PROFILE_PRO_NAME || "Ngoc";
-const TARGET_SCORE_RANGE_LABEL = "[6.0, 8.0]";
+// SỬA (2026-08-19, theo yêu cầu user cùng ngày - điểm mục tiêu "7-9 điểm"): range đổi [6.0, 8.0] ->
+// [7.0, 9.0] đóng cả 2 đầu, center đổi 7.0 -> 8.0. Không đổi công thức GIẢ ĐỊNH, chỉ đổi ngưỡng lọc.
+const TARGET_SCORE_RANGE_LABEL = "[7.0, 9.0]";
+// MỚI (2026-08-19, theo yêu cầu user cùng ngày - "không muốn giao trùng bài có tên Choose the
+// correct answer"): loại thêm candidate có itemName khớp title này khỏi random pool, CỘNG THÊM vào
+// (không thay thế) dedupe theo lesson_item_id đã có sẵn (scanRecentlyUsedLessonItemIds) - đảm bảo
+// lần chạy này chắc chắn KHÔNG chọn lại đúng title đó, kể cả lesson-item nào chưa từng bị dedupe.
+const EXCLUDED_ITEM_NAMES = ["choose the correct answer"];
+function isExcludedItemName(itemName) {
+  const normalized = (itemName ?? "").trim().replace(/\.+$/, "").toLowerCase();
+  return EXCLUDED_ITEM_NAMES.includes(normalized);
+}
 
 /** COPY NGUYÊN từ e2e-ktra-fullluong-lambai-scored-pro.mjs (xem docblock ở đó). */
 function refreshExamSessionFromEnvCookie() {
@@ -242,50 +265,39 @@ async function openAssignmentDisambiguated(bridge, { title, dueDM, questionsPool
   return { opened: false, triedCount: maxCandidates };
 }
 
-/** COPY NGUYÊN từ bản gốc (không đổi). */
-async function scrollAndReadCardState(bridge, title, dueDM, occurrenceIndex) {
-  await scrollToCard(bridge, title, dueDM);
+/**
+ * SỬA (2026-08-19, root cause thật xác nhận qua run trực tiếp room_id=817ffac5-090b-4e99-ba4e-
+ * 0bdeb9d9ed7c title="Read the text and choose the correct answer." due 26/08): bản cũ gọi
+ * scrollToCard() (native `scrollUntilVisible`, timeout 240000) RỒI MỚI gọi `bridge.hierarchy()`
+ * RIÊNG để readCardState() - 2 lệnh CLI tách rời. FAILED thật "index=0: không còn occurrence nào"
+ * (readCardState không tìm thấy) NGAY LẦN ĐẦU dù title này rất phổ biến (xuất hiện ở gần như mọi
+ * Unit/Lesson 3 trong prescan cùng ngày) - xác nhận qua script chẩn đoán riêng (đọc trực tiếp bằng
+ * CÙNG 1 session MaestroMcpBridge, KHÔNG qua CLI riêng): title+"Hạn nộp 26/08" ĐANG hiển thị thật
+ * (kèm badge "3/10" - đã làm dở 3 câu từ lượt chạy trước bị ngắt giữa chừng - và CTA "Tiếp tục"),
+ * chỉ CHẬM hơn 1 nhịp so với lúc `scrollToCard` báo COMPLETED - CÙNG root cause "dừng cuộn không
+ * đồng bộ với lúc đọc lại state" đã xác nhận + sửa cùng ngày ở flows/helpers/locate-assignment-
+ * card.yaml (xem lịch sử sửa file đó, LẦN 4-6) - `scrollUntilVisible` của Maestro tự quyết định
+ * "đã tới nơi" dựa trên so sánh nội dung giữa các lượt cuộn nội bộ (không đồng bộ với hierarchy đọc
+ * RIÊNG ngay sau đó), vừa dễ dừng sớm (duplicate) vừa dễ lệch timing (settle). SỬA: bỏ hẳn
+ * scrollToCard()/scrollUntilVisible - gộp vòng lặp cuộn NGAY VÀO readCardState() làm điều kiện dừng
+ * DUY NHẤT (CÙNG hàm dùng để quyết định found/occurrenceIndex, không còn 2 bước tách rời có thể
+ * lệch nhau) - mỗi lượt: đọc hierarchy THẬT, kiểm tra qua readCardState(), nếu chưa thấy thì swipe
+ * (biên độ/tốc độ ĐÃ VERIFY THẬT qua diagnose-scroll.mjs cùng ngày: 50% màn hình/600ms, tìm thấy
+ * đúng lượt 17-18 cho 2 title khác nhau, không overscroll) + waitForAnimationToEnd rồi đọc lại.
+ * `maxSwipes: 80` là giới hạn CỨNG (không phải "quét tới khi hết danh sách thật") - không tìm thấy
+ * sau 80 lượt thì trả về found:false như cũ, caller (openAssignmentDisambiguated) tự quyết định
+ * BLOCKED, không đổi hành vi quyết định ở tầng trên.
+ */
+async function scrollAndReadCardState(bridge, title, dueDM, occurrenceIndex, maxSwipes = 80) {
   let state = readCardState(await bridge.hierarchy(), title, dueDM, occurrenceIndex);
-  for (let attempt = 0; attempt < 2 && (!state.found || !state.cta); attempt++) {
+  for (let i = 0; i < maxSwipes && (!state.found || !state.cta); i++) {
     await bridge.runSteps([
-      { swipe: { start: "50%,80%", end: "50%,45%", duration: 500 } },
+      { swipe: { start: "50%,85%", end: "50%,35%", duration: 600 } },
       { waitForAnimationToEnd: { timeout: 800 } },
     ]);
     state = readCardState(await bridge.hierarchy(), title, dueDM, occurrenceIndex);
   }
   return state;
-}
-
-/**
- * SỬA (2026-08-18, theo yêu cầu user + evidence thật): timeout 90000 -> 240000. Root cause thật
- * (không phải đoán): 2 lượt native locate ĐỘC LẬP của assignHomeworkAndLocateOnApp() (helper
- * flows/helpers/locate-assignment-card.yaml, timeout 150000) cho room_id=69b2ff65-...
- * (title="Choose the correct answer.", due 25/08) đều FAILED "No visible element" - peek hierarchy
- * lúc fail ("last_visible_titles": [], "last_visible_due_dates": []) xác nhận title CHƯA TỪNG xuất
- * hiện trên màn hình dù đã cuộn ~344s/~318s - lớp 3B đã tích luỹ 35+ lesson-item/nhiều chục room từ
- * các lần chạy test trước, danh sách "Bài tập" hiện dài hơn budget cuộn cũ có thể chạm tới. User
- * yêu cầu tường minh: "phải scroll nhìn thấy due thì mới báo là thành công... vì hiện tại đang rất
- * nhiều bài trùng tên" - tăng timeout ở ĐÂY (áp dụng cho phase [4/10] OPEN_EXERCISE, dùng lại room
- * đã tạo qua REUSE_ROOM_ID, KHÔNG tạo thêm assignment) thay vì đoán mù.
- */
-async function scrollToCard(bridge, title, dueDateDm) {
-  const esc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const r1 = await bridge.runSteps([
-    {
-      scrollUntilVisible: {
-        element: { text: `Hạn nộp ${dueDateDm}`, below: { text: `.*${esc}.*` } },
-        direction: "DOWN",
-        timeout: 240000,
-        speed: 70,
-        waitToSettleTimeoutMs: 500,
-      },
-    },
-  ]);
-  if (r1.success) return;
-  const r2 = await bridge.runSteps([
-    { scrollUntilVisible: { element: { text: `.*${esc}.*` }, direction: "DOWN", timeout: 240000, speed: 70, waitToSettleTimeoutMs: 500 } },
-  ]);
-  if (!r2.success) throw new Error(`Không cuộn tới được card "${title}": ${r1.error} / fallback: ${r2.error}`);
 }
 
 /** COPY NGUYÊN từ bản gốc (không đổi). */
@@ -340,26 +352,68 @@ function finish(result) {
   return result;
 }
 
-/** COPY NGUYÊN từ bản gốc (không đổi). */
-function isTextChoiceCompatible(questions) {
-  if (!Array.isArray(questions) || questions.length < 3) return false;
-  return questions.every((q) => {
-    const nonEmptyAnswers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim().length > 0);
-    return nonEmptyAnswers.length >= 2 && q.correctAnswer && nonEmptyAnswers.includes(q.correctAnswer);
-  });
+/**
+ * SỬA LẠI 2026-08-19 theo yêu cầu user (đổi tên + đổi hẳn logic, THAY cho isTextChoiceCompatible()
+ * cũ): trước đây CHỈ chấp nhận câu hỏi có đáp án dạng CHỮ (>=2 đáp án chữ + correctAnswer khớp 1
+ * trong số đó) - loại OAN mọi câu đáp án dạng ẢNH (content stripHtml ra chuỗi rỗng nên luôn trượt
+ * điều kiện "chữ") dù decideAnswerAction() (homeworkExamEngine.js) THẬT SỰ có hỗ trợ 1 chiến lược
+ * riêng cho ảnh (IMAGE_CHOICE_GRID - lưới 2x2, xem docblock hàm đó). User xác nhận: "Image-based
+ * question không đồng nghĩa với unsupported" - dạng bài DUY NHẤT phải loại là SPEAKING (automation
+ * không thể kiểm soát đúng/sai cho SPEAK -> không thể nhắm điểm mục tiêu).
+ *
+ * GIỚI HẠN THẬT (không che giấu): detectImageChoiceGrid() (homeworkExamEngine.js) đọc TOẠ ĐỘ THẬT
+ * của các phần tử clickable trên màn hình - dữ liệu này CHỈ có khi mở bài trên thiết bị, pre-scan
+ * (Playwright, đọc CMS/Exam Editor, KHÔNG có thiết bị) không thể xác nhận chắc chắn 1 câu ảnh có
+ * đúng layout lưới 2x2 hay không. Vì vậy nhánh IMAGE_CHOICE_GRID_CANDIDATE bên dưới chỉ xác nhận
+ * ĐIỀU KIỆN CẤU TRÚC suy được từ CMS (đúng 4 đáp án + CMS có gán 1 đáp án đúng - dù không đọc được
+ * NỘI DUNG chữ của đáp án đó) - việc layout có THẬT SỰ là lưới 2x2 hay không được xác nhận LẠI, đúng
+ * lúc, trên thiết bị thật (openAssignmentDisambiguated()/findMatchingQuestion() gọi decideAnswerAction()
+ * với tree thật) - nếu không khớp, runtime tự FAIL đúng chỗ (answerOneQuestion() throw) thay vì
+ * pre-scan đoán mù. Đây CHÍNH XÁC là ranh giới "chỉ loại khi thực sự không thể xác định" mà user
+ * yêu cầu - phần xác định được (SPEAKING, thiếu correctAnswer, hình dạng đáp án lạ) loại ngay ở
+ * pre-scan; phần KHÔNG xác định được từ CMS (layout ảnh thật) để lại cho runtime.
+ *
+ * @returns {{ok: true, strategy: string} | {ok: false, reason: string}}
+ */
+export function classifyQuestionSupport(q) {
+  if (q.type === "SPEAK") return { ok: false, reason: "UNSUPPORTED_SPEAKING" };
+  const nonEmptyAnswers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim().length > 0);
+  const textChoiceOk = nonEmptyAnswers.length >= 2 && Boolean(q.correctAnswer) && nonEmptyAnswers.includes(q.correctAnswer);
+  if (textChoiceOk) return { ok: true, strategy: "TEXT_CHOICE" };
+  // IMAGE_CHOICE_GRID: correctAnswer so sánh `!== null` (KHÔNG dùng truthy) - CMS có thể gán đúng 1
+  // đáp án nhưng nội dung đáp án đó là ảnh (stripHtml ra "" - falsy nhưng KHÔNG PHẢI null, xem
+  // model/questionModel.js#extractCorrectAnswer) - "" vẫn là tín hiệu THẬT "CMS có xác định đáp án
+  // đúng", chỉ là automation không đọc được CHỮ của nó, không phải "CMS không xác định được gì".
+  const gridShapeOk = (q.answers ?? []).length === 4 && q.correctAnswer !== null;
+  if (gridShapeOk) return { ok: true, strategy: "IMAGE_CHOICE_GRID_CANDIDATE" };
+  if (q.correctAnswer === null) return { ok: false, reason: "NO_CORRECT_ANSWER_DEFINED" };
+  return { ok: false, reason: "UNSUPPORTED_ANSWER_SHAPE" };
+}
+
+/** @returns {{ok: true} | {ok: false, reason: string, questionId?: string}} */
+export function isAutomationCompatible(questions) {
+  if (!Array.isArray(questions) || questions.length < 3) {
+    return { ok: false, reason: "TOO_FEW_QUESTIONS" };
+  }
+  for (const q of questions) {
+    const classified = classifyQuestionSupport(q);
+    if (!classified.ok) return { ok: false, reason: classified.reason, questionId: q.id };
+  }
+  return { ok: true };
 }
 
 /**
- * KHÁC bản gốc (xem docblock đầu file, điểm 1): range đóng cả 2 đầu [6.0, 8.0] (bản gốc [7.0, 8.0)
- * nửa mở) - center đổi 7.5 -> 7.0 cho khớp tâm range mới. Cùng công thức GIẢ ĐỊNH (thang điểm 10,
- * tỉ lệ thuận theo số câu đúng/tổng, làm tròn 1 chữ số) - CHƯA đổi, chỉ đổi ngưỡng lọc + tâm.
+ * SỬA (2026-08-19, theo yêu cầu user cùng ngày "điểm số từ 7-9"): range đóng cả 2 đầu [7.0, 9.0]
+ * (bản trước [6.0, 8.0]) - center đổi 7.0 -> 8.0 cho khớp tâm range mới. Cùng công thức GIẢ ĐỊNH
+ * (thang điểm 10, tỉ lệ thuận theo số câu đúng/tổng, làm tròn 1 chữ số) - CHƯA đổi, chỉ đổi ngưỡng
+ * lọc + tâm.
  */
-function computeScorePlan(totalCount) {
+export function computeScorePlan(totalCount) {
   let best = null;
   for (let c = 0; c <= totalCount; c++) {
     const predicted = Math.round((c / totalCount) * 100) / 10;
-    if (predicted < 6.0 || predicted > 8.0) continue;
-    const distanceToCenter = Math.abs(predicted - 7.0);
+    if (predicted < 7.0 || predicted > 9.0) continue;
+    const distanceToCenter = Math.abs(predicted - 8.0);
     const isBetter = !best || distanceToCenter < best.distanceToCenter;
     if (isBetter) best = { correctCount: c, predictedScore: predicted, distanceToCenter };
   }
@@ -394,6 +448,7 @@ async function pickFeasibleRandomAssignment({ className, classId, maxAttempts = 
       for (const it of l.items) {
         if (it.isSpeak) continue;
         if (!Array.isArray(it.examIds) || it.examIds.length !== 1) continue;
+        if (isExcludedItemName(it.name)) continue;
         flat.push({
           unitName: u.unitName,
           lessonName: l.lessonName,
@@ -440,9 +495,9 @@ async function pickFeasibleRandomAssignment({ className, classId, maxAttempts = 
     } catch (err) {
       errorMessage = err.message;
     }
-    const compatible = questions ? isTextChoiceCompatible(questions) : false;
-    const scorePlan = compatible ? computeScorePlan(questions.length) : null;
-    const ok = Boolean(compatible && scorePlan);
+    const compatibility = questions ? isAutomationCompatible(questions) : { ok: false, reason: errorMessage ? "FETCH_ERROR" : "NO_QUESTIONS" };
+    const scorePlan = compatibility.ok ? computeScorePlan(questions.length) : null;
+    const ok = Boolean(compatibility.ok && scorePlan);
     attempts.push({
       unitName: cand.unitName,
       lessonName: cand.lessonName,
@@ -452,7 +507,8 @@ async function pickFeasibleRandomAssignment({ className, classId, maxAttempts = 
       recentlyUsed: cand.recentlyUsed,
       questionCount: questions?.length ?? null,
       ok,
-      reason: errorMessage ?? (!compatible ? "UNSUPPORTED_TYPE_OR_MISSING_CORRECT_ANSWER" : !scorePlan ? "NO_INTEGER_CORRECT_COUNT_IN_SCORE_RANGE_6_TO_8" : null),
+      reason: errorMessage ?? (!compatibility.ok ? compatibility.reason : !scorePlan ? "NO_INTEGER_CORRECT_COUNT_IN_SCORE_RANGE_7_TO_9" : null),
+      failingQuestionId: compatibility.questionId ?? null,
     });
     log(
       `  [PRESCAN] "${cand.unitName}/${cand.lessonName}/${cand.itemName}" (N=${questions?.length ?? "?"}): ${
@@ -612,7 +668,7 @@ function formatReport(evidence, result) {
   push(``);
   push(`[SCORING_PLAN]`);
   push(`question_count=${ra.questionCount ?? "-"}`);
-  push(`target_score_range=6.0..8.0`);
+  push(`target_score_range=7.0..9.0`);
   push(`planned_correct_count=${ra.plannedCorrectCount ?? "-"}`);
   push(`planned_wrong_count=${ra.questionCount != null && ra.plannedCorrectCount != null ? ra.questionCount - ra.plannedCorrectCount : "-"}`);
   push(`planned_score=${ra.predictedScore ?? "-"}`);
@@ -651,7 +707,7 @@ function formatReport(evidence, result) {
   push(``);
   push(`[FINAL_SCORE]`);
   push(`actual=${si.actualScore ?? "-"}`);
-  push(`target_range=6.0 <= score <= 8.0`);
+  push(`target_range=7.0 <= score <= 9.0`);
   push(`PASS/FAIL=${si.scoreInRangeTarget ? "PASS" : "FAIL"}`);
   push(``);
   push(`[CORRECTNESS]`);
@@ -837,11 +893,12 @@ async function main() {
     });
   }
   const QUESTIONS = resolved.questions;
-  if (!isTextChoiceCompatible(QUESTIONS)) {
+  const cmsCompatibility = isAutomationCompatible(QUESTIONS);
+  if (!cmsCompatibility.ok) {
     return finish({
       status: "BLOCKED",
       phase: "CMS_RESOLUTION",
-      error: `Nội dung THẬT của room "${assignment.id}" KHÔNG còn khớp điều kiện handler hỗ trợ đầy đủ (khác pre-scan candidate ban đầu).`,
+      error: `Nội dung THẬT của room "${assignment.id}" KHÔNG còn khớp điều kiện handler hỗ trợ đầy đủ (reason=${cmsCompatibility.reason}, khác pre-scan candidate ban đầu).`,
       evidence,
     });
   }
@@ -1001,11 +1058,27 @@ async function main() {
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
       const matched = await findMatchingQuestion(bridge, pool, carryTree);
       if (!matched) {
+        // MỚI (2026-08-19): `answeredIds` chỉ đếm số câu ĐÃ trả lời TRONG session này - nếu room
+        // có sẵn tiến độ dở từ TRƯỚC (vd REUSE_ROOM_ID cho room mà 1 phiên chạy trước đã trả lời
+        // dở rồi bị ngắt giữa chừng do môi trường/thiết bị reset - xác nhận thật hôm nay, room
+        // "Read the text and choose the correct answer." due 26/08 có sẵn 3/10 từ phiên trước),
+        // answeredIds.size sẽ KHÔNG BAO GIỜ chạm QUESTIONS.length dù bài THẬT SỰ đã làm xong (vòng
+        // lặp cứ đi tìm thêm câu trong khi server đã hết câu thật) - không tìm thấy câu nào để trả
+        // lời trong TRƯỜNG HỢP NÀY là kết quả ĐÚNG (đã hết câu), không phải lỗi. Trước khi kết luận
+        // FAIL, kiểm tra xem có đang đứng ĐÚNG màn Kết quả không - nếu có, coi là ĐÃ HOÀN THÀNH
+        // (thoát vòng lặp bình thường), không phải BLOCKED/FAIL.
+        const maybeResultTree = await bridge.hierarchy();
+        if (exam.isResultScreen(maybeResultTree)) {
+          log(`  [PASS] Không còn câu nào để khớp NHƯNG đang đứng đúng màn Kết quả - bài đã hoàn thành (có tiến độ dở từ trước room, xem evidence.progressBefore).`);
+          carryTree = maybeResultTree;
+          lastOutcome = { finalTree: maybeResultTree };
+          break;
+        }
         return finish({
           status: "FAIL",
           phase: "FINISH_REMAINING",
           error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại.`,
-          visibleTexts: collectAllTexts(await bridge.hierarchy()),
+          visibleTexts: collectAllTexts(maybeResultTree),
           evidence: { ...evidence, resumeLog },
         });
       }
@@ -1032,8 +1105,8 @@ async function main() {
     const achievedCorrectCount = [...WANT_CORRECT.values()].filter(Boolean).length;
     const scoreNumber = result.score === null ? null : Number(result.score);
     const scoreValid = scoreNumber !== null && !Number.isNaN(scoreNumber);
-    // [6.0, 8.0] ĐÓNG cả 2 đầu (KHÁC bản gốc [7.0, 8.0) nửa mở - xem docblock đầu file).
-    const scoreInRange = scoreValid && scoreNumber >= 6.0 && scoreNumber <= 8.0;
+    // [7.0, 9.0] ĐÓNG cả 2 đầu (SỬA 2026-08-19 theo yêu cầu user "điểm số từ 7-9" - xem TARGET_SCORE_RANGE_LABEL).
+    const scoreInRange = scoreValid && scoreNumber >= 7.0 && scoreNumber <= 9.0;
     evidence.scoreInterpretation = {
       questionCount: QUESTIONS.length,
       plannedCorrectCount: scorePlan.correctCount,
@@ -1076,16 +1149,31 @@ async function main() {
   }
 }
 
-main()
-  .then((result) => {
-    log(`\n=== KẾT QUẢ: ${result.status}${result.phase ? ` (phase=${result.phase})` : ""} ===`);
-    log(`Đã ghi report ra ${OUTPUT_FILE}`);
-    log("\n" + formatReport(result.evidence ?? {}, result));
-    process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 2 : 1);
-  })
-  .catch((err) => {
-    console.error("\n[e2e-teacher-assign-partial-resume-scored-pro] Dừng lại vì lỗi ngoài dự kiến:\n");
-    console.error(err);
-    finish({ status: "ERROR", error: err.message, stack: err.stack });
-    process.exit(2);
-  });
+// MỚI (2026-08-19): guard entrypoint - CHỈ tự chạy main() khi file này được gọi trực tiếp qua
+// `node ...pro.mjs` (KHÔNG đổi hành vi ở đường chạy thật đó), để cho phép `import` các hàm thuần
+// (classifyQuestionSupport/isAutomationCompatible/computeScorePlan) từ file test unit riêng mà
+// KHÔNG vô tình kích hoạt luồng thật (giao bài/device) - cần thiết để validate logic pre-scan mới
+// (yêu cầu user 2026-08-19) mà không tốn 1 lượt chạy E2E thật cho mỗi lần sửa.
+// SỬA (2026-08-19, BUG THẬT tự phát hiện + tự sửa ngay trong phiên này): so sánh trực tiếp
+// `file://${process.argv[1]}` với `import.meta.url` SAI khi gọi bằng đường dẫn TƯƠNG ĐỐI (cách gọi
+// THẬT trong toàn bộ docblock "CHẠY:" của repo, vd "node flows/giao_bai_tap/...") - process.argv[1]
+// khi đó là chuỗi tương đối trong khi import.meta.url luôn tuyệt đối, 2 vế KHÔNG BAO GIỜ khớp -> guard
+// luôn false -> main() ÂM THẦM không chạy (exit code 0, KHÔNG output gì, đã tái hiện thật 2 lần liên
+// tiếp trước khi tìm ra). SỬA: resolve cả 2 vế về CÙNG 1 dạng file:// tuyệt đối bằng pathToFileURL()
+// trước khi so sánh.
+const isMainModule = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (isMainModule) {
+  main()
+    .then((result) => {
+      log(`\n=== KẾT QUẢ: ${result.status}${result.phase ? ` (phase=${result.phase})` : ""} ===`);
+      log(`Đã ghi report ra ${OUTPUT_FILE}`);
+      log("\n" + formatReport(result.evidence ?? {}, result));
+      process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 2 : 1);
+    })
+    .catch((err) => {
+      console.error("\n[e2e-teacher-assign-partial-resume-scored-pro] Dừng lại vì lỗi ngoài dự kiến:\n");
+      console.error(err);
+      finish({ status: "ERROR", error: err.message, stack: err.stack });
+      process.exit(2);
+    });
+}

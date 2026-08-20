@@ -34,7 +34,7 @@ Cột **Auto** = có file Maestro chạy tự động. Cột **Tay** = cần QA 
 | HW-17 | Xem chi tiết đáp án             | Có ≥1 lần làm                           | Lịch sử → "Xem chi tiết"                                             | Màn xem lại đáp án: từng câu, đáp án đúng/sai, "Parrot giải thích"; back về lịch sử                                          | Trắng màn; back nhảy sai chỗ                                                        | ✅   |     |
 | HW-18 | Bài role-play — mở phiên        | Có bài `item_type = role_play`          | Xem card → tap nút                                                   | Card title **"Trò chuyện cùng Parrot: <tên>"**, **không** có thanh tiến độ câu; tap → màn intro role-play (không tạo exam)  | Card hiện thanh tiến độ; đi vào màn exam thường                                      | ✅   | ✔   |
 | HW-19 | Lịch sử role-play               | Bài role-play đã xong                   | Tap "Xem bài đã làm" trên card role-play                             | Mở **lịch sử role-play** (`/exercise/role-play/history`) — "Lịch sử hội thoại"/"Xem nhận xét", KHÔNG phải lịch sử exam       | Vào lịch sử exam thường                                                             | ✅   |     |
-| HW-20 | Unit gợi ý → Vui học            | Có `recommended_unit`                   | Tap card ở "Kiến thức trong bài"                                     | `router.replace` sang tab **Vui học** với đúng `book_id`+`unit_id`                                                            | Không điều hướng; sang unit sai                                                     | ✅   | ✔   |
+| HW-20 | Unit gợi ý "Kiến thức trong bài" — đủ Unit + đúng mapping Khối/Unit (DATA-DRIVEN, không hardcode) + điều hướng đúng Lesson list (2 màn: Danh sách bài tập & Kết quả BTVN) | Bất kỳ assignment nào cô giao (không cần biết trước Khối/Unit cụ thể) — Khối/Unit kỳ vọng lấy TỪ DỮ LIỆU THẬT của chính assignment đó lúc chạy, không cấu hình trước | **Màn Danh sách bài tập:** mở tab Bài tập → scroll tới section "Kiến thức trong bài" → đọc tên từng Unit hiển thị → tap 1 card Unit.<br>**Màn Kết quả BTVN:** mở + hoàn thành 1 bài → xem section "Kiến thức trong bài" ở màn kết quả → đối chiếu Unit hiển thị → tap 1 card Unit. | **Danh sách bài tập:** "Hiển thị đầy đủ tất cả các Unit Self-learning có liên quan đến bài tập cô giao" — đúng số lượng (không giới hạn 1 Unit), mapping đúng **Khối + Tên Unit** LẤY TỪ DỮ LIỆU RUNTIME THẬT của assignment (không hardcode Khối/Unit, không kiểm tra thứ tự).<br>**Kết quả BTVN:** "Hiển thị các thẻ Unit Self-learning có liên quan đến bài tập cô giao" — mapping đúng **Khối + Tên Unit** (không bắt buộc phải đủ 100% như màn Danh sách bài tập, cũng không kiểm tra thứ tự).<br>**Cả 2 màn:** tap Unit → `router.replace` sang tab **Vui học**, vào đúng **Danh sách Lesson** của đúng Unit + đúng Khối (xem chi tiết mapping ở ghi chú dưới bảng). | **Danh sách bài tập:** thiếu Unit liên quan (chưa hiển thị đủ 100%); Unit hiển thị không khớp Khối+Unit thật của bất kỳ assignment nào đang xét.<br>**Kết quả BTVN:** hiện Unit không khớp Khối+Unit thật của assignment vừa hoàn thành.<br>**Cả 2 màn:** tap Unit điều hướng sang Unit sai khối/sai tên; không vào được đúng Danh sách Lesson. | ✅   | ✔   |
 | HW-21 | FREE + bài nâng cao (403)       | `PHONE_FREE`, có bài ADVANCED           | Tap "Chinh phục"                                                     | iOS: sheet **"Nâng cấp để con thực hành nâng cao"** + note "Bài tập nâng cao dành cho tài khoản PRO". Android(payment on): sheet Google Play. Android(off): toast "Không thể bắt đầu làm bài" | Vào được bài; message của case redo; crash                                            | ✅   | ✔   |
 | HW-22 | FREE + làm lại (403)            | `PHONE_FREE`, có bài đã xong            | Tap "Làm lại"                                                        | iOS: sheet **"Nâng cấp để con tiếp tục học không giới hạn"** + note "Làm lại bài tập dành cho tài khoản PRO"                 | Hiện message của bài nâng cao (lẫn nhánh `is_completed`)                              | ✅   | ✔   |
 | HW-23 | Chống spam tap                  | `PHONE_DATA`                            | Tap "Làm bài" 3 lần thật nhanh                                       | Chỉ tạo **1** phiên, chỉ push **1** màn; bấm X 1 lần là về tab                                                                | Phải bấm X ≥2 lần (đã push trùng); tạo 2 answer_id                                    | ✅   | ✔   |
@@ -45,6 +45,55 @@ Cột **Auto** = có file Maestro chạy tự động. Cột **Tay** = cần QA 
 | HW-28 | Xem chi tiết — bấm "Giải thích" | Có ≥1 lần làm, vào được màn xem chi tiết | Xem chi tiết → mỗi câu bấm "Giải thích"                              | Câu **đúng**: popup "Parrot giải thích" gồm **"Kiến thức"** + **"Tóm lại"**. Câu **sai**: popup gồm **"Kiến thức"** + **"Tại sao sai"** + **"Gợi ý"**. 2 nhánh loại trừ nhau. Nút "Đóng" đóng popup, ở lại đúng câu | Thiếu field theo đúng nhánh; 2 nhánh lẫn nhau; "Đóng"/`back` thoát nhầm ra khỏi màn xem chi tiết | ✅   |     |
 
 _Ghi chú (2026-08-18): HW-16 và HW-17 dùng CHUNG 1 luồng điều hướng liên tiếp (card đã hoàn thành → "Xem bài đã làm" → màn lịch sử → "Xem chi tiết") — HW-17 vốn đã đi qua đúng màn lịch sử mà HW-16 verify trước khi tap "Xem chi tiết", nên đã gộp thành 1 case "HW-16+17" ở CẢ hai bản: `flows/bai_tap/xemchitietbailam.yaml` (Maestro yaml thuần, dùng `scrollUntilVisible` — có rủi ro flaky đã ghi nhận trong file) và `flows/bai_tap/xemchitietbailam.mjs` (Node + MaestroMcpBridge, tự đọc hierarchy để định vị card, đáng tin cậy hơn). `flows/bai_tap/HW-16-attempt-history.yaml` (bản HW-16 tách riêng cũ) đã bị xóa (2026-08-18, nội dung đã gộp hết vào 2 file trên)._
+
+### Chi tiết HW-20 — Section "Kiến thức trong bài" (2 màn hình, requirement + ảnh từ QA, 2026-08-20)
+
+> Nguồn: requirement nghiệp vụ + ảnh chụp UI do QA cung cấp trực tiếp, **không** phải đọc từ code app (repo này không có source code app, chỉ có Maestro flow). Không suy đoán thêm ngoài phần dưới đây.
+
+Section "Kiến thức trong bài" xuất hiện ở **2 màn hình khác nhau**, mỗi màn có requirement riêng — KHÔNG dùng chung 1 rule.
+
+**Rule mapping chung cho cả 2 màn:** `Khối + Tên Unit`. Vd bài tập giao cho Khối 7 - Unit 6 → card hiển thị phải là Unit 6 của Self-learning **Khối 7**, không được lấy Unit 6 của khối khác (dù trùng tên/số Unit).
+
+#### 0. ĐÍNH CHÍNH BẮT BUỘC (2026-08-20) — KHÔNG hardcode Khối/Lớp
+
+**KHÔNG** được hard-code bất kỳ mapping cố định nào kiểu "Lớp 3 → Khối 3" hay "Lớp 3 → Khối 7", và **KHÔNG** được tự suy ra Khối bằng cách parse số trong tên lớp hiển thị (vd đọc "Lớp 3" rồi tự hiểu là "Khối 3"). Trường hợp "tên lớp là 'Lớp 3' nhưng Khối cấu hình thật lại là 'Khối 7'" chỉ là VÍ DỤ minh hoạ rằng tên lớp không đáng tin — **không** phải test data cố định, **không** cần test riêng cho case này.
+
+Rule đúng: `Class/Assignment data → lấy grade/Khối THỰC TẾ → xác định Unit liên quan → verify Unit đề xuất trong "Kiến thức trong bài"`. Khối thực tế phải lấy từ dữ liệu backend của CHÍNH assignment/lớp đang test (vd field `book.name`/`book_id` sẵn có trên response của assignment — xem mục "Nguồn dữ liệu" bên dưới), **không** đi chiều ngược "tên lớp → tự suy khối". Test phải PASS/FAIL dựa trên dữ liệu runtime thực tế của assignment đang chạy, không phải giá trị gõ sẵn — không set cứng `expectedGrade`/`expectedUnit` trừ khi giá trị đó CHÍNH LÀ dữ liệu vừa đọc được từ runtime. Verify Unit đề xuất = lấy Unit đang hiển thị → xác định Unit đó thuộc Khối nào → so với Khối thực tế của assignment đang test → khớp thì PASS, khác thì FAIL. Không kiểm tra thứ tự Unit.
+
+#### 1. Màn Danh sách bài tập (card bài tập trong list — ảnh 1)
+
+- Hiển thị **tất cả** Unit Self-learning có liên quan đến bài tập cô giao — có bao nhiêu Unit liên quan thì hiển thị đủ bấy nhiêu, **không giới hạn chỉ 1 Unit**, **không hardcode số lượng**.
+- Unit phải thuộc đúng Khối THỰC TẾ của bài/lớp đang test (lấy từ dữ liệu runtime, không hardcode Khối, không hardcode tên Unit).
+- **Không kiểm tra thứ tự Unit.**
+- Expected Result (nguyên văn): **"Hiển thị đầy đủ tất cả các Unit Self-learning có liên quan đến bài tập cô giao."**
+- Fail khi: thiếu bất kỳ Unit liên quan nào; Unit hiển thị không thuộc đúng Khối thực tế của assignment đang test.
+
+#### 2. Màn Kết quả BTVN (dialog kết quả sau khi làm bài — ảnh 2)
+
+- Hiển thị các thẻ Unit Self-learning có liên quan đến bài tập cô giao (theo rule mapping `Khối + Tên Unit` ở trên, Khối lấy từ dữ liệu runtime thực tế — không hardcode Khối, không hardcode Unit).
+- **KHÔNG** áp dụng yêu cầu "hiển thị đầy đủ tất cả Unit liên quan" của màn Danh sách bài tập cho màn này — requirement của màn Kết quả BTVN chỉ nói hiển thị các thẻ Unit liên quan, không quy định phải đủ 100% số lượng.
+- **Không kiểm tra thứ tự Unit.**
+- Expected Result (nguyên văn): **"Hiển thị các thẻ Unit Self-learning có liên quan đến bài tập cô giao."**
+- Fail khi: hiển thị Unit không thuộc đúng Khối thực tế tương ứng của bài tập vừa hoàn thành.
+
+#### 3. Điều hướng khi tap card Unit (áp dụng cả 2 màn)
+
+- Tap vào 1 card Unit → điều hướng đến trang **Danh sách Lesson** của đúng Unit Self-learning đó (`router.replace` sang tab Vui học, mang đúng `book_id` + `unit_id`).
+- Phải đúng cả **Khối** lẫn **Tên Unit** — không được điều hướng sang Unit cùng tên nhưng khác khối.
+
+#### Nguồn dữ liệu Khối/Unit thực tế (quan trọng — không lấy từ tên lớp)
+
+Ưu tiên lấy grade/Khối từ dữ liệu backend/CMS/API hoặc state đã có sẵn trong flow, **không** lấy tên hiển thị "Lớp X" rồi tự parse số X thành grade. Nguồn cụ thể đang dùng trong automation của repo này: `automation/bai_tap/model/homeworkModel.js` — mỗi assignment (Room) trả về sẵn `book: {id, name}` (vd `name = "Khối 3"`) + `unit: {id, name}` (vd `name = "Unit 6: Wonder of Vietnam"`), lấy phẳng từ field `book_name`/`unit_name` gốc của response GET `/api/user/exams/room.json` (đã xác nhận thật, xem docblock file đó) — đây CHÍNH LÀ Khối/Unit thật của assignment, không phải suy luận từ tên lớp. Nếu assignment đã có sẵn `grade`/`book_id`/`unit_id`/`class_id` thì dùng thẳng dữ liệu đó, không tự chế biến thêm.
+
+#### Ghi chú Auto/Tay
+
+`ktra-kienthuctrongbai.yaml` (cập nhật 2026-08-20, đính chính lần 2) giờ CHỈ còn là **smoke-test điều hướng** cho cả 2 màn (tap 1 Unit bất kỳ → verify sang tab Vui học) — không hardcode gì, nhưng cũng KHÔNG verify được mapping Khối+Unit (Maestro yaml thuần không gọi được API backend để biết Khối thật).
+
+Verify ĐÚNG mapping Khối+Unit (data-driven, không hardcode) chạy bằng script riêng: `node flows/app/bai_tap/ktra-kienthuctrongbai-mapping.mjs`. Script này:
+- Lấy Khối/Unit thật của MỌI assignment hiện có qua `automation/bai_tap/discovery/homeworks.js#getHomeworks()` (xem mục "Nguồn dữ liệu" ở trên) — không hardcode, không parse tên lớp.
+- Đối chiếu chéo với catalog Self-learning thật (`discovery/books.js` + `discovery/units.js`) để xác nhận Unit đó thực sự tồn tại/đã publish đúng Khối.
+- Đọc THẬT các Unit đang hiển thị trong "Kiến thức trong bài" trên máy (scroll hội tụ, không shallow scroll — xem lesson đã ghi nhận trong `feedback_homework_list_full_scroll_scan`), so khớp 2 chiều: Unit hiển thị phải khớp 1 cặp Khối+Unit thật (không rõ nguồn → FAIL), và (chỉ ở màn Danh sách bài tập) mọi cặp Khối+Unit thật phải xuất hiện đủ trên màn hình.
+- **Chưa chạy thử trên thiết bị/API thật** ở bản này — cần refresh token trước (xem `feedback_get_tokens_script.md`) rồi chạy thử, đối chiếu `catalogUnitName` trong report bằng mắt ở lần chạy đầu (xem GIỚI HẠN ĐÃ BIẾT trong docblock đầu file script).
 
 ---
 

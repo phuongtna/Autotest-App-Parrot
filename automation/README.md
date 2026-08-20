@@ -689,3 +689,81 @@ chung - mục 3 ở trên còn cho thấy nó có thể gây lệch đáp án th
 là quyết định kiến trúc (cần thiết kế Handler theo QuestionType giống Vui học trước khi generalize
 hoá, không phải giới hạn kỹ thuật) - lượt "làm thật" ở trên được thực hiện bằng script tạm/ad-hoc
 bên ngoài NavigationEngine, chưa đưa vào code chính thức.
+
+## Lớp phụ trách (Web GV) - Playwright, thêm mới lớp học (`quan_ly_lop_hoc/`)
+
+Tự động hoá TC-ADD-FULL / ADD-05
+(`flows/web/teacher/testcases/lop-phu-trach/them-moi.md`) - màn "Lớp phụ trách"
+(`parrotedu.vn/teacher/class`), cùng cách làm với `giao_bai_tap/` ở trên (login qua form thật,
+Playwright, KHÔNG phải Maestro). Đăng nhập dùng lại thẳng `loginTeacherPortal()` của
+`giao_bai_tap/navigation/teacherPortalSession.js` (form login web GV chung, không riêng cho
+nghiệp vụ giao bài). Entrypoint `npm run add-class`:
+
+```
+quan_ly_lop_hoc/
+  navigation/
+    teacherClassPageObjects.js   # text/selector popup "Thêm mới lớp học" + heading danh sách lớp
+  runtime/
+    addClassFlow.js               # mở "Lớp phụ trách" -> "+ Thêm lớp học" -> chọn Khối/Tên lớp/
+                                   # Năm học -> Lưu -> assert POST /api/classes 201 + số lớp +1 +
+                                   # card lớp mới xuất hiện
+  cli.js                           # entrypoint `npm run add-class`
+```
+
+Chạy (ví dụ):
+```
+cd automation
+ADD_CLASS_KHOI="Khối 7" ADD_CLASS_TEN_LOP="7QA-Test" ADD_CLASS_HEADLESS=false npm run add-class
+```
+
+**Xác nhận thật qua thao tác tay (Claude Browser, Playwright-backed) 2026-08-17 và 2026-08-20**,
+chưa chạy qua chính script Node này (script viết lại đúng theo cấu trúc DOM/API đã xác nhận thật
+qua 2 lượt đó) - evidence request/response thật xem
+`flows/web/teacher/testcases/lop-phu-trach/them-moi-tc-add-full.json`. Phát hiện đáng chú ý khi
+viết selector:
+- Popup có 2 `<select>` native (Khối học, Năm học) đứng SAU 2 nút trigger tùy biến - set giá trị
+  thẳng vào `<select>` là đủ, không cần click mở trigger trước.
+- Heading "Danh sách lớp học (n)" xuất hiện ĐÚNG 1 lần bên trong `<main>`, nhưng còn 1 node ẩn
+  trùng "(0)" nằm ngoài `<main>` trong accessibility tree - PHẢI scope locator vào `main` khi đọc
+  số lượng lớp.
+
+Case Sửa (`sua-lop.md`) trong cùng module `lop-phu-trach/` VẪN chỉ là spec test thủ công, chưa có
+automation.
+
+### Xóa lớp học (DEL-02) - `deleteClassCli.js`
+
+Entrypoint `npm run delete-class`, chạy `runtime/deleteClassFlow.js`. Chỉ tự động hoá DEL-02 (xóa
+lớp KHÔNG có học sinh) - DEL-04/05/06 (rule AC3 chặn xóa lớp có học sinh) chưa automation.
+
+Chạy (ví dụ):
+```
+cd automation
+DELETE_CLASS_NAME="7QA-Test" DELETE_CLASS_ID="da3efdea-e0ea-4627-b119-a11c329d3d4e" \
+DELETE_CLASS_HEADLESS=false npm run delete-class
+```
+
+**ĐÃ XÁC NHẬN THẬT (2026-08-20)**: chạy thật xóa lớp `12QA-DeleteTest-0820` (tạo riêng để test) -
+`DELETE /api/classes/:id` → 200, xác nhận lại qua gọi thẳng
+`GET /api/classes/teacher?academic_year_id=...` (curl, không qua UI) rằng lớp đã biến mất thật,
+3 lớp còn lại (`3B`, `7QA-ReRun-0820`, `7QA-Test`) không bị ảnh hưởng. Luồng UI thật khác spec cũ
+trong `xoa-lop.md`:
+- Nút "Xóa lớp học" nằm TRONG popup "Chỉnh sửa thông tin lớp học" (không phải nút riêng ở màn chi
+  tiết).
+- Popup xác nhận thật: heading "Xác nhận xóa lớp học", nội dung "Bạn có chắc chắn muốn xóa lớp
+  `<tên>` không ?", 2 nút **"Hủy"/"Xác nhận"** (spec cũ đoán "Từ chối"/"Đồng ý" - SAI, cần sửa lại
+  `xoa-lop.md`).
+- Trang "Chi tiết lớp" (`/teacher/class/:id`) bắn 3 GET song song (`/api/classes/:id`, `/students`,
+  `/requests`) - heading tên lớp chỉ hiện đúng SAU KHI cả 3 resolve; bấm "Chỉnh sửa lớp học" quá
+  sớm (khi vừa điều hướng, GET còn chạy) có thể khiến các GET bị hủy (`net::ERR_ABORTED`) và nút
+  không phản hồi.
+- `GET /api/classes/teacher` (không kèm `academic_year_id`) trả về `classes: []` RỖNG dù tài khoản
+  có lớp thật - phải luôn kèm `academic_year_id` khi gọi thẳng API (không qua UI) để lấy đúng dữ
+  liệu, tránh nhầm tưởng mất dữ liệu.
+
+**Giới hạn đã biết:** cả `addClassFlow.js` và `deleteClassFlow.js` đọc số lượng lớp qua
+`navigation/classListCount.js#readStableClassListCount()` (đếm nhãn "Sĩ số:" + chờ 3 lần đọc liên
+tiếp bằng nhau). Khi máy đang thiếu RAM nặng (đã gặp thật lúc debug, `free -h` chỉ còn ~300Mi free,
+load average >2) giá trị "before" đôi lúc vẫn đọc sai (renderer bị delay bởi swap, "network response
+đã về" không đồng nghĩa "DOM đã cập nhật xong") dù DELETE/POST thật đã chạy đúng - đây là giới hạn
+của môi trường chạy test lúc đó, KHÔNG phải bug nghiệp vụ (đã đối chiếu qua API thật ở trên xác nhận
+hành vi xóa luôn đúng). Nên chạy lại khi máy đỡ tải nếu gặp lại lỗi tương tự.

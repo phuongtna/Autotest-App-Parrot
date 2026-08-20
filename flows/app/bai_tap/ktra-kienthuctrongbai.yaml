@@ -1,12 +1,27 @@
-# HW-20 — Section "Kiến thức trong bài": bấm card unit gợi ý
-# Kỳ vọng: router.replace sang tab "Vui học" với book_id + unit_id của unit đó
-#          (tab active đổi sang Vui học, KHÔNG còn ở tab Bài tập)
-# Tags: regression, data-dependent
+# HW-20 — Section "Kiến thức trong bài" trên 2 MÀN HÌNH: (1) Danh sách bài tập, (2) Kết quả BTVN.
+#
+# ĐÍNH CHÍNH 2026-08-20: bản trước của file này dùng env var HW20_UNIT_1_NAME/HW20_UNIT_2_NAME để
+# assert tên Unit "kỳ vọng" do QA tự gõ tay, kèm assert thứ tự (above/below) - CẢ HAI đều bị YÊU
+# CẦU GỠ BỎ vì đó là hardcode: Khối/Unit kỳ vọng KHÔNG được đoán/gõ tay, PHẢI lấy từ dữ liệu THẬT
+# của assignment đang test, và KHÔNG kiểm tra thứ tự Unit. Xem TEST-CASES.md mục "Chi tiết HW-20"
+# để biết rule đầy đủ.
+#
+# FILE NÀY (Maestro yaml thuần) CHỈ còn là SMOKE TEST điều hướng - không hardcode, nhưng cũng
+# KHÔNG verify được mapping Khối+Unit (yaml thuần không gọi được API backend để biết Khối thật của
+# assignment). Muốn verify ĐÚNG mapping Khối+Unit theo dữ liệu runtime thật (không hardcode), chạy
+# script data-driven riêng:
+#   node flows/app/bai_tap/ktra-kienthuctrongbai-mapping.mjs
+# (script đó dùng automation/bai_tap/discovery/homeworks.js#getHomeworks() để lấy Khối/Unit THẬT
+# của assignment, đối chiếu với Unit đang hiển thị trên máy - không đoán/không hardcode).
+#
+# Kỳ vọng của file smoke-test này: tap 1 card Unit bất kỳ trong "Kiến thức trong bài" (ở cả 2 màn)
+# -> router.replace sang tab "Vui học" (điều hướng có xảy ra, không kẹt/không crash). KHÔNG khẳng
+# định được Unit đó đúng Khối hay không - việc đó thuộc về script .mjs ở trên.
 appId: ${APP_ID}
 tags:
   - regression
   - data-dependent
-name: HW-20 Unit goi y - dieu huong sang Vui hoc
+name: HW-20 Unit goi y "Kien thuc trong bai" - smoke test dieu huong 2 man hinh
 ---
 - runFlow: ../helpers/launch-keep-session.yaml
 - runFlow:
@@ -16,14 +31,16 @@ name: HW-20 Unit goi y - dieu huong sang Vui hoc
       OTP: ${OTP}
 - runFlow: ../helpers/open-tab-homework.yaml
 
+# =====================================================================================
+# MÀN 1/2 — Danh sách bài tập
+# =====================================================================================
 - scrollUntilVisible:
     element:
       text: ".*(Kiến thức trong bài).*"
     direction: DOWN
     timeout: 25000
-- takeScreenshot: artifacts/HW-20-recommended-section
+- takeScreenshot: artifacts/HW-20-list-recommended-section
 
-# Bấm vào card unit ngay dưới nhãn section
 - swipe:
     start: 50%, 80%
     end: 50%, 45%
@@ -34,4 +51,45 @@ name: HW-20 Unit goi y - dieu huong sang Vui hoc
 - extendedWaitUntil:
     visible: ".*(Vui học).*"
     timeout: 30000
-- takeScreenshot: artifacts/HW-20-navigated-vuihoc
+- takeScreenshot: artifacts/HW-20-list-navigated-vuihoc
+
+# Quay lại tab Bài tập để tiếp tục kiểm tra màn Kết quả BTVN.
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# =====================================================================================
+# MÀN 2/2 — Kết quả BTVN (dialog "exercise_result_screen" sau khi hoàn thành 1 bài)
+# =====================================================================================
+- runFlow:
+    file: ../helpers/open-exercise.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      EXERCISE_NAME: ${EXERCISE_NAME}
+      EXERCISE_DUE_DATE_DM: ${EXERCISE_DUE_DATE_DM}
+      DEVICE_MODE: "true"
+- runFlow:
+    file: ../helpers/answer-current-exercise-generic.yaml
+    env:
+      EXERCISE_NAME: ${EXERCISE_NAME}
+- extendedWaitUntil:
+    visible:
+      id: "exercise_result_screen"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: ".*(Kiến thức trong bài).*"
+    direction: DOWN
+    timeout: 25000
+- takeScreenshot: artifacts/HW-20-result-recommended-section
+
+- swipe:
+    start: 50%, 80%
+    end: 50%, 45%
+    duration: 400
+- tapOn:
+    point: 50%, 55%
+
+- extendedWaitUntil:
+    visible: ".*(Vui học).*"
+    timeout: 30000
+- takeScreenshot: artifacts/HW-20-result-navigated-vuihoc

@@ -4,10 +4,11 @@ Nguồn: tài liệu yêu cầu mục **3. Quản lý lớp học > 3.1. CRUD l�
 màn hình "Lớp phụ trách", popup "Thêm mới lớp học", acceptance criteria 3.1.4) do người dùng
 cung cấp trong hội thoại.
 
-Đây là màn hình **web Giáo viên** (menu "Lớp phụ trách" -> nút "+ Thêm lớp học"). Giống cách xử
-lý ở `flows/giao_bai_tap/TESTCASES.md`: repo này chỉ tự động hoá được app Android bằng Maestro,
-không có automation cho web -> các case dưới đây là **spec để test thủ công** trên
-https://parrotedu.vn/teacher (hoặc CMS tương ứng), chưa phải flow chạy tự động được.
+Đây là màn hình **web Giáo viên** (menu "Lớp phụ trách" -> nút "+ Thêm lớp học"). Các case dưới
+đây vẫn là **spec để test thủ công** trên https://parrotedu.vn/teacher, TRỪ case TC-ADD-FULL/
+ADD-05 (happy path) — case đó ĐÃ CÓ automation Playwright thật kể từ 2026-08-20, xem
+`automation/quan_ly_lop_hoc/` (entrypoint `npm run add-class`, cùng cách làm với
+`automation/giao_bai_tap/` cho `flows/web/giao_bai_tap/`).
 
 Case đánh dấu **⚠️ Cần xác nhận với PO/dev** là do tài liệu gốc không mô tả rõ hành vi — liệt
 kê ra để không bỏ sót, nhưng cần hỏi lại trước khi coi kết quả nào là đúng/sai.
@@ -56,8 +57,8 @@ Phát hiện thêm (ghi nhận để lưu ý, CHƯA kết luận là lỗi):
   **ADD-02/ADD-03** ở bảng dưới, cần đối chiếu cấp học thật của trường trước khi báo lỗi cho dev.
 - Lớp test **"7QA-Test"** (`id: da3efdea-e0ea-4627-b119-a11c329d3d4e`) hiện **vẫn còn tồn tại
   thật** trong tài khoản GV "Phương" sau khi verify xong — chưa dọn dẹp, có thể tái sử dụng làm
-  dữ liệu cho case Sửa/Xóa lớp học (xem `quan-ly-lop-hoc-sua-lop.md` /
-  `quan-ly-lop-hoc-xoa-lop.md`), hoặc xóa đi qua chính flow DEL-02 nếu không cần giữ lại.
+  dữ liệu cho case Sửa/Xóa lớp học (xem [sua-lop.md](sua-lop.md) / [xoa-lop.md](xoa-lop.md)),
+  hoặc xóa đi qua chính flow DEL-02 nếu không cần giữ lại.
 
 Precondition:
 - Có tài khoản GV đã được cấp quyền, đăng nhập được vào web GV tại `https://parrotedu.vn`

@@ -2,9 +2,9 @@
   "id": "TC-ADD-FULL",
   "title": "Thêm mới lớp học thành công (luồng đầy đủ, happy path)",
   "feature": "Quản lý lớp học > Thêm mới lớp học",
-  "source_markdown": "flows/teacher/testcases/quan-ly-lop-hoc-them-lop.md",
+  "source_markdown": "flows/web/teacher/testcases/lop-phu-trach/them-moi.md",
   "source_requirement": "Tài liệu yêu cầu mục 3. Quản lý lớp học > 3.1. CRUD lớp học, acceptance criteria 3.1.4",
-  "environment": "Web GV (https://parrotedu.vn/teacher/class) - test thủ công, repo không có automation Playwright/Maestro cho web",
+  "environment": "Web GV (https://parrotedu.vn/teacher/class) - evidence gốc lấy từ test thủ công; từ 2026-08-20 case này đã có automation Playwright thật, xem automation/quan_ly_lop_hoc/ (npm run add-class)",
   "status": "ĐÃ XÁC NHẬN THẬT",
   "verified_at": "2026-08-17",
   "verified_by_account": {
@@ -82,5 +82,42 @@
   "notes": [
     "Dropdown \"Khối\" hiển thị đủ 12 khối (Khối 1 -> Khối 12), không thấy giới hạn theo cấp học của trường như AC1 mô tả - CHƯA kết luận là lỗi, cần đối chiếu dữ liệu trường/cấp học thật của GV \"Phương\" trước khi báo lỗi cho dev.",
     "Lớp test \"7QA-Test\" (id da3efdea-e0ea-4627-b119-a11c329d3d4e) vẫn còn tồn tại thật trong tài khoản GV \"Phương\" - được GIỮ LẠI theo yêu cầu người dùng để tái sử dụng làm dữ liệu cho test case Sửa/Xóa lớp học."
+  ],
+  "reruns": [
+    {
+      "rerun_at": "2026-08-20",
+      "tool": "Claude Browser (Playwright-backed in-app browser) - vẫn thao tác thủ công qua UI, KHÔNG phải automation script chạy độc lập",
+      "status": "PASS",
+      "test_data_used": {
+        "khoi": "Khối 7",
+        "ten_lop": "7QA-ReRun-0820",
+        "nam_hoc": "2025-2026"
+      },
+      "state_before": {
+        "danh_sach_lop_hoc_count": 2,
+        "classes": [
+          { "name": "3B", "nam_hoc": "2025-2026", "si_so": 6, "hoc_sinh_pro": 0 },
+          { "name": "7QA-Test", "nam_hoc": "2025-2026", "si_so": 1, "hoc_sinh_pro": 0 }
+        ]
+      },
+      "api_request": {
+        "method": "POST",
+        "url": "https://parrotedu.vn/api/classes",
+        "http_status": 201
+      },
+      "state_after": {
+        "danh_sach_lop_hoc_count": 3,
+        "new_class_card": {
+          "name": "7QA-ReRun-0820",
+          "si_so": 0,
+          "hoc_sinh_pro": 0
+        },
+        "unchanged_classes": ["3B", "7QA-Test"]
+      },
+      "notes": [
+        "Lớp \"7QA-Test\" từ lần verify 2026-08-17 đã có Sĩ số: 1 (khác 0 ban đầu) - đã có học sinh xin vào lớp kể từ đó, không liên quan tới case này.",
+        "Lớp test mới \"7QA-ReRun-0820\" vẫn còn tồn tại thật trong tài khoản GV \"Phương\", chưa dọn dẹp - chờ xác nhận người dùng trước khi xóa."
+      ]
+    }
   ]
 }

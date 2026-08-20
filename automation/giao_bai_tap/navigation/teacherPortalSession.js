@@ -19,28 +19,38 @@ export async function loginTeacherPortal({ headless = true } = {}) {
   }
 
   const browser = await chromium.launch({ headless });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  try {
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-  await page.goto(`${config.teacherPortalBaseUrl}${po.login.path}`, {
-    waitUntil: "networkidle",
-    timeout: 30000,
-  });
+    await page.goto(`${config.teacherPortalBaseUrl}${po.login.path}`, {
+      waitUntil: "networkidle",
+      timeout: 30000,
+    });
 
-  await page.locator(po.login.usernameInput).first().fill(config.teacherUsername);
-  await page.locator(po.login.passwordInput).first().fill(config.teacherPassword);
-  await page.getByRole("button", { name: po.login.submitButton }).click();
+    await page.locator(po.login.usernameInput).first().fill(config.teacherUsername);
+    await page.locator(po.login.passwordInput).first().fill(config.teacherPassword);
+    await page.getByRole("button", { name: po.login.submitButton }).click();
 
-  const stillOnLoginPage = await page
-    .waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30000 })
-    .then(() => false)
-    .catch(() => true);
-  if (stillOnLoginPage) {
-    throw new TeacherPortalAuthError(
-      "Đăng nhập GV thất bại - vẫn ở trang /teacher/login sau khi bấm 'Đăng nhập'. Kiểm tra lại " +
-        "TEACHER_USERNAME/TEACHER_PASSWORD hoặc selector form login (xem teacherPortalPageObjects.js).",
-    );
+    const stillOnLoginPage = await page
+      .waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30000 })
+      .then(() => false)
+      .catch(() => true);
+    if (stillOnLoginPage) {
+      throw new TeacherPortalAuthError(
+        "Đăng nhập GV thất bại - vẫn ở trang /teacher/login sau khi bấm 'Đăng nhập'. Kiểm tra lại " +
+          "TEACHER_USERNAME/TEACHER_PASSWORD hoặc selector form login (xem teacherPortalPageObjects.js).",
+      );
+    }
+
+    return { browser, context, page };
+  } catch (err) {
+    // ĐÃ XÁC NHẬN THẬT (2026-08-20): nếu bất kỳ bước nào ở trên throw (vd `page.goto` timeout do
+    // máy đang tải nặng), browser vừa `launch()` không có cách nào được đóng lại từ phía caller
+    // (caller chưa nhận được biến `browser`) - tiến trình Chromium bị treo vĩnh viễn, khiến cả
+    // script Node cũng không thoát được (Playwright giữ event loop sống qua kết nối tới browser).
+    // Đã gặp thật khi chạy `npm run delete-class`. Đóng browser NGAY tại đây trước khi rethrow.
+    await browser.close().catch(() => {});
+    throw err;
   }
-
-  return { browser, context, page };
 }

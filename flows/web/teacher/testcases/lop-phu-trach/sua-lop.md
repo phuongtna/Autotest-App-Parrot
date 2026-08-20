@@ -3,15 +3,14 @@
 Nguồn: tài liệu yêu cầu mục **3. Quản lý lớp học > 3.1. CRUD lớp học** (mô tả popup "Chỉnh sửa
 lớp học", acceptance criteria 3.1.4) do người dùng cung cấp trong hội thoại.
 
-Web GV — chỉ test thủ công (xem ghi chú trong
-[quan-ly-lop-hoc-them-lop.md](quan-ly-lop-hoc-them-lop.md), repo không có automation web).
+Web GV — chỉ test thủ công cho tới 2026-08-20 (xem ghi chú trong [them-moi.md](them-moi.md));
+case "Thêm mới" giờ đã có automation Playwright thật, xem `automation/quan_ly_lop_hoc/`.
 
 Đường vào màn Sửa: Danh sách lớp học -> chọn 1 lớp -> vào màn chi tiết lớp -> bấm nút "Chỉnh
 sửa lớp học" -> hiện popup "Chỉnh sửa lớp học".
 
 Case liên quan đến việc **xóa lớp từ trong popup Sửa** (nút "Xoá lớp học") chỉ test luồng mở
-popup xác nhận xóa ở đây (EDIT-09); chi tiết đầy đủ luồng xóa nằm ở
-[quan-ly-lop-hoc-xoa-lop.md](quan-ly-lop-hoc-xoa-lop.md).
+popup xác nhận xóa ở đây (EDIT-09); chi tiết đầy đủ luồng xóa nằm ở [xoa-lop.md](xoa-lop.md).
 
 ---
 
@@ -25,7 +24,7 @@ popup xác nhận xóa ở đây (EDIT-09); chi tiết đầy đủ luồng xóa
 | EDIT-06 | Validate bắt buộc — xoá trắng tên Lớp | Đang ở popup Chỉnh sửa | Xoá hết nội dung ô "Lớp" (còn placeholder "Ví dụ: 7A") -> bấm "Lưu" | Hiện lỗi yêu cầu nhập tên lớp; không lưu thay đổi; dữ liệu lớp cũ giữ nguyên | Vẫn lưu được lớp không có tên | Cao | 3.1.2 |
 | EDIT-07 | Validate bắt buộc — bỏ chọn Khối (nếu UI cho phép clear) | Đang ở popup Chỉnh sửa | Xoá lựa chọn Khối về trạng thái chưa chọn -> bấm "Lưu" | Hiện lỗi yêu cầu chọn Khối; không lưu | Vẫn lưu được khi thiếu Khối | Cao | 3.1.2 |
 | EDIT-08 | Hủy khi đang sửa dữ liệu | Đang ở popup Chỉnh sửa, đã đổi 1 vài field | Bấm "Hủy" | Popup đóng, quay lại màn Lớp học; thông tin lớp trong danh sách giữ nguyên như trước khi sửa (không lưu thay đổi tạm) | Thay đổi vẫn được lưu dù bấm Hủy | Cao | 3.1.3-6 |
-| EDIT-09 | Bấm "Xoá lớp học" từ popup Chỉnh sửa | Đang ở popup Chỉnh sửa | Bấm nút "Xoá lớp học" (góc trái dưới) | Hiện đúng popup xác nhận xóa "Xoá lớp học <tên lớp>" với nội dung cảnh báo không thể khôi phục (chi tiết xem file xóa lớp) | Không hiện popup xác nhận; xóa luôn không hỏi lại | Cao | 3.1.3-4 (popup Chỉnh sửa) — chi tiết ở quan-ly-lop-hoc-xoa-lop.md |
+| EDIT-09 | Bấm "Xoá lớp học" từ popup Chỉnh sửa | Đang ở popup Chỉnh sửa | Bấm nút "Xoá lớp học" (góc trái dưới) | Hiện đúng popup xác nhận xóa "Xoá lớp học <tên lớp>" với nội dung cảnh báo không thể khôi phục (chi tiết xem file xóa lớp) | Không hiện popup xác nhận; xóa luôn không hỏi lại | Cao | 3.1.3-4 (popup Chỉnh sửa) — chi tiết ở xoa-lop.md |
 | EDIT-10 | Đóng popup Chỉnh sửa bằng nút X góc trên | Đang ở popup Chỉnh sửa, đã đổi 1 vài field | Bấm icon "X" | Hành vi giống "Hủy": đóng popup, không lưu | Vẫn lưu 1 phần thay đổi | Trung bình | Suy ra từ layout popup |
 | EDIT-11 | Sửa tên Lớp trùng với lớp khác đã tồn tại (cùng Khối/Năm học) | Đã tồn tại lớp "7A" và lớp đang sửa là "7B" (cùng Khối 7, năm 2025-2026) | Đổi tên lớp "7B" thành "7A" -> Lưu | ⚠️ Cần xác nhận: tài liệu không nêu rule chống trùng tên khi sửa | — | Cao | ⚠️ Cần xác nhận với PO/dev |
 | EDIT-12 | Quyền chỉnh sửa lớp không do mình phụ trách | GV khác (không phải GV phụ trách lớp) | Thử truy cập trực tiếp màn chi tiết/sửa của lớp không thuộc quyền quản lý | ⚠️ Cần xác nhận: tài liệu không mô tả rule phân quyền chi tiết ngoài "lớp phụ trách" — kỳ vọng hợp lý là không truy cập được / không thấy nút sửa | — | Cao | ⚠️ Cần xác nhận với PO/dev |

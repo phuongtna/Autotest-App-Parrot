@@ -38,11 +38,13 @@ set +a
 
 echo "Đang đăng nhập giáo viên (username=$TEACHER_USERNAME)..."
 LOGIN_BODY="$(jq -nc --arg u "$TEACHER_USERNAME" --arg p "$TEACHER_PASSWORD" '{username:$u,password:$p,role:"teacher"}')"
-LOGIN_RESP="$(curl -sS --fail-with-body 'https://parrotedu.vn/api/auth/login' \
+# STAGING (2026-08-20): đổi host sang parrotedu-staging.parrotedu.vn (đã xác nhận qua curl - cùng
+# path /api/auth/login tồn tại trên host này).
+LOGIN_RESP="$(curl -sS --fail-with-body 'https://parrotedu-staging.parrotedu.vn/api/auth/login' \
   -H 'accept: */*' \
   -H 'content-type: application/json' \
-  -H 'origin: https://parrotedu.vn' \
-  -H 'referer: https://parrotedu.vn/teacher/login' \
+  -H 'origin: https://parrotedu-staging.parrotedu.vn' \
+  -H 'referer: https://parrotedu-staging.parrotedu.vn/teacher/login' \
   --data-raw "$LOGIN_BODY")" || {
   echo "Đăng nhập giáo viên thất bại: $LOGIN_RESP" >&2
   exit 1

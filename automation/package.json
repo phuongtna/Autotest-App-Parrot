@@ -11,6 +11,8 @@
     "discover-homework": "node bai_tap/discovery/homeworkCli.js",
     "run-homework-e2e": "node bai_tap/runtime/homeworkIndex.js",
     "assign-homework": "node giao_bai_tap/cli.js",
+    "add-class": "node quan_ly_lop_hoc/addClassCli.js",
+    "delete-class": "node quan_ly_lop_hoc/deleteClassCli.js",
     "test-random-homework-open": "node bai_tap/runRandomOpenHomeworkFlow.js",
     "run-homework-random-e2e": "node bai_tap/runtime/homeworkRandomE2E.js",
     "run-homework-random-scoring-e2e": "node bai_tap/runtime/homeworkRandomScoringE2E.js",

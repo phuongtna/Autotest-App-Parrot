@@ -34,14 +34,11 @@ set +a
 
 echo "Đang đăng nhập CMS (username=$CMS_USERNAME)..."
 LOGIN_BODY="$(jq -nc --arg u "$CMS_USERNAME" --arg p "$CMS_PASSWORD" '{username:$u,password:$p}')"
-# STAGING (2026-08-20): API host là parrotedu-staging.parrotedu.vn (KHÔNG phải cms-staging.parrotedu.vn
-# - đó chỉ là front-end SPA, đã xác nhận qua curl - giống quan hệ parrotedu.vn/api/cms vs
-# cms.parrotedu.vn ở bản production cũ).
-LOGIN_RESP="$(curl -sS --fail-with-body 'https://parrotedu-staging.parrotedu.vn/api/cms/login' \
+LOGIN_RESP="$(curl -sS --fail-with-body 'https://parrotedu.vn/api/cms/login' \
   -H 'accept: */*' \
   -H 'content-type: application/json' \
-  -H 'origin: https://cms-staging.parrotedu.vn' \
-  -H 'referer: https://cms-staging.parrotedu.vn/' \
+  -H 'origin: https://cms.parrotedu.vn' \
+  -H 'referer: https://cms.parrotedu.vn/' \
   --data-raw "$LOGIN_BODY")" || {
   echo "Đăng nhập CMS thất bại: $LOGIN_RESP" >&2
   exit 1
@@ -54,11 +51,11 @@ CMS_TOKEN_NEW="$(echo "$LOGIN_RESP" | jq -er '.data.token // .data.access_token 
 echo "  Lấy được CMS_TOKEN."
 
 echo "Đang lấy EXAM_COOKIE..."
-EXAM_RESP="$(curl -sS --fail-with-body 'https://parrotedu-staging.parrotedu.vn/api/cms/exams/token' \
+EXAM_RESP="$(curl -sS --fail-with-body 'https://parrotedu.vn/api/cms/exams/token' \
   -H 'accept: */*' \
   -H "authorization: Bearer $CMS_TOKEN_NEW" \
-  -H 'origin: https://cms-staging.parrotedu.vn' \
-  -H 'referer: https://cms-staging.parrotedu.vn/')" || {
+  -H 'origin: https://cms.parrotedu.vn' \
+  -H 'referer: https://cms.parrotedu.vn/')" || {
   echo "Lấy EXAM_COOKIE thất bại: $EXAM_RESP" >&2
   exit 1
 }

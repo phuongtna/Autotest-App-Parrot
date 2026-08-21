@@ -212,6 +212,49 @@ export async function findAssignment(bridge, target, { maxScrolls = DEFAULT_MAX_
   }
 }
 
+// Anchor GIỐNG HỆT `readOverallProgress()` (e2e-teacher-assign-full-scored-target5.mjs
+// OVERALL_PROGRESS_BELOW_PATTERN) - dòng filter "2 tuần gần nhất"/"1 tháng gần nhất" nằm NGAY TRÊN
+// section "Bài tập về nhà" đầu tiên, dùng làm anchor "đỉnh danh sách" chung, không riêng 1 màn.
+const TOP_ANCHOR_REGEX = ".*(2 tuần gần nhất|1 tháng gần nhất).*";
+const DEFAULT_SCROLL_TO_TOP_TIMEOUT_MS = 30000;
+
+/**
+ * scrollToTop() - cuộn danh sách "Bài tập" về ĐẦU THẬT.
+ *
+ * BUG THẬT đã xác nhận (2026-08-21, script chẩn đoán standalone `test-scroll-methods.mjs` +
+ * `dump-scrollable-nodes.mjs`, ảnh chụp màn hình thật): sau khi tab "Bài tập" đã từng bị cuộn rất
+ * sâu (Android giữ nguyên vị trí cuộn theo tab khi rời/quay lại), app đứng NGAY GIỮA khu vực "Kiến
+ * thức trong bài" (carousel "Unit 3: Community Service"/"Unit 9: ..." - NẰM CÙNG 1 vùng scrollable
+ * VỚI các card Homework, không phải màn khác). ĐO THẬT: 3 lượt swipe point-based biên độ lớn
+ * ("50%,90%"->"50%,10%") liên tiếp KHÔNG có tác dụng gì (fingerprint đứng yên NGUYÊN VẸN) - gesture
+ * `swipe` thô bị "nuốt" ở vị trí này (rất có thể do carousel con bên trong xử lý touch riêng),
+ * fingerprint "không đổi" ở đây là FALSE PLATEAU (do gesture vô tác dụng, KHÔNG PHẢI vì đã ở đỉnh) -
+ * đây là lý do bản swipe/fingerprint tự chế TRƯỚC ĐÓ của hàm này báo `atTop:true` SAI (2 lượt, không
+ * đổi) trong khi thực tế vẫn còn kẹt sâu trong "Kiến thức trong bài". Ngược lại, `scrollUntilVisible`
+ * GỐC của Maestro (đã dùng khắp codebase, có cơ chế cuộn+chờ+thử lại riêng đáng tin cậy hơn 1 lệnh
+ * `swipe` đơn) với `direction: "UP"` nhắm thẳng anchor "2 tuần gần nhất"/"1 tháng gần nhất" THÀNH
+ * CÔNG NGAY, đưa đúng về "Bài tập về nhà" - ĐÃ XÁC NHẬN THẬT. SỬA: dùng LẠI cơ chế
+ * `scrollUntilVisible` có sẵn thay vì tự chế 1 vòng lặp swipe/fingerprint riêng (không phát minh cơ
+ * chế mới - đúng yêu cầu "reuse existing scroll optimization").
+ *
+ * `findAssignment()` phía dưới CHỈ cuộn 1 CHIỀU (xuống) nên nếu xuất phát điểm đã ở SAU (dưới) target
+ * thật (như trạng thái kẹt mô tả ở trên), sẽ KHÔNG BAO GIỜ tìm lại được - báo NOT_FOUND/END_OF_LIST
+ * dù card có thật và đang hiển thị ở phía TRÊN vị trí hiện tại. Đây CHÍNH XÁC là nguyên nhân case
+ * "làm lại 1 bài đã có điểm" (room 0a8b7074-...) liên tục BLOCKED OPEN_EXERCISE_AMBIGUOUS "sau 0
+ * lượt" xuyên suốt các lần chạy trước - KHÔNG phải do CTA khó tìm. `scrollToTop()` PHẢI được gọi
+ * ngay trước `findAssignment()` để đảm bảo tiền điều kiện "xuất phát từ đỉnh danh sách".
+ * @param {AssignmentBridge} bridge
+ * @param {{ timeout?: number }} [options]
+ * @returns {Promise<{ atTop: true } | { atTop: false, reason: string }>}
+ */
+export async function scrollToTop(bridge, { timeout = DEFAULT_SCROLL_TO_TOP_TIMEOUT_MS } = {}) {
+  const result = await bridge.runSteps([
+    { scrollUntilVisible: { element: { text: TOP_ANCHOR_REGEX }, direction: "UP", timeout } },
+  ]);
+  if (!result.success) return { atTop: false, reason: result.error ?? "scrollUntilVisible(direction=UP) thất bại." };
+  return { atTop: true };
+}
+
 /**
  * Tap CTA của 1 card đã `findAssignment()` trả về FOUND - dùng toạ độ thật (`ctaBounds`) thay vì
  * lại nhờ Maestro khớp selector text (`below`/`text`) - selector đó là NGUỒN của lỗi "tap nhầm card

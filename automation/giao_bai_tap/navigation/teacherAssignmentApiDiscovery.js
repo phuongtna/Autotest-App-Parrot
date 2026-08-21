@@ -169,7 +169,14 @@ export async function fetchEligibleAssignmentTree(className) {
         }));
       itemsWithExam += eligibleItems.length;
       if (eligibleItems.length > 0) {
-        eligibleLessons.push({ lessonId: lesson.id, lessonName: lesson.name, items: eligibleItems });
+        // lessonTag (MỚI 2026-08-21, additive - KHÔNG đổi field cũ nào): `GET /api/learn/lesson/:unitId`
+        // trả kèm `lesson.tag.name` - XÁC NHẬN THẬT (curl trực tiếp, Unit 3: Community service) đây
+        // CHÍNH LÀ tên nút "Chọn Lesson" thật hiển thị trên Web GV (vd lesson.name="Grammar" nhưng
+        // lesson.tag.name="A closer look 2" - tên nút bấm được là tag.name, KHÔNG PHẢI lesson.name).
+        // Trước đây (assignHomeworkFlow.js#resolveAndSelectLesson) truyền thẳng lesson.name vào so
+        // khớp EXACT với text nút DOM - SAI với lesson nào có lessonName != tag.name (đã gặp FAIL
+        // thật 2 lần: "VOCABULARY & GRAMMAR" tag="Other", "Looking back: Skills" tag="Looking back").
+        eligibleLessons.push({ lessonId: lesson.id, lessonName: lesson.name, lessonTag: lesson.tag?.name ?? null, items: eligibleItems });
       }
     }
     if (eligibleLessons.length > 0) {

@@ -28,9 +28,12 @@ name: RP-20 Dang xuat - xac nhan
 - extendedWaitUntil:
     visible: ".*(Bạn có thật sự muốn đăng xuất khỏi ứng dụng?).*"
     timeout: 15000
+# LƯU Ý: regex rộng ".*(Đăng xuất|Đồng ý|OK|Xác nhận).*" khớp luôn vào text của
+# chính message dialog ("...muốn đăng xuất khỏi ứng dụng?", chứa "đăng xuất" không
+# phân biệt hoa/thường) -> index:0 tap trúng dòng message (không phải nút), dialog
+# không đóng. Nút xác nhận thật của dialog này là "OK" (nút "Hủy" mới là huỷ).
 - tapOn:
-    text: ".*(Đăng xuất|Đồng ý|OK|Xác nhận).*"
-    index: 0
+    text: "OK"
 
 - extendedWaitUntil:
     visible:

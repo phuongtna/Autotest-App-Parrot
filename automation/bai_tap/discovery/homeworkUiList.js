@@ -65,6 +65,14 @@ const PROGRESS_PATTERN = /^\d+\s*\/\s*\d+$/;
 // title -> "Hạn nộp DD/MM" hoặc "Hạn nộp DD/MM (QUÁ HẠN)" -> CTA, không có N/M xen giữa. Dùng thêm
 // mẫu này làm anchor thay thế để không bỏ sót nhóm card này (PROGRESS_PATTERN một mình không đủ).
 const DUE_DATE_PATTERN = /^Hạn nộp \d{2}\/\d{2}(\s*\(QUÁ HẠN\))?$/;
+// Card ĐÃ HOÀN THÀNH (có điểm) - xác nhận thật qua hierarchy dump 2026-08-21 (nhiều card mẫu: "Điểm
+// 3", "Điểm 10", "Điểm 5"): KHÔNG còn render "N / M" lẫn "Hạn nộp ..." nữa, chỉ còn dòng "Điểm N"
+// ngay sau title (rồi "Xem bài đã làm" -> CTA "Làm lại"). THIẾU anchor này khiến
+// parseHomeworkCardsFromTexts()/parseHomeworkCardsWithDetail() bỏ sót VĨNH VIỄN mọi card đã hoàn
+// thành (không anchor nào khớp -> không bao giờ xác định được title của nó) - hậu quả thật:
+// findAssignment() báo NOT_FOUND/END_OF_LIST cho use case "làm lại 1 bài đã có điểm" BẤT KỂ cuộn
+// bao nhiêu lần (không phải do cuộn chưa đủ - lỗi cấu trúc, không phải lỗi hết kiên nhẫn cuộn).
+const SCORE_PATTERN = /^Điểm\s+[0-9]+(?:[.,][0-9]+)?$/;
 // Lookahead tối đa (số dòng) từ sau "N / M" tới CTA - đủ rộng cho các dòng phụ đã biết ("Hạn nộp...",
 // "Xem bài đã làm") nhưng vẫn có giới hạn để không lỡ ghép nhầm sang card kế tiếp.
 const MAX_CTA_LOOKAHEAD = 6;
@@ -111,7 +119,7 @@ export function parseHomeworkCardsFromTexts(texts, { sectionSeen: initialSection
       continue;
     }
     if (!sectionSeen) continue;
-    if (!PROGRESS_PATTERN.test(text) && !DUE_DATE_PATTERN.test(text)) continue;
+    if (!PROGRESS_PATTERN.test(text) && !DUE_DATE_PATTERN.test(text) && !SCORE_PATTERN.test(text)) continue;
 
     const title = texts[i - 1];
     if (
@@ -119,6 +127,7 @@ export function parseHomeworkCardsFromTexts(texts, { sectionSeen: initialSection
       SECTION_HEADERS.includes(title) ||
       PROGRESS_PATTERN.test(title) ||
       DUE_DATE_PATTERN.test(title) ||
+      SCORE_PATTERN.test(title) ||
       CTA_TEXTS.includes(title)
     ) {
       continue;
@@ -129,9 +138,9 @@ export function parseHomeworkCardsFromTexts(texts, { sectionSeen: initialSection
         cta = texts[j];
         break;
       }
-      // Gặp "N / M" hoặc section header khác trước khi thấy CTA - đã lỡ sang card/section kế tiếp,
-      // dừng tìm CTA cho title này (card lỗi hiển thị/không đọc được CTA - bỏ qua, không đoán).
-      if (PROGRESS_PATTERN.test(texts[j]) || SECTION_HEADERS.includes(texts[j])) break;
+      // Gặp "N / M" / "Điểm N" hoặc section header khác trước khi thấy CTA - đã lỡ sang card/section
+      // kế tiếp, dừng tìm CTA cho title này (card lỗi hiển thị/không đọc được CTA - bỏ qua, không đoán).
+      if (PROGRESS_PATTERN.test(texts[j]) || SCORE_PATTERN.test(texts[j]) || SECTION_HEADERS.includes(texts[j])) break;
     }
     if (cta) cards.push({ title, cta });
   }
@@ -314,7 +323,8 @@ export function parseHomeworkCardsWithDetail(nodes, { sectionSeen: initialSectio
     if (!sectionSeen) continue;
     const isProgress = PROGRESS_PATTERN.test(text);
     const isDue = DUE_DATE_PATTERN.test(text);
-    if (!isProgress && !isDue) continue;
+    const isScore = SCORE_PATTERN.test(text);
+    if (!isProgress && !isDue && !isScore) continue;
 
     const titleNode = nodes[i - 1];
     const title = titleNode?.text;
@@ -323,17 +333,20 @@ export function parseHomeworkCardsWithDetail(nodes, { sectionSeen: initialSectio
       SECTION_HEADERS.includes(title) ||
       PROGRESS_PATTERN.test(title) ||
       DUE_DATE_PATTERN.test(title) ||
+      SCORE_PATTERN.test(title) ||
       CTA_TEXTS.includes(title)
     ) {
       continue;
     }
 
+    // Card ĐÃ HOÀN THÀNH (anchor = "Điểm N") không có dòng "Hạn nộp ..." (xem SCORE_PATTERN ở đầu
+    // file) - dueDate PHẢI là null cho card này (không đoán/giữ giá trị cũ), đúng thực tế UI.
     let dueDate = isDue ? text : null;
     let cta = null;
     let ctaBounds = null;
     for (let j = i + 1; j < Math.min(nodes.length, i + 1 + MAX_CTA_LOOKAHEAD); j++) {
       const t = nodes[j].text;
-      if (dueDate === null && DUE_DATE_PATTERN.test(t)) {
+      if (!isScore && dueDate === null && DUE_DATE_PATTERN.test(t)) {
         dueDate = t;
         continue;
       }
@@ -342,7 +355,7 @@ export function parseHomeworkCardsWithDetail(nodes, { sectionSeen: initialSectio
         ctaBounds = nodes[j].bounds;
         break;
       }
-      if (PROGRESS_PATTERN.test(t) || SECTION_HEADERS.includes(t)) break; // đã sang card/section kế tiếp.
+      if (PROGRESS_PATTERN.test(t) || SCORE_PATTERN.test(t) || SECTION_HEADERS.includes(t)) break; // đã sang card/section kế tiếp.
     }
     if (!cta) continue;
 

@@ -1,0 +1,88 @@
+# KTRA-Fullluong-Lamlai — BASE CASE cho luồng "Làm lại" (Maestro YAML thuần, cấu trúc tham khảo
+# trực tiếp flows/app/bai_tap/ktra_fullluong_lambai.yaml - HW-14_15). File đó chứng minh full flow
+# MỞ BÀI MỚI (mở bài -> làm bài -> submit -> kết quả); file NÀY chỉ khác ở bước MỞ BÀI:
+#
+#   Bài tập -> tìm 1 bài ĐÃ LÀM (cta "Làm lại") -> tap "Làm lại" -> vào màn làm bài
+#           -> answer-current-exercise-generic.yaml (ĐÚNG handler chung của HW-14_15, không viết
+#              lại logic xử lý câu hỏi/không tạo engine trả lời mới)
+#           -> submit -> exercise_result_screen.
+#
+# ĐÂY LÀ BASE CASE - KHÔNG kiểm tra điểm cũ, KHÔNG so điểm mới > điểm cũ, KHÔNG nhắm target score cụ
+# thể (case đó xem flows/app/bai_tap/pro_lamlai_target_score.mjs - BẮT BUỘC .mjs vì cần gọi CMS/Exam
+# API để biết đáp án đúng thật, YAML thuần không làm được, xem docblock mục SCORING ENGINE ở đó).
+# Chỉ chứng minh: "Làm lại" -> vào bài -> handler chung chạy hết -> submit -> CÓ màn kết quả.
+#
+# Tham số:
+#   PHONE, OTP    - bắt buộc.
+#   EXERCISE_NAME - bắt buộc, KHÔNG có default (khác helpers/open-exercise.yaml có default "Read
+#                   and choose" cho case mở bài MỚI) - không có "1 card đã hoàn thành mặc định" nào
+#                   đáng tin cậy trên mọi tài khoản test; PHẢI trỏ đúng title của 1 card đang hiện
+#                   cta "Làm lại" thật trên app lúc chạy. Thiếu tham số này, ${EXERCISE_NAME} bị
+#                   Maestro stringify thành chuỗi "undefined" (đã gặp thật, xem comment cùng chủ đề
+#                   trong ktra_fullluong_lambai.yaml) - scrollUntilVisible/assertVisible bên dưới sẽ
+#                   FAILED rõ ràng, không rơi vào im lặng chọn nhầm card.
+appId: ${APP_ID}
+tags:
+  - writes
+  - regression
+name: KTRA-Fullluong-Lamlai - base case lam lai bai da hoan thanh
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-homework.yaml
+
+# --- Tìm ĐÚNG card đã hoàn thành (không tap theo index/toạ độ cố định): scrollUntilVisible tự cuộn
+# từng đoạn nhỏ + kiểm tra lại hierarchy sau mỗi lượt, dừng NGAY khi title khớp xuất hiện - KHÔNG
+# cuộn thêm sau đó. assertVisible "Làm lại" xác nhận ĐÚNG cta của card này là "Làm lại" (không phải
+# "Làm bài"/"Tiếp tục"/"Chinh phục" của 1 card khác chỉ trùng 1 phần title) trước khi tap. ---
+- scrollUntilVisible:
+    element:
+      text: ".*${EXERCISE_NAME}.*"
+    direction: DOWN
+    timeout: 150000
+    speed: 70
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    text: "Làm lại"
+    below:
+      text: ".*${EXERCISE_NAME}.*"
+- takeScreenshot: KTRA-fullluong-lamlai-before
+
+# --- Tap "Làm lại" (compound selector title+CTA - cùng cơ chế đã verify trong
+# flows/app/helpers/open-exercise.yaml, KHÔNG dùng index/toạ độ cố định) ---
+- tapOn:
+    text: "Làm lại"
+    below:
+      text: ".*${EXERCISE_NAME}.*"
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+# --- Xác nhận đã vào màn làm bài ---
+- extendedWaitUntil:
+    visible:
+      id: "exercise_close_button"
+    timeout: 40000
+- takeScreenshot: KTRA-fullluong-lamlai-opened
+
+# --- Hoàn thành TOÀN BỘ bài bằng ĐÚNG exercise handler chung của full flow (HW-14_15) - KHÔNG
+# duplicate logic xử lý từng loại câu hỏi, KHÔNG viết engine trả lời mới. ---
+- runFlow:
+    file: ../helpers/answer-current-exercise-generic.yaml
+    env:
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+# --- Màn Kết quả (testID ổn định, không phụ thuộc casing/ngôn ngữ - cùng cách đã verify trong
+# ktra_fullluong_lambai.yaml) - CHỈ xác nhận CÓ hiện, KHÔNG đọc/so khớp giá trị điểm cụ thể (base
+# case, không có logic target score). ---
+- extendedWaitUntil:
+    visible:
+      id: "exercise_result_screen"
+    timeout: 60000
+- takeScreenshot: KTRA-fullluong-lamlai-result

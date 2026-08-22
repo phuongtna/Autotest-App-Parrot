@@ -41,6 +41,13 @@ mkdir -p "$REPORT_DIR"
 
 TARGET="${1:-flows}"
 
+# Case trong flows/app/report dùng riêng REPORT_PHONE/REPORT_OTP (xem test_data/accounts.env):
+# account PHONE mặc định là BASIC, vào tab Báo cáo bị chặn bởi paywall "Nâng cấp tài khoản".
+if [[ "$TARGET" == *"report"* ]]; then
+  PHONE="${REPORT_PHONE:-$PHONE}"
+  OTP="${REPORT_OTP:-$OTP}"
+fi
+
 echo "Chạy Maestro test cho appId=$APP_ID, target=$TARGET"
 maestro test "$TARGET" \
   -e APP_ID="$APP_ID" \

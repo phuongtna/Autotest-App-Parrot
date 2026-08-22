@@ -148,10 +148,35 @@ export async function assignHomeworkFlow(params) {
       { page },
     )();
 
+    // FIX (2026-08-22, FAIL thật xác nhận qua run "7QA-Test"): `.click()` mù (không xác nhận lại
+    // state) có thể PASS dù checkbox không thực sự chuyển sang checked (race giữa click và
+    // render/re-fetch danh sách lớp) - hậu quả lộ ra 2 bước sau, ở "selectUnitLessonHomework"
+    // (combobox không bao giờ xuất hiện vì panel "Chọn bài tập" vẫn coi như CHƯA có lớp nào được
+    // chọn), khó truy nguyên.
+    //
+    // ĐÃ THỬ VÀ REVERT (2026-08-22): đổi hẳn sang `checkbox.check()` (bấm trực tiếp vào input) -
+    // SAI, xác nhận thật qua run kế tiếp (lớp "3B"): input checkbox thật có class "peer hidden"
+    // (bị ẩn qua CSS, pattern style-qua-label phổ biến - input CHỈ tồn tại để giữ state, UI hiển
+    // thị qua sibling/label ăn theo class "peer-checked") - Playwright coi input "not visible" nên
+    // `.check()` timeout 30s ngay ("element is not visible") dù label/text vẫn bấm được bình
+    // thường (trình duyệt tự forward click tới input ẩn qua cơ chế label-for-input chuẩn HTML).
+    //
+    // SỬA ĐÚNG: GIỮ NGUYÊN cách bấm gốc (click label/text hiển thị) - CHỈ THÊM xác nhận + tối đa 3
+    // lần thử lại nếu checkbox chưa lên checked sau click (bù đúng race đã nghi ở lượt FAIL "7QA-
+    // Test" phía trên), thay vì đổi cơ chế bấm.
     await step(
       "selectPrimaryClass",
       async () => {
-        await page.getByText(primaryClass, { exact: false }).first().click();
+        const labelText = page.getByText(primaryClass, { exact: false }).first();
+        const checkbox = labelText.locator("xpath=ancestor::label[1]//input[@type='checkbox']");
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          await labelText.click();
+          await page.waitForTimeout(300);
+          if (await checkbox.isChecked().catch(() => false)) return;
+        }
+        throw new AssignHomeworkAssertionError(
+          `Đã bấm chọn lớp "${primaryClass}" 3 lần nhưng checkbox vẫn KHÔNG chuyển sang checked - nghi race giữa click và render/re-fetch danh sách lớp.`,
+        );
       },
       { page },
     )();

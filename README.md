@@ -11,8 +11,8 @@ Bộ khung test automation cho app Android chạy trên máy ảo (AVD) trong An
 │   ├── app/                  # testcase/flow chạy trên Android App (Maestro)
 │   │   ├── smoke_test.yaml      # test mở app cơ bản
 │   │   ├── login/               # tất cả testcase riêng cho màn hình đăng nhập
-│   │   │   ├── login_success_valid_otp.yaml       # TC1: đăng nhập thành công với OTP hợp lệ (đã pass)
-│   │   │   └── login_fail_unregistered_phone.yaml # TC2: đăng nhập thất bại - số điện thoại chưa đăng ký (đã pass)
+│   │   │   └── login_fail_unregistered_phone.yaml # TC: đăng nhập thất bại - số điện thoại chưa đăng ký (đã pass)
+│   │   │       # (case đăng nhập thành công dùng chung qua helpers/login.yaml, được các bộ HW/RP/EX gọi lại)
 │   │   ├── profile/              # testcase cho chức năng chuyển profile (tài khoản con)
 │   │   │   └── switch_profile_success.yaml # TC: chuyển profile thành công Ngoc -> Ha (đã pass)
 │   │   ├── vui_hoc/               # testcase cho màn hình "Vui học"
@@ -51,7 +51,7 @@ App đang test: **ParrotEdu** — package name `com.inet.parrotedu` (React Nativ
 4. `.env` đã có sẵn `APP_ID=com.inet.parrotedu`. Nếu test app/package khác, dùng `./scripts/find_appid.sh <từ khóa>` để tìm lại.
 5. Tài khoản test đã lưu sẵn ở 2 nơi (tùy flow dùng cách nào):
    - `test_data/accounts.env` - biến môi trường, nạp qua `-e` khi chạy `maestro test` (xem `scripts/run_tests.sh`).
-   - `test_data/datatest.js` - nạp trực tiếp trong flow bằng lệnh `runScript` (flow `login_success_valid_otp.yaml` đang dùng cách này). Sửa file này nếu cần đổi số điện thoại/OTP/tên profile test khác.
+   - `test_data/datatest.js` - nạp trực tiếp trong flow bằng lệnh `runScript` (các flow `vui_hoc/study_unit9_*.yaml` đang dùng cách này). Sửa file này nếu cần đổi số điện thoại/OTP/tên profile test khác.
 
 ## Chạy test
 
@@ -63,10 +63,10 @@ App đang test: **ParrotEdu** — package name `com.inet.parrotedu` (React Nativ
 ./scripts/run_tests.sh flows/app/login
 
 # Chỉ chạy 1 testcase cụ thể
-./scripts/run_tests.sh flows/app/login/login_success_valid_otp.yaml
+./scripts/run_tests.sh flows/app/login/login_fail_unregistered_phone.yaml
 
 # Chạy trực tiếp bằng maestro CLI
-maestro test flows/app/login/login_success_valid_otp.yaml -e APP_ID=com.inet.parrotedu -e PHONE_NUMBER=0936021880 -e OTP_CODE=888888
+maestro test flows/app/login/login_fail_unregistered_phone.yaml -e APP_ID=com.inet.parrotedu -e UNREGISTERED_PHONE_NUMBER=0916616666
 ```
 
 Báo cáo JUnit XML được ghi vào `reports/report.xml` sau mỗi lần chạy `run_tests.sh`.
@@ -77,7 +77,7 @@ Báo cáo JUnit XML được ghi vào `reports/report.xml` sau mỗi lần chạ
    ```bash
    maestro studio
    ```
-2. Mỗi màn hình có 1 thư mục riêng trong `flows/app/` (vd: `flows/app/login/`). Mỗi testcase là 1 file `.yaml` riêng trong thư mục đó, đặt tên mô tả rõ case (vd: `login_success_valid_otp.yaml`, `login_invalid_phone.yaml`, `login_wrong_otp.yaml`...). Tham khảo cấu trúc của `flows/app/login/login_success_valid_otp.yaml`.
+2. Mỗi màn hình có 1 thư mục riêng trong `flows/app/` (vd: `flows/app/login/`). Mỗi testcase là 1 file `.yaml` riêng trong thư mục đó, đặt tên mô tả rõ case (vd: `login_fail_unregistered_phone.yaml`, `login_wrong_otp.yaml`...). Bước đăng nhập thành công dùng chung thì gọi `runFlow: ../helpers/login.yaml` (tham khảo cách gọi ở `flows/app/report/RP-19-logout-cancel.yaml`) thay vì viết lại logic đăng nhập trong từng testcase.
 3. Nếu nhiều flow dùng chung bước, tách vào `flows/app/subflows/` và gọi bằng `runFlow: ../subflows/ten_file.yaml` (đường dẫn tương đối từ thư mục con, ví dụ `flows/app/login/`).
 4. Thêm đường dẫn thư mục mới vào danh sách `flows:` trong `.maestro/config.yaml` để Maestro nhận diện (đã thêm sẵn `flows/app/login/*.yaml`, `flows/app/profile/*.yaml`, `flows/app/vui_hoc/*.yaml`).
 

@@ -138,9 +138,23 @@ export function parseHomeworkCardsFromTexts(texts, { sectionSeen: initialSection
         cta = texts[j];
         break;
       }
-      // Gặp "N / M" / "Điểm N" hoặc section header khác trước khi thấy CTA - đã lỡ sang card/section
-      // kế tiếp, dừng tìm CTA cho title này (card lỗi hiển thị/không đọc được CTA - bỏ qua, không đoán).
-      if (PROGRESS_PATTERN.test(texts[j]) || SCORE_PATTERN.test(texts[j]) || SECTION_HEADERS.includes(texts[j])) break;
+      if (SECTION_HEADERS.includes(texts[j])) break; // ranh giới cứng - luôn dừng ngay.
+      // FIX (2026-08-22, BLOCKED thật xác nhận qua fixture + live device, room 19e78018-8c11-48e9-
+      // 845f-efefe4dff82f): card ĐÃ HOÀN THÀNH có CẢ dòng "N / M" (số câu đúng/tổng) VÀ dòng
+      // "Điểm N" liền sau nhau, CÙNG thuộc 1 card (xem SCORE_PATTERN comment đầu file) - break vô
+      // điều kiện tại đây coi nhầm dòng "Điểm N" là anchor của card KHÁC, khiến card hoàn thành bị
+      // loại VĨNH VIỄN khỏi kết quả (không do cuộn, do parse). Bất biến thật (đã ghi trong docblock
+      // đầu file): title của 1 card LUÔN là dòng text THƯỜNG đứng ngay trước anchor của nó - ranh
+      // giới card KẾ TIẾP chỉ tồn tại khi có 1 dòng title-thường như vậy chen giữa. Nếu dòng NGAY
+      // TRƯỚC anchor vừa gặp CŨNG là 1 anchor (progress/due/score) - đó là dòng phụ thứ 2 của CHÍNH
+      // card đang xét (badge nhiều dòng), KHÔNG PHẢI ranh giới - bỏ qua, tiếp tục tìm CTA trong ngân
+      // sách lookahead còn lại.
+      if (PROGRESS_PATTERN.test(texts[j]) || SCORE_PATTERN.test(texts[j])) {
+        const prevText = texts[j - 1];
+        const prevIsAnchor = PROGRESS_PATTERN.test(prevText) || DUE_DATE_PATTERN.test(prevText) || SCORE_PATTERN.test(prevText);
+        if (prevIsAnchor) continue;
+        break; // ranh giới card kế tiếp thật (có dòng title thường chen giữa) - dừng tìm CTA.
+      }
     }
     if (cta) cards.push({ title, cta });
   }
@@ -309,7 +323,7 @@ export function collectTextNodesWithBoundsInsideScrollableList(node, acc, inside
  * title/CTA đã có.
  * @param {Array<{text:string, bounds:?Object}>} nodes
  * @param {{ sectionSeen?: boolean }} [state]
- * @returns {{ cards: Array<{title:string, titleBounds:?Object, dueDate:?string, cta:string, ctaBounds:?Object}>, sectionSeen: boolean }}
+ * @returns {{ cards: Array<{title:string, titleBounds:?Object, dueDate:?string, progress:?string, score:?string, cta:string, ctaBounds:?Object}>, sectionSeen: boolean }}
  */
 export function parseHomeworkCardsWithDetail(nodes, { sectionSeen: initialSectionSeen = false } = {}) {
   const cards = [];
@@ -342,6 +356,11 @@ export function parseHomeworkCardsWithDetail(nodes, { sectionSeen: initialSectio
     // Card ĐÃ HOÀN THÀNH (anchor = "Điểm N") không có dòng "Hạn nộp ..." (xem SCORE_PATTERN ở đầu
     // file) - dueDate PHẢI là null cho card này (không đoán/giữ giá trị cũ), đúng thực tế UI.
     let dueDate = isDue ? text : null;
+    // progress/score (MỚI, additive - không đổi field cũ): card hoàn thành có CẢ "N / M" (câu
+    // đúng/tổng) VÀ "Điểm N" cùng lúc (xem FIX ngay dưới) - lưu lại cả 2 giá trị thật đọc được,
+    // thay vì chỉ biết "có tồn tại" như trước.
+    let progress = isProgress ? text : null;
+    let score = isScore ? text : null;
     let cta = null;
     let ctaBounds = null;
     for (let j = i + 1; j < Math.min(nodes.length, i + 1 + MAX_CTA_LOOKAHEAD); j++) {
@@ -355,11 +374,26 @@ export function parseHomeworkCardsWithDetail(nodes, { sectionSeen: initialSectio
         ctaBounds = nodes[j].bounds;
         break;
       }
-      if (PROGRESS_PATTERN.test(t) || SCORE_PATTERN.test(t) || SECTION_HEADERS.includes(t)) break; // đã sang card/section kế tiếp.
+      if (SECTION_HEADERS.includes(t)) break; // ranh giới cứng - luôn dừng ngay.
+      // FIX (2026-08-22, cùng root cause với parseHomeworkCardsFromTexts() ở trên - xem comment đầy
+      // đủ tại đó): dòng "Điểm N" của CHÍNH card đang xét (theo NGAY SAU "N / M" của card đã hoàn
+      // thành) bị coi nhầm là anchor của card KHÁC. Chỉ break khi dòng NGAY TRƯỚC anchor này là 1
+      // title-thường (không phải anchor) - đúng bất biến "title luôn đứng ngay trước anchor của
+      // NÓ", nghĩa là ranh giới card kế tiếp thật sự.
+      if (PROGRESS_PATTERN.test(t) || SCORE_PATTERN.test(t)) {
+        const prevText = nodes[j - 1]?.text;
+        const prevIsAnchor = PROGRESS_PATTERN.test(prevText) || DUE_DATE_PATTERN.test(prevText) || SCORE_PATTERN.test(prevText);
+        if (prevIsAnchor) {
+          if (progress === null && PROGRESS_PATTERN.test(t)) progress = t;
+          if (score === null && SCORE_PATTERN.test(t)) score = t;
+          continue;
+        }
+        break;
+      }
     }
     if (!cta) continue;
 
-    cards.push({ title, titleBounds: titleNode.bounds, dueDate, cta, ctaBounds });
+    cards.push({ title, titleBounds: titleNode.bounds, dueDate, progress, score, cta, ctaBounds });
   }
   return { cards, sectionSeen };
 }

@@ -1,0 +1,26 @@
+# Helper: hoàn thành CÂU HỎI HIỆN TẠI trên màn Doing bằng dispatcher chung (KHÔNG biết đúng/sai),
+# rồi CHỈ dừng lại ở màn Kết quả (KHÔNG đụng tới CTA "Tiếp theo"/"Hoàn thành") - KHÁC hẳn
+# flows/app/helpers/finish-exercise-and-return.yaml (file đó tự đóng kết quả kèm né "Tiếp theo").
+#
+# Dùng cho case CẦN tự quyết định (từ phía caller .mjs) sẽ làm gì với CTA màn Kết quả - vd
+# flows/app/bai_tap/ktra_ket_qua_tiep_theo_hoan_thanh.mjs (case verify CTA "Tiếp theo"/"Hoàn thành"
+# - case đó PHẢI bấm "Tiếp theo" thật, không được dùng workaround tap X như
+# finish-exercise-and-return.yaml).
+#
+# GIẢ ĐỊNH: app ĐANG đứng ở màn Doing (exercise_close_button visible) khi flow này bắt đầu chạy -
+# caller tự đảm bảo điều kiện này (không launch/login lại, giữ nguyên session/profile hiện có).
+#
+# Tham số (tuỳ chọn): EXERCISE_NAME - tên assignment đang làm, chỉ để làm giàu report BLOCKED của
+# answer-current-exercise-generic.yaml (không truyền vẫn chạy bình thường).
+appId: ${APP_ID}
+---
+- runFlow:
+    file: answer-current-exercise-generic.yaml
+    env:
+      EXERCISE_NAME: ${EXERCISE_NAME}
+
+- extendedWaitUntil:
+    visible:
+      id: "exercise_result_screen"
+    timeout: 60000
+- takeScreenshot: answer-and-wait-result

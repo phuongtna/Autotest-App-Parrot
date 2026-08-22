@@ -59,6 +59,8 @@
  *     cảnh báo `denominatorMatches` khi 2 số lệch nhau, không che giấu, để dễ debug nếu FAIL.
  *
  * ENV:
+ *   TARGET_TITLE=<title chính xác>  (tuỳ chọn - redo ĐÚNG 1 card này thay vì để tự quét/chọn
+ *     candidate đầu tiên thoả điều kiện - xem comment tại khai báo TARGET_TITLE bên dưới)
  *   REDO_SCORE_MODE=target|random (default "target")
  *   REDO_TARGET_SCORE=<số>        (bắt buộc khi mode=target, vd 9, 8.5, 10, 3)
  *     - mode=random: tự chọn 1 điểm KHẢ THI thật của CHÍNH candidate được chọn (không random đáp án
@@ -70,7 +72,7 @@
  * CHẠY: REDO_SCORE_MODE=target REDO_TARGET_SCORE=9 node flows/app/bai_tap/pro_lamlai_target_score.mjs
  */
 
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -89,6 +91,11 @@ const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "pro_lamlai_targe
 const ACCOUNTS_ENV_PATH = join(PROJECT_ROOT, "test_data", "accounts.env");
 const ROOT_ENV_PATH = join(PROJECT_ROOT, ".env");
 const EXAM_SESSION_PATH = join(PROJECT_ROOT, "automation", ".cache", "exam_session.json");
+// CMS_CACHE_PATH (MỚI, tối ưu Phase C - xem PHÂN TÍCH BOTTLENECK cuối file): cache RIÊNG của
+// CHÍNH file này (không đụng automation/bai_tap/discovery/teacherMaterialsExamResolver.js - blast
+// radius CHỈ trong script này, không ảnh hưởng các flow khác đang dùng chung resolver đó).
+const CMS_CACHE_PATH = join(PROJECT_ROOT, "automation", ".cache", "pro_lamlai_target_score_cms_cache.json");
+const CMS_CACHE_DISABLE = (process.env.CMS_CACHE_DISABLE || "").trim().toLowerCase() === "true";
 const ACCOUNTS_ENV = parseEnvFile(ACCOUNTS_ENV_PATH);
 const ROOT_ENV = parseEnvFile(ROOT_ENV_PATH);
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
@@ -105,12 +112,58 @@ const ADVANCED_SECTION_HEADER = "Bài tập nâng cao";
 
 const REDO_SCORE_MODE = (process.env.REDO_SCORE_MODE || "target").trim().toLowerCase();
 const REDO_TARGET_SCORE_RAW = process.env.REDO_TARGET_SCORE;
+// TARGET_TITLE (optional, MỚI 2026-08-22): chỉ định ĐÚNG 1 title cần "Làm lại" (khớp chính xác text
+// hiển thị trên card App HS) thay vì để collectDistinctCompletedCandidates() tự quét/chọn candidate
+// ĐẦU TIÊN thoả điều kiện - dùng khi cần redo ĐÚNG 1 bài cụ thể (vd "bài vừa hoàn thành sáng nay"),
+// không phải bất kỳ bài "Làm lại" nào tìm thấy trước. collectDistinctCompletedCandidates() dừng CUỘN
+// SỚM sau 2 lượt liên tiếp không tìm thêm candidate MỚI (thiết kế đúng cho quét tổng quát) - đã xác
+// nhận thật (2026-08-22) điều này khiến quét bỏ lỡ 1 card cụ thể nằm xa hơn trong danh sách (dừng ở
+// "G3-U3-Lesson 1: Read and complete" trong khi "G3-U2-Lesson 2: Read and tick True or False" - đã
+// xác nhận COMPLETED qua getHomeworks() cùng room_id thật - nằm xa hơn, chưa cuộn tới). Khi có
+// TARGET_TITLE, cuộn THẲNG tới đúng title đó (scrollUntilVisible, không có ngưỡng dừng sớm).
+const TARGET_TITLE = process.env.TARGET_TITLE || null;
 // Quy đổi point (có thể là số thập phân, vd 0.5) sang số nguyên để DP subset-sum không dính sai số
 // float - 1000 đủ dư cho mọi độ chia nhỏ CMS đã quan sát thật (point nguyên hoặc 1 chữ số thập phân).
 const POINT_SCALE = 1000;
 
 function log(...args) {
   console.log(...args);
+}
+
+/** ===================== PROFILING (instrumentation-only, MỚI 2026-08-22) =====================
+ * Mục đích DUY NHẤT: đo thời gian từng phase/bước thật để xác định bottleneck TRƯỚC khi tối ưu -
+ * KHÔNG đổi logic/hành vi/thứ tự bước nào đã có. Timer dùng Date.now() (đủ độ chính xác cho khoảng
+ * đo tính bằng giây/trăm-ms của case này, không cần performance.now()).
+ *
+ * 1 THAY ĐỔI CẤU TRÚC DUY NHẤT để đo được (không phải đổi hành vi): một số bước trước đây gộp NHIỀU
+ * lệnh Maestro trong 1 lần gọi `bridge.runSteps([...])` (vd swipe+waitForAnimationToEnd, hay
+ * tapOn+wait+runFlow+extendedWaitUntil) - tách thành NHIỀU lần gọi `runSteps()` liên tiếp, MỖI lần 1
+ * cụm lệnh, để có ranh giới đo thời gian giữa các cụm. Maestro session (`MaestroMcpSession`, xem
+ * automation/bridge/maestroMcpBridge.js) là 1 tiến trình DUY NHẤT sống xuyên suốt, các lệnh vẫn chạy
+ * TUẦN TỰ ĐÚNG THỨ TỰ CŨ, KHÔNG khác gì về hành vi/kết quả cuối cùng - chỉ khác số lần round-trip
+ * qua MCP (không ảnh hưởng correctness, có thể cộng thêm vài ms overhead round-trip không đáng kể).
+ */
+function now() {
+  return Date.now();
+}
+
+function newProfiling() {
+  return {
+    phaseA: null,
+    phaseB: { scrolls: [], durationMs: null, startedAt: null, endedAt: null },
+    phaseC: { apiCalls: [], durationMs: null, startedAt: null, endedAt: null },
+    phaseD: { durationMs: null, startedAt: null, endedAt: null, tapMs: null, waitReadyMs: null },
+    phaseE: { questions: [], durationMs: null, startedAt: null, endedAt: null },
+    phaseF: { durationMs: null, startedAt: null, endedAt: null, readResultMs: null, closeTapMs: null, returnToListMs: null, reportWriteMs: null },
+  };
+}
+
+/** Bọc 1 async step đã có sẵn bằng timer - KHÔNG đổi input/output/behavior của `fn`, chỉ đo. */
+async function timed(fn) {
+  const startedAt = now();
+  const result = await fn();
+  const endedAt = now();
+  return { result, startedAt, endedAt, durationMs: endedAt - startedAt };
 }
 
 /** ===================== card/hierarchy parsing (COPY nguyên từ pro_lamlai_beat_previous_score.mjs) ===================== */
@@ -197,43 +250,152 @@ function findCompletedCardsWithCtaBounds(nodes, { sectionSeen: initialSectionSee
 /** Cuộn thăm dò NHỎ + đọc lại hierarchy giữa mỗi lượt (KHÔNG scroll mù/cố định) - dừng NGAY khi đủ
  * candidate mong muốn hoặc hết section, dừng SỚM khi 2 lượt liên tiếp không tiến triển thêm (cùng
  * nguyên tắc dừng-sớm đã dùng trong findAssignment.js/homeworkUiList.js). */
-async function collectDistinctCompletedCandidates(bridge, { maxScrolls, maxDistinct }) {
+async function collectDistinctCompletedCandidates(bridge, { maxScrolls, maxDistinct, scrollLog = null }) {
   let sectionSeen = false;
   let enteredAdvanced = false;
   const byTitle = new Map();
 
+  // readOnce() ĐO từng bước con (hierarchy/parse/match) - KHÔNG đổi thứ tự/logic bên trong, chỉ bọc
+  // timer quanh 2 lệnh đã có sẵn (collectNodesWithBoundsInsideScrollableList, findCompletedCardsWithCtaBounds).
   const readOnce = async () => {
-    const tree = await bridge.hierarchy();
+    const hierarchyT = await timed(() => bridge.hierarchy());
+    const tree = hierarchyT.result;
+    const parseStart = now();
     const nodes = collectNodesWithBoundsInsideScrollableList(tree, []);
     const advancedIdx = nodes.findIndex((n) => n.text === ADVANCED_SECTION_HEADER);
     if (advancedIdx !== -1) enteredAdvanced = true;
     const relevantNodes = advancedIdx === -1 ? nodes : nodes.slice(0, advancedIdx);
+    const parseDurationMs = now() - parseStart;
+    const matchStart = now();
     const { results, sectionSeen: newSectionSeen } = findCompletedCardsWithCtaBounds(relevantNodes, { sectionSeen });
+    const matchDurationMs = now() - matchStart;
     sectionSeen = newSectionSeen;
     for (const r of results) {
       if (!byTitle.has(r.title)) byTitle.set(r.title, r);
     }
+    return {
+      hierarchyDurationMs: hierarchyT.durationMs,
+      parseDurationMs,
+      matchDurationMs,
+      visibleCardRange: { totalNodes: nodes.length, advancedSectionFound: advancedIdx !== -1 },
+      candidateCount: results.length,
+    };
   };
 
-  await readOnce();
+  const readStats0 = await readOnce();
+  scrollLog?.push({ scrollIndex: 0, scrollDurationMs: null, waitDurationMs: null, ...readStats0, cumulativeDistinct: byTitle.size });
   let scrollsUsed = 0;
   let noProgressStreak = 0;
   let lastSize = byTitle.size;
   while (byTitle.size < maxDistinct && scrollsUsed < maxScrolls && !enteredAdvanced && noProgressStreak < 2) {
-    const swipeResult = await bridge.runSteps([
-      { swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } },
-      { waitForAnimationToEnd: { timeout: 1200 } },
-    ]);
-    if (!swipeResult.success) {
-      log(`  [LOCATE] swipe thất bại ở lượt ${scrollsUsed + 1}: ${swipeResult.error} - dừng cuộn.`);
+    // Tách swipe/waitForAnimationToEnd thành 2 lần gọi runSteps() riêng (CÙNG lệnh, CÙNG thứ tự cũ,
+    // chỉ thêm 1 ranh giới đo) để có scrollDurationMs/waitDurationMs riêng biệt - xem docblock
+    // PROFILING đầu file.
+    const swipeT = await timed(() => bridge.runSteps([{ swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } }]));
+    if (!swipeT.result.success) {
+      log(`  [LOCATE] swipe thất bại ở lượt ${scrollsUsed + 1}: ${swipeT.result.error} - dừng cuộn.`);
+      break;
+    }
+    const waitT = await timed(() => bridge.runSteps([{ waitForAnimationToEnd: { timeout: 1200 } }]));
+    if (!waitT.result.success) {
+      // GIỮ NGUYÊN hành vi cũ: bản gốc gộp swipe+wait trong 1 lần gọi runSteps() DUY NHẤT - Maestro
+      // dừng NGAY khi 1 lệnh trong chuỗi fail, nên wait fail cũng khiến runSteps() gốc trả về
+      // success=false y hệt swipe fail -> loop cũ `break` luôn trong cả 2 trường hợp. Tách lệnh để
+      // đo riêng KHÔNG được đổi nhánh lỗi này - phải break tương tự khi wait fail.
+      log(`  [LOCATE] waitForAnimationToEnd thất bại ở lượt ${scrollsUsed + 1}: ${waitT.result.error} - dừng cuộn.`);
       break;
     }
     scrollsUsed++;
-    await readOnce();
+    const readStats = await readOnce();
     noProgressStreak = byTitle.size > lastSize ? 0 : noProgressStreak + 1;
     lastSize = byTitle.size;
+    scrollLog?.push({
+      scrollIndex: scrollsUsed,
+      scrollDurationMs: swipeT.durationMs,
+      waitDurationMs: waitT.durationMs,
+      ...readStats,
+      cumulativeDistinct: byTitle.size,
+    });
   }
   return { candidates: [...byTitle.values()], scrollsUsed, enteredAdvanced };
+}
+
+/** Cuộn tới ĐÚNG 1 title cụ thể - dùng khi TARGET_TITLE được cấu hình. TÁI SỬ DỤNG NGUYÊN cơ chế
+ * cuộn nhỏ+đọc lại hierarchy của collectDistinctCompletedCandidates() (đã verify hoạt động thật -
+ * tìm ra "G3-U3-Lesson 1: Read and complete" thành công 2026-08-22) THAY VÌ dùng scrollUntilVisible
+ * gốc của Maestro - ĐÃ THỬ VÀ BỎ (2026-08-22): scrollUntilVisible báo thành công (tìm thấy text) rồi
+ * đọc hierarchy ngay sau đó nhưng findCompletedCardsWithCtaBounds() trả về 0 candidate (kể cả các
+ * card completed khác lẽ ra vẫn phải thấy) - nghi ngờ do khác cơ chế cuộn/thời điểm settle so với
+ * cơ chế swipe nhỏ đã verify, KHÔNG điều tra sâu thêm (tốn thời gian trên thiết bị thật) - ĐỔI hẳn
+ * sang tái dùng vòng lặp đã chứng minh hoạt động, chỉ đổi điều kiện DỪNG: dừng khi tìm thấy ĐÚNG
+ * title cần, KHÔNG dừng sớm theo "2 lượt không tiến triển" (khác hẳn collectDistinctCompletedCandidates
+ * - lý do case này tồn tại: chính ngưỡng dừng sớm đó đã bỏ lỡ card ở xa hơn trong danh sách). */
+async function locateSpecificCompletedCandidate(bridge, title, { maxScrolls, scrollLog = null }) {
+  const norm = (s) => (s ?? "").trim();
+  let sectionSeen = false;
+  let enteredAdvanced = false;
+  let found = null;
+  let lastResults = [];
+
+  const readOnce = async () => {
+    const hierarchyT = await timed(() => bridge.hierarchy());
+    const tree = hierarchyT.result;
+    const parseStart = now();
+    const nodes = collectNodesWithBoundsInsideScrollableList(tree, []);
+    const advancedIdx = nodes.findIndex((n) => n.text === ADVANCED_SECTION_HEADER);
+    if (advancedIdx !== -1) enteredAdvanced = true;
+    const relevantNodes = advancedIdx === -1 ? nodes : nodes.slice(0, advancedIdx);
+    const parseDurationMs = now() - parseStart;
+    const matchStart = now();
+    const { results, sectionSeen: newSectionSeen } = findCompletedCardsWithCtaBounds(relevantNodes, { sectionSeen });
+    const matchDurationMs = now() - matchStart;
+    sectionSeen = newSectionSeen;
+    lastResults = results;
+    found = results.find((r) => norm(r.title) === norm(title)) ?? null;
+    return {
+      hierarchyDurationMs: hierarchyT.durationMs,
+      parseDurationMs,
+      matchDurationMs,
+      visibleCardRange: { totalNodes: nodes.length, advancedSectionFound: advancedIdx !== -1 },
+      candidateCount: results.length,
+    };
+  };
+
+  const readStats0 = await readOnce();
+  scrollLog?.push({ scrollIndex: 0, scrollDurationMs: null, waitDurationMs: null, ...readStats0, foundTarget: !!found });
+  let scrollsUsed = 0;
+  while (!found && scrollsUsed < maxScrolls && !enteredAdvanced) {
+    // Tách swipe/waitForAnimationToEnd - xem docblock PROFILING đầu file (cùng lý do đã áp dụng ở
+    // collectDistinctCompletedCandidates()).
+    const swipeT = await timed(() => bridge.runSteps([{ swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } }]));
+    if (!swipeT.result.success) {
+      log(`  [LOCATE] swipe thất bại ở lượt ${scrollsUsed + 1}: ${swipeT.result.error} - dừng cuộn.`);
+      break;
+    }
+    const waitT = await timed(() => bridge.runSteps([{ waitForAnimationToEnd: { timeout: 1200 } }]));
+    if (!waitT.result.success) {
+      // Xem comment tương ứng trong collectDistinctCompletedCandidates() - giữ nguyên hành vi cũ
+      // (bản gốc gộp swipe+wait 1 lần gọi, wait fail cũng khiến vòng lặp `break`).
+      log(`  [LOCATE] waitForAnimationToEnd thất bại ở lượt ${scrollsUsed + 1}: ${waitT.result.error} - dừng cuộn.`);
+      break;
+    }
+    scrollsUsed++;
+    const readStats = await readOnce();
+    scrollLog?.push({
+      scrollIndex: scrollsUsed,
+      scrollDurationMs: swipeT.durationMs,
+      waitDurationMs: waitT.durationMs,
+      ...readStats,
+      foundTarget: !!found,
+    });
+  }
+  if (!found) {
+    log(
+      `  [LOCATE] Không tìm thấy card "${title}" sau ${scrollsUsed} lượt cuộn (enteredAdvanced=${enteredAdvanced}) - ` +
+        `${lastResults.length} candidate completed khác thấy được gần nhất: ${lastResults.map((r) => `"${r.title}"`).join(", ") || "(không có)"}.`,
+    );
+  }
+  return { candidates: found ? [found] : [], scrollsUsed, enteredAdvanced };
 }
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -268,17 +430,78 @@ function refreshExamSessionFromEnvCookie() {
   return { refreshed: true, cookieHeaderLength: session.cookieHeader.length };
 }
 
+/** ===================== CMS RESULT CACHE (MỚI - tối ưu Phase C, xem PHÂN TÍCH BOTTLENECK cuối
+ * file) ===================== Cache RIÊNG của CHÍNH script này (KHÔNG sửa
+ * teacherMaterialsExamResolver.js dùng chung - blast radius CHỈ trong file này, không ảnh hưởng
+ * flow khác). Key = roomId, hết hạn sau ĐÚNG 1 ngày lịch VN (dateKey) - giới hạn rủi ro stale nếu
+ * GV sửa nội dung đề giữa chừng (rủi ro RẤT THẤP với room test cố định dùng lại nhiều lần/ngày -
+ * đúng use case "làm lại" của case này - nhưng KHÔNG bằng 0, nên có escape hatch
+ * CMS_CACHE_DISABLE=true). CHỈ cache khi status === "RESOLVED" - không cache lỗi/BLOCKED (tránh 1
+ * lỗi thoáng qua biến thành lỗi vĩnh viễn trong ngày). */
+function vnDateKeyNow() {
+  const shifted = new Date(Date.now() + VN_OFFSET_MS);
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}-${String(shifted.getUTCDate()).padStart(2, "0")}`;
+}
+
+function readCmsCache() {
+  if (!existsSync(CMS_CACHE_PATH)) return {};
+  try {
+    return JSON.parse(readFileSync(CMS_CACHE_PATH, "utf8"));
+  } catch {
+    return {}; // cache file hỏng/không đọc được - coi như rỗng, KHÔNG throw (không phải lỗi nghiệp vụ).
+  }
+}
+
+function writeCmsCacheEntry(roomId, resolved) {
+  const cache = readCmsCache();
+  cache[roomId] = { dateKey: vnDateKeyNow(), cachedAtIso: new Date().toISOString(), resolved };
+  mkdirSync(dirname(CMS_CACHE_PATH), { recursive: true });
+  writeFileSync(CMS_CACHE_PATH, JSON.stringify(cache, null, 2), "utf8");
+}
+
+/** Trả {hit:true, resolved, cachedAtIso} nếu có cache CÙNG dateKey hôm nay cho roomId, ngược lại {hit:false}. */
+function readCmsCacheEntry(roomId) {
+  const cache = readCmsCache();
+  const entry = cache[roomId];
+  if (!entry || entry.dateKey !== vnDateKeyNow()) return { hit: false };
+  return { hit: true, resolved: entry.resolved, cachedAtIso: entry.cachedAtIso };
+}
+
+/** Wrapper cache quanh resolveHomeworkExamQuestionsForRoomIdWithRetry() - KHÔNG đổi hàm gốc (giữ
+ * nguyên để nơi khác vẫn gọi trực tiếp nếu cần bản không-cache). Cache HIT bỏ qua network hoàn
+ * toàn; MISS gọi như cũ rồi ghi cache nếu RESOLVED. */
+async function resolveHomeworkExamQuestionsForRoomIdCachedWithRetry(roomId, maxAttempts = 2) {
+  if (!CMS_CACHE_DISABLE) {
+    const cacheCheck = readCmsCacheEntry(roomId);
+    if (cacheCheck.hit) {
+      log(`    [CMS CACHE] HIT roomId=${roomId} (cached lúc ${cacheCheck.cachedAtIso}, cùng ngày VN hôm nay) - bỏ qua network scrape.`);
+      return { ...cacheCheck.resolved, _profiling: { attempts: [], cacheHit: true } };
+    }
+  }
+  const result = await resolveHomeworkExamQuestionsForRoomIdWithRetry(roomId, maxAttempts);
+  if (!CMS_CACHE_DISABLE && result.status === "RESOLVED") {
+    const { _profiling, ...toCache } = result;
+    writeCmsCacheEntry(roomId, toCache);
+  }
+  return { ...result, _profiling: { ...(result._profiling ?? {}), cacheHit: false } };
+}
+
 async function resolveHomeworkExamQuestionsForRoomIdWithRetry(roomId, maxAttempts = 2) {
+  // _profiling gắn THÊM vào object trả về (KHÔNG đổi field cũ nào) - chỉ để đo số lần gọi API +
+  // thời gian từng lần, phục vụ Phase C profiling - xem docblock PROFILING đầu file.
+  const attemptsLog = [];
   let last = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const resolved = await resolveHomeworkExamQuestionsForRoomId(roomId);
-    if (resolved.status === "RESOLVED") return resolved;
+    const t = await timed(() => resolveHomeworkExamQuestionsForRoomId(roomId));
+    attemptsLog.push({ attempt, durationMs: t.durationMs, status: t.result.status });
+    const resolved = t.result;
+    if (resolved.status === "RESOLVED") return { ...resolved, _profiling: { attempts: attemptsLog } };
     last = resolved;
     const looksTimeoutShaped = resolved.status === "SESSION_ERROR" && /Timeout \d+ms exceeded/.test(resolved.reason ?? "");
-    if (!looksTimeoutShaped) return resolved;
+    if (!looksTimeoutShaped) return { ...resolved, _profiling: { attempts: attemptsLog } };
     log(`    (retry ${attempt}/${maxAttempts} roomId=${roomId}: page.goto timeout - flaky networkidle đã biết, thử lại)`);
   }
-  return last;
+  return { ...last, _profiling: { attempts: attemptsLog } };
 }
 
 function isTextChoiceCompatible(questions) {
@@ -506,7 +729,16 @@ async function ensureProProfileActive(bridge) {
   return { name: PROFILE_PRO_NAME, alreadyActive: false, switched: true, verified: true };
 }
 
+// overallStartMs (MỚI, profiling-only): stamp ở đầu main() - CHỈ dùng để `finish()` tự điền
+// evidence.totalDurationSeconds cho CẢ nhánh BLOCKED/FAIL/ERROR thoát sớm (trước đây field này CHỈ
+// được set thủ công ở nhánh PASS cuối cùng) - KHÔNG đổi status/error/field nào khác của result, chỉ
+// thêm 1 số liệu quan sát để printProfilingSummary() tính % đúng ngay cả khi case không PASS.
+let overallStartMs = null;
+
 function finish(result) {
+  if (result?.evidence && result.evidence.totalDurationSeconds == null && overallStartMs != null) {
+    result.evidence.totalDurationSeconds = (Date.now() - overallStartMs) / 1000;
+  }
   mkdirSync(dirname(OUTPUT_FILE), { recursive: true });
   writeFileSync(OUTPUT_FILE, JSON.stringify(result, null, 2), "utf8");
   return result;
@@ -557,6 +789,89 @@ function printReport(r) {
   log(r.status === "PASS" ? "-" : (r.error ?? r.phase ?? "-"));
 }
 
+function sumBy(arr, key) {
+  return arr.reduce((acc, x) => acc + (x[key] ?? 0), 0);
+}
+
+/** In summary bảng phase + chi tiết Discovery/CMS - CHỈ đọc `profiling` đã thu thập trong main(),
+ * KHÔNG tính toán/suy đoán số liệu mới ngoài những gì đã đo thật. */
+function printProfilingSummary(r) {
+  const p = r.evidence?.profiling;
+  if (!p) {
+    log(`\n[PROFILING] (không có dữ liệu - lỗi xảy ra trước khi profiling object được gắn vào evidence)`);
+    return;
+  }
+  const totalMs = (r.evidence?.totalDurationSeconds ?? 0) * 1000;
+  const questions = p.phaseE?.questions ?? [];
+  const rows = [
+    { label: "Setup", ms: p.phaseA?.durationMs ?? 0 },
+    { label: "Discovery", ms: p.phaseB?.durationMs ?? 0 },
+    { label: "CMS", ms: p.phaseC?.durationMs ?? 0 },
+    { label: "Open + verify", ms: p.phaseD?.durationMs ?? 0 },
+    ...questions.map((q) => ({ label: `Answer Q${q.index}`, ms: q.durationMs ?? 0 })),
+    { label: "Submit/result", ms: p.phaseF?.durationMs ?? 0 },
+  ];
+  const measuredTotal = sumBy(rows, "ms");
+
+  log(`\n[PROFILING SUMMARY]`);
+  log(`| Phase | Duration | % total |`);
+  log(`| --- | ---: | ---: |`);
+  for (const row of rows) {
+    const pct = totalMs > 0 ? ((row.ms / totalMs) * 100).toFixed(1) : "-";
+    log(`| ${row.label} | ${(row.ms / 1000).toFixed(1)}s | ${pct}% |`);
+  }
+  log(
+    `\ntotal_measured ≈ ${(measuredTotal / 1000).toFixed(1)}s vs totalDuration = ${(totalMs / 1000).toFixed(1)}s ` +
+      `(chênh lệch = instrumentation overhead + phần không nằm trong 1 phase cụ thể, vd khoảng trống giữa các await).`,
+  );
+
+  const top3 = [...rows].sort((a, b) => b.ms - a.ms).slice(0, 3);
+  log(`\n[TOP 3 BOTTLENECK - theo tổng thời gian]`);
+  top3.forEach((row, i) => {
+    const pct = totalMs > 0 ? ((row.ms / totalMs) * 100).toFixed(1) : "-";
+    log(`  ${i + 1}. ${row.label}: ${(row.ms / 1000).toFixed(1)}s (${pct}%)`);
+  });
+
+  const scrolls = p.phaseB?.scrolls ?? [];
+  log(`\n[DISCOVERY DETAIL]`);
+  log(`scroll_iterations_used=${scrolls.length > 0 ? scrolls[scrolls.length - 1].scrollIndex : 0} (bao gồm lượt đọc đầu trước khi cuộn = scrollIndex 0)`);
+  log(`totalDiscoveryDuration=${((p.phaseB?.durationMs ?? 0) / 1000).toFixed(1)}s`);
+  log(`totalScrollDuration=${(sumBy(scrolls, "scrollDurationMs") / 1000).toFixed(2)}s`);
+  log(`totalWaitDuration=${(sumBy(scrolls, "waitDurationMs") / 1000).toFixed(2)}s`);
+  log(`totalHierarchyDuration=${(sumBy(scrolls, "hierarchyDurationMs") / 1000).toFixed(2)}s`);
+  log(`totalParseDuration=${(sumBy(scrolls, "parseDurationMs") / 1000).toFixed(2)}s`);
+  log(`totalMatchDuration=${(sumBy(scrolls, "matchDurationMs") / 1000).toFixed(2)}s`);
+  for (const s of scrolls) {
+    log(
+      `  scroll#${s.scrollIndex}: scroll=${s.scrollDurationMs ?? "-"}ms wait=${s.waitDurationMs ?? "-"}ms hierarchy=${s.hierarchyDurationMs}ms ` +
+        `parse=${s.parseDurationMs}ms match=${s.matchDurationMs}ms nodes=${s.visibleCardRange?.totalNodes} candidates=${s.candidateCount}`,
+    );
+  }
+
+  const apiCalls = p.phaseC?.apiCalls ?? [];
+  const retries = apiCalls.filter((c) => c.attempt > 1).length;
+  log(`\n[CMS DETAIL]`);
+  log(`total_api_calls=${apiCalls.length}`);
+  log(`retries=${retries}`);
+  for (const c of apiCalls) {
+    log(`  - ${c.call} [${c.title ?? "-"}] attempt=${c.attempt} status=${c.status} duration=${(c.durationMs / 1000).toFixed(2)}s`);
+  }
+
+  log(`\n[ANSWERING DETAIL]`);
+  for (const q of questions) {
+    log(`  Q${q.index}: total=${(q.durationMs / 1000).toFixed(2)}s (match=${(q.matchDurationMs / 1000).toFixed(2)}s, answer=${q.answerDurationMs != null ? (q.answerDurationMs / 1000).toFixed(2) + "s" : "-"})${q.isLast ? " [câu cuối]" : ""}`);
+  }
+
+  log(`\n[GIỚI HẠN ĐO ĐẠC - chưa tách được]`);
+  log(
+    `"submit start -> server response" và "submit -> result screen" (Phase F, theo yêu cầu) hiện GỘP ` +
+      `trong answerDurationMs của câu cuối (Answer Q${questions.length || "?"}, isLast=true) - nằm bên trong ` +
+      `answerCurrentQuestionOneShot() của automation/bai_tap/navigation/homeworkExamEngine.js (dùng chung nhiều ` +
+      `flow khác), KHÔNG chỉnh sửa file đó trong lần đo instrumentation-only này để tránh rủi ro đổi hành vi các ` +
+      `flow khác đang dùng chung engine.`,
+  );
+}
+
 async function main() {
   if (!APP_ID) throw new Error("Thiếu APP_ID - kiểm tra .env.");
   if (!PHONE || !OTP) throw new Error("Thiếu PHONE/OTP - kiểm tra test_data/accounts.env.");
@@ -575,39 +890,82 @@ async function main() {
   }
 
   const overallStart = Date.now();
+  overallStartMs = overallStart;
   const evidence = {};
+  // profiling gắn vào evidence NGAY từ đầu (cùng reference) - mọi mutation sau đó (kể cả nếu hàm
+  // return sớm ở nhánh BLOCKED/FAIL) đều tự động phản ánh vào evidence.profiling mà không cần gán
+  // lại ở từng điểm return - xem docblock PROFILING đầu file.
+  const profiling = newProfiling();
+  evidence.profiling = profiling;
 
   log(`[EXAM_SESSION] Refresh session từ .env EXAM_COOKIE...`);
+  const phaseAStart = now();
   const refreshResult = refreshExamSessionFromEnvCookie();
   if (!refreshResult.refreshed) {
+    profiling.phaseA = { startedAt: phaseAStart, endedAt: now(), durationMs: now() - phaseAStart, bridgeStartMs: null, profileCheckMs: null };
     return finish({ status: "BLOCKED", phase: "EXAM_SESSION_REFRESH", error: refreshResult.reason, evidence });
   }
   log(`  [PASS] automation/.cache/exam_session.json đã ghi.`);
 
   const bridge = new MaestroMcpBridge({ appId: APP_ID, deviceId: MAESTRO_DEVICE });
-  await bridge.start();
+  const bridgeStartT = await timed(() => bridge.start());
   const exam = new HomeworkExamEngine(bridge);
 
   try {
     log(`[A] Đảm bảo hồ sơ "${PROFILE_PRO_NAME}" (PRO) đang active...`);
-    const profileResult = await ensureProProfileActive(bridge);
+    const profileCheckT = await timed(() => ensureProProfileActive(bridge));
+    const profileResult = profileCheckT.result;
     evidence.profile = profileResult;
+    profiling.phaseA = {
+      startedAt: phaseAStart,
+      endedAt: now(),
+      durationMs: now() - phaseAStart,
+      bridgeStartMs: bridgeStartT.durationMs,
+      profileCheckMs: profileCheckT.durationMs,
+    };
     log(`  [PASS] profile=${profileResult.name} switched=${profileResult.switched}`);
 
-    log(`[B] Cuộn "Bài tập về nhà" gom candidate cta="Làm lại" (distinct theo title, budget ${MAX_CANDIDATE_ATTEMPTS})...`);
-    const collected = await collectDistinctCompletedCandidates(bridge, { maxScrolls: MAX_LOCATE_SCROLLS, maxDistinct: MAX_CANDIDATE_ATTEMPTS });
+    const phaseBStart = now();
+    let collected;
+    if (TARGET_TITLE) {
+      log(`[B] TARGET_TITLE cấu hình - cuộn THẲNG tới đúng card "${TARGET_TITLE}" (không quét/không dừng sớm)...`);
+      collected = await locateSpecificCompletedCandidate(bridge, TARGET_TITLE, { maxScrolls: MAX_LOCATE_SCROLLS, scrollLog: profiling.phaseB.scrolls });
+      if (collected.candidates.length === 0) {
+        profiling.phaseB.startedAt = phaseBStart;
+        profiling.phaseB.endedAt = now();
+        profiling.phaseB.durationMs = now() - phaseBStart;
+        return finish({
+          status: "BLOCKED",
+          phase: "LOCATE_CANDIDATE",
+          error: `Không tìm/khớp được card "${TARGET_TITLE}" với cta="${COMPLETED_CTA}" trên hồ sơ "${PROFILE_PRO_NAME}"` + (collected.locateError ? ` (${collected.locateError})` : "") + ".",
+          evidence,
+        });
+      }
+    } else {
+      log(`[B] Cuộn "Bài tập về nhà" gom candidate cta="Làm lại" (distinct theo title, budget ${MAX_CANDIDATE_ATTEMPTS})...`);
+      collected = await collectDistinctCompletedCandidates(bridge, { maxScrolls: MAX_LOCATE_SCROLLS, maxDistinct: MAX_CANDIDATE_ATTEMPTS, scrollLog: profiling.phaseB.scrolls });
+      if (collected.candidates.length === 0) {
+        profiling.phaseB.startedAt = phaseBStart;
+        profiling.phaseB.endedAt = now();
+        profiling.phaseB.durationMs = now() - phaseBStart;
+        return finish({ status: "BLOCKED", phase: "LOCATE_CANDIDATE", error: `Chưa có card cta="${COMPLETED_CTA}" nào trên hồ sơ "${PROFILE_PRO_NAME}".`, evidence });
+      }
+    }
+    profiling.phaseB.startedAt = phaseBStart;
+    profiling.phaseB.endedAt = now();
+    profiling.phaseB.durationMs = now() - phaseBStart;
     evidence.candidatesFound = collected.candidates.length;
     log(`  Tìm được ${collected.candidates.length} candidate distinct sau ${collected.scrollsUsed} lượt cuộn.`);
-    if (collected.candidates.length === 0) {
-      return finish({ status: "BLOCKED", phase: "LOCATE_CANDIDATE", error: `Chưa có card cta="${COMPLETED_CTA}" nào trên hồ sơ "${PROFILE_PRO_NAME}".`, evidence });
-    }
 
     log(`[C] Chọn candidate đầu tiên thoả: room_id unique + CMS resolve được nội dung text-choice + target score (mode=${REDO_SCORE_MODE}) khả thi...`);
+    const phaseCStart = now();
     const attempts = [];
     let chosen = null;
     for (const candidate of collected.candidates.slice(0, MAX_CANDIDATE_ATTEMPTS)) {
       const attempt = { title: candidate.title, oldScoreOnCard: parsePreviousScoreForLog(candidate.scoreText) };
-      const { matches, unique, room } = await resolveUniqueRoomIdForCandidate(candidate);
+      const roomResolveT = await timed(() => resolveUniqueRoomIdForCandidate(candidate));
+      const { matches, unique, room } = roomResolveT.result;
+      profiling.phaseC.apiCalls.push({ call: "resolveUniqueRoomIdForCandidate(getHomeworks)", title: candidate.title, durationMs: roomResolveT.durationMs, attempt: 1, status: unique ? "UNIQUE" : "AMBIGUOUS" });
       if (!unique) {
         attempt.ok = false;
         attempt.reason = `Resolve room_id KHÔNG unique (matches=${matches.length}) - loại, không đoán matches[0].`;
@@ -615,7 +973,14 @@ async function main() {
         log(`  [SKIP] "${candidate.title}": ${attempt.reason}`);
         continue;
       }
-      const resolved = await resolveHomeworkExamQuestionsForRoomIdWithRetry(room.id);
+      const resolveQuestionsT = await timed(() => resolveHomeworkExamQuestionsForRoomIdCachedWithRetry(room.id));
+      const resolved = resolveQuestionsT.result;
+      if (resolved._profiling?.cacheHit) {
+        profiling.phaseC.apiCalls.push({ call: "resolveHomeworkExamQuestionsForRoomId", title: candidate.title, roomId: room.id, durationMs: resolveQuestionsT.durationMs, attempt: 0, status: "CACHE_HIT" });
+      }
+      for (const a of resolved._profiling?.attempts ?? []) {
+        profiling.phaseC.apiCalls.push({ call: "resolveHomeworkExamQuestionsForRoomId", title: candidate.title, roomId: room.id, durationMs: a.durationMs, attempt: a.attempt, status: a.status });
+      }
       if (resolved.status !== "RESOLVED") {
         attempt.ok = false;
         attempt.reason = `resolveHomeworkExamQuestionsForRoomId status=${resolved.status}: ${resolved.reason}`;
@@ -659,6 +1024,9 @@ async function main() {
       chosen = { candidate, room, resolved, scoringPlan };
       break;
     }
+    profiling.phaseC.startedAt = phaseCStart;
+    profiling.phaseC.endedAt = now();
+    profiling.phaseC.durationMs = now() - phaseCStart;
     evidence.candidatesTried = attempts.length;
     evidence.candidateAttempts = attempts;
     if (!chosen) {
@@ -679,13 +1047,22 @@ async function main() {
     };
 
     log(`[D] Tap "Làm lại" tại toạ độ đã capture cho card "${chosen.candidate.title}"...`);
+    const phaseDStart = now();
     const ctaPoint = centerPoint(chosen.candidate.ctaBounds);
-    const tapRedo = await bridge.runSteps([
-      { tapOn: { point: `${ctaPoint.x},${ctaPoint.y}` } },
-      { waitForAnimationToEnd: { timeout: 3000 } },
-      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
-      { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } },
-    ]);
+    // Tách "tap + AI hỗ trợ học tập (nếu có)" khỏi "chờ màn Doing sẵn sàng" thành 2 lần gọi runSteps
+    // riêng (CÙNG lệnh/thứ tự cũ) để đo tapMs/waitReadyMs riêng - xem docblock PROFILING đầu file.
+    const tapT = await timed(() =>
+      bridge.runSteps([
+        { tapOn: { point: `${ctaPoint.x},${ctaPoint.y}` } },
+        { waitForAnimationToEnd: { timeout: 3000 } },
+        { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
+      ]),
+    );
+    const waitReadyT = tapT.result.success
+      ? await timed(() => bridge.runSteps([{ extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } }]))
+      : { result: tapT.result, durationMs: 0 };
+    const tapRedo = tapT.result.success ? waitReadyT.result : tapT.result;
+    profiling.phaseD = { startedAt: phaseDStart, endedAt: now(), durationMs: now() - phaseDStart, tapMs: tapT.durationMs, waitReadyMs: waitReadyT.durationMs };
     evidence.redo = { tapped: tapRedo.success, landedOnDoing: tapRedo.success };
     if (!tapRedo.success) {
       return finish({ status: "FAIL", phase: "TAP_LAM_LAI", error: `Tap "Làm lại" (point ${ctaPoint.x},${ctaPoint.y}) thất bại: ${tapRedo.error}`, evidence });
@@ -696,6 +1073,7 @@ async function main() {
       `[E] Trả lời TOÀN BỘ ${chosen.resolved.questions.length} câu (mục tiêu target=${chosen.scoringPlan.targetScore}, ` +
         `cần đúng ${chosen.scoringPlan.correctIndices.size}/${chosen.resolved.questions.length} item)...`,
     );
+    const phaseEStart = now();
     const QUESTIONS = chosen.resolved.questions;
     const WANT_CORRECT = buildWeightedWantCorrectPlan(QUESTIONS, chosen.scoringPlan.correctIndices);
     const answeredIds = new Set();
@@ -703,9 +1081,16 @@ async function main() {
     let carryTree = null;
     let lastOutcome = null;
     while (answeredIds.size < QUESTIONS.length) {
+      const questionIndex = answeredIds.size + 1;
+      const qStart = now();
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
-      const matched = await findMatchingQuestion(bridge, pool, carryTree);
+      const matchT = await timed(() => findMatchingQuestion(bridge, pool, carryTree));
+      const matched = matchT.result;
       if (!matched) {
+        profiling.phaseE.questions.push({ index: questionIndex, startedAt: qStart, endedAt: now(), durationMs: now() - qStart, matchDurationMs: matchT.durationMs, answerDurationMs: null, outcome: "NO_MATCH" });
+        profiling.phaseE.startedAt = phaseEStart;
+        profiling.phaseE.endedAt = now();
+        profiling.phaseE.durationMs = now() - phaseEStart;
         return finish({
           status: "FAIL",
           phase: "ANSWER_LOOP",
@@ -715,20 +1100,49 @@ async function main() {
         });
       }
       const isLast = answeredIds.size === QUESTIONS.length - 1;
-      const { wantCorrect, outcome } = await answerOneQuestion(exam, matched, isLast, WANT_CORRECT);
+      const answerT = await timed(() => answerOneQuestion(exam, matched, isLast, WANT_CORRECT));
+      const { wantCorrect, outcome } = answerT.result;
       lastOutcome = outcome;
       carryTree = outcome.finalTree ?? null;
       answeredIds.add(matched.id);
       answerLog.push({ id: matched.id, question: matched.question, wantCorrect, isTargetCorrect: outcome.isTargetCorrect });
+      profiling.phaseE.questions.push({
+        index: questionIndex,
+        id: matched.id,
+        startedAt: qStart,
+        endedAt: now(),
+        durationMs: now() - qStart,
+        matchDurationMs: matchT.durationMs,
+        answerDurationMs: answerT.durationMs,
+        isLast,
+        outcome: "OK",
+      });
       log(`  Câu ${answeredIds.size}/${QUESTIONS.length}: nhắm ${wantCorrect ? "ĐÚNG" : "SAI"}, isTargetCorrect=${outcome.isTargetCorrect}`);
     }
+    profiling.phaseE.startedAt = phaseEStart;
+    profiling.phaseE.endedAt = now();
+    profiling.phaseE.durationMs = now() - phaseEStart;
     evidence.answerLog = answerLog;
 
-    const finalTree = lastOutcome?.finalTree ?? null;
-    if (!exam.isResultScreen(finalTree)) {
+    // Phase F bắt đầu: đọc kết quả (không có bridge call mới - dùng lại finalTree đã có từ câu cuối)
+    // rồi đóng màn Kết quả + quay lại danh sách + ghi report. LƯU Ý GIỚI HẠN (không suy đoán thêm):
+    // "submit start -> server response" và "submit -> result screen" nằm BÊN TRONG
+    // answerCurrentQuestionOneShot() của câu cuối (HomeworkExamEngine, file dùng chung cho NHIỀU
+    // flow khác) - KHÔNG tách riêng được ở lớp instrumentation này (chỉ đo trong phạm vi file .mjs
+    // này, không đụng vào engine dùng chung để tránh rủi ro đổi hành vi flow khác) - 2 mốc đó đã nằm
+    // gộp trong `answerDurationMs` của "Answer Q{cuối}" (xem `isLast` trong phaseE.questions).
+    const phaseFStart = now();
+    const readResultT = await timed(async () => {
+      const finalTree = lastOutcome?.finalTree ?? null;
+      const isResult = exam.isResultScreen(finalTree);
+      const result = isResult ? exam.readResult(finalTree) : null;
+      return { finalTree, isResult, result };
+    });
+    const { finalTree, isResult, result } = readResultT.result;
+    if (!isResult) {
+      profiling.phaseF = { ...profiling.phaseF, startedAt: phaseFStart, endedAt: now(), durationMs: now() - phaseFStart, readResultMs: readResultT.durationMs };
       return finish({ status: "FAIL", phase: "RESULT_SCREEN", error: "Không thấy màn hình Kết quả sau khi trả lời hết toàn bộ câu.", evidence });
     }
-    const result = exam.readResult(finalTree);
     const actualScore = result.score === null ? null : Number(result.score);
     const denominatorMatches = result.totalCount === null || result.totalCount === QUESTIONS.length;
     const matched = actualScore !== null && !Number.isNaN(actualScore) && Math.abs(actualScore - chosen.scoringPlan.targetScore) < 1e-6;
@@ -747,6 +1161,7 @@ async function main() {
         `(denominator_matches_cms=${denominatorMatches}, matched=${matched})`,
     );
     if (!matched) {
+      profiling.phaseF = { ...profiling.phaseF, startedAt: phaseFStart, endedAt: now(), durationMs: now() - phaseFStart, readResultMs: readResultT.durationMs };
       return finish({
         status: "FAIL",
         phase: "SCORE_VERIFY",
@@ -759,19 +1174,51 @@ async function main() {
       });
     }
 
-    await bridge.runSteps([
-      { runFlow: { when: { visible: "Hoàn thành" }, commands: [{ tapOn: { text: ".*(Hoàn thành).*" } }] } },
-      { runFlow: { when: { visible: "Tiếp theo" }, commands: [{ tapOn: { id: "exercise_result_close_button" } }] } },
-    ]);
-    const backToList = await bridge.wait({ id: "homework_screen" }, { timeout: 30000 });
+    // Tách "tap Hoàn thành/Tiếp theo" khỏi "chờ về homework_screen" thành 2 lần gọi riêng (CÙNG
+    // lệnh/thứ tự cũ) để đo closeTapMs/returnToListMs riêng - xem docblock PROFILING đầu file.
+    const closeTapT = await timed(() =>
+      bridge.runSteps([
+        { runFlow: { when: { visible: "Hoàn thành" }, commands: [{ tapOn: { text: ".*(Hoàn thành).*" } }] } },
+        { runFlow: { when: { visible: "Tiếp theo" }, commands: [{ tapOn: { id: "exercise_result_close_button" } }] } },
+      ]),
+    );
+    const returnToListT = await timed(() => bridge.wait({ id: "homework_screen" }, { timeout: 30000 }));
+    const backToList = returnToListT.result;
     evidence.back = { returnedToList: backToList.success };
     if (!backToList.success) {
+      profiling.phaseF = {
+        startedAt: phaseFStart,
+        endedAt: now(),
+        durationMs: now() - phaseFStart,
+        readResultMs: readResultT.durationMs,
+        closeTapMs: closeTapT.durationMs,
+        returnToListMs: returnToListT.durationMs,
+        reportWriteMs: null,
+      };
       return finish({ status: "FAIL", phase: "CLOSE_RESULT", error: `Không quay lại được homework_screen sau khi đóng kết quả: ${backToList.error}`, evidence });
     }
     log(`  [PASS] Đã đóng màn Kết quả, quay lại homework_screen.`);
 
     evidence.totalDurationSeconds = (Date.now() - overallStart) / 1000;
-    return finish({ status: "PASS", evidence });
+    profiling.phaseF = {
+      startedAt: phaseFStart,
+      endedAt: now(),
+      durationMs: now() - phaseFStart,
+      readResultMs: readResultT.durationMs,
+      closeTapMs: closeTapT.durationMs,
+      returnToListMs: returnToListT.durationMs,
+      reportWriteMs: null,
+    };
+    const finalResult = { status: "PASS", evidence };
+    // Ghi file 2 LẦN có chủ đích: lần 1 để ĐO thời gian ghi thật (`writeFileSync`), lần 2 (ĐÈ cùng
+    // file, cùng nội dung + đúng 1 field mới `reportWriteMs`) để chính report JSON phản ánh được số
+    // đo đó - không có cách nào biết trước "thời gian ghi file" TRƯỚC KHI ghi. Không đổi status/kết
+    // quả PASS, không ảnh hưởng correctness.
+    const writeStart = now();
+    finish(finalResult);
+    profiling.phaseF.reportWriteMs = now() - writeStart;
+    profiling.phaseF.durationMs += profiling.phaseF.reportWriteMs;
+    return finish(finalResult);
   } catch (err) {
     return finish({ status: "ERROR", error: err.message, stack: err.stack, evidence });
   } finally {
@@ -783,6 +1230,7 @@ async function main() {
 main()
   .then((result) => {
     printReport(result);
+    printProfilingSummary(result);
     log(`\nĐã ghi report ra ${OUTPUT_FILE}`);
     process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 3 : 1);
   })

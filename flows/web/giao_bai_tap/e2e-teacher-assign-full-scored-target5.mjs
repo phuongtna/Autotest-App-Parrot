@@ -86,7 +86,7 @@
  */
 
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseEnvFile } from "../../../automation/src/config.js";
@@ -99,6 +99,13 @@ import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_t
 import { fetchAllHomeworkRooms, fetchRoomDetails } from "../../../automation/bai_tap/discovery/homeworks.js";
 import { normalizeHomework } from "../../../automation/bai_tap/model/homeworkModel.js";
 import { formatDM, formatDMY, isoToVnYmd } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
+// FIX (2026-08-22, OPEN_EXERCISE_AMBIGUOUS thật xác nhận trên room 19e78018-8c11-48e9-845f-
+// efefe4dff82f): findAssignment()/scrollToTop()/tapFoundCard() ĐÃ CÓ SẴN, ĐÃ PROVEN (dùng thật
+// trong assignHomeworkAndLocateOnApp() ở e2e-teacher-assign-student-open.mjs, tìm thấy card cùng
+// room này chỉ trong 13 lượt cuộn ngay sau khi mất bug tương tự với cơ chế scrollAndReadCardState/
+// readCardState cũ của CHÍNH FILE NÀY - xem locateOpenAndVerifyAssignment() bên dưới). KHÔNG viết
+// lại findAssignment() - chỉ đổi [5/N]/[7/N]/[8/N] để GỌI nó thay cho scrollAndReadCardState.
+import { findAssignment, scrollToTop, tapFoundCard } from "../../../automation/bai_tap/discovery/findAssignment.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
@@ -154,8 +161,6 @@ function isVisibleInTree(texts, textPattern) {
   return texts.some((t) => pattern.test(t));
 }
 
-const CTA_TEXTS = ["Làm bài", "Tiếp tục", "Làm lại", "Chinh phục"];
-const PROGRESS_BADGE_PATTERN = /^\d+\s*\/\s*\d+$/;
 const OVERALL_PROGRESS_BELOW_PATTERN = /^(2 tuần gần nhất|1 tháng gần nhất)$/;
 const OVERALL_PROGRESS_ABOVE = "Bài tập về nhà";
 
@@ -234,87 +239,7 @@ async function probeExamSession(className) {
   }
 }
 
-/** ===================== card/progress helpers (COPY selector gốc từ ktra_fullluong_lambai.yaml) ===================== */
-
-/** FIX (2026-08-21, BLOCKED thật khi "làm lại" 1 bài ĐÃ hoàn thành - xem hierarchy dump trực tiếp,
- * user tự yêu cầu debug bằng resource-id thay vì quét text phẳng): mỗi card trong "Bài tập" có
- * resource-id ỔN ĐỊNH, CÓ INDEX thật `homework_card_basic_{N}_*` - XÁC NHẬN THẬT qua hierarchy dump
- * (N=0,1 card chưa làm có `_action_continue`/`_deadline`/`_deadline_today`; N=4,5 card đã hoàn
- * thành có `_action_again`/`_score_banner`/`_score_value`/`_history`, KHÔNG có `_deadline`). Đây là
- * NGUỒN SỰ THẬT đáng tin cậy hơn quét text phẳng (readCardState cũ): không cần "Hạn nộp" để
- * disambiguate, và tap được bằng id ngay cả khi card bị cuộn clip gần hết (con TextView label bên
- * trong nút CTA KHÔNG được mount khi bounds cha bị clip gần hết - XÁC NHẬN THẬT: nút
- * `homework_card_basic_5_action_again` bounds [84,2089][996,2112] (chỉ 23px hiển thị so với ~147px
- * đầy đủ) KHÔNG có con TextView "Làm lại" nào trong tree, trong khi node Button vẫn
- * clickable=true/enabled=true và CÓ bounds hợp lệ để Maestro tapOn theo id).
- * @returns {{found:true, ctaId:string, badge:string|null, cardId:string}|null}
- */
-function findNodesMatching(node, predicate, acc) {
-  if (predicate(node)) acc.push(node);
-  for (const c of node.children ?? []) findNodesMatching(c, predicate, acc);
-  return acc;
-}
-
-function findNodeById(tree, id) {
-  return findNodesMatching(tree, (n) => n.attributes?.["resource-id"] === id, [])[0] ?? null;
-}
-
-function readCardStateById(tree, title) {
-  const titleNode = findNodesMatching(
-    tree,
-    (n) => n.attributes?.text === title && /^homework_card_basic_\d+_title$/.test(n.attributes?.["resource-id"] ?? ""),
-    [],
-  )[0];
-  if (!titleNode) return null;
-  const idx = titleNode.attributes["resource-id"].match(/^homework_card_basic_(\d+)_title$/)[1];
-  const prefix = `homework_card_basic_${idx}`;
-  const ctaSuffix = ["action_again", "action_continue", "action_start"].find((s) => findNodeById(tree, `${prefix}_${s}`));
-  if (!ctaSuffix) return null;
-  const badgeNode = findNodeById(tree, `${prefix}_progress_label`);
-  return { found: true, ctaId: `${prefix}_${ctaSuffix}`, badge: badgeNode?.attributes?.text ?? null, cardId: prefix };
-}
-
-function readCardState(tree, title, dueDateDm, occurrenceIndex = 0) {
-  const texts = collectAllTexts(tree);
-  const dueLabel = `Hạn nộp ${dueDateDm}`;
-  // FIX (2026-08-21, BLOCKED thật xác nhận qua kiểm tra tay khi "làm lại" 1 bài ĐÃ hoàn thành):
-  // card ĐÃ có điểm (hoàn thành) KHÔNG còn render dòng "Hạn nộp ..." nữa (khác card CHƯA làm, dòng
-  // đó luôn có) - đã xác nhận thật trên nhiều card mẫu ("G7U2-HW-Lis-BTCB" Điểm 3, "G7U2-HW-Vocab-
-  // BTCB" Điểm 10, "Choose the word..." Điểm 5 - KHÔNG card nào trong số này có "Hạn nộp"). Yêu cầu
-  // bắt buộc `window.includes(dueLabel)` vì vậy KHÔNG BAO GIỜ khớp được occurrence nào của 1 card
-  // đã hoàn thành -> luôn trả về found:false dù title có thật trên màn hình.
-  // SỬA LẦN 1 (SAI, đã revert): dùng `texts.includes(dueLabel)` (dueLabel có xuất hiện ở BẤT KỲ ĐÂU
-  // trong toàn bộ danh sách không) để quyết định có bắt buộc window hay không - SAI vì 2 room khác
-  // nhau trong lớp test CÙNG NGÀY mặc định CÙNG Hạn nộp (+7 ngày, xem comment
-  // e2e-teacher-assign-student-open.mjs) - "Hạn nộp 28/08" của "G7U3-Looking back skills- BTCB"
-  // (CHƯA hoàn thành, card KHÁC) khiến dueLabelExistsAnywhere=true, làm y hệt bug cũ tái diễn cho
-  // card ĐÃ hoàn thành đang tìm (dueLabel của NÓ không tồn tại, nhưng dueLabel CÙNG GIÁ TRỊ của
-  // card khác lại có).
-  // SỬA LẦN 2 (ĐÚNG): mục đích gốc của dueDateDm chỉ là phân biệt NHIỀU occurrence CÙNG title (case
-  // đã ghi trong TESTCASES.md/comment nhiều nơi) - nếu title CHỈ xuất hiện ĐÚNG 1 LẦN trong toàn bộ
-  // texts thì không hề có ambiguity nào để cần phân biệt, bất kể dueLabel có mặt ở đâu hay không -
-  // khớp thẳng theo title. CHỈ bắt buộc dueLabel trong window khi title trùng ≥2 lần (giữ nguyên ý
-  // nghĩa disambiguate ban đầu cho case nhiều room cùng title CHƯA hoàn thành).
-  const titleOccurrenceCount = texts.filter((t) => t === title).length;
-  const titleIsUnique = titleOccurrenceCount <= 1;
-  let seen = -1;
-  let idx = -1;
-  for (let i = 0; i < texts.length; i++) {
-    if (texts[i] !== title) continue;
-    const window = texts.slice(i + 1, i + 10);
-    if (!titleIsUnique && !window.includes(dueLabel)) continue;
-    seen++;
-    if (seen === occurrenceIndex) {
-      idx = i;
-      break;
-    }
-  }
-  if (idx === -1) return { found: false, texts: null };
-  const windowTexts = texts.slice(idx + 1, idx + 10);
-  const badge = windowTexts.find((t) => PROGRESS_BADGE_PATTERN.test(t)) ?? null;
-  const cta = windowTexts.find((t) => CTA_TEXTS.includes(t)) ?? null;
-  return { found: true, badge, cta, dueLine: dueLabel, windowTexts };
-}
+/** ===================== card/progress helpers ===================== */
 
 /**
  * Kiến thức trong bài - TÁI SỬ DỤNG (không viết lại) chính hành vi đã verify THẬT ngày 2026-08-21
@@ -377,45 +302,6 @@ function readOverallProgress(tree) {
   return between.find((t) => /\d+\s*\/\s*\d+/.test(t)) ?? null;
 }
 
-async function scrollToCard(bridge, title, dueDateDm) {
-  const esc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const r1 = await bridge.runSteps([
-    {
-      scrollUntilVisible: {
-        element: { text: `Hạn nộp ${dueDateDm}`, below: { text: `.*${esc}.*` } },
-        direction: "DOWN",
-        timeout: 90000,
-        speed: 70,
-        waitToSettleTimeoutMs: 500,
-      },
-    },
-  ]);
-  if (r1.success) return;
-  const r2 = await bridge.runSteps([
-    { scrollUntilVisible: { element: { text: `.*${esc}.*` }, direction: "DOWN", timeout: 90000, speed: 70, waitToSettleTimeoutMs: 500 } },
-  ]);
-  if (!r2.success) throw new Error(`Không cuộn tới được card "${title}": ${r1.error} / fallback: ${r2.error}`);
-}
-
-async function scrollAndReadCardState(bridge, title, dueDM, occurrenceIndex) {
-  await scrollToCard(bridge, title, dueDM);
-  let state = readCardState(await bridge.hierarchy(), title, dueDM, occurrenceIndex);
-  // FIX (2026-08-21, BLOCKED thật xác nhận qua hierarchy dump trực tiếp khi "làm lại" 1 bài ĐÃ
-  // hoàn thành): card ĐÃ hoàn thành có NHIỀU dòng chen giữa title và nút CTA hơn card CHƯA làm
-  // (progress bar + "Điểm N" + "Xem bài đã làm" trước khi tới "Làm lại", so với title -> Hạn nộp ->
-  // CTA trực tiếp của card chưa làm) - 2 lần cuộn nhỏ bổ sung (giá trị gốc) không đủ để lộ nút CTA
-  // trong trường hợp này (đã xác nhận thật: title khớp found=true nhưng cta vẫn null sau 2 lần).
-  // Tăng lên 5 lần - vẫn CÙNG cơ chế/kích thước swipe cũ, chỉ tăng số lần thử, không đổi logic.
-  for (let attempt = 0; attempt < 5 && (!state.found || !state.cta); attempt++) {
-    await bridge.runSteps([
-      { swipe: { start: "50%,80%", end: "50%,45%", duration: 500 } },
-      { waitForAnimationToEnd: { timeout: 800 } },
-    ]);
-    state = readCardState(await bridge.hierarchy(), title, dueDM, occurrenceIndex);
-  }
-  return state;
-}
-
 async function findMatchingQuestion(bridge, pool, priorTree) {
   const tree = priorTree ?? (await bridge.hierarchy());
   const texts = collectAllTexts(tree);
@@ -425,6 +311,152 @@ async function findMatchingQuestion(bridge, pool, priorTree) {
     if (action) return { ...q, _snapshot: { tree, texts } };
   }
   return null;
+}
+
+/**
+ * locateOpenAndVerifyAssignment() - FIX (2026-08-22) cho OPEN_EXERCISE_AMBIGUOUS "sau 0 lượt" đã
+ * xác nhận thật trên room 19e78018-8c11-48e9-845f-efefe4dff82f (đọc chẩn đoán read-only: card THẬT
+ * tồn tại, `findAssignment()` tìm thấy đúng 1 candidate sau 13 lượt cuộn - locator cũ
+ * `scrollAndReadCardState`/`readCardState` của CHÍNH FILE NÀY (dựa trên Maestro `scrollUntilVisible`
+ * gốc) mới là thứ fail, đúng root cause đã ghi trong docblock `findAssignment.js` dòng 240-245: bị
+ * đánh lừa bởi card liền kề title gần giống + CÙNG hạn nộp, ví dụ chính card "G3-U1-Lesson 2: Read
+ * and tick True or False" đứng NGAY CẠNH "G3-U2-Lesson 2..." trong danh sách thật hôm nay).
+ *
+ * KHÔNG viết lại findAssignment()/scrollToTop()/tapFoundCard() - GỌI LẠI nguyên vẹn 3 hàm đã có sẵn
+ * và đã proven (dùng thật trong assignHomeworkAndLocateOnApp()). Hàm này CHỈ thêm 1 lớp bắt buộc
+ * theo yêu cầu identity-based matching: KHÔNG BAO GIỜ coi 1 candidate là "đúng room" chỉ vì
+ * title+dueDate khớp trên UI (UI KHÔNG lộ room.id - xem docblock findAssignment.js dòng 37-39) -
+ * phải MỞ candidate đó ra rồi xác thực nội dung câu hỏi hiển thị có khớp với bộ câu hỏi ĐÃ RESOLVE
+ * THẬT theo đúng room.id (qua resolveHomeworkExamQuestionsForRoomId() ở [3/N], truyền vào qua
+ * `questions`) bằng chính `findMatchingQuestion()` đã có sẵn trong file này - đây là identity thật
+ * duy nhất còn lại khi UI không có ID để so trực tiếp.
+ *
+ * Dùng CHUNG cho cả bước mở lần đầu ([5/N]) VÀ bước tìm-lại-để-resume ([7/N]/[8/N]) - CÙNG 1 cơ chế
+ * xác thực, không phải 2 code path khác nhau cho "mở mới" và "resume" (đúng yêu cầu: resume phải
+ * load lại identity cũ + verify lại, không phải tin tưởng mù vị trí/index đã tap lần trước).
+ *
+ * @param {object} params
+ * @param {string} params.title - title CHÍNH XÁC của assignment (so sánh exact, KHÔNG regex - xem
+ *   findAssignment.js#matchesTarget - loại bỏ hẳn nhu cầu escape ký tự đặc biệt của bản cũ).
+ * @param {?string} params.dueDateDM - "DD/MM", dùng làm bộ lọc candidate cấp 1 (UI-level).
+ * @param {?string} params.cta - optional, lọc thêm theo CTA hiện tại (vd "Tiếp tục" khi resume, để
+ *   findAssignment() tự loại các card cùng title+dueDate nhưng CHƯA từng mở - KHÔNG thay cho content
+ *   verification bên dưới, chỉ giảm số candidate cần mở thử).
+ * @param {Array<object>} params.questions - bộ câu hỏi ĐÃ RESOLVE theo room.id thật (từ
+ *   resolveHomeworkExamQuestionsForRoomId ở [3/N]) - dùng làm content fingerprint để verify.
+ * @param {number} [params.maxCandidates] - chặn trên số candidate AMBIGUOUS sẽ thử mở (an toàn,
+ *   không thử vô hạn) - mặc định dùng lại MAX_DISAMBIGUATE_CANDIDATES đã có sẵn trong file.
+ * @returns {Promise<
+ *   | { ok: true, card: object, matched: object, triedLog: Array }
+ *   | { ok: false, status: "NOT_FOUND"|"ERROR"|"CONTENT_MISMATCH"|"AMBIGUOUS_UNRESOLVED"|"OPEN_STEP_FAILED", diagnostics: string, triedLog: Array }
+ * >}
+ */
+async function locateOpenAndVerifyAssignment(bridge, { title, dueDateDM, cta = null, questions, maxCandidates = MAX_DISAMBIGUATE_CANDIDATES }) {
+  await scrollToTop(bridge);
+  const located = await findAssignment(bridge, { title, dueDateDM, cta });
+  if (located.status === "NOT_FOUND") return { ok: false, status: "NOT_FOUND", diagnostics: located.diagnostics, triedLog: [] };
+  if (located.status === "ERROR") return { ok: false, status: "ERROR", diagnostics: located.diagnostics, triedLog: [] };
+
+  const openAndCheckContent = async (candidate) => {
+    const tapResult = await tapFoundCard(bridge, candidate);
+    if (!tapResult.success) return { opened: false, contentMatched: null, matched: null, error: tapResult.error };
+    const openWait = await bridge.runSteps([
+      { waitForAnimationToEnd: { timeout: 3000 } },
+      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
+      { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 40000 } },
+    ]);
+    if (!openWait.success) return { opened: false, contentMatched: null, matched: null, error: openWait.error };
+    const matched = await findMatchingQuestion(bridge, questions);
+    return { opened: true, contentMatched: Boolean(matched), matched };
+  };
+  const closeIfOpen = () =>
+    bridge.runSteps([
+      { tapOn: { id: "exercise_close_button" }, optional: true },
+      { extendedWaitUntil: { visible: ".*(Bài tập).*", timeout: 20000 } },
+    ]);
+
+  if (located.status === "FOUND") {
+    const outcome = await openAndCheckContent(located.card);
+    const triedLog = [{ candidate: located.card, ...outcome }];
+    if (outcome.opened && outcome.contentMatched) return { ok: true, card: located.card, matched: outcome.matched, triedLog };
+    if (outcome.opened) await closeIfOpen();
+    return { ok: false, status: outcome.opened ? "CONTENT_MISMATCH" : "OPEN_STEP_FAILED", diagnostics: located.diagnostics, triedLog };
+  }
+
+  // AMBIGUOUS (≥2 candidate cùng title+dueDate[+cta]): PHẢI thử HẾT mọi candidate rồi mới kết luận -
+  // KHÔNG dừng sớm ở candidate khớp content ĐẦU TIÊN (nếu dừng sớm sẽ không biết candidate còn lại
+  // có CŨNG khớp content hay không - "chỉ khi còn đúng 1 candidate match mới được mở/làm" đòi hỏi
+  // biết chắc KHÔNG có candidate thứ 2 nào cũng khớp).
+  const candidates = located.matches.slice(0, maxCandidates);
+  const triedLog = [];
+  const matchedCandidates = [];
+  for (const candidate of candidates) {
+    const outcome = await openAndCheckContent(candidate);
+    triedLog.push({ candidate, ...outcome });
+    if (outcome.opened) {
+      if (outcome.contentMatched) matchedCandidates.push({ candidate, matched: outcome.matched });
+      await closeIfOpen();
+    }
+  }
+  if (matchedCandidates.length !== 1) {
+    return {
+      ok: false,
+      status: matchedCandidates.length === 0 ? "CONTENT_MISMATCH" : "AMBIGUOUS_CONTENT_MATCH",
+      diagnostics: located.diagnostics,
+      triedLog,
+    };
+  }
+  // Đúng 1 candidate khớp content trong số các candidate ambiguous - candidate đó đã bị ĐÓNG lại ở
+  // vòng kiểm tra công bằng phía trên (để không thiên vị thứ tự thử) - mở LẠI đúng candidate này lần
+  // cuối để tiếp tục vào làm bài (postcondition trả về: exercise_close_button đang visible).
+  const winner = matchedCandidates[0];
+  const reopen = await openAndCheckContent(winner.candidate);
+  triedLog.push({ candidate: winner.candidate, ...reopen, reopen: true });
+  if (!reopen.opened || !reopen.contentMatched) {
+    return { ok: false, status: "REOPEN_FAILED", diagnostics: located.diagnostics, triedLog };
+  }
+  return { ok: true, card: winner.candidate, matched: reopen.matched, triedLog };
+}
+
+/**
+ * verifyCardShowsScoreByIdentity() - FIX (2026-08-22) cho [11/N] "verify card đã hoàn thành", CÙNG
+ * chiến lược identity-based đã PASS ở locateOpenAndVerifyAssignment() (open/resume). THAY bản cũ
+ * `scrollToCard()` + quét PHẲNG "Điểm <số>" trên TOÀN VIEWPORT hiện tại - bản cũ có 2 lỗi:
+ *   1. `scrollToCard()` neo compound title+"Hạn nộp DATE" - card ĐÃ HOÀN THÀNH KHÔNG CÒN dòng "Hạn
+ *      nộp" (đã ghi nhận thật trong docblock cũ của readCardState) nên LUÔN rơi vào fallback
+ *      title-only, dùng Maestro `scrollUntilVisible` gốc - CÙNG lớp bug đã gây OPEN_EXERCISE_AMBIGUOUS
+ *      ở [5/N]/[7-8/N] khi có card liền kề title gần giống (đã xác nhận thật: "G3-U1-Lesson 2..."
+ *      đứng cạnh "G3-U2-Lesson 2..." trong danh sách thật).
+ *   2. Quét "Điểm <số>" PHẲNG trên toàn bộ text đang hiển thị, KHÔNG neo theo card nào cụ thể - có
+ *      thể false-positive PASS nếu 1 card ĐÃ HOÀN THÀNH KHÁC (từ lần chạy trước) tình cờ lọt vào
+ *      cùng viewport.
+ *
+ * ROOT CAUSE THẬT của lần FAIL live tiếp theo (2026-08-22, room 19e78018-8c11-48e9-845f-
+ * efefe4dff82f) KHÔNG PHẢI biên độ cuộn (đã điều tra + REVERT giả thuyết đó, xem git log) - đã xác
+ * nhận qua fixture (homeworkUiList.parseCard.fixtureTest.mjs) card THẬT hiện diện ngay trong lượt
+ * đọc đầu tiên (không cần cuộn) mà `findAssignment()` vẫn báo NOT_FOUND. NGUYÊN NHÂN THẬT nằm ở
+ * `parseHomeworkCardsWithDetail()` (homeworkUiList.js): card đã hoàn thành có CẢ dòng "N / M" VÀ
+ * "Điểm N" liên tiếp - thuật toán cũ break sớm khi gặp anchor thứ 2, coi nhầm là ranh giới card kế
+ * tiếp, khiến card bị loại VĨNH VIỄN khỏi kết quả parse (không liên quan gì tới cuộn). ĐÃ SỬA đúng
+ * gốc tại `parseHomeworkCardsWithDetail()`/`parseHomeworkCardsFromTexts()` - hàm này giờ KHÔNG cần
+ * tự dò/retry gì thêm, `findAssignment()` gọi nguyên vẹn 1 lần là đủ.
+ *
+ * Vì parser đã trả thêm field `score` (giá trị "Điểm N" thật của CHÍNH card, xem
+ * parseHomeworkCardsWithDetail()) ngay trên card trả về từ `findAssignment()` - KHÔNG cần tự quét
+ * lại bounds/hierarchy riêng nữa (đơn giản hơn bản trước, tận dụng đúng identity đã có).
+ * @returns {Promise<{ ok: true, card: object, scoreLine: string } | { ok: false, status: string, diagnostics: ?string }>}
+ */
+export async function verifyCardShowsScoreByIdentity(bridge, { title }) {
+  await scrollToTop(bridge);
+  const located = await findAssignment(bridge, { title, cta: "Làm lại" });
+  if (located.status !== "FOUND") {
+    return { ok: false, status: located.status, diagnostics: located.diagnostics };
+  }
+  const card = located.card;
+  if (!card.score) {
+    return { ok: false, status: "SCORE_LINE_NOT_FOUND", diagnostics: located.diagnostics };
+  }
+  return { ok: true, card, scoreLine: card.score };
 }
 
 async function answerOneQuestion(exam, matched, isLast, wantCorrectMap) {
@@ -959,6 +991,15 @@ async function main() {
       `  [PASS] Chọn "${chosen.unitName}/${chosen.lessonName}/${chosen.itemName}" (N=${chosen.questions.length}, occurrences=${chosen.occurrences}, unique=true, correctCount kế hoạch=${chosen.scorePlan.correctCount}, dự đoán=${chosen.scorePlan.predictedScore}).`,
     );
 
+    // FIX (2026-08-22, FAIL thật xác nhận qua run TARGET_SCORE_MIN=6/MAX=6.9: "Giao bài thất bại
+    // ở bước selectUnitLessonHomework"): file này đổi TARGET_CLASS default sang "7QA-Test" (dòng
+    // 111) nhưng e2e-teacher-assign-student-open.mjs đọc ASSIGN_PRIMARY_CLASS/TARGET_CLASS_ID
+    // thành const module-level NGAY LÚC IMPORT, mặc định "3B" nếu không truyền qua process.env -
+    // THIẾU 2 dòng set env này khiến candidate G7 (chọn từ lớp 7QA-Test ở PRESCAN) bị giao NHẦM
+    // vào lớp "3B" (chương trình khối 3, không có Unit/Lesson khối 7 tương ứng) -> FAIL ngay ở
+    // bước chọn Unit/Lesson trên Web GV, trước khi tới bước bấm giao bài.
+    process.env.ASSIGN_PRIMARY_CLASS = TARGET_CLASS;
+    process.env.TARGET_CLASS_ID = TARGET_CLASS_ID;
     process.env.ASSIGN_UNIT_NAME = chosen.unitName;
     // Dùng ĐÚNG NHÃN TAB Web GV (webGvLessonTab, xem resolveWebGvLessonTab()) - KHÔNG dùng
     // chosen.lessonName (tên CMS thô) - resolveAndSelectLesson() so khớp EXACT với text nút DOM,
@@ -1085,52 +1126,30 @@ async function main() {
       evidence.kienThucTrongBai = { man1: kienThucMan1 };
     }
 
-    // ===== OPEN đúng assignment (disambiguate theo nội dung nếu title+Hạn nộp không unique - AN
-    // TOÀN HƠN, KHÔNG đổi business lifecycle được test - xem AUDIT) =====
-    log(`[5/N] Mở đúng assignment "${assignment.title}" / Hạn nộp ${dueDM} (COPY selector gốc YAML: scrollUntilVisible compound title+Hạn nộp -> tapOn CTA)...`);
-    let openOutcome = { opened: false, triedCount: 0 };
-    for (let idx = 0; idx < MAX_DISAMBIGUATE_CANDIDATES; idx++) {
-      const state = await scrollAndReadCardState(bridge, assignment.title, dueDM, idx);
-      let tapStep = null;
-      if (!state.found || !state.cta) {
-        // FIX (2026-08-21): fallback sang tìm theo resource-id ổn định (xem docblock
-        // readCardStateById) khi quét text phẳng thất bại - card ĐÃ HOÀN THÀNH bị cuộn clip gần hết
-        // không có "Hạn nộp" (đã sửa ở readCardState) VÀ label text "Làm lại" bên trong nút CTA
-        // không được mount khi bounds cha bị clip gần hết (khác readCardState, cách này tap theo id
-        // node CTA trực tiếp, không cần label text phải render).
-        const idState = readCardStateById(await bridge.hierarchy(), assignment.title);
-        if (!idState) { openOutcome = { opened: false, triedCount: idx }; break; }
-        log(`  [FALLBACK id-based] title="${assignment.title}" -> cardId=${idState.cardId} ctaId=${idState.ctaId} badge=${idState.badge}`);
-        tapStep = { tapOn: { id: idState.ctaId } };
-        state.found = true;
-        state.cta = idState.ctaId;
-        state.badge = state.badge ?? idState.badge;
-      }
-      const esc = assignment.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const tapResult = await bridge.runSteps([
-        tapStep ?? { tapOn: { text: state.cta, below: { text: `Hạn nộp ${dueDM}`, below: { text: `.*${esc}.*` } }, index: idx } },
-        { waitForAnimationToEnd: { timeout: 3000 } },
-        { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
-        { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } },
-      ]);
-      if (!tapResult.success) { openOutcome = { opened: false, triedCount: idx + 1 }; break; }
-      const matched = await findMatchingQuestion(bridge, QUESTIONS);
-      if (matched) { openOutcome = { opened: true, index: idx, firstMatched: matched, progressBefore: state }; break; }
-      // Không khớp nội dung - thoát rồi thử candidate kế
-      await bridge.runSteps([
-        { tapOn: { id: "exercise_close_button" } },
-        { extendedWaitUntil: { visible: ".*(Bài tập).*", timeout: 20000 } },
-        { swipe: { start: "50%, 35%", end: "50%, 85%", duration: 600 } },
-        { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao).*" }, timeout: 30000 } },
-      ]);
-      openOutcome = { opened: false, triedCount: idx + 1 };
+    // ===== OPEN đúng assignment - FIX (2026-08-22): identity-based matching qua
+    // locateOpenAndVerifyAssignment() (findAssignment()/scrollToTop()/tapFoundCard() có sẵn +
+    // content-fingerprint verify qua QUESTIONS đã resolve theo room.id thật) - THAY hẳn locator cũ
+    // scrollAndReadCardState/readCardState/readCardStateById (root cause OPEN_EXERCISE_AMBIGUOUS
+    // "sau 0 lượt" thật đã xác nhận trên room 19e78018-8c11-48e9-845f-efefe4dff82f - xem docblock
+    // locateOpenAndVerifyAssignment()) =====
+    log(`[5/N] Mở đúng assignment "${assignment.title}" / Hạn nộp ${dueDM} (identity-based: findAssignment() + content-fingerprint verify theo room.id=${assignment.id})...`);
+    const openLocate = await locateOpenAndVerifyAssignment(bridge, { title: assignment.title, dueDateDM: dueDM, questions: QUESTIONS });
+    evidence.openDisambiguation = {
+      opened: openLocate.ok,
+      triedCount: openLocate.triedLog?.length ?? 0,
+      status: openLocate.ok ? "FOUND_AND_VERIFIED" : openLocate.status,
+      triedLog: openLocate.triedLog,
+    };
+    if (!openLocate.ok) {
+      return finish({
+        status: "BLOCKED",
+        phase: "OPEN_EXERCISE_AMBIGUOUS",
+        error: `Không xác thực được candidate nào đúng room.id=${assignment.id} (status=${openLocate.status}, đã thử ${openLocate.triedLog.length} candidate) - locate/identity không chắc chắn, dừng lại (SAFETY), KHÔNG đoán.\n${openLocate.diagnostics ?? ""}`,
+        evidence,
+      });
     }
-    evidence.openDisambiguation = { opened: openOutcome.opened, triedCount: openOutcome.triedCount, index: openOutcome.index ?? null };
-    if (!openOutcome.opened) {
-      return finish({ status: "BLOCKED", phase: "OPEN_EXERCISE_AMBIGUOUS", error: `Không tìm được candidate nào khớp nội dung câu hỏi CMS sau ${openOutcome.triedCount} lượt - locate ambiguous, dừng lại (SAFETY).`, evidence });
-    }
-    evidence.progressBefore = openOutcome.progressBefore;
-    log(`  [PASS] Đã mở đúng assignment (index=${openOutcome.index}). card badge="${openOutcome.progressBefore.badge}" cta="${openOutcome.progressBefore.cta}"`);
+    evidence.progressBefore = { badge: openLocate.card.badge ?? null, cta: openLocate.card.cta };
+    log(`  [PASS] Đã mở ĐÚNG assignment (verified qua content-fingerprint khớp room.id=${assignment.id}). card cta="${openLocate.card.cta}"`);
 
     // ===== THOÁT NGAY bằng X - 0 CÂU ĐÃ TRẢ LỜI (COPY Y HỆT dòng 196-211 của YAML) =====
     log(`[6/N] Thoát NGAY bằng X (0 câu đã trả lời - ĐÚNG lifecycle YAML gốc, KHÔNG trả lời câu nào trước khi thoát)...`);
@@ -1146,29 +1165,47 @@ async function main() {
     }
     log(`  [PASS] Đã thoát về danh sách, đã refresh (swipe) để nạp lại doing_answer_id.`);
 
-    // ===== Tìm lại card, verify CTA đổi "Tiếp tục" (COPY Y HỆT dòng 233-286 của YAML) =====
-    log(`[7/N] Tìm lại card, verify CTA đã đổi thành "Tiếp tục"...`);
-    const afterExitState = await scrollAndReadCardState(bridge, assignment.title, dueDM, openOutcome.index);
-    evidence.progressAfter = { ctaAfterExit: afterExitState.cta, badgeAfterExit: afterExitState.badge };
-    if (afterExitState.cta !== "Tiếp tục") {
-      return finish({ status: "FAIL", phase: "PROGRESS_CHANGED", error: `CTA sau khi thoát KHÔNG đổi thành "Tiếp tục" (thực tế: "${afterExitState.cta}") - card không phản ánh trạng thái đang dở.`, evidence });
+    // ===== Tìm lại card + RESUME - FIX (2026-08-22): CÙNG cơ chế identity-based dùng ở [5/N]
+    // (KHÔNG phải 1 code path "resume" riêng, tin tưởng mù index đã tap lần trước) - load lại
+    // identity đã lưu (assignment.title/dueDM/QUESTIONS theo room.id=${assignment.id}), tìm lại
+    // bằng findAssignment(), lọc thêm theo cta="Tiếp tục" (chỉ card ĐANG DỞ mới có CTA này - tự
+    // loại các card cùng title+dueDate nhưng chưa từng mở, vd "G3-U1-Lesson 2..." liền kề), rồi vẫn
+    // bắt buộc verify lại content-fingerprint trước khi coi là "đã resume đúng bài cũ" - KHÔNG được
+    // giao bài mới / gọi lại flow giao bài ở nhánh này (đúng RESUME_ASSIGNMENT, không phải
+    // NEW_ASSIGNMENT). =====
+    log(`[7-8/N] Tìm lại + resume ĐÚNG assignment cũ (identity-based: findAssignment(cta="Tiếp tục") + content-fingerprint verify theo room.id=${assignment.id})...`);
+    const resumeLocate = await locateOpenAndVerifyAssignment(bridge, {
+      title: assignment.title,
+      dueDateDM: dueDM,
+      cta: "Tiếp tục",
+      questions: QUESTIONS,
+    });
+    evidence.progressAfter = {
+      ctaAfterExit: resumeLocate.ok ? resumeLocate.card.cta : (resumeLocate.triedLog?.[0]?.candidate?.cta ?? null),
+    };
+    evidence.resumeLocate = {
+      opened: resumeLocate.ok,
+      status: resumeLocate.ok ? "FOUND_AND_VERIFIED" : resumeLocate.status,
+      triedLog: resumeLocate.triedLog,
+    };
+    if (!resumeLocate.ok) {
+      if (resumeLocate.status === "NOT_FOUND") {
+        return finish({
+          status: "FAIL",
+          phase: "PROGRESS_CHANGED",
+          error: `Không tìm lại được card với CTA="Tiếp tục" cho "${assignment.title}"/Hạn nộp ${dueDM} - card không phản ánh trạng thái đang dở (hoặc app chưa ghi nhận doing_answer_id).\n${resumeLocate.diagnostics ?? ""}`,
+          evidence,
+        });
+      }
+      return finish({
+        status: "FAIL",
+        phase: "RESUME_OPEN",
+        error: `Không xác thực được đúng candidate cũ khi resume (status=${resumeLocate.status}, đã thử ${resumeLocate.triedLog.length} candidate) - KHÔNG đoán, KHÔNG mở bài khác (vd "G3-U1-Lesson 2..." liền kề).\n${resumeLocate.diagnostics ?? ""}`,
+        evidence,
+      });
     }
-    log(`  [PASS] card CTA = "Tiếp tục" - xác nhận app đã ghi nhận trạng thái đang làm dở.`);
-
-    // ===== RESUME: tap "Tiếp tục" (COPY selector gốc), verify exercise_close_button lại =====
-    log(`[8/N] Resume: tap "Tiếp tục", verify quay lại màn làm bài...`);
-    const escTitle = assignment.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const resumeResult = await bridge.runSteps([
-      { tapOn: { text: "Tiếp tục", below: { text: `Hạn nộp ${dueDM}`, below: { text: `.*${escTitle}.*` } }, index: openOutcome.index } },
-      { waitForAnimationToEnd: { timeout: 3000 } },
-      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
-      { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 40000 } },
-    ]);
-    evidence.resumeOk = resumeResult.success;
-    if (!resumeResult.success) {
-      return finish({ status: "FAIL", phase: "RESUME_OPEN", error: resumeResult.error, evidence });
-    }
-    log(`  [PASS] Đã resume, đang ở màn làm bài (exercise_close_button visible).`);
+    evidence.resumeOk = true;
+    log(`  [PASS] Đã tìm lại + resume ĐÚNG assignment cũ (verified content-fingerprint khớp room.id=${assignment.id}), đang ở màn làm bài.`);
 
     // ===== HOÀN THÀNH - ENGINE KHÁC (CMS-controlled), THAY answer-current-exercise-generic.yaml =====
     log(`[9/N] Trả lời TẤT CẢ ${QUESTIONS.length} câu theo kế hoạch (correctCount=${scorePlan.correctCount}) - dùng HomeworkExamEngine (CMS thật), KHÔNG dùng dispatcher blind...`);
@@ -1249,17 +1286,24 @@ async function main() {
     ]);
     await bridge.wait({ id: "homework_screen" }, { timeout: 30000 });
 
-    // ===== PROGRESS_AFTER riêng card (COPY gốc: chỉ cần dòng "Điểm <số>" tồn tại) =====
-    log(`[11/N] Verify card đã hoàn thành (dòng "Điểm <số>" tồn tại - COPY tiêu chí gốc test_data/hw_fullluong_compare_card_progress.js)...`);
-    await scrollToCard(bridge, assignment.title, dueDM);
-    const cardTreeAfter = await bridge.hierarchy();
-    const cardTextsAfter = collectAllTexts(cardTreeAfter);
-    const cardCompletedLine = cardTextsAfter.find((t) => /Điểm\s*[0-9.,]+/.test(t));
-    evidence.cardProgressOk = Boolean(cardCompletedLine);
-    if (!cardCompletedLine) {
-      return finish({ status: "FAIL", phase: "PROGRESS_AFTER_CARD", error: `Không tìm thấy dòng "Điểm <số>" trên card sau khi hoàn thành.`, evidence });
+    // ===== PROGRESS_AFTER riêng card - FIX (2026-08-22): identity-based, THAY scrollToCard() +
+    // quét phẳng "Điểm <số>" toàn viewport (2 lỗi đã ghi trong docblock verifyCardShowsScoreByIdentity():
+    // (1) card hoàn thành không còn "Hạn nộp" nên scrollToCard() luôn rơi fallback title-only, dễ bị
+    // đánh lừa bởi card liền kề title gần giống; (2) quét phẳng không neo theo card cụ thể, có thể
+    // false-positive từ 1 card hoàn thành KHÁC cùng viewport) =====
+    log(`[11/N] Verify card đã hoàn thành (identity-based: findAssignment(title, cta="Làm lại") + đọc "Điểm <số>" CHỈ trong bounds của ĐÚNG card đó)...`);
+    const completedCheck = await verifyCardShowsScoreByIdentity(bridge, { title: assignment.title });
+    evidence.cardProgressOk = completedCheck.ok;
+    evidence.cardCompletedCheck = { status: completedCheck.ok ? "FOUND_AND_VERIFIED" : completedCheck.status, diagnostics: completedCheck.diagnostics ?? null };
+    if (!completedCheck.ok) {
+      return finish({
+        status: "FAIL",
+        phase: "PROGRESS_AFTER_CARD",
+        error: `Không xác thực được card đã hoàn thành cho "${assignment.title}" (status=${completedCheck.status}) - KHÔNG đoán, KHÔNG nhận nhầm card khác (vd "G3-U1-Lesson 2..." liền kề).\n${completedCheck.diagnostics ?? ""}`,
+        evidence,
+      });
     }
-    log(`  [PASS] card completed line = "${cardCompletedLine}"`);
+    log(`  [PASS] card completed line = "${completedCheck.scoreLine}" (verified đúng card qua identity title+cta="Làm lại", không quét phẳng).`);
 
     // ===== PROGRESS_AFTER tổng: cuộn về đầu, so sánh tăng (COPY gốc dòng 410-434) =====
     log(`[12/N] Cuộn về đầu, đọc lại PROGRESS_AFTER tổng, so sánh tăng...`);
@@ -1292,17 +1336,22 @@ async function main() {
   }
 }
 
-main()
-  .then((result) => {
-    log(`\n=== KẾT QUẢ: ${result.status}${result.phase ? ` (phase=${result.phase})` : ""} ===`);
-    log(`Đã ghi report ra ${OUTPUT_FILE}`);
-    log("\n" + formatSelectionLocateSafetyReport(result.evidence ?? {}, result));
-    log("\n" + formatReport(result.evidence ?? {}, result, result.evidence?.teacherAssign?.roomId ?? null));
-    process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 2 : 1);
-  })
-  .catch((err) => {
-    console.error("\n[e2e-ktra-fullluong-lambai-scored-pro] Dừng lại vì lỗi ngoài dự kiến:\n");
-    console.error(err);
-    finish({ status: "ERROR", error: err.message, stack: err.stack });
-    process.exit(2);
-  });
+// FIX (2026-08-22): chỉ tự chạy main() khi file này được chạy TRỰC TIẾP (`node target5.mjs`) -
+// KHÔNG chạy khi bị import (vd test script import verifyCardShowsScoreByIdentity() để kiểm tra
+// riêng [11/N] trên state hiện có của 1 room, không cần chạy lại toàn bộ flow giao-bài+làm-bài).
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  main()
+    .then((result) => {
+      log(`\n=== KẾT QUẢ: ${result.status}${result.phase ? ` (phase=${result.phase})` : ""} ===`);
+      log(`Đã ghi report ra ${OUTPUT_FILE}`);
+      log("\n" + formatSelectionLocateSafetyReport(result.evidence ?? {}, result));
+      log("\n" + formatReport(result.evidence ?? {}, result, result.evidence?.teacherAssign?.roomId ?? null));
+      process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 2 : 1);
+    })
+    .catch((err) => {
+      console.error("\n[e2e-ktra-fullluong-lambai-scored-pro] Dừng lại vì lỗi ngoài dự kiến:\n");
+      console.error(err);
+      finish({ status: "ERROR", error: err.message, stack: err.stack });
+      process.exit(2);
+    });
+}

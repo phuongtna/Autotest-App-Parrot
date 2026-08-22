@@ -1,0 +1,53 @@
+# Testcase: Đăng xuất thành công từ tab "Báo cáo".
+#
+# Step: Đăng nhập -> vào tab "Báo cáo" -> cuộn xuống mục "Đăng xuất" -> bấm "Đăng xuất"
+#       -> dialog xác nhận "Bạn có thật sự muốn đăng xuất khỏi ứng dụng?" -> bấm "OK"
+# Expected: unregister FCM token -> gọi logoutAsync -> signOut -> quay về màn "Đăng nhập"
+#           (không còn thấy "Quản lý tài khoản")
+#
+# LƯU Ý: regex rộng ".*(Đăng xuất|Đồng ý|OK|Xác nhận).*" khớp luôn vào text của
+# chính message dialog ("...muốn đăng xuất khỏi ứng dụng?", chứa "đăng xuất" không
+# phân biệt hoa/thường) -> tap index:0 trúng dòng message (không phải nút), dialog
+# không đóng. Nút xác nhận thật của dialog này là "OK" (nút "Hủy" mới là huỷ).
+# (đã gặp bug này ở flows/app/report/RP-20-logout-confirm.yaml, xem lại cho chắc)
+#
+# CẢNH BÁO: case này phá session (đăng xuất thật) -> gắn tag "destructive",
+#           không cho vào bộ regression mặc định.
+#
+# Tham số: PHONE, OTP (mặc định lấy từ test_data/accounts.env qua scripts/run_tests.sh)
+# Chạy: maestro test flows/app/logout/logout_success.yaml -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888
+appId: ${APP_ID}
+tags:
+  - writes
+  - destructive
+name: Logout - dang xuat thanh cong
+---
+- runFlow: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-report.yaml
+
+- scrollUntilVisible:
+    element:
+      text: ".*(Đăng xuất).*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*(Đăng xuất).*"
+- extendedWaitUntil:
+    visible: ".*(Bạn có thật sự muốn đăng xuất khỏi ứng dụng?).*"
+    timeout: 15000
+- takeScreenshot: artifacts/logout_success-confirm-dialog
+
+- tapOn:
+    text: "OK"
+
+- extendedWaitUntil:
+    visible:
+      text: ".*(Nhập số điện thoại|Đăng nhập).*"
+    timeout: 40000
+- assertNotVisible: ".*(Quản lý tài khoản).*"
+
+- takeScreenshot: artifacts/logout_success-logged-out

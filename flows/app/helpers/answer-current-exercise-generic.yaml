@@ -46,7 +46,18 @@
 # the UI nay.
 appId: ${APP_ID}
 ---
+# ĐÃ SỬA (2026-08-24, tối ưu thời gian chạy - không đổi business logic): trước đây "times: 25" chạy
+# CỐ ĐỊNH đủ 25 vòng lặp dù bài chỉ có ít câu hơn nhiều (vd 10 câu) - sau khi tới exercise_result_
+# screen, các vòng lặp CÒN LẠI không làm gì cả (mọi nhánh "when visible" đều SKIPPED, 2 tapOn
+# check_button đều optional/no-op) nhưng vẫn tốn thời gian đọc lại hierarchy mỗi vòng - đo thật
+# (2026-08-24) mỗi bài 10 câu tốn thêm ngay cả sau khi đã xong. Đổi sang "while: notVisible:
+# exercise_result_screen" (CÙNG idiom repeat.while đã dùng thật trong
+# ensure-exercise-controls-visible.yaml) để DỪNG NGAY khi tới màn Kết quả - giữ nguyên "times: 25"
+# làm TRẦN an toàn (không đổi hành vi BLOCKED/giới hạn cũ, chỉ thêm điều kiện dừng SỚM).
 - repeat:
+    while:
+      notVisible:
+        id: "exercise_result_screen"
     times: 25
     commands:
       # SPEAK

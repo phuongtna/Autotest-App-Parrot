@@ -156,6 +156,18 @@ function collectAllTexts(node, acc = []) {
   return acc;
 }
 
+/** true nếu cây hierarchy còn ÍT NHẤT 1 node resource-id thuộc app (`${appId}:id/...`) - dùng để
+ * phát hiện đã thoát HẲN ra ngoài app (màn hình chính Android/app khác) sau 1 lần `back()`, KHÔNG
+ * đoán qua text hiển thị (launcher/app khác có thể trùng text bất kỳ). */
+function treeHasAppNode(node, appId) {
+  const rid = node?.attributes?.["resource-id"];
+  if (typeof rid === "string" && rid.startsWith(`${appId}:id/`)) return true;
+  for (const c of node?.children ?? []) {
+    if (treeHasAppNode(c, appId)) return true;
+  }
+  return false;
+}
+
 function isVisibleInTree(texts, textPattern) {
   const pattern = new RegExp(`^${textPattern}$`);
   return texts.some((t) => pattern.test(t));
@@ -1108,18 +1120,62 @@ async function main() {
       log(`[4b/N] Kiểm tra "Kiến thức trong bài" trên màn Danh sách bài tập (điều hướng sang Vui học rồi quay lại)...`);
       const kienThucMan1 = await attemptKienThucTrongBaiNavigation(bridge, "Danh sách bài tập");
       if (kienThucMan1.navigated) {
-        // FIX (2026-08-21, BLOCKED thật gặp ở lượt "làm lại 9đ"): quay lại tab "Bài tập" sau khi
-        // điều hướng "Vui học" KHÔNG tự về đầu danh sách - đứng lại ở vị trí cuộn sâu (nơi vừa tap
-        // vào "Kiến thức trong bài"). scrollToCard() ở [5/N] ngay sau đây CHỈ cuộn DOWN (không cuộn
-        // lên được) nên nếu card mục tiêu nằm PHÍA TRÊN vị trí hiện tại thì KHÔNG BAO GIỜ tìm thấy -
-        // ĐÃ TÁI HIỆN THẬT: OPEN_EXERCISE_AMBIGUOUS "sau 0 lượt" (scrollAndReadCardState fail ngay
-        // lần đầu). SỬA: cuộn về ĐẦU danh sách (COPY Y HỆT idiom "scroll to top" đã dùng ở [4/N] phía
-        // trên - repeat 5x swipe direction DOWN) trước khi rời khỏi khối MÀN 1 này.
+        // FIX (2026-08-24, BLOCKED thật gặp lại hôm nay: OPEN_EXERCISE_AMBIGUOUS/NOT_FOUND sau 0-2
+        // lượt cuộn ở [5/N]): bản cũ (2026-08-21) chỉ tapOn "Bài tập" + extendedWaitUntil rồi TIN
+        // NGAY (không đọc lại hierarchy để verify) - ĐÃ XÁC NHẬN THẬT hôm nay: tap Unit trong "Kiến
+        // thức trong bài" có thể dẫn vào 1 màn quiz/game "Vui học" TƯƠNG TÁC (câu hỏi trắc nghiệm
+        // riêng, VD "Choose the correct word..."/"tent, pasta, popcorn, pizza"), KHÔNG chỉ là 1 trang
+        // nội dung "Unit N: ..." tĩnh - extendedWaitUntil cũ pass được (có lẽ do thoáng qua đúng 1
+        // frame trước khi app tự chuyển tiếp) nhưng ngay sau đó KHÔNG còn đứng ở danh sách Bài tập
+        // thật (scrollAndReadCardState/findAssignment() ở [5/N] quét nhầm màn quiz, không tiến triển
+        // -> NOT_FOUND/NO_PROGRESS). SỬA: đọc lại hierarchy THẬT sau khi tap "Bài tập", verify bằng
+        // ĐÚNG anchor nội dung danh sách (CÙNG pattern OVERALL_PROGRESS_BELOW_PATTERN/ABOVE đã dùng ở
+        // readOverallProgress()) - KHÔNG tin extendedWaitUntil suông. Nếu chưa về đúng danh sách: thử
+        // back() (bounded, dừng sớm nếu phát hiện đã rời hẳn app - CÙNG helper treeHasAppNode() dùng
+        // ở MÀN 2), sau đó fallback launchApp() + tap lại "Bài tập" (CÙNG pattern ensureProProfileActive()) -
+        // nếu VẪN không về được, BLOCKED rõ ràng (KHÔNG để [5/N] quét nhầm màn hình như bug cũ).
+        const verifyOnHomeworkList = async () => {
+          const t = await bridge.hierarchy();
+          const texts = collectAllTexts(t);
+          return { ok: texts.some((x) => OVERALL_PROGRESS_BELOW_PATTERN.test(x) || x === OVERALL_PROGRESS_ABOVE), texts };
+        };
         await bridge.runSteps([
-          { tapOn: { text: "Bài tập" } },
-          { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|2 tuần gần nhất|1 tháng gần nhất).*" }, timeout: 30000 } },
-          { repeat: { times: 5, commands: [{ swipe: { direction: "DOWN", duration: 250 } }] } },
+          { tapOn: { text: "Bài tập", optional: true } },
+          { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|2 tuần gần nhất|1 tháng gần nhất).*" }, timeout: 30000 }, optional: true },
         ]);
+        let man1Check = await verifyOnHomeworkList();
+        if (!man1Check.ok) {
+          log(`  [CẢNH BÁO] Sau tapOn "Bài tập" vẫn KHÔNG thấy đúng danh sách Bài tập thật - thử back()...`);
+          const MAN1_BACK_MAX_ATTEMPTS = 3;
+          for (let i = 0; i < MAN1_BACK_MAX_ATTEMPTS && !man1Check.ok; i++) {
+            await bridge.back();
+            const treeAfterBack = await bridge.hierarchy();
+            if (!treeHasAppNode(treeAfterBack, APP_ID)) break; // đã rời hẳn app - dừng back(), sang relaunch
+            man1Check = await verifyOnHomeworkList();
+          }
+        }
+        if (!man1Check.ok) {
+          log(`  [CẢNH BÁO] back() không phục hồi được - relaunch app rồi tap lại "Bài tập"...`);
+          await bridge.runSteps([
+            { launchApp: { permissions: { all: "allow" } } },
+            { extendedWaitUntil: { visible: { text: ".*(Vui học|Bài tập|Báo cáo).*" }, timeout: 30000 }, optional: true },
+            { tapOn: { text: "Bài tập", optional: true } },
+            { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|2 tuần gần nhất|1 tháng gần nhất).*" }, timeout: 30000 }, optional: true },
+          ]);
+          man1Check = await verifyOnHomeworkList();
+        }
+        if (!man1Check.ok) {
+          return finish({
+            status: "BLOCKED",
+            phase: "KIEN_THUC_MAN1_RECOVERY",
+            error:
+              `Sau khi điều hướng "Vui học" từ "Kiến thức trong bài" trên màn Danh sách bài tập, ` +
+              `KHÔNG quay lại được ĐÚNG danh sách Bài tập thật (kể cả sau back() + relaunch app) - ` +
+              `dừng lại thay vì để [5/N] quét nhầm màn hình khác. Current visible texts: ${JSON.stringify(man1Check.texts.slice(0, 40))}`,
+            evidence,
+          });
+        }
+        await bridge.runSteps([{ repeat: { times: 5, commands: [{ swipe: { direction: "DOWN", duration: 250 } }] } }]);
       } else {
         log(`  [CẢNH BÁO] ${kienThucMan1.reason}`);
       }
@@ -1260,31 +1316,102 @@ async function main() {
     }
 
     // ===== [KIẾN THỨC TRONG BÀI - MÀN 2/2, Kết quả BTVN] (MỚI 2026-08-21 - xem MÀN 1 ở [4b/N]).
-    // Tap vào card Unit ngay TRÊN màn Kết quả (trước khi đóng dialog) - nếu thành công, app tự
-    // router.replace sang "Vui học" (ĐÃ XÁC NHẬN THẬT hôm nay: hành động đó tự đóng luôn dialog kết
-    // quả, quay lại "Bài tập" sau đó thấy card đã cập nhật NGAY, không cần tap "Hoàn thành"/
-    // exercise_result_close_button nữa) - CHỈ fallback về đúng bước đóng dialog gốc khi navigate
-    // KHÔNG thành công (dialog vẫn còn, phải đóng bình thường để flow tiếp tục được). =====
+    // Tap vào card Unit ngay TRÊN màn Kết quả (trước khi đóng dialog) để kiểm tra content. =====
+    // FIX (2026-08-24, bug thật xác nhận trên device): việc tap Unit ở đây là PUSH lên stack của
+    // TAB "Bài tập" (KHÔNG phải chuyển bottom-tab - bottom tab vẫn hiển thị "Bài tập" active suốt),
+    // nên giả định cũ "app tự router.replace, quay lại 'Bài tập' sau đó thấy card đã cập nhật NGAY,
+    // không cần tap 'Hoàn thành'/exercise_result_close_button nữa" là SAI: đã xác nhận thật app kẹt
+    // nhiều phút ở màn "Vui học" (Unit không liên quan), tapOn "Bài tập" là NO-OP (tab đã active sẵn
+    // nên không pop lại stack), verifyCardShowsScoreByIdentity() ở [11/N] sau đó luôn NOT_FOUND vì
+    // đang quét NHẦM màn Vui học chứ không phải danh sách Bài tập thật. TUYỆT ĐỐI không dùng việc
+    // điều hướng "Vui học" để thay cho tap CTA "Hoàn thành"/"Tiếp theo" thật - back() để pop lại
+    // đúng màn Kết quả (CTA còn nguyên) rồi mới chạy nhánh tap CTA thật bên dưới, KHÔNG đổi.
     let kienThucMan2 = { navigated: false, reason: "SKIPPED (CHECK_KIEN_THUC_TRONG_BAI=false)" };
     if (CHECK_KIEN_THUC_TRONG_BAI) {
       log(`[10b/N] Kiểm tra "Kiến thức trong bài" trên màn Kết quả BTVN (điều hướng sang Vui học rồi quay lại)...`);
       kienThucMan2 = await attemptKienThucTrongBaiNavigation(bridge, "Kết quả BTVN");
       evidence.kienThucTrongBai = { ...evidence.kienThucTrongBai, man2: kienThucMan2 };
       if (kienThucMan2.navigated) {
-        log(`  [PASS] Đã điều hướng sang "Vui học" từ màn Kết quả - dialog kết quả coi như đã đóng, quay lại tab "Bài tập".`);
-        await bridge.runSteps([{ tapOn: { text: "Bài tập" } }]);
+        log(`  [PASS] Đã điều hướng sang "Vui học" từ màn Kết quả - back() để quay lại đúng màn Kết quả (CTA còn nguyên)...`);
+        const BACK_TO_RESULT_MAX_ATTEMPTS = 5;
+        let backedToResult = false;
+        let leftAppWhileBacking = false;
+        for (let i = 0; i < BACK_TO_RESULT_MAX_ATTEMPTS; i++) {
+          await bridge.back();
+          const treeAfterBack = await bridge.hierarchy();
+          if (exam.isResultScreen(treeAfterBack)) {
+            backedToResult = true;
+            break;
+          }
+          // FIX (2026-08-24, xác nhận thật trên device): "Vui học" (điều hướng từ Kiến thức trong
+          // bài trên màn Kết quả) KHÔNG phải màn PUSH lên stack của app - back() từ đó thoát THẲNG
+          // ra màn hình chính Android (đã xác nhận thật: hierarchy sau back() hiện "Phone",
+          // "Contacts", "Messages", widget thời tiết - launcher, không còn node nào của app). Dừng
+          // NGAY vòng lặp back() nếu phát hiện đã rời khỏi app hẳn (không còn resource-id nào thuộc
+          // `${APP_ID}:id/`) - back() thêm lần nữa ở màn hình chính KHÔNG có tác dụng và không an
+          // toàn (có thể trúng app/màn hình khác ngoài ý muốn).
+          if (!collectAllTexts(treeAfterBack) || !treeHasAppNode(treeAfterBack, APP_ID)) {
+            leftAppWhileBacking = true;
+            break;
+          }
+        }
+        if (!backedToResult) {
+          const diagTree = await bridge.hierarchy();
+          const diagTexts = collectAllTexts(diagTree);
+          // FIX (2026-08-24): KHÔNG bỏ mặc thiết bị đứng ở màn hình chính Android/màn lạ cho lượt
+          // chạy test SAU - relaunch lại app (CÙNG pattern launchApp đã dùng ở ensureProProfileActive())
+          // trước khi thoát, CHỈ để dọn dẹp thiết bị - KHÔNG đổi kết quả FAIL, KHÔNG coi đây là đã
+          // tap CTA thật (evidence vẫn ghi rõ CTA chưa từng được tap).
+          await bridge.runSteps([
+            { launchApp: { permissions: { all: "allow" } } },
+            { extendedWaitUntil: { visible: { text: ".*(Vui học|Bài tập|Báo cáo).*" }, timeout: 30000 }, optional: true },
+          ]);
+          return finish({
+            status: "FAIL",
+            phase: "KIEN_THUC_MAN2_RECOVERY",
+            error:
+              `Sau ${leftAppWhileBacking ? "" : BACK_TO_RESULT_MAX_ATTEMPTS + " lần "}back() từ "Vui học" (điều hướng bởi Kiến thức trong bài trên màn Kết quả), ` +
+              `KHÔNG quay lại được màn Kết quả (exercise_result_screen) để tap CTA "Hoàn thành"/"Tiếp theo" thật - ` +
+              `KHÔNG dùng "Vui học" thay cho CTA.${leftAppWhileBacking ? " back() đã thoát HẲN ra ngoài app (màn hình chính/app khác)." : ""} ` +
+              `Current visible texts (tại thời điểm dừng): ${JSON.stringify(diagTexts.slice(0, 40))}. ` +
+              `Đã relaunch app để dọn dẹp thiết bị cho lượt chạy sau (không ảnh hưởng kết quả FAIL này).`,
+            evidence,
+          });
+        }
+        log(`  [PASS] Đã quay lại đúng màn Kết quả (exercise_result_screen) sau back() - tiếp tục tap CTA thật.`);
       } else {
         log(`  [CẢNH BÁO] ${kienThucMan2.reason} - fallback về đóng dialog kết quả như bình thường.`);
       }
     }
 
-    // ===== Đóng kết quả + verify homework_screen (COPY gốc dòng 338-365 - CHỈ chạy nếu dialog vẫn
-    // còn, xem nhánh kienThucMan2.navigated ở trên) =====
+    // ===== Đóng kết quả bằng CTA THẬT "Hoàn thành"/"Tiếp theo" (COPY gốc dòng 338-349, KHÔNG đổi -
+    // LUÔN chạy, kể cả sau khi vừa back() lại từ nhánh Kiến thức trong bài ở trên) =====
     await bridge.runSteps([
       { runFlow: { when: { visible: "Hoàn thành" }, commands: [{ tapOn: { text: ".*(Hoàn thành).*" } }] } },
       { runFlow: { when: { visible: "Tiếp theo" }, commands: [{ tapOn: { id: "exercise_result_close_button" } }] } },
     ]);
-    await bridge.wait({ id: "homework_screen" }, { timeout: 30000 });
+    // FIX (2026-08-24): id="homework_screen" ĐƠN LẺ không đủ tin cậy làm bằng chứng "đã về đúng
+    // danh sách" (có thể là node nền còn mount phía dưới 1 màn khác đang đè lên trên - CÙNG lỗi bản
+    // chất với việc chỉ nhìn bottom tab "Bài tập" active, đã xác nhận thật hôm nay là KHÔNG đủ) -
+    // verify THÊM anchor nội dung thật của danh sách (CÙNG pattern OVERALL_PROGRESS_BELOW_PATTERN/
+    // OVERALL_PROGRESS_ABOVE đã dùng trong readOverallProgress(), không thêm pattern mới).
+    const homeworkScreenWait = await bridge.wait({ id: "homework_screen" }, { timeout: 30000 });
+    const backOnListTree = await bridge.hierarchy();
+    const backOnListTexts = collectAllTexts(backOnListTree);
+    const reallyOnHomeworkList =
+      homeworkScreenWait.success &&
+      backOnListTexts.some((t) => OVERALL_PROGRESS_BELOW_PATTERN.test(t) || t === OVERALL_PROGRESS_ABOVE);
+    if (!reallyOnHomeworkList) {
+      return finish({
+        status: "FAIL",
+        phase: "RESULT_CLOSE_VERIFY",
+        error:
+          `Đã tap CTA "Hoàn thành"/"Tiếp theo" nhưng KHÔNG xác nhận được app đã về ĐÚNG danh sách Bài tập ` +
+          `(id="homework_screen" wait success=${homeworkScreenWait.success} - KHÔNG đủ 1 mình, cần thêm anchor nội dung thật). ` +
+          `Current visible texts: ${JSON.stringify(backOnListTexts.slice(0, 40))}`,
+        evidence,
+      });
+    }
 
     // ===== PROGRESS_AFTER riêng card - FIX (2026-08-22): identity-based, THAY scrollToCard() +
     // quét phẳng "Điểm <số>" toàn viewport (2 lỗi đã ghi trong docblock verifyCardShowsScoreByIdentity():

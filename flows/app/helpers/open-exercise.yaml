@@ -9,6 +9,20 @@
 #   Maestro 2.8.0 chưa implement launchApp cho iPhone thật (NotImplementedError),
 #   nên khi chạy máy thật app phải được mở sẵn và đã đăng nhập.
 #   Chạy:  maestro --device <UDID> test --apple-team-id <TEAM> -e DEVICE_MODE=true ...
+#
+# ĐÃ SỬA (2026-08-24) - EXERCISE_NAME REGEX ESCAPE (tổng quát, không hardcode riêng 1 bài): mọi
+# text-selector dùng EXERCISE_NAME đều compile thành Java regex - title có ký tự đặc biệt (vd
+# "True (T) or False (F)." - dấu ngoặc) khiến regex khớp SAI vị trí (ngoặc bị hiểu là group, không
+# phải ký tự literal) -> scrollUntilVisible cuộn hết cả danh sách mà KHÔNG BAO GIỜ tìm thấy, FAILED
+# sau full timeout dù title đang hiển thị thật ngay từ đầu (tái hiện thật + root cause xác nhận qua
+# uiautomator dump, xem project_maestro_regex_parens_due_today.md). SỬA bằng cách escape các ký tự
+# regex đặc biệt (. * + ? ^ ( ) | [ ] và backslash) NGAY TRONG biểu thức ${...} bằng
+# .replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m}) - áp dụng cho MỌI EXERCISE_NAME, không
+# riêng bài nào. LƯU Ý: KHÔNG dùng "\\$&" (JS replace pattern) làm replacement - đã xác nhận thật
+# qua probe cô lập rằng ký tự "$" xuất hiện BẤT KỲ ĐÂU trong biểu thức ${...} (kể cả trong string
+# literal, không riêng gì character class) khiến Maestro 2.8.0 im lặng KHÔNG evaluate cả biểu thức
+# (trả nguyên văn chuỗi "${...}" chưa xử lý, không throw lỗi) - dùng replacer dạng FUNCTION
+# (function(m){return "\\"+m}) để né hẳn ký tự "$" là cách duy nhất đã verify hoạt động đúng.
 appId: ${APP_ID}
 ---
 - runFlow:
@@ -111,7 +125,7 @@ appId: ${APP_ID}
       # sau khi revert selector vì độc lập với vấn đề containsDescendants.
       - scrollUntilVisible:
           element:
-            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+            text: '.*${(EXERCISE_NAME == null ? "Read and choose" : EXERCISE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
           direction: DOWN
           timeout: 150000
           speed: 70
@@ -119,10 +133,15 @@ appId: ${APP_ID}
       # VERIFY (không phải target scroll): đúng "Hạn nộp DATE" phải hiện ngay dưới đúng title vừa
       # cuộn tới - nếu FAILED, title vừa tìm được KHÔNG phải card đúng hạn nộp mong đợi, không tự
       # đoán tiếp/thử lại (caller tự quyết định BLOCKED kèm evidence).
+      #
+      # ĐÃ SỬA (2026-08-24): due date = HÔM NAY khiến app render thêm hậu tố "(Hôm nay)" ngay sau
+      # ngày (vd "Hạn nộp 24/08 (Hôm nay)") - match cũ không có wildcard nên FAILED thật (đã tái hiện
+      # thật, xem project_maestro_regex_parens_due_today.md). Thêm ".*" 2 đầu để chấp nhận hậu tố bất
+      # kỳ, KHÔNG bỏ hẳn việc dùng due-date (vẫn cần khi title trùng ≥2 card - xem docblock đầu file).
       - assertVisible:
-          text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+          text: ".*Hạn nộp ${EXERCISE_DUE_DATE_DM}.*"
           below:
-            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+            text: '.*${(EXERCISE_NAME == null ? "Read and choose" : EXERCISE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
       # ĐÃ GẶP THẬT (2026-08-12): tapOn "below: Hạn nộp DATE" (KHÔNG kèm title) tại đây vẫn có thể
       # bấm NHẦM dù scrollUntilVisible phía trên đã cuộn ĐÚNG vị trí - vì ≥2 card cùng "Hạn nộp
       # 19/08" có thể CÙNG hiển thị trong 1 khung nhìn (card liền kề nhau trong danh sách), "below"
@@ -133,9 +152,9 @@ appId: ${APP_ID}
       - tapOn:
           text: ".*(Làm bài|Làm lại|Tiếp tục).*"
           below:
-            text: "Hạn nộp ${EXERCISE_DUE_DATE_DM}"
+            text: ".*Hạn nộp ${EXERCISE_DUE_DATE_DM}.*"
             below:
-              text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+              text: '.*${(EXERCISE_NAME == null ? "Read and choose" : EXERCISE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
 - runFlow:
     when:
       true: ${EXERCISE_DUE_DATE_DM == null}
@@ -146,7 +165,7 @@ appId: ${APP_ID}
       # khớp với ngân sách ĐÃ CHỨNG MINH đủ trên chính thiết bị này, không đoán.
       - scrollUntilVisible:
           element:
-            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+            text: '.*${(EXERCISE_NAME == null ? "Read and choose" : EXERCISE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
           direction: DOWN
           timeout: 90000
           speed: 70
@@ -154,7 +173,7 @@ appId: ${APP_ID}
       - tapOn:
           text: ".*(Làm bài|Làm lại|Tiếp tục).*"
           below:
-            text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
+            text: '.*${(EXERCISE_NAME == null ? "Read and choose" : EXERCISE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
 
 # Consent AI nếu tài khoản chưa đồng ý
 - runFlow:

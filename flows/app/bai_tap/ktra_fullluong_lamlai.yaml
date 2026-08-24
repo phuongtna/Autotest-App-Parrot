@@ -39,9 +39,25 @@ name: KTRA-Fullluong-Lamlai - base case lam lai bai da hoan thanh
 # từng đoạn nhỏ + kiểm tra lại hierarchy sau mỗi lượt, dừng NGAY khi title khớp xuất hiện - KHÔNG
 # cuộn thêm sau đó. assertVisible "Làm lại" xác nhận ĐÚNG cta của card này là "Làm lại" (không phải
 # "Làm bài"/"Tiếp tục"/"Chinh phục" của 1 card khác chỉ trùng 1 phần title) trước khi tap. ---
+# ĐÃ SỬA (2026-08-24): escape ký tự regex đặc biệt trong EXERCISE_NAME (dấu ngoặc, dấu chấm...) -
+# cùng lý do + cùng cách sửa đã verify thật trong flows/app/helpers/open-exercise.yaml (xem comment
+# đầu file đó) - KHÔNG hardcode riêng 1 title, áp dụng cho mọi EXERCISE_NAME truyền vào.
+#
+# ĐÃ SỬA (2026-08-24, lần 2 - real run FAILED thật xác nhận): scroll TARGET = title đơn lẻ khiến
+# scrollUntilVisible dừng NGAY khi title mới hé mép dưới màn hình (đủ ngưỡng "visible"), trong khi
+# nút "Làm lại" của CHÍNH card đó vẫn còn ngoài khung nhìn phía dưới -> assertVisible "Làm lại" ngay
+# sau đó FAILED dù đang đứng ĐÚNG card (tái hiện thật với title "Read each sentence...True (T) or
+# False (F)." - screenshot xác nhận title nằm sát đáy màn hình, "Làm lại" bị cắt mất). Đây là đúng
+# root cause đã ghi nhận trước đó trong flows/app/helpers/open-exercise.yaml (docblock dòng 61-65) -
+# SỬA bằng compound selector (element = "Làm lại", below = title) làm TARGET scroll thay vì title
+# đơn lẻ - cùng kỹ thuật đã verify thật trong flows/bai_tap/ktra_fullluong_lambai.yaml (khối tìm lại
+# card sau khi thoát X, dòng 241-249) - buộc CẢ title lẫn "Làm lại" của ĐÚNG card đó cùng lọt vào
+# khung nhìn trước khi dừng cuộn.
 - scrollUntilVisible:
     element:
-      text: ".*${EXERCISE_NAME}.*"
+      text: "Làm lại"
+      below:
+        text: '.*${EXERCISE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
     direction: DOWN
     timeout: 150000
     speed: 70
@@ -49,7 +65,7 @@ name: KTRA-Fullluong-Lamlai - base case lam lai bai da hoan thanh
 - assertVisible:
     text: "Làm lại"
     below:
-      text: ".*${EXERCISE_NAME}.*"
+      text: '.*${EXERCISE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
 - takeScreenshot: KTRA-fullluong-lamlai-before
 
 # --- Tap "Làm lại" (compound selector title+CTA - cùng cơ chế đã verify trong
@@ -57,7 +73,7 @@ name: KTRA-Fullluong-Lamlai - base case lam lai bai da hoan thanh
 - tapOn:
     text: "Làm lại"
     below:
-      text: ".*${EXERCISE_NAME}.*"
+      text: '.*${EXERCISE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
 - runFlow:
     when:
       visible: ".*(AI hỗ trợ học tập).*"

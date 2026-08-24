@@ -74,7 +74,7 @@
 
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { parseEnvFile } from "../../../automation/src/config.js";
 import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
@@ -82,7 +82,15 @@ import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
 import { getHomeworks } from "../../../automation/bai_tap/discovery/homeworks.js";
 import { resolveMyStatus } from "../../../automation/bai_tap/model/homeworkModel.js";
-import { CTA_TEXTS, SECTION_HEADERS } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
+// Scroll/locate cho card "Làm lại" (collectDistinctCompletedCandidates/locateSpecificCompletedCandidate)
+// TÁCH ra automation/bai_tap/discovery/locateCompletedCandidate.js (2026-08-24) để dùng chung/dễ
+// test độc lập - xem docblock đầu file đó cho lịch sử/ROOT CAUSE đầy đủ. COMPLETED_CTA re-export từ
+// đó để giữ 1 nguồn sự thật duy nhất cho giá trị "Làm lại" (dùng lại ở log lỗi BLOCKED bên dưới).
+import {
+  collectDistinctCompletedCandidates,
+  locateSpecificCompletedCandidate,
+  COMPLETED_CTA,
+} from "../../../automation/bai_tap/discovery/locateCompletedCandidate.js";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
@@ -107,8 +115,8 @@ const TARGET_CLASS_ID = process.env.TARGET_CLASS_ID || "b3336062-cacd-4d1a-a0af-
 const TARGET_STUDENT_ID = process.env.TARGET_STUDENT_ID || "d87364c2-ad26-4136-8f7a-9078aff872ff";
 const MAX_LOCATE_SCROLLS = 60;
 const MAX_CANDIDATE_ATTEMPTS = 10;
-const COMPLETED_CTA = "Làm lại";
-const ADVANCED_SECTION_HEADER = "Bài tập nâng cao";
+// COMPLETED_CTA: import từ locateCompletedCandidate.js (xem import block đầu file) - KHÔNG khai báo
+// lại ở đây để tránh 2 nguồn sự thật lệch nhau.
 
 const REDO_SCORE_MODE = (process.env.REDO_SCORE_MODE || "target").trim().toLowerCase();
 const REDO_TARGET_SCORE_RAW = process.env.REDO_TARGET_SCORE;
@@ -168,11 +176,6 @@ async function timed(fn) {
 
 /** ===================== card/hierarchy parsing (COPY nguyên từ pro_lamlai_beat_previous_score.mjs) ===================== */
 
-const PROGRESS_PATTERN = /^\d+\s*\/\s*\d+$/;
-const DUE_DATE_PATTERN = /^Hạn nộp \d{2}\/\d{2}(\s*\(QUÁ HẠN\))?$/;
-const SCORE_PATTERN = /^Điểm\s*[0-9.,]+.*$/;
-const MAX_CTA_LOOKAHEAD = 6;
-
 function collectAllTexts(node, acc = []) {
   const t = node?.attributes?.text;
   if (typeof t === "string" && t.trim()) acc.push(t.trim());
@@ -196,207 +199,9 @@ function centerPoint(bounds) {
   return { x: Math.round((bounds.x1 + bounds.x2) / 2), y: Math.round((bounds.y1 + bounds.y2) / 2) };
 }
 
-function collectNodesWithBoundsInsideScrollableList(node, acc, insideScrollableList = false) {
-  const attrs = node?.attributes ?? {};
-  const nowInside = insideScrollableList || attrs?.scrollable === "true";
-  const text = attrs.text;
-  if (nowInside && typeof text === "string" && text.trim()) {
-    acc.push({ text: text.trim(), bounds: parseBounds(attrs.bounds) });
-  }
-  for (const child of node?.children ?? []) collectNodesWithBoundsInsideScrollableList(child, acc, nowInside);
-  return acc;
-}
-
-function findCompletedCardsWithCtaBounds(nodes, { sectionSeen: initialSectionSeen = false } = {}) {
-  const results = [];
-  let sectionSeen = initialSectionSeen;
-  for (let i = 0; i < nodes.length; i++) {
-    const { text } = nodes[i];
-    if (SECTION_HEADERS.includes(text)) {
-      sectionSeen = true;
-      continue;
-    }
-    if (!sectionSeen) continue;
-    if (!PROGRESS_PATTERN.test(text) && !DUE_DATE_PATTERN.test(text)) continue;
-
-    const titleNode = nodes[i - 1];
-    const title = titleNode?.text;
-    if (!title || SECTION_HEADERS.includes(title) || PROGRESS_PATTERN.test(title) || DUE_DATE_PATTERN.test(title) || CTA_TEXTS.includes(title)) {
-      continue;
-    }
-    const maybeDueBeforeTitle = nodes[i - 2]?.text;
-    const dueDateBefore = maybeDueBeforeTitle && DUE_DATE_PATTERN.test(maybeDueBeforeTitle) ? maybeDueBeforeTitle : null;
-
-    let cta = null;
-    let ctaBounds = null;
-    let scoreText = null;
-    for (let j = i + 1; j < Math.min(nodes.length, i + 1 + MAX_CTA_LOOKAHEAD); j++) {
-      const t = nodes[j].text;
-      if (SCORE_PATTERN.test(t)) scoreText = t;
-      if (CTA_TEXTS.includes(t)) {
-        cta = t;
-        ctaBounds = nodes[j].bounds;
-        break;
-      }
-      if (PROGRESS_PATTERN.test(t) || SECTION_HEADERS.includes(t)) break;
-    }
-    if (cta === COMPLETED_CTA && ctaBounds) {
-      results.push({ title, cta, ctaBounds, scoreText, dueDateBefore });
-    }
-  }
-  return { results, sectionSeen };
-}
-
-/** Cuộn thăm dò NHỎ + đọc lại hierarchy giữa mỗi lượt (KHÔNG scroll mù/cố định) - dừng NGAY khi đủ
- * candidate mong muốn hoặc hết section, dừng SỚM khi 2 lượt liên tiếp không tiến triển thêm (cùng
- * nguyên tắc dừng-sớm đã dùng trong findAssignment.js/homeworkUiList.js). */
-async function collectDistinctCompletedCandidates(bridge, { maxScrolls, maxDistinct, scrollLog = null }) {
-  let sectionSeen = false;
-  let enteredAdvanced = false;
-  const byTitle = new Map();
-
-  // readOnce() ĐO từng bước con (hierarchy/parse/match) - KHÔNG đổi thứ tự/logic bên trong, chỉ bọc
-  // timer quanh 2 lệnh đã có sẵn (collectNodesWithBoundsInsideScrollableList, findCompletedCardsWithCtaBounds).
-  const readOnce = async () => {
-    const hierarchyT = await timed(() => bridge.hierarchy());
-    const tree = hierarchyT.result;
-    const parseStart = now();
-    const nodes = collectNodesWithBoundsInsideScrollableList(tree, []);
-    const advancedIdx = nodes.findIndex((n) => n.text === ADVANCED_SECTION_HEADER);
-    if (advancedIdx !== -1) enteredAdvanced = true;
-    const relevantNodes = advancedIdx === -1 ? nodes : nodes.slice(0, advancedIdx);
-    const parseDurationMs = now() - parseStart;
-    const matchStart = now();
-    const { results, sectionSeen: newSectionSeen } = findCompletedCardsWithCtaBounds(relevantNodes, { sectionSeen });
-    const matchDurationMs = now() - matchStart;
-    sectionSeen = newSectionSeen;
-    for (const r of results) {
-      if (!byTitle.has(r.title)) byTitle.set(r.title, r);
-    }
-    return {
-      hierarchyDurationMs: hierarchyT.durationMs,
-      parseDurationMs,
-      matchDurationMs,
-      visibleCardRange: { totalNodes: nodes.length, advancedSectionFound: advancedIdx !== -1 },
-      candidateCount: results.length,
-    };
-  };
-
-  const readStats0 = await readOnce();
-  scrollLog?.push({ scrollIndex: 0, scrollDurationMs: null, waitDurationMs: null, ...readStats0, cumulativeDistinct: byTitle.size });
-  let scrollsUsed = 0;
-  let noProgressStreak = 0;
-  let lastSize = byTitle.size;
-  while (byTitle.size < maxDistinct && scrollsUsed < maxScrolls && !enteredAdvanced && noProgressStreak < 2) {
-    // Tách swipe/waitForAnimationToEnd thành 2 lần gọi runSteps() riêng (CÙNG lệnh, CÙNG thứ tự cũ,
-    // chỉ thêm 1 ranh giới đo) để có scrollDurationMs/waitDurationMs riêng biệt - xem docblock
-    // PROFILING đầu file.
-    const swipeT = await timed(() => bridge.runSteps([{ swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } }]));
-    if (!swipeT.result.success) {
-      log(`  [LOCATE] swipe thất bại ở lượt ${scrollsUsed + 1}: ${swipeT.result.error} - dừng cuộn.`);
-      break;
-    }
-    const waitT = await timed(() => bridge.runSteps([{ waitForAnimationToEnd: { timeout: 1200 } }]));
-    if (!waitT.result.success) {
-      // GIỮ NGUYÊN hành vi cũ: bản gốc gộp swipe+wait trong 1 lần gọi runSteps() DUY NHẤT - Maestro
-      // dừng NGAY khi 1 lệnh trong chuỗi fail, nên wait fail cũng khiến runSteps() gốc trả về
-      // success=false y hệt swipe fail -> loop cũ `break` luôn trong cả 2 trường hợp. Tách lệnh để
-      // đo riêng KHÔNG được đổi nhánh lỗi này - phải break tương tự khi wait fail.
-      log(`  [LOCATE] waitForAnimationToEnd thất bại ở lượt ${scrollsUsed + 1}: ${waitT.result.error} - dừng cuộn.`);
-      break;
-    }
-    scrollsUsed++;
-    const readStats = await readOnce();
-    noProgressStreak = byTitle.size > lastSize ? 0 : noProgressStreak + 1;
-    lastSize = byTitle.size;
-    scrollLog?.push({
-      scrollIndex: scrollsUsed,
-      scrollDurationMs: swipeT.durationMs,
-      waitDurationMs: waitT.durationMs,
-      ...readStats,
-      cumulativeDistinct: byTitle.size,
-    });
-  }
-  return { candidates: [...byTitle.values()], scrollsUsed, enteredAdvanced };
-}
-
-/** Cuộn tới ĐÚNG 1 title cụ thể - dùng khi TARGET_TITLE được cấu hình. TÁI SỬ DỤNG NGUYÊN cơ chế
- * cuộn nhỏ+đọc lại hierarchy của collectDistinctCompletedCandidates() (đã verify hoạt động thật -
- * tìm ra "G3-U3-Lesson 1: Read and complete" thành công 2026-08-22) THAY VÌ dùng scrollUntilVisible
- * gốc của Maestro - ĐÃ THỬ VÀ BỎ (2026-08-22): scrollUntilVisible báo thành công (tìm thấy text) rồi
- * đọc hierarchy ngay sau đó nhưng findCompletedCardsWithCtaBounds() trả về 0 candidate (kể cả các
- * card completed khác lẽ ra vẫn phải thấy) - nghi ngờ do khác cơ chế cuộn/thời điểm settle so với
- * cơ chế swipe nhỏ đã verify, KHÔNG điều tra sâu thêm (tốn thời gian trên thiết bị thật) - ĐỔI hẳn
- * sang tái dùng vòng lặp đã chứng minh hoạt động, chỉ đổi điều kiện DỪNG: dừng khi tìm thấy ĐÚNG
- * title cần, KHÔNG dừng sớm theo "2 lượt không tiến triển" (khác hẳn collectDistinctCompletedCandidates
- * - lý do case này tồn tại: chính ngưỡng dừng sớm đó đã bỏ lỡ card ở xa hơn trong danh sách). */
-async function locateSpecificCompletedCandidate(bridge, title, { maxScrolls, scrollLog = null }) {
-  const norm = (s) => (s ?? "").trim();
-  let sectionSeen = false;
-  let enteredAdvanced = false;
-  let found = null;
-  let lastResults = [];
-
-  const readOnce = async () => {
-    const hierarchyT = await timed(() => bridge.hierarchy());
-    const tree = hierarchyT.result;
-    const parseStart = now();
-    const nodes = collectNodesWithBoundsInsideScrollableList(tree, []);
-    const advancedIdx = nodes.findIndex((n) => n.text === ADVANCED_SECTION_HEADER);
-    if (advancedIdx !== -1) enteredAdvanced = true;
-    const relevantNodes = advancedIdx === -1 ? nodes : nodes.slice(0, advancedIdx);
-    const parseDurationMs = now() - parseStart;
-    const matchStart = now();
-    const { results, sectionSeen: newSectionSeen } = findCompletedCardsWithCtaBounds(relevantNodes, { sectionSeen });
-    const matchDurationMs = now() - matchStart;
-    sectionSeen = newSectionSeen;
-    lastResults = results;
-    found = results.find((r) => norm(r.title) === norm(title)) ?? null;
-    return {
-      hierarchyDurationMs: hierarchyT.durationMs,
-      parseDurationMs,
-      matchDurationMs,
-      visibleCardRange: { totalNodes: nodes.length, advancedSectionFound: advancedIdx !== -1 },
-      candidateCount: results.length,
-    };
-  };
-
-  const readStats0 = await readOnce();
-  scrollLog?.push({ scrollIndex: 0, scrollDurationMs: null, waitDurationMs: null, ...readStats0, foundTarget: !!found });
-  let scrollsUsed = 0;
-  while (!found && scrollsUsed < maxScrolls && !enteredAdvanced) {
-    // Tách swipe/waitForAnimationToEnd - xem docblock PROFILING đầu file (cùng lý do đã áp dụng ở
-    // collectDistinctCompletedCandidates()).
-    const swipeT = await timed(() => bridge.runSteps([{ swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } }]));
-    if (!swipeT.result.success) {
-      log(`  [LOCATE] swipe thất bại ở lượt ${scrollsUsed + 1}: ${swipeT.result.error} - dừng cuộn.`);
-      break;
-    }
-    const waitT = await timed(() => bridge.runSteps([{ waitForAnimationToEnd: { timeout: 1200 } }]));
-    if (!waitT.result.success) {
-      // Xem comment tương ứng trong collectDistinctCompletedCandidates() - giữ nguyên hành vi cũ
-      // (bản gốc gộp swipe+wait 1 lần gọi, wait fail cũng khiến vòng lặp `break`).
-      log(`  [LOCATE] waitForAnimationToEnd thất bại ở lượt ${scrollsUsed + 1}: ${waitT.result.error} - dừng cuộn.`);
-      break;
-    }
-    scrollsUsed++;
-    const readStats = await readOnce();
-    scrollLog?.push({
-      scrollIndex: scrollsUsed,
-      scrollDurationMs: swipeT.durationMs,
-      waitDurationMs: waitT.durationMs,
-      ...readStats,
-      foundTarget: !!found,
-    });
-  }
-  if (!found) {
-    log(
-      `  [LOCATE] Không tìm thấy card "${title}" sau ${scrollsUsed} lượt cuộn (enteredAdvanced=${enteredAdvanced}) - ` +
-        `${lastResults.length} candidate completed khác thấy được gần nhất: ${lastResults.map((r) => `"${r.title}"`).join(", ") || "(không có)"}.`,
-    );
-  }
-  return { candidates: found ? [found] : [], scrollsUsed, enteredAdvanced };
-}
+// collectDistinctCompletedCandidates()/locateSpecificCompletedCandidate() (scroll/locate cho card
+// "Làm lại") ĐÃ CHUYỂN sang automation/bai_tap/discovery/locateCompletedCandidate.js (2026-08-24) -
+// xem import block đầu file. Không còn định nghĩa ở đây.
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 function isoToVnYmdLocal(iso) {
@@ -928,7 +733,7 @@ async function main() {
     const phaseBStart = now();
     let collected;
     if (TARGET_TITLE) {
-      log(`[B] TARGET_TITLE cấu hình - cuộn THẲNG tới đúng card "${TARGET_TITLE}" (không quét/không dừng sớm)...`);
+      log(`[B] TARGET_TITLE cấu hình - cuộn THẲNG tới đúng card "${TARGET_TITLE}" (scrollToTop trước, dừng sớm khi list plateau thật - xem fix 2026-08-24)...`);
       collected = await locateSpecificCompletedCandidate(bridge, TARGET_TITLE, { maxScrolls: MAX_LOCATE_SCROLLS, scrollLog: profiling.phaseB.scrolls });
       if (collected.candidates.length === 0) {
         profiling.phaseB.startedAt = phaseBStart;
@@ -937,7 +742,7 @@ async function main() {
         return finish({
           status: "BLOCKED",
           phase: "LOCATE_CANDIDATE",
-          error: `Không tìm/khớp được card "${TARGET_TITLE}" với cta="${COMPLETED_CTA}" trên hồ sơ "${PROFILE_PRO_NAME}"` + (collected.locateError ? ` (${collected.locateError})` : "") + ".",
+          error: `Không tìm/khớp được card "${TARGET_TITLE}" với cta="${COMPLETED_CTA}" trên hồ sơ "${PROFILE_PRO_NAME}" sau ${collected.scrollsUsed} lượt cuộn (stopReason=${collected.stopReason ?? "UNKNOWN"}).`,
           evidence,
         });
       }
@@ -1227,15 +1032,31 @@ async function main() {
   }
 }
 
-main()
-  .then((result) => {
-    printReport(result);
-    printProfilingSummary(result);
-    log(`\nĐã ghi report ra ${OUTPUT_FILE}`);
-    process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 3 : 1);
-  })
-  .catch((err) => {
-    console.error("\n[pro_lamlai_target_score] Dừng lại vì lỗi ngoài dự kiến:\n", err);
-    finish({ status: "ERROR", error: err.message, stack: err.stack });
-    process.exit(2);
-  });
+// Guard chuẩn ESM (MỚI 2026-08-24, đi kèm việc export locateSpecificCompletedCandidate() để viết
+// test riêng cho fix scroll/plateau - xem ROOT CAUSE): CHỈ tự chạy main() khi file này được gọi trực
+// tiếp (`node .../pro_lamlai_target_score.mjs`), KHÔNG chạy khi 1 script khác `import` để tái sử
+// dụng hàm export - trước đây thiếu guard này khiến BẤT KỲ import nào cũng tự kích hoạt toàn bộ
+// main() (login/profile-switch/redo/submit thật) như 1 side effect ngoài ý muốn. KHÔNG đổi hành vi
+// khi chạy trực tiếp như cũ (điều kiện luôn đúng trong trường hợp đó).
+// BUG ĐÃ SỬA (2026-08-24, phát hiện ngay lần chạy CLI thật đầu tiên sau khi thêm guard): so sánh
+// thô `file://${process.argv[1]}` SAI ở 2 điểm - (1) process.argv[1] thường là đường dẫn TƯƠNG ĐỐI
+// khi gọi `node flows/...mjs` từ thư mục gốc repo, trong khi import.meta.url LUÔN là URL TUYỆT ĐỐI;
+// (2) đường dẫn repo có khoảng trắng ("Autotest app Parrot") - import.meta.url mã hoá thành "%20"
+// nhưng ghép chuỗi thô thì không - khiến 2 vế KHÔNG BAO GIỜ khớp dù chạy trực tiếp, main() không bao
+// giờ được gọi, script thoát code 0 mà KHÔNG làm gì (im lặng, không log, không ghi report) - lỗi rất
+// nguy hiểm vì "thành công giả". Dùng `pathToFileURL().href` (chuẩn Node, tự resolve tuyệt đối +
+// encode giống hệt import.meta.url) để so sánh đúng.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+    .then((result) => {
+      printReport(result);
+      printProfilingSummary(result);
+      log(`\nĐã ghi report ra ${OUTPUT_FILE}`);
+      process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 3 : 1);
+    })
+    .catch((err) => {
+      console.error("\n[pro_lamlai_target_score] Dừng lại vì lỗi ngoài dự kiến:\n", err);
+      finish({ status: "ERROR", error: err.message, stack: err.stack });
+      process.exit(2);
+    });
+}

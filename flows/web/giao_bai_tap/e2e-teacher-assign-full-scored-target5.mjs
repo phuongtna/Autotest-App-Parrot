@@ -579,6 +579,29 @@ async function pickFeasibleRandomAssignment({ className, classId, maxAttempts = 
     log(`  [SELECTION] ${skippedNoTag} candidate bị loại vì lesson thiếu field "tag" trong CMS (không xác định được nút "Chọn Lesson" tương ứng trên Web GV).`);
   }
 
+  // ĐÃ SỬA (2026-08-25, root cause thật xác nhận qua data thật lớp "2A" - xem
+  // project_candidate_title_uniqueness_vs_identity.md): candidate.itemId/candidate.examId (UUID
+  // thật từ CMS catalog /api/learn/items) LUÔN LÀ stable identity của candidate - itemName (title)
+  // CHỈ dùng để hiển thị, KHÔNG BAO GIỜ được coi là identity (2 candidate khác itemId vẫn là 2
+  // candidate khác nhau dù trùng itemName - vd nhiều Unit/Lesson khác nhau cùng dùng chung title
+  // "Choose the correct answer (A, B, C or D)."). Bản CŨ loại thẳng mọi candidate có ≥1 room cũ
+  // trùng itemName trong lớp ra khỏi vòng thử HOÀN TOÀN (dùng itemName làm proxy cho "an toàn
+  // locate trên app") - ĐÃ CHỨNG MINH SAI/QUÁ TAY qua run thật: lớp "2A" có 184/301 candidate dạng
+  // text-choice-compatible thật (đã verify trực tiếp qua CMS), nhưng TOÀN BỘ đều bị loại vì chính
+  // session test này đã tạo/hoàn thành room với đúng các title đó trước đó - còn lại đúng 44
+  // candidate "unique" thuộc nhóm Nghe/Nói/Phát âm (đáp án là ảnh/audio, không có text - loại đúng
+  // vì lý do khác hẳn, xem isTextChoiceCompatible), khiến 44/44 bị BLOCKED oan.
+  //
+  // Cơ chế locate-trên-app THẬT (locateOpenAndVerifyAssignment() ở dưới, dòng ~1192) đã LUÔN nhận
+  // + dùng dueDateDM làm bộ lọc cấp 1 CHO MỌI candidate (không điều kiện "chỉ khi unique"), và tự
+  // xử lý cả trường hợp AMBIGUOUS (≥2 candidate cùng title+dueDate) bằng cách thử hết + đối chiếu
+  // NỘI DUNG câu hỏi (xem docblock dòng 398) - nghĩa là hạ tầng locate ĐÃ tự giải quyết đúng vấn đề
+  // "title trùng" bằng dueDate+content, không cần đến bộ lọc itemName ở bước prescan này nữa.
+  //
+  // SỬA: KHÔNG loại candidate theo itemName trùng. Vẫn tính "occurrences" để ưu tiên thử candidate
+  // itemName-unique TRƯỚC (locate đơn giản/nhanh hơn khi không cần disambiguation), nhưng candidate
+  // NON_UNIQUE (itemName trùng, itemId khác) vẫn được thử tiếp nếu nhóm unique không ra candidate
+  // khả thi - dựa hẳn vào dueDate+content disambiguation đã có sẵn, KHÔNG loại oan theo title.
   const existingTitleCounts = await scanExistingAssignmentTitleOccurrences(classId);
   const annotated = flat.map((cand) => {
     const occurrences = existingTitleCounts.get(cand.itemName) ?? 0;
@@ -588,28 +611,30 @@ async function pickFeasibleRandomAssignment({ className, classId, maxAttempts = 
   const nonUniqueCandidates = annotated.filter((c) => !c.unique);
   log(
     `  [SELECTION] lớp "${className}" hiện có ${existingTitleCounts.size} title khác nhau đang tồn tại room - ` +
-      `${uniqueCandidates.length}/${flat.length} candidate eligible có title UNIQUE (0 room cũ trùng), ` +
-      `${nonUniqueCandidates.length} candidate NON_UNIQUE bị loại khỏi vòng thử (không dùng để đoán).`,
+      `${uniqueCandidates.length}/${flat.length} candidate eligible có title UNIQUE (0 room cũ trùng, thử TRƯỚC), ` +
+      `${nonUniqueCandidates.length} candidate NON_UNIQUE (itemId khác, thử SAU nếu cần - locate dựa vào dueDate+content disambiguation có sẵn, KHÔNG loại theo title).`,
   );
   if (nonUniqueCandidates.length > 0) {
     const sample = [...new Map(nonUniqueCandidates.map((c) => [c.itemName, c.occurrences])).entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
-    log(`    NON_UNIQUE mẫu (itemName=occurrences): ${sample.map(([n, c]) => `"${n}"=${c}`).join(", ")}`);
+    log(`    NON_UNIQUE mẫu (itemName=occurrences, vẫn nằm trong vòng thử): ${sample.map(([n, c]) => `"${n}"=${c}`).join(", ")}`);
   }
 
-  if (uniqueCandidates.length === 0) {
+  if (annotated.length === 0) {
     return {
       ok: false,
       blocked: true,
-      blockedReason: "BLOCKED: No uniquely locatable assignment candidate.",
+      blockedReason: "BLOCKED: No eligible assignment candidate (non-speak, đúng 1 exam_id) trong lớp.",
       attempts: [],
       totalEligibleNonSpeakSingleExam: flat.length,
       totalUniqueTitleCandidates: 0,
     };
   }
 
-  const order = shuffle(uniqueCandidates).slice(0, maxAttempts);
+  // Ưu tiên unique trước (locate đơn giản hơn), rồi mới tới non-unique (locate cần dueDate+content
+  // disambiguation - hạ tầng đã có sẵn, xem comment trên) - KHÔNG loại hẳn non-unique khỏi vòng thử.
+  const order = [...shuffle(uniqueCandidates), ...shuffle(nonUniqueCandidates)].slice(0, maxAttempts);
   const attempts = [];
   for (const cand of order) {
     let questions = null;
@@ -966,7 +991,7 @@ async function main() {
       `Lượt này KHÔNG gọi lại Web GV (tránh tạo room trùng), dùng lại cơ chế open/resume riêng của chính file này (scrollAndReadCardState, khác findAssignment()).`;
     evidence.teacherAssign = { roomId: assignment.id, title: assignment.title, dueTimeVn: formatDMY(dueVnYmd), reused: true };
   } else {
-    log(`[1/N] Pre-scan READ-ONLY lớp ${TARGET_CLASS}: chọn 1 candidate UNIQUE title (0 room cũ trùng trong lớp) + handler hỗ trợ + điểm mục tiêu ${TARGET_SCORE_RANGE_LABEL}...`);
+    log(`[1/N] Pre-scan READ-ONLY lớp ${TARGET_CLASS}: chọn 1 candidate theo itemId (title unique thử trước, non-unique thử sau) + handler hỗ trợ + điểm mục tiêu ${TARGET_SCORE_RANGE_LABEL}...`);
     const picked = await pickFeasibleRandomAssignment({ className: TARGET_CLASS, classId: TARGET_CLASS_ID });
     evidence.randomSelection = {
       attemptsCount: picked.attempts.length,
@@ -979,7 +1004,7 @@ async function main() {
       return finish({
         status: "BLOCKED",
         phase: "SELECTION",
-        error: `${picked.blockedReason} Không còn candidate eligible nào (non-speak, đúng 1 exam_id) có title UNIQUE (0 room cũ trùng) trong lớp ${TARGET_CLASS} - KHÔNG tạo assignment với title đã trùng (không có cách locate an toàn trên UI học sinh, chỉ có title+Hạn nộp hiển thị).`,
+        error: `${picked.blockedReason} Không còn candidate eligible nào (non-speak, đúng 1 exam_id) trong lớp ${TARGET_CLASS}.`,
         evidence,
       });
     }
@@ -988,19 +1013,27 @@ async function main() {
       return finish({
         status: "BLOCKED",
         phase: "RANDOM_SELECTION",
-        error: `Đã thử ${picked.attempts.length}/${MAX_PRESCAN_ATTEMPTS} candidate UNIQUE title trong lớp ${TARGET_CLASS} (tổng ${picked.totalUniqueTitleCandidates} candidate unique có sẵn) - không candidate nào vừa có handler hỗ trợ đầy đủ vừa có correctCount nguyên cho điểm dự đoán trong ${TARGET_SCORE_RANGE_LABEL}.`,
+        error: `Đã thử ${picked.attempts.length}/${MAX_PRESCAN_ATTEMPTS} candidate (unique title thử trước, non-unique thử sau) trong lớp ${TARGET_CLASS} (tổng ${picked.totalUniqueTitleCandidates} candidate unique title có sẵn, ngoài ra còn candidate non-unique) - không candidate nào vừa có handler hỗ trợ đầy đủ vừa có correctCount nguyên cho điểm dự đoán trong ${TARGET_SCORE_RANGE_LABEL}.`,
         evidence,
       });
     }
     const chosen = picked.chosen;
+    // ĐÃ SỬA (2026-08-25): trước đây hardcode `unique: true`/`"unique, 0 existing rooms"` bất kể
+    // giá trị thật của chosen.unique - sai từ khi non-unique candidate cũng được phép chọn (xem
+    // fix ở pickFeasibleRandomAssignment). Dùng identity thật (itemId - stable, KHÔNG phải title)
+    // + dueDateDM làm identifier chung cho MỌI trường hợp (unique hay không), khớp đúng cơ chế
+    // locateOpenAndVerifyAssignment() thật đang dùng (title+dueDate+content disambiguation).
     evidence.selection = {
       candidate: `${chosen.unitName}/${chosen.lessonName}/${chosen.itemName}`,
-      unique: true,
+      itemId: chosen.itemId,
+      unique: chosen.unique,
       occurrences: chosen.occurrences,
-      identifier: `title (unique, 0 existing rooms in class ${TARGET_CLASS}) + due date - resolved to room_id after assign`,
+      identifier: chosen.unique
+        ? `itemId=${chosen.itemId} (title unique, 0 existing rooms in class ${TARGET_CLASS}) + due date - resolved to room_id after assign`
+        : `itemId=${chosen.itemId} (title NON-unique, ${chosen.occurrences} existing room(s) with same title in class ${TARGET_CLASS}) + due date + content disambiguation (locateOpenAndVerifyAssignment) - resolved to room_id after assign`,
     };
     log(
-      `  [PASS] Chọn "${chosen.unitName}/${chosen.lessonName}/${chosen.itemName}" (N=${chosen.questions.length}, occurrences=${chosen.occurrences}, unique=true, correctCount kế hoạch=${chosen.scorePlan.correctCount}, dự đoán=${chosen.scorePlan.predictedScore}).`,
+      `  [PASS] Chọn "${chosen.unitName}/${chosen.lessonName}/${chosen.itemName}" (itemId=${chosen.itemId}, N=${chosen.questions.length}, occurrences=${chosen.occurrences}, unique=${chosen.unique}, correctCount kế hoạch=${chosen.scorePlan.correctCount}, dự đoán=${chosen.scorePlan.predictedScore}).`,
     );
 
     // FIX (2026-08-22, FAIL thật xác nhận qua run TARGET_SCORE_MIN=6/MAX=6.9: "Giao bài thất bại
@@ -1182,6 +1215,31 @@ async function main() {
       evidence.kienThucTrongBai = { man1: kienThucMan1 };
     }
 
+    // ===== ĐÃ SỬA (2026-08-25, root cause thật xác nhận qua run FAIL thật lớp 2A, candidate "Put
+    // the words in the correct order..."): [4/N] đọc overallBefore bằng list ĐÃ ĐANG TẢI SẴN trong
+    // bridge này (chỉ scroll trong dữ liệu đã fetch, KHÔNG ép fetch lại) - [2/N] giao bài qua API
+    // web RIÊNG (KHÔNG qua app), nên app KHÔNG có tín hiệu nào để tự biết cần refetch danh sách
+    // NGAY - "tổng số bài (Y)" tăng đúng ở [4/N] chỉ chứng minh phần ĐẾM TỔNG (badge nhỏ) đã cập
+    // nhật, KHÔNG chứng minh danh sách CHI TIẾT (từng card, phần findAssignment() thật sự cuộn qua)
+    // cũng đã refetch cùng lúc - 2 phần hoàn toàn có thể tách rời cache/refetch timing khác nhau.
+    // Giữa [4/N] và đây KHÔNG có bước nào ép app tải lại danh sách (CHECK_KIEN_THUC_TRONG_BAI mặc
+    // định false -> nhánh duy nhất từng làm việc đó bị SKIPPED) - `locateOpenAndVerifyAssignment()`
+    // bên dưới chỉ `scrollToTop()` (cuộn trong dữ liệu ĐÃ CÓ) rồi `findAssignment()` (cuộn xuống,
+    // cũng trong dữ liệu ĐÃ CÓ) - nếu card mới chưa kịp có trong lần fetch đó, cuộn bao nhiêu cũng
+    // không bao giờ thấy -> END_OF_LIST OAN dù assignment có thật trên backend (đã xác nhận room_id
+    // tồn tại qua diff before/after ở [3/N]). SỬA: ép refresh list TRƯỚC khi gọi locate - tái dùng
+    // NGUYÊN VẸN pattern pull-to-refresh (tap lại tab "Bài tập" + swipe kéo xuống) đã verify hoạt
+    // động đúng cho ĐÚNG mục đích "nạp lại dữ liệu mới" ở [6/N] cùng file này (dòng ~1240) và trong
+    // flows/bai_tap/ktra_fullluong_lambai.yaml (dòng 204-211) - KHÔNG phát minh cơ chế mới, KHÔNG
+    // đụng vào findAssignment()/scrollToTop() (thuật toán cuộn/fingerprint của 2 hàm đó đã đúng,
+    // vấn đề nằm ở DỮ LIỆU ĐẦU VÀO cũ, không phải cách chúng cuộn/so khớp).
+    log(`  [REFRESH] Ép tải lại danh sách "Bài tập" trước khi tìm assignment vừa giao (tránh cache cũ trước lúc giao bài)...`);
+    await bridge.runSteps([
+      { tapOn: { text: "Bài tập", optional: true } },
+      { swipe: { start: "50%, 35%", end: "50%, 85%", duration: 600 } },
+      { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|2 tuần gần nhất|1 tháng gần nhất).*" }, timeout: 30000 } },
+    ]);
+
     // ===== OPEN đúng assignment - FIX (2026-08-22): identity-based matching qua
     // locateOpenAndVerifyAssignment() (findAssignment()/scrollToTop()/tapFoundCard() có sẵn +
     // content-fingerprint verify qua QUESTIONS đã resolve theo room.id thật) - THAY hẳn locator cũ
@@ -1288,9 +1346,27 @@ async function main() {
 
     // ===== RESULT_SCREEN (COPY gốc: chờ exercise_result_screen; MỚI: đọc + verify điểm số) =====
     log(`[10/N] Xác nhận màn Kết quả + đọc điểm THẬT (KHÔNG dựa self-assessment - đọc từ result screen)...`);
-    const finalTree = lastOutcome?.finalTree ?? null;
+    let finalTree = lastOutcome?.finalTree ?? null;
+    // ĐÃ SỬA (2026-08-25, FAIL thật xác nhận qua run lớp 2A: app HOÀN THÀNH thật (progress
+    // 14/14 -> 15/15 xác nhận qua screenshot thật SAU KHI flow đã báo FAIL) nhưng bước này vẫn báo
+    // "Không thấy màn hình Kết quả" - RACE CONDITION, không phải app lỗi): `finalTree` ở trên lấy
+    // từ `answerCurrentQuestionOneShot()` của CÂU CUỐI, vốn chỉ chờ `waitForAnimationToEnd` cố
+    // định 1000-1500ms rồi chụp hierarchy NGAY (đủ cho chuyển câu-sang-câu, thuần UI local) -
+    // KHÔNG đủ cho riêng bước "Nộp bài" của câu cuối (cần round-trip mạng thật để server tính
+    // điểm, chậm hơn hẳn - đúng lý do CHỈ câu cuối gặp, câu 1-9 luôn qua). SỬA: nếu snapshot đầu
+    // chưa thấy màn Kết quả, POLL THẬT (tái sử dụng bridge.wait()/extendedWaitUntil có sẵn trong
+    // automation/bridge/maestroMcpBridge.js - CÙNG cơ chế mọi flow .yaml khác trong repo đã dùng
+    // cho đúng bước này, vd flows/app/helpers/answer-current-exercise-generic.yaml gọi qua
+    // ktra_fullluong_lambai.yaml với timeout 60000) thay vì kết luận FAIL ngay từ 1 snapshot cũ.
     if (!exam.isResultScreen(finalTree)) {
-      return finish({ status: "FAIL", phase: "RESULT_SCREEN", error: "Không thấy màn hình Kết quả sau khi trả lời hết toàn bộ câu.", evidence });
+      log(`  [WAIT] Chưa thấy màn Kết quả ở snapshot đầu (có thể do submit câu cuối cần round-trip mạng) - chờ thêm tối đa 20s...`);
+      const waited = await bridge.wait({ id: "exercise_result_screen" }, { timeout: 20000 });
+      if (waited.success) {
+        finalTree = await bridge.hierarchy();
+      }
+    }
+    if (!exam.isResultScreen(finalTree)) {
+      return finish({ status: "FAIL", phase: "RESULT_SCREEN", error: "Không thấy màn hình Kết quả sau khi trả lời hết toàn bộ câu (đã chờ thêm 20s).", evidence });
     }
     const result = exam.readResult(finalTree);
     evidence.result = result;

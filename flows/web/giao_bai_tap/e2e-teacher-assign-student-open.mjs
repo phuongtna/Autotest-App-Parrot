@@ -229,6 +229,25 @@ function openHomeworkListForLocate(switchToMonthFilter) {
  * đúng hơn (không bị đánh lừa bởi nội dung trùng lặp).
  * @returns {Promise<Object>} kết quả findAssignment() - {status, card|matches|reason, scrollCount, diagnostics}
  */
+// ĐÃ SỬA (2026-08-25, root cause thật xác nhận qua 2 diagnostic riêng - đo song song API
+// (automation/bai_tap/discovery/homeworks.js#fetchAllHomeworkRooms, CHÍNH API [3/4] ở trên đã
+// dùng) và UI (findAssignment()) tại nhiều mốc thời gian sau khi GV giao bài xong: API CÓ room mới
+// ngay lập tức (T+0, ~15ms) và ổn định ở MỌI mốc đo tiếp theo (T+1/3/5/10s) - loại bỏ backend/API
+// propagation delay khỏi danh sách nguyên nhân. Trong khi đó findAssignment() ĐÃ từng NOT_FOUND/
+// END_OF_LIST thật (xác nhận 2 lần, kể cả sau khi đã đợi 10s) dù API lúc đó chắc chắn đã có room -
+// CHỨNG MINH đây là vấn đề UI-side (list/cache của app sau khi giao bài qua Web GV, KHÔNG phải
+// Node/automation), KHÔNG PHẢI backend chưa kịp cập nhật. Cùng root cause đã được xử lý ở 1 bước
+// locate TƯƠNG TỰ khác trong repo (xem flows/web/giao_bai_tap/e2e-teacher-assign-full-scored-
+// target5.mjs, khối "[REFRESH] Ép tải lại danh sách" ngay trước locateOpenAndVerifyAssignment(), và
+// flows/app/bai_tap/ktra_fullluong_lambai.yaml dòng ~204-211 "Refresh để state ... được nạp lại") -
+// TÁI SỬ DỤNG NGUYÊN VẸN pattern pull-to-refresh đó (đúng start/end/duration của swipe + đúng điều
+// kiện extendedWaitUntil), KHÔNG phát minh cơ chế mới, KHÔNG sửa findAssignment(). Refresh chạy
+// NGAY sau khi mở session (list đang ở đỉnh, vừa mở qua openHomeworkListForLocate() ở caller),
+// TRƯỚC findAssignment() - đúng vị trí "đang ở đỉnh danh sách" mà gesture pull-to-refresh cần.
+// extendedWaitUntil timeout=30000 chỉ là ngưỡng AN TOÀN tối đa (y hệt giá trị đã dùng ở 2 nơi trên) -
+// thời gian chờ THẬT chỉ tới khi điều kiện đã đúng (nội dung "Bài tập về nhà"/"Bài tập nâng cao"
+// hiện lại), KHÔNG phải sleep cố định - không thêm poll API (diagnostic đã chứng minh API không
+// phải bottleneck) và không refresh lặp lại nhiều lần.
 async function locateAssignmentOnApp(title, dueDateDm) {
   const session = new MaestroMcpSession(DEVICE_ID ? { deviceId: DEVICE_ID } : {});
   await session.start();
@@ -237,7 +256,17 @@ async function locateAssignmentOnApp(title, dueDateDm) {
       hierarchy: () => session.hierarchy(),
       runSteps: (steps) => session.run(APP_ID, steps),
     };
-    return await findAssignment(adapter, { title, dueDateDM: dueDateDm });
+    const refreshStartedAt = Date.now();
+    console.log(`  [REFRESH] Ép tải lại danh sách "Bài tập" trước khi findAssignment() (pattern tái sử dụng từ ktra_fullluong_lambai.yaml)...`);
+    const refreshResult = await session.run(APP_ID, [
+      { swipe: { start: "50%, 35%", end: "50%, 85%", duration: 600 } },
+      { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao).*" }, timeout: 30000 } },
+    ]);
+    console.log(`  [REFRESH] xong trong ${Date.now() - refreshStartedAt}ms (success=${refreshResult.success}).`);
+    const findStartedAt = Date.now();
+    const result = await findAssignment(adapter, { title, dueDateDM: dueDateDm });
+    console.log(`  [FIND] findAssignment() xong trong ${Date.now() - findStartedAt}ms - status=${result.status} scrollCount=${result.scrollCount}.`);
+    return result;
   } finally {
     await session.stop();
   }
@@ -393,8 +422,9 @@ export async function assignHomeworkAndLocateOnApp() {
   const dueVnYmd = isoToVnYmd(assignment.deadline.endTime);
   const startVnYmd = isoToVnYmd(assignment.deadline.startTime);
   const dueDM = formatDM(dueVnYmd);
+  const assignConfirmedAt = Date.now(); // mốc "assignment created" (đo timing REFRESH fix, không đổi behavior)
   console.log(
-    `  [PASS] room_id=${assignment.id} title="${assignment.title}" ngày giao(VN)=${formatDMY(startVnYmd)} hạn nộp(VN)=${formatDMY(dueVnYmd)}`,
+    `  [PASS] room_id=${assignment.id} title="${assignment.title}" ngày giao(VN)=${formatDMY(startVnYmd)} hạn nộp(VN)=${formatDMY(dueVnYmd)} (t=${new Date(assignConfirmedAt).toISOString()})`,
   );
 
   // Không có selector/helper cho icon "thông báo" trong app (đã xác nhận CHƯA tự động hoá được ở
@@ -419,6 +449,7 @@ export async function assignHomeworkAndLocateOnApp() {
 
   openHomeworkListForLocate(switchToMonthFilter);
   const located = await locateAssignmentOnApp(assignment.title, dueDM);
+  console.log(`  [TIMING] create -> locate xong: ${Date.now() - assignConfirmedAt}ms (status=${located.status}).`);
   const scanOutcome = { method: "FIND_ASSIGNMENT_MCP_SESSION", scrollCount: located.scrollCount, status: located.status };
 
   if (located.status === "NOT_FOUND" || located.status === "ERROR") {

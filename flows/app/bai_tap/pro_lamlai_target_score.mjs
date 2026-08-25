@@ -91,6 +91,13 @@ import {
   locateSpecificCompletedCandidate,
   COMPLETED_CTA,
 } from "../../../automation/bai_tap/discovery/locateCompletedCandidate.js";
+// findAssignment()/scrollToTop() (MỚI 2026-08-25, xem PRECHECK bên dưới) - cơ chế locate CANONICAL
+// dùng chung toàn bộ automation khác (target5.mjs, e2e-teacher-assign-student-open.mjs...), KHÁC
+// locateSpecificCompletedCandidate() ở trên (implementation RIÊNG của chính file này - xem memory
+// feedback_reuse_scroll_locate_mechanisms.md, phần bổ sung 2026-08-24). CHỈ dùng cho PRECHECK
+// READ-ONLY (xem runCanonicalLocatePrecheck()) - KHÔNG thay locateSpecificCompletedCandidate() ở
+// luồng "làm lại" thật (ngoài phạm vi yêu cầu, tránh đổi hành vi production đã verify).
+import { findAssignment, scrollToTop } from "../../../automation/bai_tap/discovery/findAssignment.js";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
@@ -133,6 +140,29 @@ const TARGET_TITLE = process.env.TARGET_TITLE || null;
 // Quy đổi point (có thể là số thập phân, vd 0.5) sang số nguyên để DP subset-sum không dính sai số
 // float - 1000 đủ dư cho mọi độ chia nhỏ CMS đã quan sát thật (point nguyên hoặc 1 chữ số thập phân).
 const POINT_SCALE = 1000;
+
+// ===================== PRECHECK (MỚI 2026-08-25) =====================
+// Rule đã có từ trước (feedback_reuse_scroll_locate_mechanisms.md, bổ sung 2026-08-24): TRƯỚC KHI
+// chạy full script (~10 phút) với 1 TARGET_TITLE cụ thể, nên xác nhận trước card đó THẬT reachable
+// qua cơ chế locate CANONICAL (findAssignment()) bằng 1 bước READ-ONLY nhanh (~vài chục giây) -
+// tránh mất cả lượt chạy dài rồi mới biết bị "stuck scroll" (root cause thật gặp 2026-08-25:
+// locateSpecificCompletedCandidate() báo BLOCKED "ADVANCED_SECTION_REACHED" dù card có thật và đang
+// hiển thị điểm trên màn hình - stuck ở CHÍNH cơ chế locate riêng của file này, không phải do card
+// không tồn tại).
+//
+// PRECHECK_ONLY=true: CHỈ chạy [A] profile-check + scrollToTop() + findAssignment() (identity=
+// {title: TARGET_TITLE, cta: COMPLETED_CTA}, KHÔNG dùng locateSpecificCompletedCandidate()) rồi DỪNG
+// - KHÔNG gọi resolveHomeworkExamQuestionsForRoomId/CMS, KHÔNG tap "Làm lại", KHÔNG trả lời câu nào,
+// KHÔNG submit - đúng yêu cầu READ-ONLY. Hành vi chạy THƯỜNG (PRECHECK_ONLY không set/false) GIỮ
+// NGUYÊN 100% - guard này chỉ CHẶN THÊM 1 nhánh mới trong main(), không đổi bất kỳ bước nào của
+// luồng full script cũ.
+const PRECHECK_ONLY = (process.env.PRECHECK_ONLY || "").trim().toLowerCase() === "true";
+// maxScrolls RIÊNG cho precheck (mặc định 20, nhỏ hơn hẳn MAX_LOCATE_SCROLLS=60 dùng cho luồng full
+// script) - đây là cách "cấu hình timeout riêng cho pre-check" ĐÚNG yêu cầu: chỉ truyền option
+// `maxScrolls` cho ĐÚNG lệnh gọi findAssignment() này (findAssignment() đã hỗ trợ sẵn tham số này
+// per-call, xem automation/bai_tap/discovery/findAssignment.js) - KHÔNG đổi DEFAULT_MAX_SCROLLS
+// (giá trị mặc định 40) hay bất kỳ hằng số global nào trong file đó, KHÔNG ảnh hưởng caller khác.
+const PRECHECK_MAX_SCROLLS = Number(process.env.PRECHECK_MAX_SCROLLS) || 20;
 
 function log(...args) {
   console.log(...args);
@@ -317,15 +347,135 @@ function isTextChoiceCompatible(questions) {
   });
 }
 
-async function findMatchingQuestion(bridge, pool, priorTree) {
+/** ===================== [E] MATCHING (SỬA 2026-08-25 - full answer-set match) =====================
+ * ROOT CAUSE xác nhận thật (xem memory project_teacher_materials_examid_order_mismatch.md): examId
+ * catalog (dfe080b0-...) dùng để resolve CMS KHÁC examId thật của room (c1615ff2-...) - cùng 10
+ * câu/đáp án NHƯNG thứ tự câu khác nhau, và nhiều câu DÙNG CHUNG một số từ đáp án (dress/friend/
+ * these/celebrate...). Bản CŨ (duyệt `pool` theo thứ tự CMS, gọi decideAnswerAction() - hàm đó chỉ
+ * yêu cầu >=2 answers của 1 candidate "nhìn thấy được" TRÊN TOÀN BỘ cây, KHÔNG cần đủ hết) trả về
+ * candidate ĐẦU TIÊN thoả - khi thứ tự bị xáo trộn + có từ đáp án trùng giữa nhiều câu, candidate
+ * SAI bị chọn nhầm ở câu sớm, để lại 2 candidate thật không khớp câu 9-10 -> "không khớp được câu
+ * hỏi nào".
+ *
+ * SỬA: yêu cầu ĐỦ TOÀN BỘ answers[] của 1 candidate phải "nhìn thấy được" (full answer-set match,
+ * so theo Set đã normalize - KHÔNG phụ thuộc thứ tự đáp án/thứ tự pool/thứ tự UI, xem
+ * findFullAnswerSetMatches()) mới coi là khớp - KHÔNG tự chọn candidate đầu tiên có visibleCount>=2
+ * như cũ. 0 candidate khớp full-set (nhưng có candidate lộ 1 phần) -> NO_MATCH (fail rõ, không
+ * đoán); >1 candidate khớp full-set -> AMBIGUOUS (fail rõ, không tự chọn); ĐÚNG 1 -> chọn, rồi mới
+ * gọi decideAnswerAction() (GIỮ NGUYÊN, KHÔNG sửa - dùng chung answerCurrentQuestionOneShot()/nhiều
+ * flow khác) để lấy action tap thật cho đúng 1 candidate đó.
+ *
+ * FALLBACK giữ nguyên hành vi CŨ (first-fit qua decideAnswerAction() y nguyên, KHÔNG đổi) CHỈ khi
+ * KHÔNG candidate nào lộ dù 1 phần đáp án dạng text (nghi ngờ màn hình đang render dạng
+ * IMAGE_CHOICE_GRID - isTextChoiceCompatible() ở bước chọn candidate chỉ đảm bảo CMS MODEL có đáp
+ * án text, KHÔNG đảm bảo UI thật render dạng text hay hình) - tránh regression cho case chưa từng
+ * gặp lỗi này trong session chẩn đoán, không có dữ liệu thật để sửa đúng nên không suy đoán thêm.
+ *
+ * So sánh dùng Set string thuần (không dùng regex như isVisibleInTree/decideAnswerAction) - tránh
+ * luôn rủi ro ký tự regex đặc biệt trong đáp án thật (dấu "(...)" đã từng phá regex Maestro, xem
+ * memory project_maestro_regex_parens_due_today.md) làm hỏng so khớp.
+ */
+function normalizeAnswerText(s) {
+  return String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+/** Set các text đang hiển thị, ĐÃ normalize - build 1 LẦN mỗi lượt gọi findMatchingQuestion() (không
+ * phải mỗi candidate/mỗi answer) để tra cứu O(1) qua Set.has(), thay vì gọi lại isVisibleInTree()
+ * (duyệt toàn bộ texts[], O(texts)) cho MỖI answer của MỖI candidate còn lại trong pool. */
+function buildNormalizedVisibleSet(texts) {
+  const set = new Set();
+  for (const t of texts) set.add(normalizeAnswerText(t));
+  return set;
+}
+
+/** Trả {matches, anyPartialTextVisible}: `matches` = TOÀN BỘ candidate trong pool có ĐỦ HẾT
+ * answers[] (đã normalize) nằm trong tập đang hiển thị - không phụ thuộc thứ tự đáp án (so theo
+ * Set) hay thứ tự pool (duyệt hết, không return sớm - Rule 1-3). `anyPartialTextVisible` = có ít
+ * nhất 1 candidate lộ >=2 đáp án (ngưỡng "hợp lệ" cũ của decideAnswerAction()) nhưng chưa đủ hết -
+ * dùng để phân biệt NO_MATCH thật (có text nhưng không đủ - case bug đã fix) với "không phải màn
+ * text-choice" (fallback IMAGE_CHOICE_GRID bên dưới). */
+function findFullAnswerSetMatches(pool, normalizedVisibleSet) {
+  const matches = [];
+  let anyPartialTextVisible = false;
+  for (const q of pool) {
+    const answers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim().length > 0);
+    if (answers.length < 2) continue; // cùng ngưỡng "hợp lệ có đáp án" như decideAnswerAction() cũ.
+    const visibleCount = answers.filter((a) => normalizedVisibleSet.has(normalizeAnswerText(a))).length;
+    if (visibleCount >= 2) anyPartialTextVisible = true;
+    if (visibleCount === answers.length) matches.push(q);
+  }
+  return { matches, anyPartialTextVisible };
+}
+
+async function findMatchingQuestion(bridge, pool, priorTree, questionIndex) {
   const tree = priorTree ?? (await bridge.hierarchy());
   const texts = collectAllTexts(tree);
-  const isVisible = (t) => isVisibleInTree(texts, t);
+  const isVisible = (t) => isVisibleInTree(texts, t); // GIỮ NGUYÊN - vẫn cần cho decideAnswerAction() thật + fallback dưới.
+  const normalizedVisibleSet = buildNormalizedVisibleSet(texts);
+
+  const { matches: fullMatches, anyPartialTextVisible } = findFullAnswerSetMatches(pool, normalizedVisibleSet);
+
+  if (fullMatches.length === 1) {
+    const winner = fullMatches[0];
+    const action = decideAnswerAction(tree, isVisible, winner, true);
+    if (action) {
+      log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${winner.id} | exact answer-set match`);
+      return { status: "MATCHED", question: { ...winner, _snapshot: { tree, texts } } };
+    }
+    // action=null dù full-set match (vd decideAnswerAction() không suy đoán tiếp cho loại câu hỏi
+    // không tương thích) - KHÔNG rơi xuống fallback first-fit (đã biết chắc đây là candidate đúng,
+    // rơi xuống fallback chỉ gây nhiễu) - báo NO_MATCH rõ ràng, không đoán tiếp.
+    log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - candidate id=${winner.id} khớp full answer-set nhưng decideAnswerAction() không tạo được action (loại câu hỏi không tương thích).`);
+    return {
+      status: "NO_MATCH",
+      diagnostic: { questionIndex, poolSize: pool.length, reason: `decideAnswerAction() returned null for unique full-set match id=${winner.id}` },
+    };
+  }
+
+  if (fullMatches.length > 1) {
+    log(
+      `  [MATCH][AMBIGUOUS] question_index=${questionIndex} pool_size=${pool.length} - ${fullMatches.length} candidate cùng khớp ĐỦ toàn bộ ` +
+        `answer-set đang hiển thị: ${fullMatches.map((m) => `id=${m.id} answers=${JSON.stringify(m.answers)}`).join(" | ")}.`,
+    );
+    return {
+      status: "AMBIGUOUS",
+      diagnostic: {
+        questionIndex,
+        normalizedVisibleAnswers: [...normalizedVisibleSet],
+        candidates: fullMatches.map((m) => ({ id: m.id, answers: m.answers })),
+      },
+    };
+  }
+
+  if (anyPartialTextVisible) {
+    // Có candidate lộ MỘT PHẦN đáp án (>=2 nhưng chưa đủ hết) nhưng KHÔNG candidate nào đủ HẾT - đây
+    // CHÍNH LÀ case bug đã fix: bản CŨ sẽ chọn nhầm candidate đầu tiên ở đây; bản MỚI báo NO_MATCH rõ
+    // ràng thay vì đoán tiếp.
+    log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - có candidate lộ MỘT PHẦN đáp án nhưng không candidate nào đủ HẾT answer-set.`);
+    return {
+      status: "NO_MATCH",
+      diagnostic: { questionIndex, poolSize: pool.length, reason: "partial-only matches (>=2 nhưng chưa đủ hết) - không candidate nào đủ full answer-set" },
+    };
+  }
+
+  // Không candidate nào lộ dù 1 phần đáp án dạng text - nghi ngờ màn hình đang render dạng khác (vd
+  // IMAGE_CHOICE_GRID) dù CMS ghi nhận answers dạng text - GIỮ NGUYÊN hành vi first-fit CŨ qua
+  // decideAnswerAction() cho trường hợp CHƯA có dữ liệu thật để sửa đúng, tránh regression.
   for (const q of pool) {
     const action = decideAnswerAction(tree, isVisible, q, true);
-    if (action) return { ...q, _snapshot: { tree, texts } };
+    if (action) {
+      log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${q.id} | fallback first-fit (không có đáp án dạng text nào hiển thị, có thể IMAGE_CHOICE_GRID)`);
+      return { status: "MATCHED", question: { ...q, _snapshot: { tree, texts } } };
+    }
   }
-  return null;
+  log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - fallback first-fit cũng không tìm được candidate nào (decideAnswerAction() trả null cho toàn bộ pool).`);
+  return {
+    status: "NO_MATCH",
+    diagnostic: { questionIndex, poolSize: pool.length, reason: "no text answers visible at all and legacy image-grid fallback found no match" },
+  };
 }
 
 async function answerOneQuestion(exam, matched, isLast, wantCorrectMap) {
@@ -534,6 +684,75 @@ async function ensureProProfileActive(bridge) {
   return { name: PROFILE_PRO_NAME, alreadyActive: false, switched: true, verified: true };
 }
 
+/** ===================== PRECHECK (READ-ONLY, MỚI 2026-08-25) =====================
+ * Xác nhận 1 card completed CỤ THỂ (title + cta="Làm lại") có THẬT reachable qua cơ chế locate
+ * CANONICAL (`findAssignment()`/`scrollToTop()`, automation/bai_tap/discovery/findAssignment.js) -
+ * KHÔNG dùng `locateSpecificCompletedCandidate()` (implementation riêng của chính file này, nguồn
+ * của bug BLOCKED/ADVANCED_SECTION_REACHED đã gặp). TUYỆT ĐỐI READ-ONLY: chỉ `hierarchy()` + swipe
+ * (bên trong scrollToTop()/findAssignment(), không tap CTA nào) - KHÔNG tap "Làm lại", KHÔNG mở bài,
+ * KHÔNG chọn đáp án, KHÔNG submit, KHÔNG gọi CMS/resolveHomeworkExamQuestionsForRoomId().
+ *
+ * Trả về ĐÚNG 1 trong 3 trạng thái (không có trạng thái thứ 4):
+ *   - PRECHECK_PASS: findAssignment() trả FOUND - card reachable, an toàn để chạy full script.
+ *   - PRECHECK_NOT_FOUND: findAssignment() cuộn hết phạm vi (maxScrolls) mà không thấy - card có thể
+ *     không tồn tại/đã bị xoá/tên khác đi, KHÔNG PHẢI lỗi cơ chế.
+ *   - PRECHECK_BLOCKED: cơ chế canonical tự nó gặp lỗi/không quyết định được (ERROR - vd swipe thất
+ *     bại) HOẶC AMBIGUOUS (≥2 card cùng khớp identity - không an toàn để 1 script khác tự đoán chọn
+ *     1 trong số đó) - đây là vấn đề infrastructure/locate cần xử lý trước, KHÔNG phải lý do để
+ *     retry full script.
+ * @param {import("../../../automation/bridge/maestroMcpBridge.js").MaestroMcpBridge} bridge
+ * @param {string} title
+ * @returns {Promise<{precheckStatus: "PRECHECK_PASS"|"PRECHECK_NOT_FOUND"|"PRECHECK_BLOCKED", canonicalStatus: string, scrollCount: number, canonicalFindMs: number, scrollToTopMs: number, diagnostics: string, card: ?Object}>}
+ */
+async function runCanonicalLocatePrecheck(bridge, title) {
+  log(`[PRECHECK] START`);
+  log(`[PRECHECK] target=${title} (cta=${COMPLETED_CTA})`);
+
+  const scrollToTopT = await timed(() => scrollToTop(bridge));
+  if (!scrollToTopT.result.atTop) {
+    log(`[PRECHECK] result=BLOCKED (scrollToTop() thất bại: ${scrollToTopT.result.reason})`);
+    log(`[PRECHECK] BLOCKED — do not run full script`);
+    log(`[PRECHECK] END`);
+    return {
+      precheckStatus: "PRECHECK_BLOCKED",
+      canonicalStatus: "SCROLL_TO_TOP_FAILED",
+      scrollCount: 0,
+      canonicalFindMs: 0,
+      scrollToTopMs: scrollToTopT.durationMs,
+      diagnostics: `scrollToTop() thất bại: ${scrollToTopT.result.reason}`,
+      card: null,
+    };
+  }
+
+  log(`[PRECHECK] canonical find started`);
+  const findT = await timed(() => findAssignment(bridge, { title, cta: COMPLETED_CTA }, { maxScrolls: PRECHECK_MAX_SCROLLS }));
+  const found = findT.result;
+
+  const precheckStatus =
+    found.status === "FOUND" ? "PRECHECK_PASS" : found.status === "NOT_FOUND" ? "PRECHECK_NOT_FOUND" : "PRECHECK_BLOCKED";
+
+  log(`[PRECHECK] result=${found.status}`);
+  log(`[PRECHECK] scrollCount=${found.scrollCount}`);
+  log(`[PRECHECK] durationMs=${scrollToTopT.durationMs + findT.durationMs}`);
+  if (precheckStatus === "PRECHECK_PASS") {
+    log(`[PRECHECK] PASS — target reachable via canonical findAssignment`);
+  } else if (precheckStatus === "PRECHECK_BLOCKED") {
+    log(`[PRECHECK] BLOCKED — do not run full script`);
+  }
+  log(found.diagnostics);
+  log(`[PRECHECK] END`);
+
+  return {
+    precheckStatus,
+    canonicalStatus: found.status,
+    scrollCount: found.scrollCount,
+    canonicalFindMs: findT.durationMs,
+    scrollToTopMs: scrollToTopT.durationMs,
+    diagnostics: found.diagnostics,
+    card: found.card ?? null,
+  };
+}
+
 // overallStartMs (MỚI, profiling-only): stamp ở đầu main() - CHỈ dùng để `finish()` tự điền
 // evidence.totalDurationSeconds cho CẢ nhánh BLOCKED/FAIL/ERROR thoát sớm (trước đây field này CHỈ
 // được set thủ công ở nhánh PASS cuối cùng) - KHÔNG đổi status/error/field nào khác của result, chỉ
@@ -675,6 +894,77 @@ function printProfilingSummary(r) {
       `flow khác), KHÔNG chỉnh sửa file đó trong lần đo instrumentation-only này để tránh rủi ro đổi hành vi các ` +
       `flow khác đang dùng chung engine.`,
   );
+}
+
+/** Orchestrator RIÊNG cho PRECHECK_ONLY=true - KHÔNG tái dùng main() (main() có toàn bộ luồng CMS/
+ * tap/answer/submit thật, giữ nguyên KHÔNG đổi 1 dòng nào theo yêu cầu tương thích) - chỉ làm đúng 3
+ * việc: [0] validate env tối thiểu, [A] profile-check (reuse ensureProProfileActive() y nguyên,
+ * cần để đứng đúng ở tab "Bài tập" + đúng profile trước khi locate), [PRECHECK] gọi
+ * runCanonicalLocatePrecheck() rồi DỪNG - không có bước nào sau đó (không CMS, không tap, không
+ * answer, không submit). KHÔNG gọi refreshExamSessionFromEnvCookie() (chỉ cần cho CMS resolve, ngoài
+ * phạm vi 1 precheck UI-only). */
+async function runPrecheckOnly() {
+  if (!APP_ID) throw new Error("Thiếu APP_ID - kiểm tra .env.");
+  if (!PHONE || !OTP) throw new Error("Thiếu PHONE/OTP - kiểm tra test_data/accounts.env.");
+  if (!TARGET_TITLE) {
+    throw new Error(
+      `PRECHECK_ONLY=true yêu cầu TARGET_TITLE (precheck xác nhận 1 card CỤ THỂ reachable qua canonical findAssignment() - không có mục tiêu nào để check nếu để tự quét "bất kỳ").`,
+    );
+  }
+
+  const overallStart = Date.now();
+  const bridge = new MaestroMcpBridge({ appId: APP_ID, deviceId: MAESTRO_DEVICE });
+  const setupT = await timed(() => bridge.start());
+  try {
+    log(`[A] Đảm bảo hồ sơ "${PROFILE_PRO_NAME}" (PRO) đang active...`);
+    const profileT = await timed(() => ensureProProfileActive(bridge));
+    log(`  [PASS] profile=${profileT.result.name} switched=${profileT.result.switched}`);
+
+    const precheck = await runCanonicalLocatePrecheck(bridge, TARGET_TITLE);
+    const totalMs = Date.now() - overallStart;
+
+    log(`\n[PRECHECK REPORT]`);
+    log(`target=${TARGET_TITLE}`);
+    log(`result=${precheck.precheckStatus}`);
+    log(`canonical_status=${precheck.canonicalStatus}`);
+    log(`scrollCount=${precheck.scrollCount}`);
+    log(`setup_ms=${setupT.durationMs + profileT.durationMs}`);
+    log(`scrollToTop_ms=${precheck.scrollToTopMs}`);
+    log(`canonical_find_ms=${precheck.canonicalFindMs}`);
+    log(`precheck_total_ms=${precheck.scrollToTopMs + precheck.canonicalFindMs}`);
+    log(`overall_total_ms=${totalMs}`);
+    log(
+      precheck.precheckStatus === "PRECHECK_PASS"
+        ? `\n=> PRECHECK_PASS - an toàn để chạy full script (bỏ PRECHECK_ONLY, giữ nguyên các ENV khác).`
+        : `\n=> ${precheck.precheckStatus} - KHÔNG chạy full script, xem [PRECHECK REPORT]/diagnostics phía trên để xử lý trước.`,
+    );
+
+    mkdirSync(dirname(OUTPUT_FILE), { recursive: true });
+    writeFileSync(
+      OUTPUT_FILE,
+      JSON.stringify(
+        {
+          status: precheck.precheckStatus,
+          target: TARGET_TITLE,
+          canonicalStatus: precheck.canonicalStatus,
+          scrollCount: precheck.scrollCount,
+          setupMs: setupT.durationMs + profileT.durationMs,
+          scrollToTopMs: precheck.scrollToTopMs,
+          canonicalFindMs: precheck.canonicalFindMs,
+          precheckTotalMs: precheck.scrollToTopMs + precheck.canonicalFindMs,
+          overallTotalMs: totalMs,
+          diagnostics: precheck.diagnostics,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    return precheck.precheckStatus;
+  } finally {
+    await bridge.stop();
+    log("[MCP] Đã dừng tiến trình `maestro mcp`.");
+  }
 }
 
 async function main() {
@@ -889,21 +1179,31 @@ async function main() {
       const questionIndex = answeredIds.size + 1;
       const qStart = now();
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
-      const matchT = await timed(() => findMatchingQuestion(bridge, pool, carryTree));
-      const matched = matchT.result;
-      if (!matched) {
-        profiling.phaseE.questions.push({ index: questionIndex, startedAt: qStart, endedAt: now(), durationMs: now() - qStart, matchDurationMs: matchT.durationMs, answerDurationMs: null, outcome: "NO_MATCH" });
+      const matchT = await timed(() => findMatchingQuestion(bridge, pool, carryTree, questionIndex));
+      const matchResult = matchT.result;
+      if (matchResult.status !== "MATCHED") {
+        const outcomeLabel = matchResult.status === "AMBIGUOUS" ? "AMBIGUOUS_MATCH" : "NO_MATCH";
+        profiling.phaseE.questions.push({ index: questionIndex, startedAt: qStart, endedAt: now(), durationMs: now() - qStart, matchDurationMs: matchT.durationMs, answerDurationMs: null, outcome: outcomeLabel });
         profiling.phaseE.startedAt = phaseEStart;
         profiling.phaseE.endedAt = now();
         profiling.phaseE.durationMs = now() - phaseEStart;
+        const errorMessage =
+          matchResult.status === "AMBIGUOUS"
+            ? `AMBIGUOUS_MATCH ở câu ${questionIndex}: ${matchResult.diagnostic.candidates.length} candidate CMS cùng khớp ĐỦ toàn bộ answer-set đang hiển thị ` +
+              `(ids=${matchResult.diagnostic.candidates.map((c) => c.id).join(", ")}) - KHÔNG tự chọn candidate đầu tiên, xem log [MATCH][AMBIGUOUS] phía trên.`
+            : `NO_MATCH ở câu ${questionIndex} (còn ${pool.length} câu): không có candidate CMS nào có ĐỦ TOÀN BỘ đáp án đang hiển thị trên UI - nội dung hiển thị trên màn ` +
+              `hình KHÔNG khớp answers[] đầy đủ của bất kỳ câu nào trong ${pool.length} câu CMS đã resolve (có thể đề thật của lượt "Làm lại" này khác nội dung catalog ` +
+              `Teacher Materials - xem GIỚI HẠN CÒN LẠI đầu file).`;
         return finish({
           status: "FAIL",
           phase: "ANSWER_LOOP",
-          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) - nội dung hiển thị trên màn hình KHÔNG khớp answers[] của bất kỳ câu nào trong ${pool.length} câu CMS đã resolve (có thể đề thật của lượt "Làm lại" này khác nội dung catalog Teacher Materials - xem GIỚI HẠN CÒN LẠI đầu file).`,
+          error: errorMessage,
+          matchDiagnostic: matchResult.diagnostic,
           visibleTexts: collectAllTexts(carryTree ?? (await bridge.hierarchy())),
           evidence: { ...evidence, answerLog },
         });
       }
+      const matched = matchResult.question;
       const isLast = answeredIds.size === QUESTIONS.length - 1;
       const answerT = await timed(() => answerOneQuestion(exam, matched, isLast, WANT_CORRECT));
       const { wantCorrect, outcome } = answerT.result;
@@ -1047,16 +1347,31 @@ async function main() {
 // nguy hiểm vì "thành công giả". Dùng `pathToFileURL().href` (chuẩn Node, tự resolve tuyệt đối +
 // encode giống hệt import.meta.url) để so sánh đúng.
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main()
-    .then((result) => {
-      printReport(result);
-      printProfilingSummary(result);
-      log(`\nĐã ghi report ra ${OUTPUT_FILE}`);
-      process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 3 : 1);
-    })
-    .catch((err) => {
-      console.error("\n[pro_lamlai_target_score] Dừng lại vì lỗi ngoài dự kiến:\n", err);
-      finish({ status: "ERROR", error: err.message, stack: err.stack });
-      process.exit(2);
-    });
+  if (PRECHECK_ONLY) {
+    // Nhánh RIÊNG cho precheck (MỚI 2026-08-25) - KHÔNG đụng nhánh main() cũ bên dưới (else ngầm định
+    // khi PRECHECK_ONLY không set/false, hành vi 100% như trước). Exit code RIÊNG, không tái dùng
+    // thang PASS=0/BLOCKED=3/khác=1 của main() để tránh lẫn 2 loại kết quả khác nhau:
+    //   0 = PRECHECK_PASS, 3 = PRECHECK_NOT_FOUND, 4 = PRECHECK_BLOCKED, 2 = ERROR ngoài dự kiến.
+    runPrecheckOnly()
+      .then((status) => {
+        process.exit(status === "PRECHECK_PASS" ? 0 : status === "PRECHECK_NOT_FOUND" ? 3 : 4);
+      })
+      .catch((err) => {
+        console.error("\n[pro_lamlai_target_score PRECHECK] Dừng lại vì lỗi ngoài dự kiến:\n", err);
+        process.exit(2);
+      });
+  } else {
+    main()
+      .then((result) => {
+        printReport(result);
+        printProfilingSummary(result);
+        log(`\nĐã ghi report ra ${OUTPUT_FILE}`);
+        process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 3 : 1);
+      })
+      .catch((err) => {
+        console.error("\n[pro_lamlai_target_score] Dừng lại vì lỗi ngoài dự kiến:\n", err);
+        finish({ status: "ERROR", error: err.message, stack: err.stack });
+        process.exit(2);
+      });
+  }
 }

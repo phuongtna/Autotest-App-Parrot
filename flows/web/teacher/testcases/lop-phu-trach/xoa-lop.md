@@ -8,6 +8,20 @@ cấp trong hội thoại.
 `automation/quan_ly_lop_hoc/` (entrypoint `npm run delete-class`). DEL-04/05/06 (rule AC3 - lớp có
 học sinh) VẪN chỉ là spec test thủ công.
 
+**Happy-path đầy đủ (2026-08-25, entrypoint nằm ở module web):**
+[e2e-delete-class-success.mjs](e2e-delete-class-success.mjs) (chạy trực tiếp bằng
+`node flows/web/teacher/testcases/lop-phu-trach/e2e-delete-class-success.mjs`, import logic dùng
+lại từ `automation/quan_ly_lop_hoc/runtime/createThenDeleteClassFlow.js`) tự nối `addClassFlow` ->
+`deleteClassFlow` thành 1 case duy nhất: tạo 1 lớp test mới (tên tự sinh duy nhất theo timestamp
+nếu không truyền `DELETE_CLASS_TEN_LOP`), lấy đúng `id` thật trả về từ `POST /api/classes`, rồi
+truyền `id` đó vào `deleteClassFlow` qua `classId` để xóa **đúng lớp vừa tạo** (vào thẳng
+`/teacher/class/{id}` bằng URL, không suy đoán/chọn theo tên trong danh sách - tránh xóa nhầm lớp
+thật khác nếu trùng tên, xem case ADD-11). Dùng entrypoint này khi cần 1 case DEL-02 khép kín,
+không phụ thuộc phải có sẵn lớp test từ trước (không cần chạy `add-class` tay rồi copy id qua
+`delete-class` như 2 lệnh riêng lẻ). Kết quả ghi ra
+`automation/output/e2e_delete_class_success_report.json` (cùng quy ước output với các case khác
+trong `flows/web/`, xem `flows/web/giao_bai_tap/`).
+
 Đường vào: Danh sách lớp học -> chọn lớp -> chi tiết lớp -> "Chỉnh sửa lớp học" -> (trong popup
 "Chỉnh sửa thông tin lớp học") bấm "Xóa lớp học" -> hiện popup xác nhận.
 

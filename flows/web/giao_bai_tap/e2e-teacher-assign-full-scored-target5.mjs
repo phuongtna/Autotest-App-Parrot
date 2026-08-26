@@ -10,7 +10,8 @@
  *      (PHONE=0915151519) thay vì lớp "3B"/profile PRO "Ngoc". ensureProProfileActive() giữ
  *      nguyên logic (chỉ cần tên profile khớp - tài khoản này có thể chỉ có 1 profile, hàm tự
  *      nhận biết "đã active" và KHÔNG cố chuyển).
- *   2. Target điểm: [4.5, 5.5] (quanh 5.0) thay vì [6.0, 8.0] (quanh 7.0) - xem computeScorePlan().
+ *   2. Target điểm: [4.5, 5.5] (quanh 5.0) thay vì [6.0, 8.0] (quanh 7.0) - random runtime trong
+ *      range này (KHÔNG hardcode 1 giá trị) - xem resolveScoringPlanForCandidate()/[SCORING ENGINE].
  *   3. THÊM overallProgressBeforeAssign: đọc "Bài tập X/Y" tổng NGAY TỪ ĐẦU (trong
  *      ensureProProfileActive(), lúc bridge đang đứng ở tab Bài tập TRƯỚC KHI GV giao bài) - bản
  *      gốc chỉ đọc overallProgress SAU KHI đã giao bài (không verify được tổng SỐ BÀI (mẫu số Y)
@@ -98,7 +99,7 @@ import { normalizeQuestions } from "../../../automation/model/questionModel.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
 import { fetchAllHomeworkRooms, fetchRoomDetails } from "../../../automation/bai_tap/discovery/homeworks.js";
 import { normalizeHomework } from "../../../automation/bai_tap/model/homeworkModel.js";
-import { formatDM, formatDMY, isoToVnYmd } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
+import { formatDM, formatDMY, isoToVnYmd } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
 // FIX (2026-08-22, OPEN_EXERCISE_AMBIGUOUS thật xác nhận trên room 19e78018-8c11-48e9-845f-
 // efefe4dff82f): findAssignment()/scrollToTop()/tapFoundCard() ĐÃ CÓ SẴN, ĐÃ PROVEN (dùng thật
 // trong assignHomeworkAndLocateOnApp() ở e2e-teacher-assign-student-open.mjs, tìm thấy card cùng
@@ -124,15 +125,17 @@ const MAX_PRESCAN_ATTEMPTS = Number(process.env.MAX_PRESCAN_ATTEMPTS || 12);
 const MAX_DISAMBIGUATE_CANDIDATES = Number(process.env.MAX_DISAMBIGUATE_CANDIDATES || 10);
 const PROFILE_PRO_NAME = process.env.PROFILE_PRO_NAME || ACCOUNTS_ENV.PROFILE_PRO_NAME || "Trần Duy Anh";
 // TARGET_SCORE_MIN/MAX (MỚI 2026-08-21, theo yêu cầu "làm lại đạt 9đ" - tham số hoá khoảng điểm
-// mục tiêu qua ENV thay vì hardcode [4.5,5.5], KHÔNG đổi công thức tính computeScorePlan()) - mặc
-// định giữ nguyên [4.5, 5.5] (quanh 5.0) như ban đầu nếu không truyền ENV.
+// mục tiêu qua ENV thay vì hardcode [4.5,5.5]) - mặc định giữ nguyên [4.5, 5.5] (quanh 5.0) như ban
+// đầu nếu không truyền ENV. ĐÃ SỬA 2026-08-26 (theo yêu cầu "KHÔNG hardcode target score, phải
+// random"): target score CỤ THỂ của 1 lần chạy không còn cố định ở tâm range (bản cũ
+// computeScorePlan(), ĐÃ XOÁ) - giờ random NGAY TRÊN tập điểm khả thi THẬT của exercise nằm trong
+// [MIN,MAX] này (resolveScoringPlanForCandidate(mode:"range")) - xem docblock [SCORING ENGINE].
 // CHECK_KIEN_THUC_TRONG_BAI (MỚI 2026-08-21, theo yêu cầu "đừng chạy case kiểm tra kiến thức làm
 // gì, khi nào tôi yêu cầu thì chạy") - mặc định TẮT (false), CHỈ chạy 2 bước MÀN 1/MÀN 2 (xem
 // [4b/N]/[10b/N]) khi truyền CHECK_KIEN_THUC_TRONG_BAI=true.
 const CHECK_KIEN_THUC_TRONG_BAI = process.env.CHECK_KIEN_THUC_TRONG_BAI === "true";
 const TARGET_SCORE_MIN = Number(process.env.TARGET_SCORE_MIN ?? 4.5);
 const TARGET_SCORE_MAX = Number(process.env.TARGET_SCORE_MAX ?? 5.5);
-const TARGET_SCORE_CENTER = (TARGET_SCORE_MIN + TARGET_SCORE_MAX) / 2;
 const TARGET_SCORE_RANGE_LABEL = `[${TARGET_SCORE_MIN}, ${TARGET_SCORE_MAX}]`;
 const YAML_REFERENCE_FILE = "flows/bai_tap/ktra_fullluong_lambai.yaml";
 
@@ -314,15 +317,120 @@ function readOverallProgress(tree) {
   return between.find((t) => /\d+\s*\/\s*\d+/.test(t)) ?? null;
 }
 
-async function findMatchingQuestion(bridge, pool, priorTree) {
+/** ===================== [MATCHER] full answer-set matching (PORT NGUYÊN VĂN 2026-08-26 từ
+ * automation/bai_tap/pro_lamlai_target_score.mjs#findMatchingQuestion() - xem docblock gốc "[E]
+ * MATCHING (SỬA 2026-08-25 - full answer-set match)" cho ROOT CAUSE đầy đủ) =====================
+ * Bản CŨ ở đây (findMatchingQuestion first-fit qua decideAnswerAction()) chỉ yêu cầu >=2 answers
+ * của 1 candidate "nhìn thấy được" TRÊN TOÀN BỘ cây, KHÔNG cần đủ hết - khi catalog examId (dùng để
+ * resolve CMS) khác exam_id thật được SERVE cho room (xem project_teacher_materials_examid_order_
+ * mismatch.md - đã CONFIRMED 2026-08-26 rằng bản first-fit này tự mis-score 2/2 lần, không báo lỗi)
+ * candidate SAI bị chọn nhầm khi thứ tự bị xáo trộn + có từ đáp án trùng giữa nhiều câu.
+ *
+ * SỬA: yêu cầu ĐỦ TOÀN BỘ answers[] của 1 candidate phải "nhìn thấy được" (so theo Set đã normalize
+ * - KHÔNG phụ thuộc thứ tự đáp án/thứ tự pool/thứ tự UI) mới coi là khớp. 0 candidate khớp full-set
+ * (nhưng có candidate lộ 1 phần) -> NO_MATCH (fail rõ, KHÔNG đoán); >1 candidate khớp full-set ->
+ * AMBIGUOUS (fail rõ, KHÔNG tự chọn); ĐÚNG 1 -> chọn, rồi mới gọi decideAnswerAction() (GIỮ NGUYÊN)
+ * để lấy action tap thật. FALLBACK first-fit CŨ chỉ giữ cho trường hợp KHÔNG candidate nào lộ dù 1
+ * phần đáp án dạng text (nghi ngờ IMAGE_CHOICE_GRID) - tránh regression cho case chưa từng gặp lỗi
+ * này, không có dữ liệu thật để sửa đúng nên không suy đoán thêm. */
+export function normalizeAnswerText(s) {
+  return String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+export function buildNormalizedVisibleSet(texts) {
+  const set = new Set();
+  for (const t of texts) set.add(normalizeAnswerText(t));
+  return set;
+}
+
+export function findFullAnswerSetMatches(pool, normalizedVisibleSet) {
+  const matches = [];
+  let anyPartialTextVisible = false;
+  for (const q of pool) {
+    const answers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim().length > 0);
+    if (answers.length < 2) continue;
+    const visibleCount = answers.filter((a) => normalizedVisibleSet.has(normalizeAnswerText(a))).length;
+    if (visibleCount >= 2) anyPartialTextVisible = true;
+    if (visibleCount === answers.length) matches.push(q);
+  }
+  return { matches, anyPartialTextVisible };
+}
+
+/**
+ * @param {{roomExamId: string|null, candidateExamId: string|null}} [examIdContext] - CHỈ dùng để
+ *   log [answer-match] (đối chiếu examId thật của room vs examId catalog đã dùng để resolve CMS -
+ *   xem project_teacher_materials_examid_order_mismatch.md) - KHÔNG ảnh hưởng logic match.
+ */
+export async function findMatchingQuestion(bridge, pool, priorTree, questionIndex, examIdContext) {
+  const roomExamId = examIdContext?.roomExamId ?? "-";
+  const candidateExamId = examIdContext?.candidateExamId ?? "-";
   const tree = priorTree ?? (await bridge.hierarchy());
   const texts = collectAllTexts(tree);
   const isVisible = (t) => isVisibleInTree(texts, t);
+  const normalizedVisibleSet = buildNormalizedVisibleSet(texts);
+
+  const { matches: fullMatches, anyPartialTextVisible } = findFullAnswerSetMatches(pool, normalizedVisibleSet);
+
+  if (fullMatches.length === 1) {
+    const winner = fullMatches[0];
+    const action = decideAnswerAction(tree, isVisible, winner, true);
+    if (action) {
+      log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${winner.id} | exact answer-set match`);
+      log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=true`);
+      return { status: "MATCHED", question: { ...winner, _snapshot: { tree, texts } } };
+    }
+    log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - candidate id=${winner.id} khớp full answer-set nhưng decideAnswerAction() không tạo được action (loại câu hỏi không tương thích).`);
+    log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false`);
+    return {
+      status: "NO_MATCH",
+      diagnostic: { questionIndex, poolSize: pool.length, reason: `decideAnswerAction() returned null for unique full-set match id=${winner.id}` },
+    };
+  }
+
+  if (fullMatches.length > 1) {
+    log(
+      `  [MATCH][AMBIGUOUS] question_index=${questionIndex} pool_size=${pool.length} - ${fullMatches.length} candidate cùng khớp ĐỦ toàn bộ ` +
+        `answer-set đang hiển thị: ${fullMatches.map((m) => `id=${m.id} answers=${JSON.stringify(m.answers)}`).join(" | ")}.`,
+    );
+    log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false`);
+    return {
+      status: "AMBIGUOUS",
+      diagnostic: {
+        questionIndex,
+        normalizedVisibleAnswers: [...normalizedVisibleSet],
+        candidates: fullMatches.map((m) => ({ id: m.id, answers: m.answers })),
+      },
+    };
+  }
+
+  if (anyPartialTextVisible) {
+    log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - có candidate lộ MỘT PHẦN đáp án nhưng không candidate nào đủ HẾT answer-set.`);
+    log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false`);
+    return {
+      status: "NO_MATCH",
+      diagnostic: { questionIndex, poolSize: pool.length, reason: "partial-only matches (>=2 nhưng chưa đủ hết) - không candidate nào đủ full answer-set" },
+    };
+  }
+
+  // Không candidate nào lộ dù 1 phần đáp án dạng text - nghi ngờ IMAGE_CHOICE_GRID - GIỮ NGUYÊN
+  // hành vi first-fit CŨ cho trường hợp CHƯA có dữ liệu thật để sửa đúng, tránh regression.
   for (const q of pool) {
     const action = decideAnswerAction(tree, isVisible, q, true);
-    if (action) return { ...q, _snapshot: { tree, texts } };
+    if (action) {
+      log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${q.id} | fallback first-fit (không có đáp án dạng text nào hiển thị, có thể IMAGE_CHOICE_GRID)`);
+      log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false (fallback first-fit, non-text UI)`);
+      return { status: "MATCHED", question: { ...q, _snapshot: { tree, texts } } };
+    }
   }
-  return null;
+  log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - fallback first-fit cũng không tìm được candidate nào (decideAnswerAction() trả null cho toàn bộ pool).`);
+  log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false`);
+  return {
+    status: "NO_MATCH",
+    diagnostic: { questionIndex, poolSize: pool.length, reason: "no text answers visible at all and legacy image-grid fallback found no match" },
+  };
 }
 
 /**
@@ -378,8 +486,15 @@ async function locateOpenAndVerifyAssignment(bridge, { title, dueDateDM, cta = n
       { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 40000 } },
     ]);
     if (!openWait.success) return { opened: false, contentMatched: null, matched: null, error: openWait.error };
-    const matched = await findMatchingQuestion(bridge, questions);
-    return { opened: true, contentMatched: Boolean(matched), matched };
+    // findMatchingQuestion() giờ LUÔN trả 1 object ({status, question|diagnostic}) - KHÔNG còn
+    // null/truthy đơn giản như bản cũ (ĐÃ SỬA 2026-08-26, port full answer-set match) - phải đọc
+    // `.status === "MATCHED"` thay vì Boolean(matched) để không luôn coi content là khớp.
+    // questionIndex="content-verify" (KHÔNG phải số câu) - CHỈ dùng cho log/diagnostic (không ảnh
+    // hưởng logic match) - tránh in "question_index=undefined" ra log khi gọi từ đây (xác nhận
+    // đúng dùng cho content-fingerprint identity check, KHÔNG phải vòng lặp trả lời câu ở [9/N]).
+    const matchResult = await findMatchingQuestion(bridge, questions, undefined, "content-verify");
+    const contentMatched = matchResult.status === "MATCHED";
+    return { opened: true, contentMatched, matched: contentMatched ? matchResult.question : null };
   };
   const closeIfOpen = () =>
     bridge.runSteps([
@@ -492,25 +607,198 @@ function isTextChoiceCompatible(questions) {
   });
 }
 
-/** Range đóng cả 2 đầu [4.5, 5.5] quanh 5.0 (KHÔNG phải "X/10 câu đúng" - xem docblock đầu file
- * mục 2 - áp dụng đúng công thức tỉ lệ thuận đã dùng ở bản gốc, chỉ đổi tâm/biên khoảng mục tiêu). */
-function computeScorePlan(totalCount) {
-  let best = null;
-  for (let c = 0; c <= totalCount; c++) {
-    const predicted = Math.round((c / totalCount) * 100) / 10;
-    if (predicted < TARGET_SCORE_MIN || predicted > TARGET_SCORE_MAX) continue;
-    const distanceToCenter = Math.abs(predicted - TARGET_SCORE_CENTER);
-    const isBetter = !best || distanceToCenter < best.distanceToCenter;
-    if (isBetter) best = { correctCount: c, predictedScore: predicted, distanceToCenter };
+/** ===================== [SCORING ENGINE] subset-sum theo point THẬT (PORT NGUYÊN VĂN 2026-08-26
+ * từ automation/bai_tap/pro_lamlai_target_score.mjs - xem docblock gốc "SCORING ENGINE (KHÔNG giả
+ * định 'N câu = N điểm')" cho lý do đầy đủ) ===================== Bản CŨ (computeScorePlan/
+ * buildWantCorrectPlan phía trên, ĐÃ XOÁ) giả định mỗi câu đều nặng 1/N điểm (predicted = c/N*10) -
+ * SAI khi 1 item có metadata.point khác nhau (vd 1 câu SPEAK độc lập point=10, xem
+ * automation/output/discovery.json) VÀ không hề dùng nội dung/answers[] thật của candidate để chọn
+ * target - CHỈ phụ thuộc N. Bản MỚI: target score phải là 1 trong các tổng điểm THẬT KHẢ THI của
+ * CHÍNH exercise (tính bằng DP 0/1 knapsack trên metadata.point từng item), KHÔNG BAO GIỜ hardcode
+ * 1 giá trị cụ thể - luôn random NGAY TRÊN tập khả thi đã lọc theo TARGET_SCORE_MIN/MAX (ENV hiện
+ * có của project, xem khai báo đầu file) hoặc re-validate 1 target đã chọn trước đó còn khả thi với
+ * nội dung THẬT vừa resolve (mode="target" - dùng ở [3/N] để re-check target đã pick ở prescan còn
+ * đúng với room thật, PHÒNG lệch examId catalog vs room - xem project_teacher_materials_examid_
+ * order_mismatch.md). Nếu KHÔNG có điểm khả thi nào trong range / target không còn khả thi -> trả
+ * `achievable:false` kèm danh sách điểm khả thi thật để caller BLOCKED rõ ràng, KHÔNG đoán/KHÔNG ép
+ * answer để đạt điểm không khả thi (yêu cầu rõ - xem mục 7/10 của spec). */
+const POINT_SCALE = 1000;
+
+/**
+ * DP 0/1 knapsack trên mảng điểm (quy đổi nguyên qua POINT_SCALE để tránh sai số float) - tìm MỌI
+ * tổng điểm khả thi + truy vết được 1 tập con item cụ thể cho BẤT KỲ tổng khả thi nào.
+ * @param {import("../../../automation/model/questionModel.js").QuestionModel[]} questions
+ * @returns {null | { scaledTotal: number, achievableScaledSums: number[], correctIndicesForScaledSum: (s:number)=>Set<number>|null }}
+ */
+export function buildScoringPlan(questions) {
+  const scaledPoints = questions.map((q) => Math.round((Number(q.metadata?.point) || 0) * POINT_SCALE));
+  const scaledTotal = scaledPoints.reduce((a, b) => a + b, 0);
+  if (scaledTotal <= 0) return null;
+
+  const reachedByItem = new Array(scaledTotal + 1).fill(-1);
+  const prevSum = new Array(scaledTotal + 1).fill(-1);
+  reachedByItem[0] = -2;
+
+  for (let i = 0; i < scaledPoints.length; i++) {
+    const p = scaledPoints[i];
+    if (p <= 0) continue;
+    for (let s = scaledTotal; s >= p; s--) {
+      if (reachedByItem[s] === -1 && reachedByItem[s - p] !== -1) {
+        reachedByItem[s] = i;
+        prevSum[s] = s - p;
+      }
+    }
   }
-  return best;
+
+  const achievableScaledSums = [];
+  for (let s = 0; s <= scaledTotal; s++) if (reachedByItem[s] !== -1) achievableScaledSums.push(s);
+
+  function correctIndicesForScaledSum(targetScaledSum) {
+    // targetScaledSum == null (KHÔNG ===): bắt cả null/undefined - PHÁT HIỆN qua static review
+    // 2026-08-26 (KHÔNG phải E2E): `reachedByItem[null]` là bracket-access với key "null" trên 1
+    // Array thường -> trả undefined (KHÔNG phải -1) -> guard cũ KHÔNG bắt được, rơi xuống vòng lặp
+    // `while (s > 0)` với s=null -> false ngay -> trả về 1 Set() RỖNG (SAI - trông như "achievable
+    // nhưng cần 0 câu đúng" chứ không phải "không achievable") thay vì null. Guard mới chặn TRƯỚC
+    // khi chạm bracket-access.
+    if (targetScaledSum == null || targetScaledSum < 0 || targetScaledSum > scaledTotal || reachedByItem[targetScaledSum] === -1) return null;
+    const chosen = new Set();
+    let s = targetScaledSum;
+    while (s > 0) {
+      const itemIdx = reachedByItem[s];
+      chosen.add(itemIdx);
+      s = prevSum[s];
+    }
+    return chosen;
+  }
+
+  return { scaledTotal, achievableScaledSums, correctIndicesForScaledSum };
 }
 
-function buildWantCorrectPlan(questionIds, correctCount) {
-  const shuffled = shuffle(questionIds);
-  const correctSet = new Set(shuffled.slice(0, correctCount));
+/** score (thang 0-10) -> scaledSum nguyên - null nếu score không rơi đúng vào 1 mốc điểm nguyên.
+ * ĐÃ SỬA 2026-08-26 (2 vòng, cả 2 phát hiện qua local test/stress test, KHÔNG phải E2E):
+ *   - Vòng 1: tolerance CỐ ĐỊNH 1e-6 sai reject nhầm 1 điểm THẬT SỰ khả thi khi scaledTotal lớn
+ *     (`achievableScoresList()` hiển thị score đã ROUND về 6 chữ số thập phân - sai số round-trip
+ *     ngược lại raw=score*scaledTotal/10 scale theo scaledTotal, có thể VƯỢT XA 1e-6 cố định - tái
+ *     hiện thật: n=7 câu 1 điểm/câu, scaledTotal=7000, score=2.857143 hiển thị -> raw lệch ~1e-4).
+ *   - Vòng 2: tolerance scale-theo-scaledTotal (thay cho vòng 1) tự nó lại có 1 "vùng KHÔNG an toàn"
+ *     khi scaledTotal đủ lớn (stress test xác nhận: tolerance vượt 0.5 khi scaledTotal>1e7, tại đó
+ *     Math.round()+so-sánh-tolerance không còn đảm bảo reject đúng 1 score KHÔNG liên quan gì đến
+ *     scaledTotal - dù thực tế usage hiện tại của target5.mjs không chạm ngưỡng này, hàm này VẪN
+ *     được thiết kế để tái dùng ở nơi khác nhận input arbitrary-precision như REDO_TARGET_SCORE của
+ *     pro_lamlai_target_score.mjs, nên không nên giữ lại 1 công thức có "vùng không an toàn").
+ *   - SỬA CUỐI (theo yêu cầu "ưu tiên exact integer representation thay vì tăng tolerance"): bỏ hẳn
+ *     epsilon/tolerance - thay bằng so sánh CANONICAL round-trip: tính `rounded` gần `raw` nhất, rồi
+ *     tính LẠI display-score CHÍNH XÁC của `rounded` qua ĐÚNG công thức achievableScoresList() dùng
+ *     (Math.round(...*1e6)/1e6) - CHỈ accept khi giá trị đó (bit-for-bit) khớp `score` truyền vào.
+ *     Với BẤT KỲ score nào do achievableScoresList() sinh ra, phép tính này LUÔN khớp lại chính xác
+ *     (cùng công thức, cùng input) - KHÔNG cần chọn/biện minh 1 hằng số epsilon nào, và KHÔNG có
+ *     "vùng không an toàn" ở bất kỳ scaledTotal nào (đã verify: 0 sai khác so với bản epsilon trên
+ *     6811 case stress-test, n=1..200 câu, trọng số 1-10, scaledTotal tới 2,000,000 - xem
+ *     e2e-teacher-assign-full-scored-target5.scoringAndMatcher.fixtureTest.mjs). correctIndicesForScaledSum()
+ *     vẫn là lớp chặn CUỐI kiểm tra achievable thật qua DP - hàm này CHỈ lọc "score có form hợp lệ
+ *     hay không" trước khi tới đó. */
+export function scaledSumForScore(scaledTotal, score) {
+  const raw = (score * scaledTotal) / 10;
+  const rounded = Math.round(raw);
+  if (rounded < 0 || rounded > scaledTotal) return null;
+  const canonicalDisplayOfRounded = Math.round((rounded / scaledTotal) * 10 * 1e6) / 1e6;
+  if (canonicalDisplayOfRounded !== score) return null;
+  return rounded;
+}
+
+export function achievableScoresList(scaledTotal, achievableScaledSums) {
+  const set = new Set();
+  for (const s of achievableScaledSums) {
+    set.add(Math.round((s / scaledTotal) * 10 * 1e6) / 1e6);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+/**
+ * Quyết định target score cho 1 candidate cụ thể - KHÔNG BAO GIỜ hardcode 1 giá trị:
+ *   mode="range": random NGAY TRÊN tập điểm khả thi THẬT của candidate nằm trong [rangeMin,rangeMax]
+ *     (TARGET_SCORE_MIN/MAX hiện có của project - KHÔNG tạo cơ chế range mới, tái dùng ENV đã có).
+ *     Không có điểm khả thi nào trong range -> achievable:false (caller thử candidate khác/BLOCKED,
+ *     KHÔNG hạ range để ép chạy được).
+ *   mode="target": validate 1 targetScoreEnv CỤ THỂ (dùng để RE-VALIDATE target đã random ở prescan
+ *     còn khả thi với nội dung THẬT của room sau khi resolve ở [3/N] - phòng lệch examId catalog vs
+ *     room thật, xem project_teacher_materials_examid_order_mismatch.md). KHÔNG khả thi -> BLOCKED
+ *     rõ ràng (KHÔNG tự đổi sang target khác/KHÔNG retry mù).
+ * @param {import("../../../automation/model/questionModel.js").QuestionModel[]} questions
+ * @param {{mode: "range"|"target", targetScoreEnv?: number, rangeMin?: number, rangeMax?: number}} opts
+ */
+export function resolveScoringPlanForCandidate(questions, { mode, targetScoreEnv, rangeMin, rangeMax } = {}) {
+  const plan = buildScoringPlan(questions);
+  if (!plan) {
+    return { achievable: false, reason: "Tổng điểm (metadata.point) của toàn bộ scored items = 0 - không tính được scoring." };
+  }
+  const achievableScores = achievableScoresList(plan.scaledTotal, plan.achievableScaledSums);
+  const totalPointsRaw = plan.scaledTotal / POINT_SCALE;
+
+  if (mode === "range") {
+    // Chọn TRỰC TIẾP trên `plan.achievableScaledSums` (số nguyên EXACT từ chính DP, KHÔNG qua
+    // bước hiển thị đã round) rồi gọi correctIndicesForScaledSum() với giá trị EXACT đó - CÙNG
+    // pattern mode="random" gốc của pro_lamlai_target_score.mjs (đọc `scaledSum` exact trước, chỉ
+    // tính `targetScore` decimal để HIỂN THỊ/report). SỬA 2026-08-26 (phát hiện qua local test,
+    // KHÔNG phải E2E): bản đầu tiên chọn từ `achievableScores` (mảng ĐÃ ROUND 6 chữ số thập phân)
+    // rồi gọi lại `scaledSumForScore(targetScore)` để suy ngược ra scaledSum - round-trip đó CÓ THỂ
+    // MẤT CHÍNH XÁC (xem docblock scaledSumForScore) khiến `correctIndicesForScaledSum` nhận `null`
+    // và (do bug null-handling đã sửa ở trên) từng trả về 1 Set() RỖNG thay vì báo lỗi - nghĩa là
+    // "trả lời SAI TẤT CẢ câu" bị âm thầm dùng làm plan cho 1 target tưởng như khả thi. Chọn EXACT
+    // integer ngay từ đầu loại bỏ hoàn toàn rủi ro round-trip này.
+    const scaledSumsInRange = plan.achievableScaledSums.filter((s) => {
+      const displayScore = Math.round((s / plan.scaledTotal) * 10 * 1e6) / 1e6;
+      return displayScore >= rangeMin && displayScore <= rangeMax;
+    });
+    if (scaledSumsInRange.length === 0) {
+      return {
+        achievable: false,
+        reason: `Không có điểm khả thi nào trong [${rangeMin}, ${rangeMax}] (điểm khả thi thật của exercise này: ${achievableScores.join(", ")}).`,
+        achievableScores,
+        totalScoredItems: questions.length,
+        totalPointsRaw,
+      };
+    }
+    const chosenScaledSum = scaledSumsInRange[Math.floor(Math.random() * scaledSumsInRange.length)];
+    const targetScore = Math.round((chosenScaledSum / plan.scaledTotal) * 10 * 1e6) / 1e6;
+    const correctIndices = plan.correctIndicesForScaledSum(chosenScaledSum);
+    const inRange = achievableScores.filter((s) => s >= rangeMin && s <= rangeMax);
+    return { achievable: true, targetScore, correctIndices, achievableScores, achievableScoresInRange: inRange, totalScoredItems: questions.length, totalPointsRaw };
+  }
+
+  // mode === "target" (re-validate 1 target cụ thể).
+  const scaledSum = scaledSumForScore(plan.scaledTotal, targetScoreEnv);
+  if (scaledSum === null) {
+    return {
+      achievable: false,
+      reason: `Target ${targetScoreEnv} không rơi đúng vào bất kỳ mốc điểm nguyên nào theo scale nội bộ (tổng điểm thật=${totalPointsRaw} của ${questions.length} scored items).`,
+      achievableScores,
+      totalScoredItems: questions.length,
+      totalPointsRaw,
+    };
+  }
+  const correctIndices = plan.correctIndicesForScaledSum(scaledSum);
+  if (!correctIndices) {
+    return {
+      achievable: false,
+      reason: `Target score ${targetScoreEnv} KHÔNG khả thi với ${questions.length} scored items (tổng điểm thật=${totalPointsRaw}). Các điểm khả thi: ${achievableScores.join(", ")}.`,
+      achievableScores,
+      totalScoredItems: questions.length,
+      totalPointsRaw,
+    };
+  }
+  return { achievable: true, targetScore: targetScoreEnv, correctIndices, achievableScores, totalScoredItems: questions.length, totalPointsRaw };
+}
+
+/** Map câu hỏi -> wantCorrect: item nằm trong `correctIndices` (đã truy vết từ DP) -> đúng; item
+ * point<=0 (không tham gia DP) -> mặc định đúng (không ảnh hưởng điểm, an toàn); còn lại -> SAI CHỦ
+ * ĐÍCH (đây chính là phần "chọn sai đáp án cho số item còn lại" theo kế hoạch điểm). */
+export function buildWeightedWantCorrectPlan(questions, correctIndices) {
   const map = new Map();
-  for (const id of questionIds) map.set(id, correctSet.has(id));
+  questions.forEach((q, i) => {
+    const pointRaw = Number(q.metadata?.point) || 0;
+    map.set(q.id, pointRaw <= 0 || correctIndices.has(i));
+  });
   return map;
 }
 
@@ -646,8 +934,8 @@ async function pickFeasibleRandomAssignment({ className, classId, maxAttempts = 
       errorMessage = err.message;
     }
     const compatible = questions ? isTextChoiceCompatible(questions) : false;
-    const scorePlan = compatible ? computeScorePlan(questions.length) : null;
-    const ok = Boolean(compatible && scorePlan);
+    const scoringPlan = compatible ? resolveScoringPlanForCandidate(questions, { mode: "range", rangeMin: TARGET_SCORE_MIN, rangeMax: TARGET_SCORE_MAX }) : null;
+    const ok = Boolean(compatible && scoringPlan?.achievable);
     attempts.push({
       unitName: cand.unitName,
       lessonName: cand.lessonName,
@@ -658,17 +946,17 @@ async function pickFeasibleRandomAssignment({ className, classId, maxAttempts = 
       unique: cand.unique,
       questionCount: questions?.length ?? null,
       ok,
-      reason: errorMessage ?? (!compatible ? "UNSUPPORTED_TYPE_OR_MISSING_CORRECT_ANSWER" : !scorePlan ? "NO_INTEGER_CORRECT_COUNT_IN_SCORE_RANGE_6_TO_8" : null),
+      reason: errorMessage ?? (!compatible ? "UNSUPPORTED_TYPE_OR_MISSING_CORRECT_ANSWER" : !scoringPlan?.achievable ? scoringPlan?.reason ?? "NO_ACHIEVABLE_SCORE_IN_RANGE" : null),
     });
     log(
       `  [PRESCAN] "${cand.unitName}/${cand.lessonName}/${cand.itemName}" (N=${questions?.length ?? "?"}, occurrences=${cand.occurrences}, unique=${cand.unique}): ${
-        ok ? `KHẢ THI (correctCount=${scorePlan.correctCount} -> dự đoán ${scorePlan.predictedScore})` : `loại (${attempts[attempts.length - 1].reason})`
+        ok ? `KHẢ THI (targetScore=${scoringPlan.targetScore}, achievable=[${scoringPlan.achievableScores.join(", ")}])` : `loại (${attempts[attempts.length - 1].reason})`
       }`,
     );
     if (ok) {
       return {
         ok: true,
-        chosen: { ...cand, questions, scorePlan },
+        chosen: { ...cand, questions, scoringPlan },
         attempts,
         totalEligibleNonSpeakSingleExam: flat.length,
         totalUniqueTitleCandidates: uniqueCandidates.length,
@@ -791,7 +1079,8 @@ function formatReport(evidence, result, runId) {
   push(`unit=${ra.unitName ?? "-"}`);
   push(`lesson=${ra.lessonName ?? "-"}`);
   push(`lesson_item_id=${ra.lessonItemId ?? "-"}`);
-  push(`exam_id=${ra.roomExamId ?? "-"}`);
+  push(`catalog_exam_id=${ra.roomExamId ?? "-"} (dùng để resolve CMS)`);
+  push(`real_room_exam_id=${ra.realRoomExamId ?? "-"} (thật sự được serve cho room)`);
   push(`questionCount=${ra.questionCount ?? "-"}`);
   push(``);
   push(`[TEACHER_ASSIGN]`);
@@ -807,8 +1096,9 @@ function formatReport(evidence, result, runId) {
   push(``);
   push(`[SCORING_PLAN]`);
   push(`target_score_range=${TARGET_SCORE_MIN}..${TARGET_SCORE_MAX}`);
-  push(`planned_correct_count=${ra.plannedCorrectCount ?? "-"}`);
-  push(`planned_wrong_count=${ra.questionCount != null && ra.plannedCorrectCount != null ? ra.questionCount - ra.plannedCorrectCount : "-"}`);
+  push(`target_score=${ra.targetScore ?? si.targetScore ?? "-"} (random runtime, KHÔNG hardcode)`);
+  push(`achievable_scores=${ra.achievableScores?.join(", ") ?? "-"}`);
+  push(`required_correct_items=${ra.requiredCorrectItems ?? si.requiredCorrectItems ?? "-"}/${ra.questionCount ?? "-"}`);
   push(``);
   push(`[PARTIAL]`);
   push(`questions_answered_before_exit=0 (KHỚP đúng lifecycle THẬT của ${YAML_REFERENCE_FILE}: thoát X TRƯỚC KHI trả lời câu nào - xem AUDIT ở đầu file .mjs này)`);
@@ -833,12 +1123,13 @@ function formatReport(evidence, result, runId) {
   push(`actual_score=${res.score ?? "-"}`);
   push(``);
   push(`[FINAL_SCORE]`);
+  push(`target_score=${si.targetScore ?? "-"} (random runtime trong [${TARGET_SCORE_MIN}, ${TARGET_SCORE_MAX}], re-validated theo nội dung THẬT của room)`);
   push(`actual=${si.actualScore ?? "-"}`);
-  push(`target_range=${TARGET_SCORE_MIN} <= score <= ${TARGET_SCORE_MAX}`);
-  push(`PASS/FAIL=${si.scoreInRangeTarget ? "PASS" : "FAIL"}`);
+  push(`PASS/FAIL=${si.matched ? "PASS" : "FAIL"} (actualScore === targetScore, KHÔNG phải actualScore trong range)`);
   push(``);
   push(`[CORRECTNESS]`);
-  push(`planned_correct=${si.plannedCorrectCount ?? "-"}`);
+  push(`required_correct_items=${si.requiredCorrectItems ?? "-"}`);
+  push(`achieved_correct_count_by_plan=${si.achievedCorrectCountByPlan ?? "-"}`);
   push(`server_correct=${si.realCorrectCountFromResultScreen ?? "-"}`);
   push(`answer_mapping_verified=${Boolean(evidence.answerLog?.every((l) => l.isTargetCorrect !== null))}`);
   push(``);
@@ -973,6 +1264,11 @@ async function main() {
   // chế KHÁC assignHomeworkAndLocateOnApp()/findAssignment(), đã verify hoạt động đúng cho chính
   // room này ở lượt chạy trước) tự tìm và mở.
   let assignment, dueVnYmd, startVnYmd;
+  // runtimeTargetScore: MỘT nguồn sự thật duy nhất cho target score CỦA LẦN CHẠY NÀY - random khi
+  // giao bài mới (từ prescan, dùng nội dung catalog examId), re-validate lại ở [3/N] với nội dung
+  // THẬT của room (mode="target") - hoặc random THẲNG ở [3/N] nếu REUSE_ROOM_ID (không qua prescan,
+  // xem nhánh dưới). KHÔNG BAO GIỜ gán 1 số cụ thể ở đây - null nghĩa là "chưa quyết định".
+  let runtimeTargetScore = null;
   if (process.env.REUSE_ROOM_ID) {
     const roomId = process.env.REUSE_ROOM_ID;
     log(`[1-2/N] REUSE_ROOM_ID=${roomId} - bỏ qua pre-scan + giao bài lại, dùng lại room đã giao bài thành công ở lượt trước.`);
@@ -1032,9 +1328,12 @@ async function main() {
         ? `itemId=${chosen.itemId} (title unique, 0 existing rooms in class ${TARGET_CLASS}) + due date - resolved to room_id after assign`
         : `itemId=${chosen.itemId} (title NON-unique, ${chosen.occurrences} existing room(s) with same title in class ${TARGET_CLASS}) + due date + content disambiguation (locateOpenAndVerifyAssignment) - resolved to room_id after assign`,
     };
+    runtimeTargetScore = chosen.scoringPlan.targetScore;
     log(
-      `  [PASS] Chọn "${chosen.unitName}/${chosen.lessonName}/${chosen.itemName}" (itemId=${chosen.itemId}, N=${chosen.questions.length}, occurrences=${chosen.occurrences}, unique=${chosen.unique}, correctCount kế hoạch=${chosen.scorePlan.correctCount}, dự đoán=${chosen.scorePlan.predictedScore}).`,
+      `  [PASS] Chọn "${chosen.unitName}/${chosen.lessonName}/${chosen.itemName}" (itemId=${chosen.itemId}, N=${chosen.questions.length}, occurrences=${chosen.occurrences}, unique=${chosen.unique}, targetScore=${chosen.scoringPlan.targetScore} (achievable=[${chosen.scoringPlan.achievableScores.join(", ")}])).`,
     );
+    log(`[target-score]`);
+    log(`targetScore=${runtimeTargetScore} (random từ prescan, sẽ re-validate lại với nội dung THẬT của room ở [3/N])`);
 
     // FIX (2026-08-22, FAIL thật xác nhận qua run TARGET_SCORE_MIN=6/MAX=6.9: "Giao bài thất bại
     // ở bước selectUnitLessonHomework"): file này đổi TARGET_CLASS default sang "7QA-Test" (dòng
@@ -1082,24 +1381,51 @@ async function main() {
   if (!isTextChoiceCompatible(QUESTIONS)) {
     return finish({ status: "BLOCKED", phase: "CMS_RESOLUTION", error: `Nội dung THẬT của room không còn khớp điều kiện handler hỗ trợ đầy đủ.`, evidence });
   }
-  const scorePlan = computeScorePlan(QUESTIONS.length);
-  if (!scorePlan) {
-    return finish({ status: "BLOCKED", phase: "CMS_RESOLUTION", error: `N=${QUESTIONS.length} câu - không tồn tại correctCount nguyên cho điểm dự đoán trong ${TARGET_SCORE_RANGE_LABEL}.`, evidence });
+  // scoringPlan CHÍNH THỨC dùng để trả lời - tính lại TỪ NỘI DUNG THẬT của room (QUESTIONS ở trên,
+  // resolve qua room.id) chứ KHÔNG tin lại nguyên vẹn scoringPlan của prescan (candidate.examId
+  // catalog CÓ THỂ khác examId thật được serve cho room - xem project_teacher_materials_examid_
+  // order_mismatch.md). runtimeTargetScore != null (đã random ở prescan, đường giao bài mới) ->
+  // RE-VALIDATE đúng target đó còn khả thi với nội dung thật (mode="target"); null (đường
+  // REUSE_ROOM_ID, không qua prescan) -> random THẲNG ở đây (mode="range") - CÙNG 1 hàm, không có
+  // nhánh logic random riêng thứ hai.
+  const scoringPlan =
+    runtimeTargetScore != null
+      ? resolveScoringPlanForCandidate(QUESTIONS, { mode: "target", targetScoreEnv: runtimeTargetScore })
+      : resolveScoringPlanForCandidate(QUESTIONS, { mode: "range", rangeMin: TARGET_SCORE_MIN, rangeMax: TARGET_SCORE_MAX });
+  if (!scoringPlan.achievable) {
+    return finish({
+      status: "BLOCKED",
+      phase: "CMS_RESOLUTION",
+      error:
+        runtimeTargetScore != null
+          ? `Target score ${runtimeTargetScore} (đã random ở prescan) KHÔNG còn khả thi với nội dung THẬT của room (${scoringPlan.reason}) - KHÔNG đoán/KHÔNG tự đổi target, dừng rõ ràng.`
+          : `Không random được target score nào trong ${TARGET_SCORE_RANGE_LABEL} cho room này (${scoringPlan.reason}).`,
+      evidence,
+    });
   }
-  const WANT_CORRECT = buildWantCorrectPlan(QUESTIONS.map((q) => q.id), scorePlan.correctCount);
+  runtimeTargetScore = scoringPlan.targetScore;
+  const WANT_CORRECT = buildWeightedWantCorrectPlan(QUESTIONS, scoringPlan.correctIndices);
   const rd = resolved.roomDetails;
+  const realRoomExamId = rd?.room?.exams?.[0]?.id ?? null;
   evidence.randomAssignment = {
     unitName: rd.unit_name,
     lessonName: rd.lesson_name,
     lessonItemId: rd.lesson_item_id,
-    roomExamId: resolved.examId,
+    roomExamId: resolved.examId, // NOTE: đây là catalog examId dùng để resolve CMS (tên field giữ nguyên tương thích cũ) - xem realRoomExamId cho examId THẬT của room.
+    realRoomExamId,
     roomId: assignment.id,
     title: assignment.title,
     questionCount: QUESTIONS.length,
-    plannedCorrectCount: scorePlan.correctCount,
-    predictedScore: scorePlan.predictedScore,
+    targetScore: runtimeTargetScore,
+    achievableScores: scoringPlan.achievableScores,
+    requiredCorrectItems: scoringPlan.correctIndices.size,
   };
-  log(`  [PASS] N=${QUESTIONS.length} câu, correctCount kế hoạch=${scorePlan.correctCount} (dự đoán=${scorePlan.predictedScore}).`);
+  log(`  [PASS] N=${QUESTIONS.length} câu, targetScore=${runtimeTargetScore} (cần đúng ${scoringPlan.correctIndices.size}/${QUESTIONS.length} item, achievable=[${scoringPlan.achievableScores.join(", ")}]).`);
+  log(`[target-score]`);
+  log(`targetScore=${runtimeTargetScore}`);
+  if (realRoomExamId && realRoomExamId !== resolved.examId) {
+    log(`  [CẢNH BÁO] examId catalog (dùng resolve CMS)="${resolved.examId}" KHÁC examId thật của room="${realRoomExamId}" - xem project_teacher_materials_examid_order_mismatch.md. Matcher full-answer-set ([answer-match] log dưới) là lớp bảo vệ chính cho trường hợp này.`);
+  }
 
   const bridge = new MaestroMcpBridge({ appId: APP_ID, deviceId: MAESTRO_DEVICE });
   await bridge.start();
@@ -1322,17 +1648,35 @@ async function main() {
     log(`  [PASS] Đã tìm lại + resume ĐÚNG assignment cũ (verified content-fingerprint khớp room.id=${assignment.id}), đang ở màn làm bài.`);
 
     // ===== HOÀN THÀNH - ENGINE KHÁC (CMS-controlled), THAY answer-current-exercise-generic.yaml =====
-    log(`[9/N] Trả lời TẤT CẢ ${QUESTIONS.length} câu theo kế hoạch (correctCount=${scorePlan.correctCount}) - dùng HomeworkExamEngine (CMS thật), KHÔNG dùng dispatcher blind...`);
+    log(
+      `[9/N] Trả lời TẤT CẢ ${QUESTIONS.length} câu theo kế hoạch (targetScore=${runtimeTargetScore}, cần đúng ${scoringPlan.correctIndices.size}/${QUESTIONS.length} item) - dùng HomeworkExamEngine (CMS thật), KHÔNG dùng dispatcher blind...`,
+    );
+    const examIdContext = { roomExamId: realRoomExamId, candidateExamId: resolved.examId };
     const answeredIds = new Set();
     const answerLog = [];
     let carryTree = null;
     let lastOutcome = null;
     while (answeredIds.size < QUESTIONS.length) {
+      const questionIndex = answeredIds.size + 1;
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
-      const matched = await findMatchingQuestion(bridge, pool, carryTree);
-      if (!matched) {
-        return finish({ status: "FAIL", phase: "FINISH_REMAINING", error: `Không khớp được câu hỏi nào (còn ${pool.length} câu).`, visibleTexts: collectAllTexts(await bridge.hierarchy()), evidence: { ...evidence, answerLog } });
+      const matchResult = await findMatchingQuestion(bridge, pool, carryTree, questionIndex, examIdContext);
+      // KHÔNG dùng partial/first-fit khi có full-set match - AMBIGUOUS/NO_MATCH -> FAIL rõ ràng
+      // NGAY, KHÔNG đoán candidate, KHÔNG retry mù (yêu cầu rõ - xem mục 5/10 của spec).
+      if (matchResult.status !== "MATCHED") {
+        const errorMessage =
+          matchResult.status === "AMBIGUOUS"
+            ? `AMBIGUOUS_MATCH ở câu ${questionIndex}: ${matchResult.diagnostic.candidates.length} candidate CMS cùng khớp ĐỦ toàn bộ answer-set đang hiển thị (ids=${matchResult.diagnostic.candidates.map((c) => c.id).join(", ")}) - KHÔNG tự chọn candidate đầu tiên.`
+            : `NO_MATCH ở câu ${questionIndex} (còn ${pool.length} câu): không có candidate CMS nào có ĐỦ TOÀN BỘ đáp án đang hiển thị trên UI.`;
+        return finish({
+          status: "FAIL",
+          phase: "FINISH_REMAINING",
+          error: errorMessage,
+          matchDiagnostic: matchResult.diagnostic,
+          visibleTexts: collectAllTexts(carryTree ?? (await bridge.hierarchy())),
+          evidence: { ...evidence, answerLog },
+        });
       }
+      const matched = matchResult.question;
       const isLast = answeredIds.size === QUESTIONS.length - 1;
       const { wantCorrect, outcome } = await answerOneQuestion(exam, matched, isLast, WANT_CORRECT);
       lastOutcome = outcome;
@@ -1375,14 +1719,18 @@ async function main() {
     const achievedCorrectCount = [...WANT_CORRECT.values()].filter(Boolean).length;
     const scoreNumber = result.score === null ? null : Number(result.score);
     const scoreValid = scoreNumber !== null && !Number.isNaN(scoreNumber);
-    const scoreInRange = scoreValid && scoreNumber >= TARGET_SCORE_MIN && scoreNumber <= TARGET_SCORE_MAX;
+    // matched: so đúng actualScore === runtimeTargetScore (epsilon 1e-6 cho sai số float) - KHÔNG
+    // phải "nằm trong range" nữa (range CHỈ dùng để RANDOM ra runtimeTargetScore ở trên, không phải
+    // điều kiện PASS/FAIL cuối - PORT cùng logic `matched` của pro_lamlai_target_score.mjs).
+    const matched = scoreValid && Math.abs(scoreNumber - runtimeTargetScore) < 1e-6;
     evidence.scoreInterpretation = {
       questionCount: QUESTIONS.length,
-      plannedCorrectCount: scorePlan.correctCount,
+      targetScore: runtimeTargetScore,
+      requiredCorrectItems: scoringPlan.correctIndices.size,
       achievedCorrectCountByPlan: achievedCorrectCount,
       realCorrectCountFromResultScreen: result.correctCount,
       actualScore: scoreNumber,
-      scoreInRangeTarget: scoreInRange,
+      matched,
       discrepancy: result.correctCount !== null && result.correctCount !== achievedCorrectCount
         ? `Kế hoạch nhắm ${achievedCorrectCount} câu đúng nhưng server báo ${result.correctCount} câu đúng - self-assessment KHÔNG khớp server, xem answerLog để đối chiếu từng câu.`
         : null,
@@ -1390,6 +1738,10 @@ async function main() {
     if (evidence.scoreInterpretation.discrepancy) {
       log(`  [CẢNH BÁO] ${evidence.scoreInterpretation.discrepancy}`);
     }
+    log(`[target-score-result]`);
+    log(`targetScore=${runtimeTargetScore}`);
+    log(`actualScore=${scoreNumber}`);
+    log(`matched=${matched}`);
 
     // ===== [KIẾN THỨC TRONG BÀI - MÀN 2/2, Kết quả BTVN] (MỚI 2026-08-21 - xem MÀN 1 ở [4b/N]).
     // Tap vào card Unit ngay TRÊN màn Kết quả (trước khi đóng dialog) để kiểm tra content. =====
@@ -1530,7 +1882,7 @@ async function main() {
       answeredIds.size === QUESTIONS.length &&
       evidence.cardProgressOk &&
       overallProgressOk &&
-      scoreInRange;
+      matched;
 
     return finish({ status: overallPass ? "PASS" : "FAIL", phase: overallPass ? null : "SCORE_VERIFY", evidence });
   } finally {

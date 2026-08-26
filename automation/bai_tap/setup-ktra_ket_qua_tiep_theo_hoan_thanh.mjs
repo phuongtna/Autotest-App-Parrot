@@ -31,7 +31,7 @@
  *   TEACHER_ACCESS_TOKEN/CMS_TOKEN/EXAM_COOKIE (.env, xem get_teacher_token.sh/get_tokens.sh -
  *     PHẢI refresh trước khi chạy, xem README/memory feedback_get_tokens_script)
  *
- * CHẠY: node flows/app/bai_tap/setup-ktra_ket_qua_tiep_theo_hoan_thanh.mjs
+ * CHẠY: node automation/bai_tap/setup-ktra_ket_qua_tiep_theo_hoan_thanh.mjs
  */
 
 import { execFileSync } from "node:child_process";
@@ -39,14 +39,14 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseEnvFile, requireTeacherPortalConfig } from "../../../automation/src/config.js";
-import { assignHomeworkFlow } from "../../../automation/giao_bai_tap/runtime/assignHomeworkFlow.js";
-import { fetchEligibleAssignmentTree } from "../../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
-import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
-import { normalizeQuestions } from "../../../automation/model/questionModel.js";
+import { parseEnvFile, requireTeacherPortalConfig } from "../src/config.js";
+import { assignHomeworkFlow } from "../giao_bai_tap/runtime/assignHomeworkFlow.js";
+import { fetchEligibleAssignmentTree } from "../giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
+import { parseQuestionsFromExamPage } from "../discovery/examPageScraper.js";
+import { normalizeQuestions } from "../model/questionModel.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const FLOW_FILE = join(SELF_DIR, "ktra_ket_qua_tiep_theo_hoan_thanh.yaml");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "ktra_ket_qua_tiep_theo_hoan_thanh_report.json");
 const ROOT_ENV = parseEnvFile(join(PROJECT_ROOT, ".env"));
@@ -110,7 +110,7 @@ function flattenNonSpeak(eligibleTree) {
   return flat;
 }
 
-/** COPY NGUYÊN từ flows/app/bai_tap/pro_lamlai_target_score.mjs#isTextChoiceCompatible() -
+/** COPY NGUYÊN từ automation/bai_tap/pro_lamlai_target_score.mjs#isTextChoiceCompatible() -
  * loại trừ SPEAK/CONNECT/DRAG_DROP/... XÁC NHẬN THẬT CẦN THIẾT (2026-08-22): item-level `isSpeak`
  * (dựa `skills` catalog) đã bỏ lọt 1 item "Listen and repeat" thực chứa câu SPEAK ("Nhấn để nói") -
  * report BLOCKED_MISSING_EXERCISE_HANDLER thật trên thiết bị. Check theo NỘI DUNG CÂU HỎI THẬT

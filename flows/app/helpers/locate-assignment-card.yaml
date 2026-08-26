@@ -102,7 +102,7 @@ appId: ${APP_ID}
 # 433380/848068 (~7-14 phút/lượt), "last_visible_titles": [] CẢ 2 LẦN. Xác nhận qua API (đọc room
 # list read-only, KHÔNG qua UI) rằng room MỤC TIÊU tồn tại thật + hạn nộp 26/08 NẰM TRONG cửa sổ
 # "2 tuần gần nhất" (7 ngày kể từ hôm nay 19/08, dưới ngưỡng 14 ngày đã verify ở
-# flows/bai_tap/verify-filter-web-vs-app.mjs) - KHÔNG PHẢI do sai filter. Đồng thời lớp 3B đã tích
+# automation/bai_tap/verify-filter-web-vs-app.mjs) - KHÔNG PHẢI do sai filter. Đồng thời lớp 3B đã tích
 # luỹ 83 room (period=MONTH), RIÊNG 14 room có CÙNG hạn nộp hôm nay (19/08) - số lượng card TRÙNG
 # LẶP title+due-date liên tiếp nhiều hơn hẳn các lần trước. KẾT LUẬN: không phải hết ngân sách thời
 # gian - cơ chế "phát hiện cuộn không còn tiến triển" NỘI BỘ của `scrollUntilVisible` (so sánh nội

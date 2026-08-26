@@ -4,8 +4,8 @@
  *
  * Case: "chọn 1 bài đã hoàn thành, bấm Làm lại, làm lại TOÀN BỘ bài, nộp bài, verify điểm THẬT ===
  * điểm MỤC TIÊU được cấu hình (REDO_TARGET_SCORE)". KHÁC hẳn tiêu chí của 2 case anh em:
- *   - flows/app/bai_tap/pro_lamlai_fullluong.mjs           : không scoring (bấm cho qua).
- *   - flows/app/bai_tap/pro_lamlai_beat_previous_score.mjs : actualScore > điểm CŨ (so sánh).
+ *   - automation/bai_tap/pro_lamlai_fullluong.mjs           : không scoring (bấm cho qua).
+ *   - automation/bai_tap/pro_lamlai_beat_previous_score.mjs : actualScore > điểm CŨ (so sánh).
  * Ở ĐÂY: KHÔNG so điểm cũ/mới - điểm cũ (nếu đọc được) chỉ để LOG, không phải điều kiện PASS/FAIL.
  * Điều kiện DUY NHẤT: actualScore === targetScore (đọc thật từ màn Kết quả).
  *
@@ -69,19 +69,19 @@
  *   MAESTRO_DEVICE (tuỳ chọn), PROFILE_PRO_NAME (default "Ngoc"), TARGET_CLASS_ID/TARGET_STUDENT_ID
  *   (default như pro_lamlai_beat_previous_score.mjs).
  *
- * CHẠY: REDO_SCORE_MODE=target REDO_TARGET_SCORE=9 node flows/app/bai_tap/pro_lamlai_target_score.mjs
+ * CHẠY: REDO_SCORE_MODE=target REDO_TARGET_SCORE=9 node automation/bai_tap/pro_lamlai_target_score.mjs
  */
 
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { parseEnvFile } from "../../../automation/src/config.js";
-import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
-import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { getHomeworks } from "../../../automation/bai_tap/discovery/homeworks.js";
-import { resolveMyStatus } from "../../../automation/bai_tap/model/homeworkModel.js";
+import { parseEnvFile } from "../src/config.js";
+import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
+import { HomeworkExamEngine, decideAnswerAction } from "./navigation/homeworkExamEngine.js";
+import { resolveHomeworkExamQuestionsForRoomId } from "./discovery/teacherMaterialsExamResolver.js";
+import { getHomeworks } from "./discovery/homeworks.js";
+import { resolveMyStatus } from "./model/homeworkModel.js";
 // Scroll/locate cho card "Làm lại" (collectDistinctCompletedCandidates/locateSpecificCompletedCandidate)
 // TÁCH ra automation/bai_tap/discovery/locateCompletedCandidate.js (2026-08-24) để dùng chung/dễ
 // test độc lập - xem docblock đầu file đó cho lịch sử/ROOT CAUSE đầy đủ. COMPLETED_CTA re-export từ
@@ -90,18 +90,18 @@ import {
   collectDistinctCompletedCandidates,
   locateSpecificCompletedCandidate,
   COMPLETED_CTA,
-} from "../../../automation/bai_tap/discovery/locateCompletedCandidate.js";
+} from "./discovery/locateCompletedCandidate.js";
 // findAssignment()/scrollToTop() (MỚI 2026-08-25, xem PRECHECK bên dưới) - cơ chế locate CANONICAL
 // dùng chung toàn bộ automation khác (target5.mjs, e2e-teacher-assign-student-open.mjs...), KHÁC
 // locateSpecificCompletedCandidate() ở trên (implementation RIÊNG của chính file này - xem memory
 // feedback_reuse_scroll_locate_mechanisms.md, phần bổ sung 2026-08-24). CHỈ dùng cho PRECHECK
 // READ-ONLY (xem runCanonicalLocatePrecheck()) - KHÔNG thay locateSpecificCompletedCandidate() ở
 // luồng "làm lại" thật (ngoài phạm vi yêu cầu, tránh đổi hành vi production đã verify).
-import { findAssignment, scrollToTop } from "../../../automation/bai_tap/discovery/findAssignment.js";
+import { findAssignment, scrollToTop } from "./discovery/findAssignment.js";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "pro_lamlai_target_score_report.json");
 const ACCOUNTS_ENV_PATH = join(PROJECT_ROOT, "test_data", "accounts.env");
 const ROOT_ENV_PATH = join(PROJECT_ROOT, ".env");
@@ -244,6 +244,16 @@ async function resolveUniqueRoomIdForCandidate(candidate) {
   let matches = homeworks.filter(
     (h) => h.title === candidate.title && h.classIds.includes(TARGET_CLASS_ID) && resolveMyStatus(h, TARGET_STUDENT_ID) === "COMPLETED",
   );
+  // TARGET_ROOM_ID (optional, cùng tinh thần REUSE_ROOM_ID của flows/web/giao_bai_tap/
+  // e2e-teacher-assign-full-scored-target5.mjs): khi title trùng nhiều room cũ và card completed
+  // KHÔNG hiển thị "Hạn nộp" (bị thay bằng "Điểm X" trên UI) nên dueDateBefore không đọc được để
+  // tự phân biệt - cho phép ghim ĐÚNG 1 room_id đã biết chắc chắn qua nguồn khác (vd API), thay vì
+  // BLOCKED AMBIGUOUS. CHỈ lọc trong tập `matches` đã qua điều kiện title/class/COMPLETED ở trên -
+  // không tự thêm room ngoài điều kiện đó.
+  if (matches.length > 1 && process.env.TARGET_ROOM_ID) {
+    const scoped = matches.filter((h) => h.id === process.env.TARGET_ROOM_ID);
+    if (scoped.length > 0) matches = scoped;
+  }
   if (matches.length > 1 && candidate.dueDateBefore) {
     const wantDm = candidate.dueDateBefore.replace(/^Hạn nộp /, "").replace(/\s*\(QUÁ HẠN\)$/, "");
     const scoped = matches.filter((h) => h.deadline.endTime && formatDM(isoToVnYmdLocal(h.deadline.endTime)) === wantDm);
@@ -504,7 +514,7 @@ function parsePreviousScoreForLog(scoreText) {
  * BẤT KỲ tổng khả thi nào. Item point<=0 (không nên còn tồn tại sau normalizeQuestions() lọc GROUP,
  * nhưng phòng hờ) bị loại khỏi DP (không góp/không đổi tổng dù đúng/sai) - xử lý riêng ở
  * buildWeightedWantCorrectPlan() (luôn coi là "đúng", không ảnh hưởng điểm).
- * @param {import("../../../automation/model/questionModel.js").QuestionModel[]} questions
+ * @param {import("../model/questionModel.js").QuestionModel[]} questions
  * @returns {null | { scaledTotal: number, achievableScaledSums: number[], correctIndicesForScaledSum: (s:number)=>Set<number>|null }}
  */
 function buildScoringPlan(questions) {
@@ -700,7 +710,7 @@ async function ensureProProfileActive(bridge) {
  *     bại) HOẶC AMBIGUOUS (≥2 card cùng khớp identity - không an toàn để 1 script khác tự đoán chọn
  *     1 trong số đó) - đây là vấn đề infrastructure/locate cần xử lý trước, KHÔNG phải lý do để
  *     retry full script.
- * @param {import("../../../automation/bridge/maestroMcpBridge.js").MaestroMcpBridge} bridge
+ * @param {import("../bridge/maestroMcpBridge.js").MaestroMcpBridge} bridge
  * @param {string} title
  * @returns {Promise<{precheckStatus: "PRECHECK_PASS"|"PRECHECK_NOT_FOUND"|"PRECHECK_BLOCKED", canonicalStatus: string, scrollCount: number, canonicalFindMs: number, scrollToTopMs: number, diagnostics: string, card: ?Object}>}
  */

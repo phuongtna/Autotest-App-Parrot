@@ -1,0 +1,358 @@
+# HW-30 — Doan van dai trong bai tap: nut "Xem them" mo popup xem toan bo doan van, dich ca doan
+# van (icon dich canh doan van), va dich nghia tung tu (tap 1 tu trong doan van).
+#
+# KHONG HARDCODE 1 bai cu the. Neu KHONG truyen EXERCISE_NAME, flow tu CHON NGAU NHIEN 1 bai trong
+# danh sach "Bai tap": cuon ngau nhien 0-2 lan (tai su dung NGUYEN VEN co che gia-random co san
+# trong repo - test_data/bai_tap_random_scroll.js - Maestro khong co API chon ngau nhien that giua
+# nhieu phan tu cung text, xem docblock file .js do), roi mo CTA dau tien dang hien tren man hinh
+# (index 0 - idiom chon-1-trong-nhieu-phan-tu-trung-text da dung khap repo, vd
+# "flows/app/bai_tap/dsach bt_chuyenprofile.yaml"). Sau do kiem tra cau hoi dau tien cua bai vua mo
+# co marker "Xem them" (= co doan van dai bi cat bot) hay khong - neu KHONG, dong bai va thu bai
+# khac, toi da 3 lan (an dinh cung constant nhu "times: 25" cua
+# flows/app/helpers/answer-current-exercise-generic.yaml, khong tham so hoa). Het 3 lan van khong
+# tim duoc bai phu hop -> BLOCKED_MISSING_FIXTURE (dung tinh than BLOCKED cua
+# flows/app/helpers/goto-question-type.yaml: thieu DU LIEU test phu hop, khong phai loi app).
+#
+# EXERCISE_NAME / EXERCISE_DUE_DATE_DM (tuy chon): neu truyen vao, mo DUNG bai do qua
+# helpers/open-exercise.yaml (tai su dung y het cac case khac, vd ktra_fullluong_lambai.yaml) thay
+# vi random - dung khi muon chay tai lap voi 1 fixture da biet chac co doan van dai (vd CI on dinh).
+# KHONG bat buoc truyen. O CA HAI nhanh (random hoac truyen ten), moi buoc kiem tra ben duoi deu
+# generic theo CAU TRUC UI (id/text co dinh), KHONG assert vao noi dung doan van/tu/ban dich cu the
+# nao - vi noi dung do random theo bai duoc chon.
+#
+# PROFILE_BASIC_NAME / PHONE_BASIC / OTP_BASIC (tuy chon - bat Case D): rule NGHIEP VU bo sung
+# (2026-08-26, theo yeu cau) - tai khoan KHONG Pro thi KHONG duoc dung tinh nang AI giai thich/AI
+# dich. Case D o cuoi file verify RIENG phan AI DICH (giai thich/"Giai thich" la tinh nang KHAC,
+# xem flows/app/bai_tap/HW-28-xem-giai-thich.yaml, file do CHUA co check BASIC/PRO - ngoai pham vi
+# file nay). KHONG truyen PROFILE_BASIC_NAME thi Case D tu SKIP (khong phai fail gia) - rule nay
+# can 1 ho so BASIC that + dung bai co doan van dai gan cho ho so do, khong tu suy ra duoc.
+#
+# BANG CHUNG SELECTOR (xac nhan THAT qua lenh `maestro hierarchy` tren thiet bi that
+# 3201d866d40a1681, KHONG doan - bai dung de khao sat: "G7U2-HW-Read-BTCB" / cau hoi "Read the
+# passage and choose the best word for each numbered gap.", tai khoan test mac dinh 0915775115.
+# Bai nay CHI dung de lay bang chung cau truc UI, KHONG hardcode vao logic chon bai/assertion nao
+# ben duoi):
+#   - "Xem them": co text/accessibilityText "Xem them", KHONG co resource-id.
+#   - Popup xem toan bo doan van (bottom sheet): co nut text "Dong" (KHONG co id) de dong.
+#   - Icon dich CA DOAN (hinh "van A", goc tren-phai popup, ngay duoi tay cam keo bottom sheet):
+#     LA MOT GAP THAT CUA APP - xac nhan qua hierarchy that rang no la 1 SvgView TRAN, KHONG co
+#     resource-id/text/accessibilityText o BAT KY cap cha nao (da doi chieu ca nhanh cha len toi
+#     tan ScrollView goc). Khong the tapOn bang selector id/text - buoc TAP_TRANSLATE_ICON ben duoi
+#     dung toa do % man hinh (Maestro tapOn point ho tro %, doc lap kich thuoc pixel that) vi day
+#     la vi tri CO DINH cua UI chrome (khong phu thuoc do dai doan van).
+#   - Sau khi tap icon dich: ban dich CA DOAN xuat hien trong TextView co id THAT
+#     "paragraph_translate_result" (xac nhan qua hierarchy that, KHONG doan).
+#   - Tap vao 1 tu trong doan van: doan van la 1 khoi TextView canvas thuan, KHONG co phan tu/id
+#     rieng cho tung tu (tuong tu GAP cua icon dich) - buoc TAP_A_WORD ben duoi dung toa do % sat
+#     dau dong 1 cua doan van (da xac nhan that 2/2 lan tren thiet bi that rang diem nay luon roi
+#     vao tu THAT, bat ke tu do la tu gi - vi moi doan van dai deu bat dau bang chu that ngay sat
+#     le trai dong 1 cua textbox). Popup thong tin tu (tu + phien am + nghia + nut audio) nam trong
+#     ViewGroup co id THAT "translate_sheet_result" (xac nhan qua hierarchy that). Rieng 4 phan tu
+#     con (tu/phien am/nghia/nut audio) BEN TRONG container nay KHONG co id/text-selector rieng -
+#     xem ghi chu GIOI HAN o Case C ben duoi ve ly do KHONG the verify rieng tung phan tu do bang
+#     Maestro selector (rui ro false-positive do trung Y-coordinate voi noi dung bi che khuat phia
+#     duoi, da xac nhan that qua hierarchy dump, khong phai suy doan).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: HW-30 Doan van dai - Xem them, dich doan van, dich tu
+
+---
+# ============================= CHON BAI (theo ten hoac random) =============================
+- runFlow:
+    when:
+      true: ${EXERCISE_NAME != null}
+    commands:
+      - runFlow:
+          file: ../helpers/open-exercise.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            EXERCISE_NAME: ${EXERCISE_NAME}
+            EXERCISE_DUE_DATE_DM: ${EXERCISE_DUE_DATE_DM}
+      - assertVisible:
+          text: "Xem thêm"
+          label: "BLOCKED_MISSING_FIXTURE - bai '${EXERCISE_NAME}' duoc truyen vao khong co doan van dai/'Xem them' o cau hoi dau tien. Doi bai khac qua EXERCISE_NAME, hoac bo tham so nay de flow tu random."
+
+- runFlow:
+    when:
+      true: ${EXERCISE_NAME == null}
+    commands:
+      - runFlow:
+          file: ../helpers/login.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+      - runFlow: ../helpers/open-tab-homework.yaml
+
+      # Toi da 3 lan chon ngau nhien + kiem tra. Dung ngay khi tim duoc 1 bai co "Xem them" o cau
+      # hoi dau tien (while danh gia LAI sau moi vong - false thi dung lap som, khong can chay het
+      # 3 lan - dung idiom repeat.while da xac nhan hoat dong that trong
+      # flows/app/helpers/answer-current-exercise-generic.yaml).
+      - repeat:
+          times: 3
+          while:
+            notVisible: "Xem thêm"
+          commands:
+            # Random NGAU NHIEN 1 bai: cuon 0-2 lan (tai su dung NGUYEN VEN
+            # test_data/bai_tap_random_scroll.js) roi mo CTA dau tien dang hien tren man hinh tai
+            # vi tri cuon do. Dung 3 khoi runFlow.when rieng (KHONG dung repeat.times dong tu bien
+            # JS) vi repeat.times dong da xac nhan CHUA duoc dung/verify o dau khac trong repo -
+            # tranh dua vao cu phap chua kiem chung.
+            - runScript: ../../test_data/bai_tap_random_scroll.js
+            - runFlow:
+                when:
+                  true: ${output.scrollTimes >= 1}
+                commands:
+                  - swipe:
+                      direction: UP
+                      duration: 250
+            - runFlow:
+                when:
+                  true: ${output.scrollTimes >= 2}
+                commands:
+                  - swipe:
+                      direction: UP
+                      duration: 250
+
+            - tapOn:
+                text: ".*(Làm bài|Làm lại|Tiếp tục).*"
+                index: 0
+
+            # Consent AI (giong het open-exercise.yaml) neu tai khoan chua dong y.
+            - runFlow:
+                when:
+                  visible: ".*(AI hỗ trợ học tập).*"
+                commands:
+                  - tapOn: ".*(Tiếp tục).*"
+
+            - extendedWaitUntil:
+                visible:
+                  id: "exercise_close_button"
+                timeout: 40000
+
+            # Khong phai bai co doan van dai -> dong lai, thu bai khac o vong lap sau.
+            - runFlow:
+                when:
+                  notVisible: "Xem thêm"
+                commands:
+                  - takeScreenshot: HW-30-candidate-khong-co-doan-van
+                  - tapOn:
+                      id: "exercise_close_button"
+                  - extendedWaitUntil:
+                      visible: ".*(Bài tập về nhà|Bạn không có bài tập nào đang chờ).*"
+                      timeout: 30000
+
+      - assertVisible:
+          text: "Xem thêm"
+          label: "BLOCKED_MISSING_FIXTURE - sau 3 lan chon ngau nhien, khong bai nao co doan van dai/'Xem them' o cau hoi dau tien. Day la THIEU DU LIEU test (tai khoan hien tai co the dang khong co bai dang 'Read the passage...' nao con moi/chua lam), KHONG phai loi app - can giao them bai co doan van dai cho tai khoan test."
+
+- takeScreenshot: HW-30-cau-hoi-co-doan-van-dai
+
+# ============================= CASE A: "Xem them" mo popup xem toan bo doan van =============================
+- assertVisible:
+    text: "Xem thêm"
+    label: "LOI APP: nut 'Xem them' phai hien thi khi doan van dai bi cat bot (preview)."
+
+- tapOn:
+    text: "Xem thêm"
+- extendedWaitUntil:
+    visible:
+      text: "Đóng"
+    timeout: 15000
+    label: "LOI APP: popup/bottom sheet xem toan bo doan van phai mo ra sau khi tap 'Xem them' (nut 'Dong' phai xuat hien)."
+- takeScreenshot: HW-30-caseA-popup-toan-bo-doan-van
+
+# ============================= CASE B: dich ca doan van (icon dich) =============================
+# TAP_TRANSLATE_ICON: toa do % co dinh, xem GAP THAT o docblock dau file - icon dich khong co
+# id/text/content-desc de tapOn bang selector.
+- tapOn:
+    point: "92%, 30%"
+- extendedWaitUntil:
+    visible:
+      id: "paragraph_translate_result"
+    timeout: 15000
+    label: "BLOCKED_MISSING_UI_EVIDENCE - tap vao vi tri icon dich (92%,30%) nhung khong thay ban dich doan van xuat hien (id paragraph_translate_result). Co the vi tri icon dich lech so voi luc khao sat (thiet bi/kich thuoc man hinh khac) - can do lai toa do that tren thiet bi dang chay flow nay."
+- takeScreenshot: HW-30-caseB-ban-dich-doan-van
+
+# Ban dich phai co that (khong rong) - KHONG assert dung noi dung cu the (ban dich random theo
+# doan van duoc chon).
+- copyTextFrom:
+    id: "paragraph_translate_result"
+- runScript: ../../test_data/passage_check_copied_text_non_empty.js
+- assertTrue:
+    ${output.copiedTextNonEmpty}
+
+# ============================= CASE C: dich nghia 1 tu trong doan van =============================
+# TAP_A_WORD: toa do % co dinh sat dau dong 1 cua doan van, xem GAP THAT o docblock dau file -
+# doan van la canvas text thuan, khong co phan tu/id rieng cho tung tu. Dich CA DOAN o Case B chi
+# CHEN THEM noi dung o DUOI doan van goc (khong doi vi tri dong 1) nen diem tap nay khong bi anh
+# huong boi Case B da chay truoc do - KHONG can dong ban dich truoc khi tap tu.
+- tapOn:
+    point: "9%, 29%"
+- extendedWaitUntil:
+    visible:
+      id: "translate_sheet_result"
+    timeout: 15000
+    label: "BLOCKED_MISSING_UI_EVIDENCE - tap vao dau doan van (9%,29%) nhung khong mo duoc popup thong tin tu (id translate_sheet_result). Co the diem tap nay roi vao cho trong dien tu (___) hoac khoang trang thay vi tu that o dung bai nay - kiem tra lai bang screenshot HW-30-cau-hoi-co-doan-van-dai."
+- takeScreenshot: HW-30-caseC-popup-thong-tin-tu
+
+# GIOI HAN DA XAC NHAN (khong phai chua co gang tim selector): 4 phan tu con trong popup nay (tu
+# da chon / phien am / nghia / nut audio) KHONG co id/text/content-desc rieng - CHI co container
+# cha "translate_sheet_result" la co id that. Da THU dung selector vi tri tuong doi (below/above)
+# de doc rieng tung dong nhung PHAT HIEN rui ro false-positive THAT qua hierarchy dump: cac dong
+# noi dung an ben duoi (vd 1 dap an cua cau hoi hien tai, "exercise_answer_3") co the trung
+# Y-coordinate voi vung noi dung cua popup nay (ca hai deu la overlay chong len cung 1 man hinh
+# goc) - assertVisible/copyTextFrom theo vi tri co the khop NHAM vao noi dung bi che khuat thay vi
+# noi dung THAT cua popup, tao ket qua PASS gia. Vi vay case nay CHI xac nhan popup da mo dung
+# (container "translate_sheet_result" hien thi) + luu screenshot lam bang chung - KHONG assert
+# rieng "nghia khong rong"/"phien am khong rong"/"audio hien thi" vi khong co cach nao lam dieu do
+# an toan (khong flaky) voi cau truc UI hien tai. Xem bao cao giao viec de biet chi tiet.
+- assertVisible:
+    id: "translate_sheet_result"
+    label: "LOI APP: popup thong tin tu (tu + phien am + nghia + audio) phai hien thi sau khi tap vao 1 tu trong doan van."
+
+# ============================= DON DEP =============================
+# Dong lan luot 2 popup dang mo (thong tin tu -> toan bo doan van) roi thoat bai, tra man hinh ve
+# trang thai ban dau (KHONG bam exercise_check_button - case nay CHI xem/dich, khong nop dap an,
+# khong ghi du lieu bai lam that). Cac tap "Dong" danh index 0 (idiom chon-1-trong-nhieu-phan-tu
+# da dung khap repo) vi ca 2 popup dang mo cung luc co the cung mang text "Dong" trong cay view.
+- tapOn:
+    text: "Đóng"
+    index: 0
+    optional: true
+- tapOn:
+    text: "Đóng"
+    index: 0
+    optional: true
+- tapOn:
+    id: "exercise_close_button"
+    optional: true
+
+# ============================= CASE D (tuy chon): AI dich KHONG duoc dung khi tai khoan KHONG Pro =============================
+# Chi chay khi PROFILE_BASIC_NAME duoc truyen (xem docblock dau file). Doi sang ho so BASIC (tai su
+# dung NGUYEN VEN helpers/ensure-profile-active.yaml - dung idiom da verify that trong
+# HW-PROFILE-BASIC-PRO-ADVANCED.yaml), roi LAP LAI dung co che random-tim-bai-co-doan-van-dai o
+# tren (COPY NGUYEN, khong viet lai) tren ho so BASIC nay.
+#
+# GIOI HAN QUAN TRONG (da co gang xac minh THAT nhieu lan tren thiet bi 3201d866d40a1681, ho so
+# BASIC "Gia Linh"/tai khoan 0915775115, KHONG THANH CONG - xem bao cao giao viec cung ngay): CHUA
+# quan sat truc tiep duoc app hien GI khi tap icon dich/1 tu tren tai khoan BASIC - danh sach "Bai
+# tap" cua ho so nay rat sau (60+ room, nhieu ban trung lap) VA thu tu card DOI KHAC NHAU giua cac
+# lan mo lai app (xac nhan that qua nhieu lan dump hierarchy cung 1 phien) - scrollUntilVisible
+# (toi 150s) van khong on dinh cham duoc dung bai co doan van dai tren ho so nay. CHI xac nhan duoc
+# 1 hanh vi lien quan THAT: bam "Lam lai" 1 bai da hoan thanh tren ho so BASIC hien popup khoa that
+# "Lam lai bai tap danh cho tai khoan PRO" / "Nang cap tai khoan" / "danh cho tai khoan PRO" / "Nang
+# cap ngay" - CUNG ho message da xac nhan trong flows/app/bai_tap/ktra_hthipopup_upgrade.yaml
+# (HW-21/22). Vi CHUA thay truc tiep dung tinh nang dich, case D duoi day CHAP NHAN CA 2 kha nang
+# (khong doan chinh xac app dung cach nao): (a) hien thong bao nang cap CUNG ho message tren, HOAC
+# (b) khong co gi xay ra/icon bi an hoac disable, khong mo duoc ket qua dich - buoc extendedWaitUntil
+# thong bao nang cap o duoi la optional (chi de LUU BANG CHUNG neu co, khong phai dieu kien bat
+# buoc). CHOT DUY NHAT bat buoc phai dung: paragraph_translate_result/translate_sheet_result KHONG
+# BAO GIO duoc phep xuat hien that tren tai khoan BASIC - neu xuat hien (tuc BASIC dich duoc that),
+# case FAIL CO CHU DICH, day la loi entitlement can bao, khong phai loi flow.
+- runFlow:
+    when:
+      true: ${PROFILE_BASIC_NAME != null}
+    commands:
+      - runFlow:
+          file: ../helpers/ensure-profile-active.yaml
+          env:
+            PHONE: "${PHONE_BASIC == null ? PHONE : PHONE_BASIC}"
+            OTP: "${OTP_BASIC == null ? OTP : OTP_BASIC}"
+            TARGET_PROFILE_NAME: ${PROFILE_BASIC_NAME}
+      - runFlow: ../helpers/open-tab-homework.yaml
+
+      - repeat:
+          times: 3
+          while:
+            notVisible: "Xem thêm"
+          commands:
+            - runScript: ../../test_data/bai_tap_random_scroll.js
+            - runFlow:
+                when:
+                  true: ${output.scrollTimes >= 1}
+                commands:
+                  - swipe:
+                      direction: UP
+                      duration: 250
+            - runFlow:
+                when:
+                  true: ${output.scrollTimes >= 2}
+                commands:
+                  - swipe:
+                      direction: UP
+                      duration: 250
+
+            - tapOn:
+                text: ".*(Làm bài|Làm lại|Tiếp tục).*"
+                index: 0
+
+            - runFlow:
+                when:
+                  visible: ".*(AI hỗ trợ học tập).*"
+                commands:
+                  - tapOn: ".*(Tiếp tục).*"
+
+            - extendedWaitUntil:
+                visible:
+                  id: "exercise_close_button"
+                timeout: 40000
+
+            - runFlow:
+                when:
+                  notVisible: "Xem thêm"
+                commands:
+                  - tapOn:
+                      id: "exercise_close_button"
+                  - extendedWaitUntil:
+                      visible: ".*(Bài tập về nhà|Bạn không có bài tập nào đang chờ).*"
+                      timeout: 30000
+
+      - runFlow:
+          when:
+            notVisible: "Xem thêm"
+          commands:
+            - assertVisible:
+                text: "Xem thêm"
+                label: "BLOCKED_MISSING_FIXTURE - sau 3 lan chon ngau nhien tren ho so BASIC '${PROFILE_BASIC_NAME}', khong bai nao co doan van dai/'Xem them' o cau hoi dau tien - khong xac minh duoc rule 'AI dich bi chan voi tai khoan khong Pro'. Can giao 1 bai co doan van dai cho ho so BASIC nay truoc khi chay lai."
+
+      - runFlow:
+          when:
+            visible: "Xem thêm"
+          commands:
+            - tapOn:
+                text: "Xem thêm"
+            - extendedWaitUntil:
+                visible:
+                  text: "Đóng"
+                timeout: 15000
+            - takeScreenshot: HW-30-caseD-basic-truoc-khi-tap-dich
+
+            # TAP_TRANSLATE_ICON (dich CA DOAN): cung toa do % da dung o Case B (cung 1 component
+            # UI, chi khac entitlement) - xem GIOI HAN o docblock dau file ve ly do dung toa do %
+            # thay vi selector.
+            - tapOn:
+                point: "92%, 30%"
+            - extendedWaitUntil:
+                visible: ".*(Nâng cấp tài khoản|dành cho tài khoản PRO|Nâng cấp để|Nâng cấp ngay).*"
+                timeout: 8000
+                optional: true
+            - takeScreenshot: HW-30-caseD-basic-sau-khi-tap-dich-doan
+            - assertNotVisible:
+                id: "paragraph_translate_result"
+                label: "LOI ENTITLEMENT: tai khoan BASIC (ho so '${PROFILE_BASIC_NAME}') dich duoc CA DOAN VAN THAT - dung ra phai bi chan, chi tai khoan PRO moi duoc dung AI dich."
+
+            # TAP_A_WORD (dich NGHIA 1 TU): cung toa do % da dung o Case C - kiem tra RIENG vi day
+            # la 1 tuong tac khac (tap vao doan van, khong phai tap icon dich).
+            - tapOn:
+                point: "9%, 29%"
+            - extendedWaitUntil:
+                visible: ".*(Nâng cấp tài khoản|dành cho tài khoản PRO|Nâng cấp để|Nâng cấp ngay).*"
+                timeout: 8000
+                optional: true
+            - takeScreenshot: HW-30-caseD-basic-sau-khi-tap-tu
+            - assertNotVisible:
+                id: "translate_sheet_result"
+                label: "LOI ENTITLEMENT: tai khoan BASIC (ho so '${PROFILE_BASIC_NAME}') dich duoc NGHIA 1 TU THAT (qua tap vao doan van) - dung ra phai bi chan, chi tai khoan PRO moi duoc dung AI dich."

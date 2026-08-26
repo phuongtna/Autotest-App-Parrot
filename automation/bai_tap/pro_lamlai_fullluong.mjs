@@ -8,7 +8,7 @@
  * dispatcher chung (answer-current-exercise-generic.yaml, không biết đúng/sai) -> màn kết quả ->
  * đóng -> về lại danh sách.
  *
- * ĐÂY LÀ BẢN ĐƠN GIẢN HOÁ của flows/bai_tap/pro_lamlai_fullluong_xemchitiet.mjs - file đó CÒN thêm
+ * ĐÂY LÀ BẢN ĐƠN GIẢN HOÁ của automation/bai_tap/pro_lamlai_fullluong_xemchitiet.mjs - file đó CÒN thêm
  * 2 việc case này KHÔNG cần: (D) resolveHomeworkExamQuestionsForRoomId + HomeworkExamEngine để ép
  * điểm thật vào [6.0, 8.0], và (H) mở rộng sang case "xem chi tiết" (HW-16/17) sau khi redo. Phase
  * [D]/[H] đó BỊ BỎ HẲN ở đây (không phải rút gọn code, mà đúng theo yêu cầu case - KHÔNG mang
@@ -20,7 +20,7 @@
  *     hierarchy trực tiếp để verify chuyển hồ sơ, không có selector tĩnh đủ dùng qua `maestro test`).
  *   - [B] collectDistinctCompletedCandidates() - COPY nguyên (cùng file gốc) - cuộn "Bài tập về
  *     nhà" gom card cta="Làm lại", đọc CẤU TRÚC qua hierarchy (KHÔNG dùng text CTA làm scroll
- *     target/selector mù - nguyên tắc an toàn gốc từ flows/bai_tap/xemchitietbailam.mjs).
+ *     target/selector mù - nguyên tắc an toàn gốc từ automation/bai_tap/xemchitietbailam.mjs).
  *   - [C] resolveUniqueRoomIdForCandidate() - COPY nguyên (getHomeworks()/resolveMyStatus(), CHỈ
  *     đọc METADATA - title/classIds/deadline/status, KHÔNG đụng tới câu hỏi/đáp án) - dùng để định
  *     danh room_id DUY NHẤT cho candidate (đúng yêu cầu: "định danh bằng lesson_item_id/room_id,
@@ -38,7 +38,7 @@
  *     để gọi flow file thật qua `maestro test`. App vẫn ĐANG đứng đúng màn Doing (session/profile
  *     giữ nguyên trên device) khi tiến trình `maestro test` mới bắt đầu - không launch/login lại.
  *
- * CHẠY: node flows/bai_tap/pro_lamlai_fullluong.mjs
+ * CHẠY: node automation/bai_tap/pro_lamlai_fullluong.mjs
  * ENV: APP_ID (.env), PHONE/OTP (test_data/accounts.env), MAESTRO_DEVICE (tuỳ chọn),
  *   PROFILE_PRO_NAME (default "Ngoc"), TARGET_CLASS_ID/TARGET_STUDENT_ID (default như
  *   pro_lamlai_fullluong_xemchitiet.mjs).
@@ -49,16 +49,16 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseEnvFile } from "../../../automation/src/config.js";
-import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { getHomeworks } from "../../../automation/bai_tap/discovery/homeworks.js";
-import { resolveMyStatus } from "../../../automation/bai_tap/model/homeworkModel.js";
-import { CTA_TEXTS, SECTION_HEADERS } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
-import { deviceArgs, APP_ID, PHONE, OTP } from "../../web/giao_bai_tap/e2e-teacher-assign-student-open.mjs";
+import { parseEnvFile } from "../src/config.js";
+import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
+import { getHomeworks } from "./discovery/homeworks.js";
+import { resolveMyStatus } from "./model/homeworkModel.js";
+import { CTA_TEXTS, SECTION_HEADERS } from "./discovery/homeworkUiList.js";
+import { deviceArgs, APP_ID, PHONE, OTP } from "../../flows/web/giao_bai_tap/e2e-teacher-assign-student-open.mjs";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "pro_lamlai_fullluong_report.json");
 const ACCOUNTS_ENV = parseEnvFile(join(PROJECT_ROOT, "test_data", "accounts.env"));
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
@@ -216,7 +216,7 @@ async function resolveUniqueRoomIdForCandidate(candidate) {
 /** Đọc lại 1 card completed CỤ THỂ theo title (dùng để re-locate candidate KẾ TIẾP sau khi
  * candidate trước đó bị BLOCKED_MISSING_EXERCISE_HANDLER - bounds cũ có thể lệch vì đã rời màn
  * danh sách/scroll vị trí khác) - COPY nguyên relocateCompletedCardByTitle() của
- * flows/bai_tap/pro_lamlai_fullluong_xemchitiet.mjs. */
+ * automation/bai_tap/pro_lamlai_fullluong_xemchitiet.mjs. */
 async function relocateCompletedCardByTitle(bridge, title, { maxScrolls }) {
   let sectionSeen = false;
   let enteredAdvanced = false;

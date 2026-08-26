@@ -84,7 +84,7 @@ import { normalizeQuestions } from "../../../automation/model/questionModel.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
 import { fetchAllHomeworkRooms } from "../../../automation/bai_tap/discovery/homeworks.js";
 import { normalizeHomework } from "../../../automation/bai_tap/model/homeworkModel.js";
-import { formatDM, formatDMY } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
+import { formatDM, formatDMY } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");

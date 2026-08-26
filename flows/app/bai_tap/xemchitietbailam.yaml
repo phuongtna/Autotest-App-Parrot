@@ -11,7 +11,7 @@
 # bởi nhiều dòng "N/M" trùng lặp liên tiếp - cùng lớp sự cố đã ghi nhận trong
 # flows/helpers/locate-assignment-card.yaml). Target scroll vào chính text CTA cũng là pattern đã
 # bị xác nhận có thể vô tình TAP nhầm ở lượt cuộn cuối (xem docblock flows/bai_tap/hw21-22-upgrade-
-# sheets.mjs, mục 1). Nếu case này fail/flaky do lý do trên, dùng flows/bai_tap/xemchitietbailam.mjs
+# sheets.mjs, mục 1). Nếu case này fail/flaky do lý do trên, dùng automation/bai_tap/xemchitietbailam.mjs
 # (bản Node + MaestroMcpBridge, tự đọc hierarchy + swipe thô để định vị card, không phụ thuộc
 # scrollUntilVisible) làm bản đối chứng đáng tin cậy hơn.
 #

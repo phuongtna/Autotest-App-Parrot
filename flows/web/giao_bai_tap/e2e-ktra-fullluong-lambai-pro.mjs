@@ -48,7 +48,7 @@ import { fileURLToPath } from "node:url";
 
 import { parseEnvFile } from "../../../automation/src/config.js";
 import { assignHomeworkAndLocateOnApp, APP_ID, PHONE, OTP, deviceArgs } from "./e2e-teacher-assign-student-open.mjs";
-import { formatDMY, formatDM } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
+import { formatDMY, formatDM } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");

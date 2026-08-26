@@ -137,7 +137,7 @@ export function resolveMyStatus(homework, userId) {
 }
 
 // Lệch giờ VN cố định (+7h, không có DST) - CÙNG hằng số đã dùng độc lập ở
-// flows/bai_tap/pro_lamlai_fullluong.mjs, pro_lamlai_fullluong_xemchitiet.mjs,
+// automation/bai_tap/pro_lamlai_fullluong.mjs, pro_lamlai_fullluong_xemchitiet.mjs,
 // pro_lamlai_beat_previous_score.mjs, verify-filter-web-vs-app.mjs (4 bản copy-paste khác nhau) -
 // đặt CHUNG ở đây (model-level, gắn liền field `deadline` mà nó thao tác) để findAssignment() và
 // mọi caller mới không tự copy-paste thêm lần thứ 5.

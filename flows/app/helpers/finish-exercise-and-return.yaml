@@ -8,7 +8,7 @@
 # COPY NGUYÊN phần "Hoàn thành" + "Màn kết quả" + "Đóng kết quả" của
 # flows/bai_tap/ktra_fullluong_lambai.yaml (dòng 298-365, không đổi selector/thứ tự) - tách ra dùng
 # lại cho case KHÔNG đi qua nhánh mở/thoát X/resume (vd case "Làm lại" 1 bài đã hoàn thành trước
-# đó, xem flows/bai_tap/pro_lamlai_fullluong.mjs).
+# đó, xem automation/bai_tap/pro_lamlai_fullluong.mjs).
 #
 # Tham số (tuỳ chọn): EXERCISE_NAME - tên assignment đang làm, chỉ để làm giàu report BLOCKED của
 # answer-current-exercise-generic.yaml (không truyền vẫn chạy bình thường).

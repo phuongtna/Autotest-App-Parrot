@@ -1,4 +1,4 @@
-# !!! SUPERSEDED (2026-08-17) !!! - dùng flows/bai_tap/hw21-22-upgrade-sheets.mjs thay cho file này.
+# !!! SUPERSEDED (2026-08-17) !!! - dùng automation/bai_tap/hw21-22-upgrade-sheets.mjs thay cho file này.
 # LÝ DO: 2 bước `scrollUntilVisible` bên dưới target THẲNG vào text CTA ("Chinh phục"/"Làm lại") -
 # ĐÚNG pattern đã bị xác nhận lỗi thật trong repo này (xem
 # flows/giao_bai_tap/e2e-teacher-assign-partial-resume-scored.mjs, comment scrollToCard(): 1 lượt

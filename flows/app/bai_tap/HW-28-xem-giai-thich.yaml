@@ -1,5 +1,5 @@
 # HW-28 — Màn xem chi tiết đáp án: bấm "Giải thích" ở từng câu
-# Điều hướng GIỐNG HỆT flows/bai_tap/xemchitietbailam.yaml (HW-16+17) tới khi vào được màn xem lại
+# Điều hướng GIỐNG HỆT automation/bai_tap/xemchitietbailam.yaml (HW-16+17) tới khi vào được màn xem lại
 # đáp án (card đã hoàn thành -> "Xem bài đã làm" -> màn lịch sử -> "Xem chi tiết") - xem docblock
 # gốc file đó để biết CẢNH BÁO về `scrollUntilVisible` (lớp 3B nhiều card trùng title, có thể cần
 # 15-20 lượt cuộn; nếu case này fail/flaky vì lý do đó, đối chiếu bằng bản .mjs dùng

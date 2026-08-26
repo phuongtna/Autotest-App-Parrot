@@ -25,7 +25,7 @@
  * phục" dưới section "Bài tập nâng cao" khi CHƯA làm): card này KHÔNG có dòng "N / M" - chỉ có
  * "Hạn nộp DD/MM" hoặc "Hạn nộp DD/MM (QUÁ HẠN)" đứng ngay sau title. Trước bản vá này,
  * `PROGRESS_PATTERN` là anchor DUY NHẤT nên card dạng này bị bỏ sót vĩnh viễn dù đang hiển thị
- * thật trên màn hình (xác nhận qua flows/bai_tap/hw21-22-upgrade-sheets.mjs BLOCKED_LOCATE ở
+ * thật trên màn hình (xác nhận qua automation/bai_tap/hw21-22-upgrade-sheets.mjs BLOCKED_LOCATE ở
  * HW21_LOCATE dù target đã thấy rõ trong hierarchy). `DUE_DATE_PATTERN` được thêm làm anchor thay
  * thế cho đúng nhóm card này - không thay đổi hành vi của card có "N / M" (title-rejection đã loại
  * "Hạn nộp..." đứng sau "N / M" của CÙNG card khỏi bị đếm trùng làm anchor thứ 2).
@@ -279,7 +279,7 @@ export async function collectVisibleHomeworkCardsViaMcpSession(mcpSession, appId
  *      lại) bằng (title, Hạn nộp), đúng identity đã dùng trong flows/helpers/open-exercise.yaml.
  *
  * Copy đúng công thức parse bounds "[x1,y1][x2,y2]" đã dùng thật trong
- * flows/bai_tap/pro_lamlai_fullluong.mjs (không bịa định dạng mới).
+ * automation/bai_tap/pro_lamlai_fullluong.mjs (không bịa định dạng mới).
  */
 
 /**

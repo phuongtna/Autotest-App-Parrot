@@ -55,7 +55,7 @@
  *     sách hay không - ĐÃ giả định GLOBAL (dựa theo TEST-CASES.md dòng HW-07 "unit gợi ý dedupe
  *     theo unit_id" - ngụ ý gộp chung, không phải lặp lại theo từng card bài tập).
  *
- * CHẠY: node flows/app/bai_tap/ktra-kienthuctrongbai-mapping.mjs
+ * CHẠY: node automation/bai_tap/ktra-kienthuctrongbai-mapping.mjs
  * ENV: APP_ID (.env), PHONE/OTP (test_data/accounts.env), TEST_CLASS_ID (tuỳ chọn),
  *      EXERCISE_NAME (tuỳ chọn - nếu truyền, còn hoàn thành ĐÚNG bài này để verify thêm màn Kết quả
  *      BTVN; không truyền thì BỎ QUA màn 2, không coi là FAIL), MAESTRO_DEVICE (tuỳ chọn),
@@ -66,13 +66,13 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { getHomeworks, filterOutRolePlay } from "../../../automation/bai_tap/discovery/homeworks.js";
-import { getBooks, filterSelfLearnBooks } from "../../../automation/discovery/books.js";
-import { getUnitsOfBook, filterPublishedUnits } from "../../../automation/discovery/units.js";
+import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
+import { getHomeworks, filterOutRolePlay } from "./discovery/homeworks.js";
+import { getBooks, filterSelfLearnBooks } from "../discovery/books.js";
+import { getUnitsOfBook, filterPublishedUnits } from "../discovery/units.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "hw20_mapping_report.json");
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 const HOMEWORK_PERIOD = process.env.HOMEWORK_PERIOD || "MONTH";
@@ -173,7 +173,7 @@ async function crossCheckWithSelfLearnCatalog(expected) {
 }
 
 /** launch-fresh + login + mở tab Bài tập, viết native qua bridge (cùng pattern
- * flows/bai_tap/xemchitietbailam.mjs) - KHÔNG import lại vì 2 file đó chưa export dùng chung. */
+ * automation/bai_tap/xemchitietbailam.mjs) - KHÔNG import lại vì 2 file đó chưa export dùng chung. */
 async function launchFresh(bridge) {
   const r = await bridge.runSteps([
     { launchApp: { stopApp: true, permissions: { all: "allow" } } },

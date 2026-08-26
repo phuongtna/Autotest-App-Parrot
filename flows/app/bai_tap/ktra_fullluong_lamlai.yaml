@@ -8,7 +8,7 @@
 #           -> submit -> exercise_result_screen.
 #
 # ĐÂY LÀ BASE CASE - KHÔNG kiểm tra điểm cũ, KHÔNG so điểm mới > điểm cũ, KHÔNG nhắm target score cụ
-# thể (case đó xem flows/app/bai_tap/pro_lamlai_target_score.mjs - BẮT BUỘC .mjs vì cần gọi CMS/Exam
+# thể (case đó xem automation/bai_tap/pro_lamlai_target_score.mjs - BẮT BUỘC .mjs vì cần gọi CMS/Exam
 # API để biết đáp án đúng thật, YAML thuần không làm được, xem docblock mục SCORING ENGINE ở đó).
 # Chỉ chứng minh: "Làm lại" -> vào bài -> handler chung chạy hết -> submit -> CÓ màn kết quả.
 #

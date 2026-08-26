@@ -7,7 +7,7 @@
  *       flows/giao_bai_tap/e2e-ktra-fullluong-lambai-scored-pro.mjs - đã verify PASS).
  *   [B] Tìm 1 card ĐÃ HOÀN THÀNH TRƯỚC ĐÓ (cta="Làm lại") trong "Bài tập về nhà" - tái dùng
  *       `findCompletedCardsWithLinkBounds()`/`collectNodesWithBoundsInsideScrollableList()`/
- *       `parseBounds()` (BẢN ĐÃ SỬA BUG NaN, xem docblock gốc) của flows/bai_tap/xemchitietbailam.mjs,
+ *       `parseBounds()` (BẢN ĐÃ SỬA BUG NaN, xem docblock gốc) của automation/bai_tap/xemchitietbailam.mjs,
  *       MỞ RỘNG để giữ thêm bounds của chính CTA "Làm lại" (không chỉ "Xem bài đã làm") + dòng
  *       "Hạn nộp DD/MM" gần nhất phía TRƯỚC card (không có trên completed card - card completed
  *       không hiện Hạn nộp, xem verify-filter-web-vs-app.mjs dòng "KHÔNG có dòng Hạn nộp nào" -
@@ -51,7 +51,7 @@
  *   - `parseQuestionsFromExamPage()`/`resolveHomeworkExamQuestionsForRoomId()` có flaky networkidle
  *     đã đo thật (~1/3 fail) - retry BOUNDED tối đa 2 lần/candidate (KHÔNG vô hạn).
  *
- * CHẠY: node flows/bai_tap/pro_lamlai_fullluong_xemchitiet.mjs
+ * CHẠY: node automation/bai_tap/pro_lamlai_fullluong_xemchitiet.mjs
  * ENV: APP_ID (.env), PHONE/OTP (test_data/accounts.env), MAESTRO_DEVICE (tuỳ chọn),
  *   PROFILE_PRO_NAME (default "Ngoc"), ASSIGN_PRIMARY_CLASS (default "3B"),
  *   TARGET_CLASS_ID (default "b3336062-cacd-4d1a-a0af-4de44acf33d2"),
@@ -62,19 +62,19 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "no
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseEnvFile } from "../../../automation/src/config.js";
-import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
-import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
-import { normalizeQuestions } from "../../../automation/model/questionModel.js";
-import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { getHomeworks } from "../../../automation/bai_tap/discovery/homeworks.js";
-import { resolveMyStatus } from "../../../automation/bai_tap/model/homeworkModel.js";
-import { CTA_TEXTS, SECTION_HEADERS } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
+import { parseEnvFile } from "../src/config.js";
+import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
+import { HomeworkExamEngine, decideAnswerAction } from "./navigation/homeworkExamEngine.js";
+import { parseQuestionsFromExamPage } from "../discovery/examPageScraper.js";
+import { normalizeQuestions } from "../model/questionModel.js";
+import { resolveHomeworkExamQuestionsForRoomId } from "./discovery/teacherMaterialsExamResolver.js";
+import { getHomeworks } from "./discovery/homeworks.js";
+import { resolveMyStatus } from "./model/homeworkModel.js";
+import { CTA_TEXTS, SECTION_HEADERS } from "./discovery/homeworkUiList.js";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "pro_lamlai_fullluong_xemchitiet_report.json");
 const ACCOUNTS_ENV_PATH = join(PROJECT_ROOT, "test_data", "accounts.env");
 const ROOT_ENV_PATH = join(PROJECT_ROOT, ".env");
@@ -109,7 +109,7 @@ function shuffle(arr) {
   return a;
 }
 
-/** ===================== card/hierarchy parsing (tái dùng flows/bai_tap/xemchitietbailam.mjs) ===================== */
+/** ===================== card/hierarchy parsing (tái dùng automation/bai_tap/xemchitietbailam.mjs) ===================== */
 
 const PROGRESS_PATTERN = /^\d+\s*\/\s*\d+$/;
 const DUE_DATE_PATTERN = /^Hạn nộp \d{2}\/\d{2}(\s*\(QUÁ HẠN\))?$/;
@@ -132,7 +132,7 @@ function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** BUG THẬT đã xác nhận + SỬA (xem docblock gốc flows/bai_tap/xemchitietbailam.mjs#parseBounds):
+/** BUG THẬT đã xác nhận + SỬA (xem docblock gốc automation/bai_tap/xemchitietbailam.mjs#parseBounds):
  * `m.slice(1)` đã bỏ m[0] rồi, KHÔNG được thêm dấu phẩy thừa khi destructure nữa (bản lỗi cũ
  * `[, x1, y1, x2, y2]` làm lệch 1 vị trí -> NaN). Giữ ĐÚNG bản đã sửa, không tái phát minh. */
 function parseBounds(boundsStr) {

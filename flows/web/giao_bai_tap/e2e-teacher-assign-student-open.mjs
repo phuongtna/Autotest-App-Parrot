@@ -104,7 +104,7 @@ import { normalizeHomework } from "../../../automation/bai_tap/model/homeworkMod
 import { requireTeacherPortalConfig } from "../../../automation/src/config.js";
 import { MaestroMcpSession } from "../../../automation/bai_tap/discovery/maestroMcpSession.js";
 import { findAssignment } from "../../../automation/bai_tap/discovery/findAssignment.js";
-import { isoToVnYmd, computeRange, inRange, formatDM, formatDMY } from "../../app/bai_tap/verify-filter-web-vs-app.mjs";
+import { isoToVnYmd, computeRange, inRange, formatDM, formatDMY } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");

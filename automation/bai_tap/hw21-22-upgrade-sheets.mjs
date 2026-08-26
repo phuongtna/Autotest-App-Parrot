@@ -52,7 +52,7 @@
  * Nếu không tìm thấy card mục tiêu trong ngân sách cuộn -> BLOCKED_LOCATE (không tap đại candidate
  * đầu tiên nhìn thấy ngoài luồng parse card đã verify).
  *
- * CHẠY: node flows/bai_tap/hw21-22-upgrade-sheets.mjs
+ * CHẠY: node automation/bai_tap/hw21-22-upgrade-sheets.mjs
  * ENV: APP_ID (.env), PHONE/OTP (test_data/accounts.env), MAESTRO_DEVICE (tuỳ chọn).
  */
 
@@ -60,14 +60,14 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
+import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
 import {
   collectTextNodesInsideScrollableList,
   parseHomeworkCardsFromTexts,
-} from "../../../automation/bai_tap/discovery/homeworkUiList.js";
+} from "./discovery/homeworkUiList.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "hw21_22_upgrade_sheets_report.json");
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 

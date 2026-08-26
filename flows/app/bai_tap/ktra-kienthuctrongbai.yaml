@@ -10,7 +10,7 @@
 # KHÔNG verify được mapping Khối+Unit (yaml thuần không gọi được API backend để biết Khối thật của
 # assignment). Muốn verify ĐÚNG mapping Khối+Unit theo dữ liệu runtime thật (không hardcode), chạy
 # script data-driven riêng:
-#   node flows/app/bai_tap/ktra-kienthuctrongbai-mapping.mjs
+#   node automation/bai_tap/ktra-kienthuctrongbai-mapping.mjs
 # (script đó dùng automation/bai_tap/discovery/homeworks.js#getHomeworks() để lấy Khối/Unit THẬT
 # của assignment, đối chiếu với Unit đang hiển thị trên máy - không đoán/không hardcode).
 #

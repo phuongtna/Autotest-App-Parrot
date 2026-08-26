@@ -8,7 +8,7 @@
  * ("Lần 1", "Điểm", "Đúng", "Thời gian nộp", "Làm lại") mà case này VỐN DĨ đã đi qua trước khi tap
  * "Xem chi tiết"; không phải 2 luồng độc lập nên KHÔNG cần login+điều hướng lại từ đầu ở 1 file
  * riêng - xem khối [HISTORY_LIST] bên dưới cho phần verify gộp từ HW-16. Bản gộp tương đương bằng
- * Maestro yaml thuần nằm ở flows/bai_tap/xemchitietbailam.yaml (case "HW-16+17") - file đó VẪN GIỮ
+ * Maestro yaml thuần nằm ở automation/bai_tap/xemchitietbailam.yaml (case "HW-16+17") - file đó VẪN GIỮ
  * (không xoá) làm bản đối chiếu, dùng `scrollUntilVisible` (rủi ro đã ghi nhận, xem mục THAY THẾ
  * bên dưới). flows/bai_tap/HW-16-attempt-history.yaml (bản HW-16 tách riêng cũ) đã bị XÓA
  * (2026-08-18, nội dung đã gộp hết vào 2 file trên).
@@ -20,7 +20,7 @@
  * KHÔNG phụ thuộc lesson/room_id cụ thể - bất kỳ card nào trong "Bài tập về nhà" có cta="Làm lại"
  * (đã hoàn thành, xem định nghĩa dưới) đều hợp lệ.
  *
- * THAY THẾ flows/bai_tap/xemchitietbailam.yaml (bản Maestro yaml thuần, giữ lại làm bản đối chiếu,
+ * THAY THẾ automation/bai_tap/xemchitietbailam.yaml (bản Maestro yaml thuần, giữ lại làm bản đối chiếu,
  * xem mục GỘP ở trên) - đổi sang Node + MaestroMcpBridge vì file .yaml đó dùng `scrollUntilVisible` với target
  * literal text ".*(Xem bài đã làm).*" và timeout cố định 25000ms. Lớp test 3B đã tích luỹ rất nhiều
  * room rác từ các lần chạy automation trước (nhiều card TRÙNG title, xem
@@ -40,7 +40,7 @@
  *
  * AN TOÀN: KHÔNG BAO GIỜ dùng text CTA ("Xem bài đã làm"/"Làm lại") làm target cuộn - đây là ĐÚNG
  * pattern đã bị xác nhận có thể vô tình TAP nút đó ở lượt cuộn cuối (xem docblock
- * flows/bai_tap/hw21-22-upgrade-sheets.mjs, mục 1) - chỉ dùng swipe thô, sau đó đọc hierarchy để
+ * automation/bai_tap/hw21-22-upgrade-sheets.mjs, mục 1) - chỉ dùng swipe thô, sau đó đọc hierarchy để
  * phân loại card BẰNG CẤU TRÚC (title -> N/M hoặc Hạn nộp -> Điểm/Xem bài đã làm -> CTA), rồi mới
  * tap CÓ CHỦ ĐÍCH bằng toạ độ đã xác định.
  *
@@ -59,10 +59,10 @@
  * các câu) -> returned_to_list (back, xem mục NAVIGATE bên dưới). screenshot cũng đổi sang gọi
  * `takeScreenshot` RIÊNG 1 lượt (không gộp cùng extendedWaitUntil) + `existsSync`/`statSync` xác
  * nhận file thật trên đĩa (lượt trước không verify được, xem artifacts/HW-21-upgrade-advanced.png/
- * HW-22-upgrade-redo.png trong flows/bai_tap/hw21-22-upgrade-sheets.mjs làm bằng chứng pattern này
+ * HW-22-upgrade-redo.png trong automation/bai_tap/hw21-22-upgrade-sheets.mjs làm bằng chứng pattern này
  * hoạt động thật).
  *
- * CHẠY: node flows/bai_tap/xemchitietbailam.mjs
+ * CHẠY: node automation/bai_tap/xemchitietbailam.mjs
  * ENV: APP_ID (.env), PHONE/OTP (test_data/accounts.env), MAESTRO_DEVICE (tuỳ chọn).
  */
 
@@ -70,11 +70,11 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync } from "no
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { CTA_TEXTS, SECTION_HEADERS } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
+import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
+import { CTA_TEXTS, SECTION_HEADERS } from "./discovery/homeworkUiList.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "hw17_xem_chi_tiet_report.json");
 const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 
@@ -117,7 +117,7 @@ function log(...args) {
 /** Escape text thường thành regex literal - dùng cho bridge.isVisible() (nhận regex, không phải
  * literal string) khi cần so khớp ĐÚNG 1 cụm cố định như "Tiếp theo"/"Xem xong" (không có ký tự
  * đặc biệt trong 2 cụm này thật, nhưng escape cho chắc/nhất quán - cùng idiom escapeRegex() đã có
- * trong flows/bai_tap/hw21-22-upgrade-sheets.mjs). */
+ * trong automation/bai_tap/hw21-22-upgrade-sheets.mjs). */
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -541,7 +541,7 @@ async function main() {
     }
 
     // Chụp screenshot RIÊNG 1 lượt runSteps (không gộp cùng extendedWaitUntil) - đúng pattern đã xác
-    // nhận THẬT có tạo file trên đĩa (flows/bai_tap/hw21-22-upgrade-sheets.mjs, waitForUpgradeMessage(),
+    // nhận THẬT có tạo file trên đĩa (automation/bai_tap/hw21-22-upgrade-sheets.mjs, waitForUpgradeMessage(),
     // artifacts/HW-21-upgrade-advanced.png + HW-22-upgrade-redo.png đã verify tồn tại thật) - lượt
     // chạy trước gộp chung 1 mảng với extendedWaitUntil nên KHÔNG xác nhận được file có tạo ra không.
     const screenshotRelPath = "artifacts/HW-17-show-answer";

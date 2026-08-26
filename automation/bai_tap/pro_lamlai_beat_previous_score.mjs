@@ -9,17 +9,17 @@
  * TẤT CẢ câu ĐÚNG (để tối đa hoá điểm, đảm bảo an toàn nhất để vượt điểm cũ trừ khi điểm cũ đã tuyệt
  * đối), verify điểm MỚI (đọc từ màn Kết quả thật) > điểm CŨ.
  *
- * KHÁC flows/bai_tap/pro_lamlai_fullluong.mjs (case trước, KHÔNG scoring, dùng
+ * KHÁC automation/bai_tap/pro_lamlai_fullluong.mjs (case trước, KHÔNG scoring, dùng
  * answer-current-exercise-generic.yaml - dispatcher đó tự khai không biết đúng/sai nên KHÔNG dùng
  * được để đảm bảo "cao hơn điểm trước") - ở ĐÂY bắt buộc phải biết đáp án ĐÚNG thật (CMS/Exam) để
  * chủ động trả lời đúng hết, KHÔNG phải giới hạn/over-engineer thêm mà là YÊU CẦU THẬT của case này.
  *
  * TÁI SỬ DỤNG (không viết lại logic đã verify):
  *   - [A] ensureProProfileActive(), [B] collectDistinctCompletedCandidates(),
- *     resolveUniqueRoomIdForCandidate() - COPY nguyên từ flows/bai_tap/pro_lamlai_fullluong.mjs
+ *     resolveUniqueRoomIdForCandidate() - COPY nguyên từ automation/bai_tap/pro_lamlai_fullluong.mjs
  *     (đã verify PASS phần locate/định danh).
  *   - EXAM_SESSION refresh + resolveHomeworkExamQuestionsForRoomIdWithRetry() + isTextChoiceCompatible()
- *     + findMatchingQuestion() - COPY nguyên từ flows/bai_tap/pro_lamlai_fullluong_xemchitiet.mjs
+ *     + findMatchingQuestion() - COPY nguyên từ automation/bai_tap/pro_lamlai_fullluong_xemchitiet.mjs
  *     (đã verify PASS phần resolve CMS/trả lời bằng HomeworkExamEngine).
  *   - KHÔNG dùng computeScorePlan/buildWantCorrectPlan (mục tiêu điểm CỐ ĐỊNH [6.0,8.0] của case
  *     KHÁC) - ở đây LUÔN nhắm ĐÚNG hết (wantCorrect=true mọi câu), vì mục tiêu chỉ là "cao hơn điểm
@@ -32,7 +32,7 @@
  * KHÔNG tự động hoá được, KHÁC dispatcher chung chỉ cần "bấm cho qua"). Chọn candidate ĐẦU TIÊN
  * thoả cả 3 điều kiện - KHÔNG duyệt hết để tìm "tốt nhất".
  *
- * CHẠY: node flows/bai_tap/pro_lamlai_beat_previous_score.mjs
+ * CHẠY: node automation/bai_tap/pro_lamlai_beat_previous_score.mjs
  * ENV: APP_ID (.env), PHONE/OTP (test_data/accounts.env), EXAM_COOKIE (.env, get_tokens.sh),
  *   MAESTRO_DEVICE (tuỳ chọn), PROFILE_PRO_NAME (default "Ngoc"), TARGET_CLASS_ID/TARGET_STUDENT_ID
  *   (default như pro_lamlai_fullluong_xemchitiet.mjs).
@@ -42,17 +42,17 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseEnvFile } from "../../../automation/src/config.js";
-import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
-import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { getHomeworks } from "../../../automation/bai_tap/discovery/homeworks.js";
-import { resolveMyStatus } from "../../../automation/bai_tap/model/homeworkModel.js";
-import { CTA_TEXTS, SECTION_HEADERS } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
+import { parseEnvFile } from "../src/config.js";
+import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
+import { HomeworkExamEngine, decideAnswerAction } from "./navigation/homeworkExamEngine.js";
+import { resolveHomeworkExamQuestionsForRoomId } from "./discovery/teacherMaterialsExamResolver.js";
+import { getHomeworks } from "./discovery/homeworks.js";
+import { resolveMyStatus } from "./model/homeworkModel.js";
+import { CTA_TEXTS, SECTION_HEADERS } from "./discovery/homeworkUiList.js";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
+const PROJECT_ROOT = join(SELF_DIR, "..", "..");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "pro_lamlai_beat_previous_score_report.json");
 const ACCOUNTS_ENV_PATH = join(PROJECT_ROOT, "test_data", "accounts.env");
 const ROOT_ENV_PATH = join(PROJECT_ROOT, ".env");

@@ -12,7 +12,7 @@ import { scrollToTop } from "./findAssignment.js";
  * tìm card CHƯA làm dùng `homeworkUiList.js#parseHomeworkCardsWithDetail()`, card đã hoàn thành cần
  * đọc thêm điểm/CTA "Làm lại" riêng - xem `findCompletedCardsWithCtaBounds()`).
  *
- * TÁCH RA từ flows/app/bai_tap/pro_lamlai_target_score.mjs (2026-08-24, theo yêu cầu đưa scroll/
+ * TÁCH RA từ automation/bai_tap/pro_lamlai_target_score.mjs (2026-08-24, theo yêu cầu đưa scroll/
  * locate logic vào automation/bai_tap để dùng chung/dễ test độc lập) - KHÔNG đổi hành vi so với bản
  * đã fix+verify live trên thiết bị thật cùng ngày (xem ROOT CAUSE, [[project_lamlai_scroll_root_cause]]).
  */

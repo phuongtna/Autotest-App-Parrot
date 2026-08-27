@@ -104,10 +104,11 @@ import os from "node:os";
 import { fetchAllHomeworkRooms } from "./discovery/homeworks.js";
 import { normalizeHomework, resolveMyStatus } from "./model/homeworkModel.js";
 import { config, requireTeacherPortalConfig } from "../src/config.js";
+import { MaestroMcpSession } from "./discovery/maestroMcpSession.js";
 
 const HOMEWORK_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(HOMEWORK_DIR, "..", "..");
-const HELPERS_DIR = join(HOMEWORK_DIR, "..", "helpers");
+const HELPERS_DIR = join(PROJECT_ROOT, "flows", "app", "helpers");
 const LAUNCH_KEEP_SESSION_FLOW = join(HELPERS_DIR, "launch-keep-session.yaml");
 const LOGIN_FLOW = join(HELPERS_DIR, "login.yaml");
 const OPEN_TAB_HOMEWORK_FLOW = join(HELPERS_DIR, "open-tab-homework.yaml");
@@ -236,6 +237,20 @@ function scrollDownOnce() {
   runInlineSteps(`- swipe:\n    start: "50%,80%"\n    end: "50%,25%"\n    duration: 400\n- waitForAnimationToEnd:\n    timeout: 750`);
 }
 
+// Biến thể GỘP SESSION (MaestroMcpSession) của scrollDownOnce() - CÙNG bước swipe/wait, CHỈ đổi
+// transport (xem PERF trong docblock đầu file: mỗi lệnh CLI riêng ~55-67s do khởi động lại
+// process/ADB, còn 1 lệnh `run` qua session đang sống chỉ ~7.2-7.4s). Chỉ dùng trong
+// collectAllVisibleHomeworkCards() (fallback khi chưa đo được bounds dòng cuối) - KHÔNG đổi hàm
+// scrollDownOnce() gốc (không có caller nào khác ngoài collectAllVisibleHomeworkCards, nhưng giữ
+// nguyên để rollback/so sánh dễ, đúng convention đã dùng ở homeworkUiList.js).
+async function scrollDownOnceViaSession(session) {
+  const result = await session.run(APP_ID, [
+    { swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } },
+    { waitForAnimationToEnd: { timeout: 750 } },
+  ]);
+  if (!result.success) throw new Error(`scrollDownOnceViaSession: cuộn thất bại: ${result.error}`);
+}
+
 // COPY NGUYÊN gesture đã verify trong flows/homework/HW-05-pull-to-refresh.yaml (không invent
 // thao tác mới) - dùng khi target chưa thấy NGAY ở lượt đọc đầu tiên (trước khi cuộn gì cả): tab
 // "Bài tập" có thể đang hiển thị danh sách CACHE CŨ (fetch trước khi GV giao bài) chưa kịp có
@@ -255,6 +270,21 @@ function pullToRefreshOnce() {
     timeout: 30000
 `.trim(),
   );
+}
+
+// Biến thể GỘP SESSION của pullToRefreshOnce() - CÙNG gesture/điều kiện chờ, chỉ đổi transport
+// (xem scrollDownOnceViaSession() ở trên). Chỉ dùng trong collectAllVisibleHomeworkCards().
+async function pullToRefreshOnceViaSession(session) {
+  const result = await session.run(APP_ID, [
+    { swipe: { start: "50%, 35%", end: "50%, 85%", duration: 600 } },
+    {
+      extendedWaitUntil: {
+        visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|Kiến thức trong bài|Bạn không có bài tập nào đang chờ).*" },
+        timeout: 30000,
+      },
+    },
+  ]);
+  if (!result.success) throw new Error(`pullToRefreshOnceViaSession: thất bại: ${result.error}`);
 }
 
 // ---- Thu thập card từ hierarchy (viết lại theo đúng bất biến đã verify PASS của
@@ -429,6 +459,38 @@ function scrollPastLastEntry(rootBounds, containerBounds, lastEntryBottomY) {
   );
 }
 
+// Biến thể GỘP SESSION của scrollPastLastEntry() - GIỮ NGUYÊN 100% công thức toạ độ (centerX/
+// startY/marginTop, xem lý do ở docblock hàm gốc phía trên: cuộn CHÍNH XÁC theo bounds dòng cuối
+// đã đọc để đảm bảo overlap≤1 dòng, fix bug đếm thiếu card trùng title) - CHỈ đổi transport (xem
+// scrollDownOnceViaSession() ở trên). Chỉ dùng trong collectAllVisibleHomeworkCards().
+async function scrollPastLastEntryViaSession(session, rootBounds, containerBounds, lastEntryBottomY) {
+  const left = rootBounds?.left ?? 0;
+  const right = rootBounds?.right ?? 1080;
+  const screenBottom = rootBounds?.bottom ?? 2340;
+  const centerX = Math.round((left + right) / 2);
+  const marginTop = (containerBounds?.top ?? 291) + 40;
+  const startY = Math.min(Math.max(lastEntryBottomY - 5, marginTop + 50), screenBottom - 50);
+  if (DEBUG_COLLECTOR) {
+    console.error(
+      `[DEBUG] scrollPastLastEntryViaSession: rootBounds=${JSON.stringify(rootBounds)} containerBounds=${JSON.stringify(containerBounds)} lastEntryBottomY=${lastEntryBottomY} -> centerX=${centerX} startY=${startY} marginTop=${marginTop}`,
+    );
+  }
+  const result = await session.run(APP_ID, [
+    { swipe: { start: `${centerX},${startY}`, end: `${centerX},${marginTop}`, duration: 400 } },
+    { waitForAnimationToEnd: { timeout: 750 } },
+  ]);
+  if (!result.success) throw new Error(`scrollPastLastEntryViaSession: cuộn thất bại: ${result.error}`);
+}
+
+// Biến thể GỘP SESSION của scrollToTopBestEffort() (8 lượt swipe DOWN 250ms, y hệt bản CLI dùng
+// trong switchFilterToOneMonth() - KHÔNG đổi bản CLI đó, còn caller riêng) - chỉ dùng trong
+// collectAllVisibleHomeworkCards().
+async function scrollToTopBestEffortViaSession(session) {
+  const steps = Array.from({ length: SCROLL_TO_TOP_TIMES }, () => ({ swipe: { direction: "DOWN", duration: 250 } }));
+  const result = await session.run(APP_ID, steps);
+  if (!result.success) throw new Error(`scrollToTopBestEffortViaSession: thất bại: ${result.error}`);
+}
+
 /**
  * Gộp accumulated + newCards khi overlap ĐÃ ĐƯỢC ĐẢM BẢO ≤ 1 dòng bởi cách cuộn theo toạ độ
  * (scrollPastLastEntry) - chỉ cần kiểm tra ĐÚNG 1 vị trí, không cần "đoán k" như các bản trước.
@@ -488,26 +550,54 @@ function collectionKeyForLogging(card) {
  *   (caller PHẢI phân biệt 2 trường hợp này khi quyết định BLOCKED_ASSIGNMENT_NOT_FOUND vs
  *   BLOCKED_DISCOVERY_BUDGET_EXCEEDED/BLOCKED_COLLECTION_INCOMPLETE, không gộp chung).
  */
-function collectAllVisibleHomeworkCards({
+// ĐO THẬT (xem docblock đầu file `MaestroMcpSession` - 2026-08-07, cùng thiết bị): giữ 1 tiến
+// trình `maestro mcp` sống xuyên suốt 1 lượt collect (thay vì mỗi swipe/hierarchy tự spawn 1 tiến
+// trình CLI ~52-67s) đưa chi phí lượt ĐẦU (cold-start driver, không tránh được) còn ~38s nhưng mọi
+// lượt SAU chỉ ~1.7-2.5s (đọc hierarchy) + ~7.2-7.4s (1 swipe) - đã CHỨNG MINH THẬT hôm nay qua
+// verifyAssignedHomeworkScoredCrossCheck.mjs (kể cả đọc đúng `bounds` từ hierarchy qua session, xem
+// discovery/homeworkUiList.js#collectTextNodesWithBoundsInsideScrollableList dùng chung transport
+// này). GIỮ NGUYÊN 100% thuật toán cuộn-theo-toạ-độ + gộp-overlap-bị-chặn + điều kiện dừng/retry/
+// targetMatch/hard-timeout đã verify PASS bên dưới - CHỈ đổi transport (CLI execFileSync -> session
+// đang sống), KHÔNG đổi sang collectVisibleHomeworkCardsViaMcpSession() (bản đó cuộn "mù" theo %
+// màn hình + dedupe theo nội dung - ĐÚNG bug aliasing đã fix ở file này, xem docblock
+// scrollPastLastEntry()/mergeWithBoundedOverlap()).
+async function collectAllVisibleHomeworkCards({
   targetMatch = null,
   hardTimeoutMs = COLLECTION_HARD_TIMEOUT_MS,
   maxScrolls = MAX_SCROLLS,
   maxStallRetries = MAX_STALL_RETRIES,
   refreshOnceIfNotFoundImmediately = false,
 } = {}) {
-  scrollToTopBestEffort();
+  const session = new MaestroMcpSession(DEVICE_ID ? { deviceId: DEVICE_ID } : {});
+  await session.start();
+  try {
+    return await collectAllVisibleHomeworkCardsWithSession(session, {
+      targetMatch,
+      hardTimeoutMs,
+      maxScrolls,
+      maxStallRetries,
+      refreshOnceIfNotFoundImmediately,
+    });
+  } finally {
+    await session.stop();
+  }
+}
+
+async function collectAllVisibleHomeworkCardsWithSession(
+  session,
+  { targetMatch, hardTimeoutMs, maxScrolls, maxStallRetries, refreshOnceIfNotFoundImmediately },
+) {
+  await scrollToTopBestEffortViaSession(session);
   const startedAtMs = Date.now();
   let hierarchyCallCount = 0;
 
   let sectionSeen = false;
   let emptyStateSeen = false;
-  // ĐO THẬT (xem hằng số TARGET_LOOKUP_* phía trên): `maestro hierarchy` là lệnh CLI ĐẮT NHẤT
-  // trong toàn bộ hàm này (~52-59s/lệnh, chủ yếu chi phí khởi động lại process/ADB, gần như không
-  // phụ thuộc nội dung đọc) - log [PERF] mỗi lần gọi để mọi run sống tự báo cáo chi phí thật, thay
-  // vì đoán, và để phân biệt được "chậm vì hierarchy" hay "chậm vì swipe/parse".
-  const readOnce = (label) => {
+  // [PERF] vẫn giữ log chi phí mỗi lượt (label hierarchy_ms) để mọi run sống tự báo cáo - kỳ vọng
+  // ~1.7-2.5s/lượt qua session (trừ lượt đầu ~cold-start), thay vì ~52-59s như bản CLI cũ.
+  const readOnce = async (label) => {
     const hStart = Date.now();
-    const tree = maestroHierarchy();
+    const tree = await session.hierarchy();
     const hierarchy_ms = Date.now() - hStart;
     hierarchyCallCount++;
     const pStart = Date.now();
@@ -551,7 +641,7 @@ function collectAllVisibleHomeworkCards({
     console.log(`  targetFound=${found}`);
   };
 
-  let prevRead = readOnce("INITIAL_READ");
+  let prevRead = await readOnce("INITIAL_READ");
   let accumulated = prevRead.cards;
   logCheckpoint("INITIAL_READ", accumulated, 0);
 
@@ -567,9 +657,9 @@ function collectAllVisibleHomeworkCards({
   if (refreshOnceIfNotFoundImmediately && targetMatch && stopReason !== "TARGET_REACHED") {
     console.log(`Target chưa thấy ở lượt đọc đầu - pull-to-refresh 1 lần (đề phòng cache cũ) trước khi cuộn...`);
     const swipeStart = Date.now();
-    pullToRefreshOnce();
+    await pullToRefreshOnceViaSession(session);
     console.log(`[PERF] REFRESH: swipe_ms=${Date.now() - swipeStart}`);
-    prevRead = readOnce("AFTER_REFRESH");
+    prevRead = await readOnce("AFTER_REFRESH");
     accumulated = prevRead.cards; // danh sách MỚI sau refresh (đã về lại đầu) - không gộp với lượt trước
     logCheckpoint("AFTER_REFRESH", accumulated, 0);
     if (targetMatchedCount(accumulated) >= targetMatch.expectedCount) stopReason = "TARGET_REACHED";
@@ -599,12 +689,12 @@ function collectAllVisibleHomeworkCards({
       if (prevRead.lastEntryBottomY == null) {
         // Fallback hiếm gặp (không đo được bounds dòng cuối) - giữ hành vi cuộn cố định cũ, KHÔNG
         // dừng cả script, nhưng mất đảm bảo overlap≤1 cho đúng lượt này.
-        scrollDownOnce();
+        await scrollDownOnceViaSession(session);
       } else {
-        scrollPastLastEntry(prevRead.rootBounds, prevRead.containerBounds, prevRead.lastEntryBottomY);
+        await scrollPastLastEntryViaSession(session, prevRead.rootBounds, prevRead.containerBounds, prevRead.lastEntryBottomY);
       }
       console.log(`[PERF] ${label}: swipe_ms=${Date.now() - swipeStart}`);
-      const candidate = readOnce(label);
+      const candidate = await readOnce(label);
       // BUG THẬT đã xác nhận (2026-08-11): đôi khi `maestro hierarchy` đọc được ngay SAU
       // `waitForAnimationToEnd` vẫn trả về hierarchy CHƯA kịp cập nhật sau cuộn (race) - toàn bộ
       // entries GIỐNG Y NGUYÊN lượt trước (kể cả bounds), khiến mergeWithBoundedOverlap (chỉ so
@@ -759,15 +849,20 @@ const roomAnalyticScoreCache = new Map();
  *  - null: học sinh nằm trong "not_submitted" (chưa nộp) - mâu thuẫn với status COMPLETED suy từ
  *    room.answers, caller phải coi là BLOCKED (dữ liệu 2 nguồn Web GV lệch nhau, không đoán)
  *  - undefined: học sinh không xuất hiện ở CẢ 2 danh sách (không xác định được) */
-async function fetchRoomAnalyticScore(roomId) {
-  if (roomAnalyticScoreCache.has(roomId)) return roomAnalyticScoreCache.get(roomId);
+// studentId optional (mặc định TARGET_STUDENT_ID của CHÍNH file này, giữ nguyên hành vi cũ cho mọi
+// call site nội bộ) - thêm tham số (2026-08-27) để caller khác (cần đối chiếu App<->Web cho 1 học
+// sinh/room bất kỳ, không cố định theo TARGET_STUDENT_ID của file này) có thể import lại thay vì
+// copy-paste nguyên hàm - xem automation/bai_tap/verifyAssignedHomeworkScoredCrossCheck.mjs.
+async function fetchRoomAnalyticScore(roomId, studentId = TARGET_STUDENT_ID) {
+  const cacheKey = `${roomId}:${studentId}`;
+  if (roomAnalyticScoreCache.has(cacheKey)) return roomAnalyticScoreCache.get(cacheKey);
   const url = `${config.teacherPortalBaseUrl}/api/user/report-stats/room-analytic?room_id=${encodeURIComponent(roomId)}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${config.teacherAccessToken}` } });
   if (!res.ok) throw new Error(`GET ${url} trả về status ${res.status}`);
   const body = await res.json();
-  const submitted = (body.submitted ?? []).find((s) => s.id === TARGET_STUDENT_ID);
-  const result = submitted ? submitted.score : (body.not_submitted ?? []).some((s) => s.id === TARGET_STUDENT_ID) ? null : undefined;
-  roomAnalyticScoreCache.set(roomId, result);
+  const submitted = (body.submitted ?? []).find((s) => s.id === studentId);
+  const result = submitted ? submitted.score : (body.not_submitted ?? []).some((s) => s.id === studentId) ? null : undefined;
+  roomAnalyticScoreCache.set(cacheKey, result);
   return result;
 }
 
@@ -872,7 +967,7 @@ async function runFilterCheck(period, filterLabel) {
   }
 
   console.log(`Cuộn về đầu + đọc hierarchy App HS (${filterLabel})...`);
-  const { cards, emptyStateSeen, stopReason, scrollCount } = collectAllVisibleHomeworkCards({ targetMatch });
+  const { cards, emptyStateSeen, stopReason, scrollCount } = await collectAllVisibleHomeworkCards({ targetMatch });
   const appUncompleted = cards.filter((c) => !c.completed);
   const appCompleted = cards.filter((c) => c.completed);
 
@@ -1193,4 +1288,5 @@ export {
   TARGET_LOOKUP_MAX_SCROLLS,
   TARGET_LOOKUP_MAX_STALL_RETRIES,
   readHomeworkHierarchyOnce,
+  fetchRoomAnalyticScore,
 };

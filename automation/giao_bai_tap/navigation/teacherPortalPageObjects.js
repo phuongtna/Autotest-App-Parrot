@@ -53,4 +53,31 @@ export const teacherPortalPageObjects = {
     // TC1: "tăng đúng 47 -> 48").
     sectionTitle: "Bài tập đã giao",
   },
+
+  // ĐÃ XÁC NHẬN THẬT (2026-08-27, debug DOM dump thật trên tài khoản GV "Phương", xem
+  // navigation/teacherAssignedListPageObjects.js để biết chi tiết cách dùng từng selector dưới
+  // đây):
+  //   - Mỗi dòng bảng "Bài tập đã giao" có cột "BÀI TẬP" là 1 <a href="/teacher/exercise/{id}/edit">
+  //     - bấm vào TÊN bài chính là hành động "Sửa" (KHÔNG có nút "Sửa" riêng trên dòng).
+  //   - Cột "HÀNH ĐỘNG" chỉ có 1 link text "Xem báo cáo" (= "Xem chi tiết" trong flow user mô tả),
+  //     href "/teacher/exercise/{id}/report".
+  //   - Trang "/edit" (breadcrumb "Chỉnh sửa bài tập"): MỌI field khác (Nguồn bài tập, Giao tới
+  //     lớp, Chọn Unit/Lesson/Danh sách bài tập) đều bị disable - CHỈ "Hạn nộp" sửa được (đúng
+  //     acceptance criteria "GV chỉ được phép chỉnh sửa hạn nộp"). Nút "Giao bài đã chọn" đóng vai
+  //     trò Lưu. Nút xóa là icon-only cạnh "Hủy", `title="Xóa"`.
+  //   - Bấm nút Xóa mở dialog xác nhận (role="dialog"): tiêu đề "Xóa bài tập", câu hỏi "Bạn có
+  //     chắc chắn muốn xóa bài tập không?", 2 nút "Hủy"/"Xóa" (exact text - tránh bug đã gặp thật
+  //     ở case khác: regex lỏng/index bấm nhầm text message thay vì nút, xem
+  //     project_switch_profile_confirm_button_bug trong memory).
+  editPage: {
+    breadcrumb: "Chỉnh sửa bài tập",
+    dueDateLabel: "Hạn nộp",
+    saveButton: "Giao bài đã chọn",
+    deleteIconButtonSelector: 'button[title="Xóa"]',
+  },
+  deleteConfirmDialog: {
+    title: "Xóa bài tập",
+    confirmButton: "Xóa",
+    cancelButton: "Hủy",
+  },
 };

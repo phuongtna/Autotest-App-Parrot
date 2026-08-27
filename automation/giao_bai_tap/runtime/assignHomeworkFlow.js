@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loginTeacherPortal } from "../navigation/teacherPortalSession.js";
 import { teacherPortalPageObjects as po } from "../navigation/teacherPortalPageObjects.js";
+import { setDueDateViaPopover } from "../navigation/dueDatePopover.js";
 import {
   resolveAndSelectUnit,
   resolveAndSelectLesson,
@@ -222,25 +223,10 @@ export async function assignHomeworkFlow(params) {
       "setDueDate",
       async () => {
         const { day, month } = parseDdMmYyyy(dueDate);
-
         const trigger = page
           .getByText(po.dueDate.label, { exact: true })
           .locator("xpath=following-sibling::*[@aria-haspopup='menu'][1]");
-        await trigger.click();
-
-        const popover = page.getByRole("menu");
-        await popover.waitFor({ state: "visible", timeout: 10000 });
-
-        for (let i = 0; i < 12; i++) {
-          const headerText = await popover.locator("h6").innerText();
-          const shownMonth = Number(/Tháng (\d+)/.exec(headerText)?.[1]);
-          if (shownMonth === month) break;
-          const chevronClass = shownMonth < month ? "lucide-chevron-right" : "lucide-chevron-left";
-          await popover.locator(`button:has(svg.${chevronClass})`).click();
-        }
-
-        await popover.getByText(String(day), { exact: true }).click();
-        await popover.waitFor({ state: "hidden", timeout: 10000 });
+        await setDueDateViaPopover(page, trigger, { day, month });
       },
       { page },
     )();

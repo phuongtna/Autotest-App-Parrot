@@ -35,9 +35,12 @@ async function rawFetch(path, { method = "GET", body } = {}) {
   const url = `${config.teacherPortalBaseUrl}${path}`;
   const res = await fetch(url, {
     method,
+    cache: "no-store",
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${config.teacherAccessToken}`,
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -245,4 +248,161 @@ export function pickRandomEligibleAssignment(eligibleTree) {
     skills: item.skills,
     type: item.isSpeak ? "SPEAK" : "OTHER",
   };
+}
+
+export class RoomNotFoundError extends TeacherAssignmentApiError {}
+
+/**
+ * Tìm room (assignment đã giao) THẬT qua `GET /api/user/exams/room.json` bằng lessonItemId
+ * (catalog item id, khớp `room.lesson_item_id` - xem endpoint doc đầu file) + classId - dùng để
+ * lấy đúng `room.id` (= id thật trong URL `/teacher/exercise/{id}/edit|report`) NGAY SAU khi tạo
+ * assignment mới qua assignHomeworkFlow.js.
+ *
+ * SỬA/THAY THẾ (2026-08-27, FAIL thật xác nhận qua chạy live): trước đây định vị dòng vừa tạo
+ * trên "Danh sách bài tập đã giao" bằng cách so khớp DOM className+itemName+dueDateLine (xem
+ * navigation/teacherAssignedListPageObjects.js#locateAssignedRow) - PHÁT HIỆN THẬT: title bài tập
+ * rất chung chung (vd "Choose the correct answer.", "Read the text and choose the correct
+ * answer.") LẶP LẠI ở nhiều catalog item khác nhau (khác `lesson_item_id`, khác Unit/Lesson) - 2
+ * assignment thật trùng cả title+lớp+hạn nộp cùng lúc tồn tại (đã xác nhận qua API), khiến việc so
+ * khớp CHỈ bằng title+lớp+hạn nộp bị ambiguous (count()>1) và bị `locateAssignedRowAcrossPages` âm
+ * thầm coi là "không tìm thấy trên trang này" (không phân biệt được "không có" và "có nhưng không
+ * duy nhất"), dẫn tới quét hết mọi trang mà vẫn báo lỗi dù dòng thật sự có tồn tại. `lesson_item_id`
+ * là id ổn định của catalog item (KHÔNG bao giờ trùng giữa 2 item khác nhau, khác hẳn title hiển
+ * thị) - dùng để định vị CHẮC CHẮN đúng room, không phụ thuộc DOM/pagination/search UI (đã xác
+ * nhận KHÔNG hoạt động đúng - xem searchByItemName).
+ *
+ * SỬA (2026-08-27, xác nhận thật): object `room` trong response KHÔNG có field `created_at` (luôn
+ * `undefined`) - KHÔNG dùng được để chọn "room mới nhất" khi có ≥2 room cũ trùng lessonItemId+lớp
+ * (đã xác nhận thật có sẵn 4 room cũ như vậy trên tài khoản GV "Phương", từ các lần chạy test
+ * trước không dọn hết). Dùng `endTimeDatePrefix` ("YYYY-MM-DD", khớp tiền tố `room.end_time`) để
+ * thu hẹp đúng 1 room - vì test luôn tự đặt `dueDate` lúc tạo nên biết chắc giá trị này, đáng tin
+ * hơn nhiều so với đoán "mới nhất" qua field không tồn tại.
+ *
+ * SỬA (2026-08-27, root cause THẬT của chuỗi FAIL "không tìm thấy room" nhiều lần liên tiếp khi
+ * mới viết hàm này): `rawFetch()` ở đầu file ĐÃ tự bóc `json?.data` rồi (trả thẳng mảng), code cũ
+ * ở đây lại bóc thêm lần nữa (`data?.data`) - luôn ra `undefined` -> `rows` luôn rỗng -> `break`
+ * ngay ở trang 1 mọi lần, không bao giờ thực sự quét được dữ liệu thật dù retry bao nhiêu lần hay
+ * chờ bao lâu. Từng nghi nhầm là "cache CDN" hoặc "độ trễ lan truyền" (network capture qua Python
+ * urllib độc lập vẫn thấy dữ liệu đúng ngay lập tức, trong khi đúng cùng lúc đó hàm này báo
+ * "không tìm thấy") - mãi tới khi log riêng từng bước trong vòng lặp mới lộ `rows.length` luôn là
+ * 0. Giữ lại retry (vài lần, khoảng cách ngắn) làm lưới an toàn cho ĐỘ TRỄ LAN TRUYỀN THẬT (có
+ * tồn tại nhưng ngắn, không phải nguyên nhân chính) - không dựa hẳn vào retry để che giấu bug.
+ *
+ * @param {{ lessonItemId: string, classId: string, endTimeDatePrefix?: string, maxPages?: number,
+ *   retries?: number, retryDelayMs?: number }} params
+ * @returns {Promise<{ id: string, endTime: string }>}
+ */
+export async function findRoomIdByLessonItem({
+  lessonItemId,
+  classId,
+  endTimeDatePrefix,
+  maxPages = 6,
+  retries = 4,
+  retryDelayMs = 3000,
+}) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const matches = [];
+    for (let page = 1; page <= maxPages; page++) {
+      // `_ts`: giữ lại phá cache phòng ngừa (không phải nguyên nhân chính của FAIL trước đây -
+      // xem docblock hàm này), vô hại nếu thật ra không có tầng cache nào.
+      const rows = (await rawFetch(`/api/user/exams/room.json?limit=50&page=${page}&_ts=${Date.now()}`)) || [];
+      if (rows.length === 0) break;
+      for (const row of rows) {
+        const room = row.room;
+        if (room?.lesson_item_id === lessonItemId && (room?.class_ids || []).includes(classId)) {
+          matches.push({ id: room.id, endTime: room.end_time });
+        }
+      }
+    }
+    const scoped = endTimeDatePrefix ? matches.filter((m) => (m.endTime || "").startsWith(endTimeDatePrefix)) : matches;
+    if (scoped.length === 1) return scoped[0];
+    if (scoped.length > 1) {
+      throw new RoomNotFoundError(
+        `findRoomIdByLessonItem: ${scoped.length} room khớp lessonItemId="${lessonItemId}" + classId="${classId}"` +
+          `${endTimeDatePrefix ? ` + hạn nộp="${endTimeDatePrefix}"` : ""} (cần đúng 1) - BLOCKED, không đoán.`,
+      );
+    }
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+  }
+  throw new RoomNotFoundError(
+    `findRoomIdByLessonItem: không tìm thấy room nào khớp lessonItemId="${lessonItemId}" + classId="${classId}"` +
+      `${endTimeDatePrefix ? ` + hạn nộp="${endTimeDatePrefix}"` : ""} sau ${retries} lần thử - BLOCKED, không đoán.`,
+  );
+}
+
+/** Kiểm tra 1 room.id CỤ THỂ (đã biết chắc từ findRoomIdByLessonItem) còn tồn tại trong danh sách
+ * hay không - dùng để xác nhận "đã xóa thật" sau bước Xóa (chính xác hơn tìm lại theo
+ * lessonItemId, vì có thể có room CŨ khác cùng lessonItemId+classId từ lần chạy test trước còn
+ * sót - xem docblock findRoomIdByLessonItem). Trả về `{ endTime }` nếu còn thấy, `null` nếu không. */
+export async function findRoomById(roomId, { maxPages = 6 } = {}) {
+  for (let page = 1; page <= maxPages; page++) {
+    const rows = (await rawFetch(`/api/user/exams/room.json?limit=50&page=${page}&_ts=${Date.now()}`)) || [];
+    if (rows.length === 0) break;
+    const match = rows.find((row) => row.room?.id === roomId);
+    if (match) return { endTime: match.room.end_time };
+  }
+  return null;
+}
+
+/** "2026-08-28T16:59:59.999Z" (end_time, luôn 23:59:59 giờ VN cùng ngày dương lịch UTC - xem
+ * ddmmyyyyToIsoDatePrefix trong assignedListLifecycleFlow.js) -> "28/08/2026" (format hiển thị
+ * trên UI). */
+function isoToDdMmYyyy(iso) {
+  const [yyyy, mm, dd] = iso.slice(0, 10).split("-");
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+/**
+ * Tìm 1 room THẬT có ĐÚNG 1 HS hoàn thành nhưng làm lại (retake) ≥ 2 lần (status="done" cả 2+
+ * lần) - dùng để verify cột "ĐIỂM TB" trên "Danh sách bài tập đã giao" có tính đúng theo rule đã
+ * biết ("khi HS làm lại nhiều lần thì dùng điểm của lần điểm cao nhất") hay không.
+ *
+ * NGUỒN XÁC NHẬN THẬT (2026-08-27, đối chiếu 11 room thật có retake, tất cả đều khớp CHÍNH XÁC):
+ * `room.average_score` hiện tại = MAX(điểm các lần làm) / SỐ LẦN làm - KHÔNG phải chỉ lấy điểm
+ * cao nhất như acceptance criteria mô tả (case 1 HS, không retake: `average_score` LUÔN khớp
+ * đúng điểm lần làm duy nhất - bug CHỈ xảy ra khi có retake). Test dùng hàm này để lấy 1 case retake
+ * thật + tính sẵn `expectedCorrectAverage` (= điểm cao nhất, đúng theo spec) so với
+ * `apiAverageScoreShownOnList` (giá trị hiện đang hiển thị, có thể sai) để caller tự assert.
+ *
+ * @param {{ maxPages?: number }} [params]
+ * @returns {Promise<null | { roomId, className, itemName, dueDateLine, attemptScores,
+ *   attemptsCount, expectedCorrectAverage, apiAverageScoreShownOnList }>}
+ */
+export async function findRetakeAverageScoreCandidate({ maxPages = 6 } = {}) {
+  for (let page = 1; page <= maxPages; page++) {
+    requireTeacherPortalConfig();
+    const url = `${config.teacherPortalBaseUrl}/api/user/exams/room.json?limit=50&page=${page}&_ts=${Date.now()}`;
+    const res = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${config.teacherAccessToken}`,
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    });
+    const json = await res.json();
+    const rows = json?.data || [];
+    if (rows.length === 0) break;
+    for (const row of rows) {
+      const room = row.room;
+      const doneAnswers = (room?.answers || []).filter((a) => a.status === "done");
+      if (room?.completed_students === 1 && doneAnswers.length >= 2) {
+        const attemptScores = doneAnswers.map((a) => a.total_point);
+        return {
+          roomId: room.id,
+          className: json.class_names?.[room.class_ids?.[0]] ?? null,
+          itemName: room.name,
+          dueDateLine: isoToDdMmYyyy(room.end_time),
+          attemptScores,
+          attemptsCount: attemptScores.length,
+          expectedCorrectAverage: Math.max(...attemptScores),
+          apiAverageScoreShownOnList: room.average_score,
+        };
+      }
+    }
+  }
+  return null;
 }

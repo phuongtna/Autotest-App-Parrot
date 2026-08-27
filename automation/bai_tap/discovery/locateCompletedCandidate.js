@@ -18,6 +18,7 @@ import { scrollToTop } from "./findAssignment.js";
  */
 
 const COMPLETED_CTA = "Làm lại";
+const VIEW_LINK_TEXT = "Xem bài đã làm";
 const ADVANCED_SECTION_HEADER = "Bài tập nâng cao";
 const PROGRESS_PATTERN = /^\d+\s*\/\s*\d+$/;
 const DUE_DATE_PATTERN = /^Hạn nộp \d{2}\/\d{2}(\s*\(QUÁ HẠN\))?$/;
@@ -85,9 +86,11 @@ function findCompletedCardsWithCtaBounds(nodes, { sectionSeen: initialSectionSee
     let cta = null;
     let ctaBounds = null;
     let scoreText = null;
+    let viewLinkBounds = null;
     for (let j = i + 1; j < Math.min(nodes.length, i + 1 + MAX_CTA_LOOKAHEAD); j++) {
       const t = nodes[j].text;
       if (SCORE_PATTERN.test(t)) scoreText = t;
+      if (t === VIEW_LINK_TEXT) viewLinkBounds = nodes[j].bounds;
       if (CTA_TEXTS.includes(t)) {
         cta = t;
         ctaBounds = nodes[j].bounds;
@@ -96,17 +99,34 @@ function findCompletedCardsWithCtaBounds(nodes, { sectionSeen: initialSectionSee
       if (PROGRESS_PATTERN.test(t) || SECTION_HEADERS.includes(t)) break;
     }
     if (cta === COMPLETED_CTA && ctaBounds) {
-      results.push({ title, cta, ctaBounds, scoreText, dueDateBefore });
+      results.push({ title, cta, ctaBounds, scoreText, dueDateBefore, viewLinkBounds });
     }
   }
   return { results, sectionSeen };
 }
 
 /** Cuộn thăm dò NHỎ + đọc lại hierarchy giữa mỗi lượt (KHÔNG scroll mù/cố định) - dừng NGAY khi đủ
- * candidate mong muốn hoặc hết section, dừng SỚM khi 2 lượt liên tiếp không tiến triển thêm (cùng
- * nguyên tắc dừng-sớm đã dùng trong findAssignment.js/homeworkUiList.js). */
-export async function collectDistinctCompletedCandidates(bridge, { maxScrolls, maxDistinct, scrollLog = null }) {
-  let sectionSeen = false;
+ * candidate mong muốn hoặc hết section, dừng SỚM khi (mặc định 2) lượt liên tiếp không tiến triển
+ * thêm (cùng nguyên tắc dừng-sớm đã dùng trong findAssignment.js/homeworkUiList.js).
+ *
+ * 2 tham số MỚI (2026-08-27, additive - KHÔNG đổi default nên 4 caller hiện có không đổi hành
+ * vi), thêm cho use case "gọi hàm này SAU KHI đã cuộn qua khỏi header bằng tay" (vd cross-check
+ * App<->Web, xem verifyAssignedHomeworkScoredCrossCheck.mjs):
+ *   - initialSectionSeen: caller đã tự xác nhận section "Bài tập về nhà" từng hiển thị (vd đã đọc
+ *     hierarchy riêng trước đó) thì truyền true - né đúng bug thật đã gặp: sectionSeen luôn khởi
+ *     tạo false, chỉ set true khi ĐÍCH THÂN hàm này thấy header trong 1 lượt đọc CỦA NÓ; header
+ *     chỉ hiện ĐÚNG 1 lần lúc đầu danh sách (xem docblock homeworkUiList.js) nên nếu đã cuộn qua
+ *     khỏi header TRƯỚC KHI gọi hàm, sectionSeen never true -> mọi card đều bị bỏ qua âm thầm.
+ *   - maxNoProgressStreak: nới ngưỡng dừng sớm khi caller CHỦ ĐỘNG bắt đầu từ vùng biết chắc chưa
+ *     có card completed nào (vd đỉnh danh sách) và cần cuộn qua nhiều card CHƯA làm trước khi tới
+ *     card đầu tiên đã hoàn thành - "không tiến triển" (byTitle.size không tăng) trong vài lượt
+ *     KHÔNG đồng nghĩa list đã đứng yên thật trong trường hợp này.
+ */
+export async function collectDistinctCompletedCandidates(
+  bridge,
+  { maxScrolls, maxDistinct, scrollLog = null, initialSectionSeen = false, maxNoProgressStreak = 2 },
+) {
+  let sectionSeen = initialSectionSeen;
   let enteredAdvanced = false;
   const byTitle = new Map();
 
@@ -142,7 +162,7 @@ export async function collectDistinctCompletedCandidates(bridge, { maxScrolls, m
   let scrollsUsed = 0;
   let noProgressStreak = 0;
   let lastSize = byTitle.size;
-  while (byTitle.size < maxDistinct && scrollsUsed < maxScrolls && !enteredAdvanced && noProgressStreak < 2) {
+  while (byTitle.size < maxDistinct && scrollsUsed < maxScrolls && !enteredAdvanced && noProgressStreak < maxNoProgressStreak) {
     // Tách swipe/waitForAnimationToEnd thành 2 lần gọi runSteps() riêng (CÙNG lệnh, CÙNG thứ tự cũ,
     // chỉ thêm 1 ranh giới đo) để có scrollDurationMs/waitDurationMs riêng biệt.
     const swipeT = await timed(() => bridge.runSteps([{ swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } }]));
@@ -379,4 +399,4 @@ export async function locateSpecificCompletedCandidate(bridge, title, { maxScrol
   return { candidates: found ? [found] : [], scrollsUsed, enteredAdvanced, stopReason };
 }
 
-export { COMPLETED_CTA };
+export { COMPLETED_CTA, VIEW_LINK_TEXT };

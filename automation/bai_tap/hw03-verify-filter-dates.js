@@ -81,15 +81,18 @@
  */
 "use strict";
 
-const { execFileSync } = require("child_process");
-const { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } = require("fs");
-const { join } = require("path");
-const os = require("os");
+import { execFileSync } from "child_process";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+import os from "os";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const HOMEWORK_DIR = __dirname;
-// flows/homework -> flows -> repo root ("Autotest app Parrot")
-const PROJECT_ROOT = join(HOMEWORK_DIR, "..", "..", "..");
-const HELPERS_DIR = join(HOMEWORK_DIR, "..", "helpers");
+// automation/bai_tap -> automation -> repo root ("Autotest app Parrot")
+const PROJECT_ROOT = join(HOMEWORK_DIR, "..", "..");
+const HELPERS_DIR = join(PROJECT_ROOT, "flows", "app", "helpers");
 const LAUNCH_KEEP_SESSION_FLOW = join(HELPERS_DIR, "launch-keep-session.yaml");
 const LOGIN_FLOW = join(HELPERS_DIR, "login.yaml");
 const OPEN_TAB_HOMEWORK_FLOW = join(HELPERS_DIR, "open-tab-homework.yaml");

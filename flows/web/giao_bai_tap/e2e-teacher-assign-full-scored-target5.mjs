@@ -92,14 +92,20 @@ import { fileURLToPath } from "node:url";
 
 import { parseEnvFile } from "../../../automation/src/config.js";
 import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { HomeworkExamEngine } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
 import { fetchEligibleAssignmentTree } from "../../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
 import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
 import { normalizeQuestions } from "../../../automation/model/questionModel.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { fetchAllHomeworkRooms, fetchRoomDetails } from "../../../automation/bai_tap/discovery/homeworks.js";
+import { fetchAllHomeworkRooms, fetchRoomDetails, resolveHomeworkLevel } from "../../../automation/bai_tap/discovery/homeworks.js";
 import { normalizeHomework } from "../../../automation/bai_tap/model/homeworkModel.js";
 import { formatDM, formatDMY, isoToVnYmd } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
+import {
+  normalizeAnswerText,
+  buildNormalizedVisibleSet,
+  findFullAnswerSetMatches,
+  findMatchingQuestion,
+} from "../../../automation/bai_tap/discovery/answerSetMatcher.js";
 // FIX (2026-08-22, OPEN_EXERCISE_AMBIGUOUS thật xác nhận trên room 19e78018-8c11-48e9-845f-
 // efefe4dff82f): findAssignment()/scrollToTop()/tapFoundCard() ĐÃ CÓ SẴN, ĐÃ PROVEN (dùng thật
 // trong assignHomeworkAndLocateOnApp() ở e2e-teacher-assign-student-open.mjs, tìm thấy card cùng
@@ -152,7 +158,7 @@ function shuffle(arr) {
   return a;
 }
 
-function collectAllTexts(node, acc = []) {
+export function collectAllTexts(node, acc = []) {
   const t = node?.attributes?.text;
   if (typeof t === "string" && t.trim()) acc.push(t.trim());
   for (const c of node?.children ?? []) collectAllTexts(c, acc);
@@ -171,7 +177,7 @@ function treeHasAppNode(node, appId) {
   return false;
 }
 
-function isVisibleInTree(texts, textPattern) {
+export function isVisibleInTree(texts, textPattern) {
   const pattern = new RegExp(`^${textPattern}$`);
   return texts.some((t) => pattern.test(t));
 }
@@ -317,121 +323,14 @@ function readOverallProgress(tree) {
   return between.find((t) => /\d+\s*\/\s*\d+/.test(t)) ?? null;
 }
 
-/** ===================== [MATCHER] full answer-set matching (PORT NGUYÊN VĂN 2026-08-26 từ
- * automation/bai_tap/pro_lamlai_target_score.mjs#findMatchingQuestion() - xem docblock gốc "[E]
- * MATCHING (SỬA 2026-08-25 - full answer-set match)" cho ROOT CAUSE đầy đủ) =====================
- * Bản CŨ ở đây (findMatchingQuestion first-fit qua decideAnswerAction()) chỉ yêu cầu >=2 answers
- * của 1 candidate "nhìn thấy được" TRÊN TOÀN BỘ cây, KHÔNG cần đủ hết - khi catalog examId (dùng để
- * resolve CMS) khác exam_id thật được SERVE cho room (xem project_teacher_materials_examid_order_
- * mismatch.md - đã CONFIRMED 2026-08-26 rằng bản first-fit này tự mis-score 2/2 lần, không báo lỗi)
- * candidate SAI bị chọn nhầm khi thứ tự bị xáo trộn + có từ đáp án trùng giữa nhiều câu.
- *
- * SỬA: yêu cầu ĐỦ TOÀN BỘ answers[] của 1 candidate phải "nhìn thấy được" (so theo Set đã normalize
- * - KHÔNG phụ thuộc thứ tự đáp án/thứ tự pool/thứ tự UI) mới coi là khớp. 0 candidate khớp full-set
- * (nhưng có candidate lộ 1 phần) -> NO_MATCH (fail rõ, KHÔNG đoán); >1 candidate khớp full-set ->
- * AMBIGUOUS (fail rõ, KHÔNG tự chọn); ĐÚNG 1 -> chọn, rồi mới gọi decideAnswerAction() (GIỮ NGUYÊN)
- * để lấy action tap thật. FALLBACK first-fit CŨ chỉ giữ cho trường hợp KHÔNG candidate nào lộ dù 1
- * phần đáp án dạng text (nghi ngờ IMAGE_CHOICE_GRID) - tránh regression cho case chưa từng gặp lỗi
- * này, không có dữ liệu thật để sửa đúng nên không suy đoán thêm. */
-export function normalizeAnswerText(s) {
-  return String(s ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
-export function buildNormalizedVisibleSet(texts) {
-  const set = new Set();
-  for (const t of texts) set.add(normalizeAnswerText(t));
-  return set;
-}
-
-export function findFullAnswerSetMatches(pool, normalizedVisibleSet) {
-  const matches = [];
-  let anyPartialTextVisible = false;
-  for (const q of pool) {
-    const answers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim().length > 0);
-    if (answers.length < 2) continue;
-    const visibleCount = answers.filter((a) => normalizedVisibleSet.has(normalizeAnswerText(a))).length;
-    if (visibleCount >= 2) anyPartialTextVisible = true;
-    if (visibleCount === answers.length) matches.push(q);
-  }
-  return { matches, anyPartialTextVisible };
-}
-
-/**
- * @param {{roomExamId: string|null, candidateExamId: string|null}} [examIdContext] - CHỈ dùng để
- *   log [answer-match] (đối chiếu examId thật của room vs examId catalog đã dùng để resolve CMS -
- *   xem project_teacher_materials_examid_order_mismatch.md) - KHÔNG ảnh hưởng logic match.
- */
-export async function findMatchingQuestion(bridge, pool, priorTree, questionIndex, examIdContext) {
-  const roomExamId = examIdContext?.roomExamId ?? "-";
-  const candidateExamId = examIdContext?.candidateExamId ?? "-";
-  const tree = priorTree ?? (await bridge.hierarchy());
-  const texts = collectAllTexts(tree);
-  const isVisible = (t) => isVisibleInTree(texts, t);
-  const normalizedVisibleSet = buildNormalizedVisibleSet(texts);
-
-  const { matches: fullMatches, anyPartialTextVisible } = findFullAnswerSetMatches(pool, normalizedVisibleSet);
-
-  if (fullMatches.length === 1) {
-    const winner = fullMatches[0];
-    const action = decideAnswerAction(tree, isVisible, winner, true);
-    if (action) {
-      log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${winner.id} | exact answer-set match`);
-      log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=true`);
-      return { status: "MATCHED", question: { ...winner, _snapshot: { tree, texts } } };
-    }
-    log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - candidate id=${winner.id} khớp full answer-set nhưng decideAnswerAction() không tạo được action (loại câu hỏi không tương thích).`);
-    log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false`);
-    return {
-      status: "NO_MATCH",
-      diagnostic: { questionIndex, poolSize: pool.length, reason: `decideAnswerAction() returned null for unique full-set match id=${winner.id}` },
-    };
-  }
-
-  if (fullMatches.length > 1) {
-    log(
-      `  [MATCH][AMBIGUOUS] question_index=${questionIndex} pool_size=${pool.length} - ${fullMatches.length} candidate cùng khớp ĐỦ toàn bộ ` +
-        `answer-set đang hiển thị: ${fullMatches.map((m) => `id=${m.id} answers=${JSON.stringify(m.answers)}`).join(" | ")}.`,
-    );
-    log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false`);
-    return {
-      status: "AMBIGUOUS",
-      diagnostic: {
-        questionIndex,
-        normalizedVisibleAnswers: [...normalizedVisibleSet],
-        candidates: fullMatches.map((m) => ({ id: m.id, answers: m.answers })),
-      },
-    };
-  }
-
-  if (anyPartialTextVisible) {
-    log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - có candidate lộ MỘT PHẦN đáp án nhưng không candidate nào đủ HẾT answer-set.`);
-    log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false`);
-    return {
-      status: "NO_MATCH",
-      diagnostic: { questionIndex, poolSize: pool.length, reason: "partial-only matches (>=2 nhưng chưa đủ hết) - không candidate nào đủ full answer-set" },
-    };
-  }
-
-  // Không candidate nào lộ dù 1 phần đáp án dạng text - nghi ngờ IMAGE_CHOICE_GRID - GIỮ NGUYÊN
-  // hành vi first-fit CŨ cho trường hợp CHƯA có dữ liệu thật để sửa đúng, tránh regression.
-  for (const q of pool) {
-    const action = decideAnswerAction(tree, isVisible, q, true);
-    if (action) {
-      log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${q.id} | fallback first-fit (không có đáp án dạng text nào hiển thị, có thể IMAGE_CHOICE_GRID)`);
-      log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false (fallback first-fit, non-text UI)`);
-      return { status: "MATCHED", question: { ...q, _snapshot: { tree, texts } } };
-    }
-  }
-  log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - fallback first-fit cũng không tìm được candidate nào (decideAnswerAction() trả null cho toàn bộ pool).`);
-  log(`[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId} fullAnswerSetMatch=false`);
-  return {
-    status: "NO_MATCH",
-    diagnostic: { questionIndex, poolSize: pool.length, reason: "no text answers visible at all and legacy image-grid fallback found no match" },
-  };
-}
+/** ===================== [MATCHER] full answer-set + question-content matching =====================
+ * MOVED (2026-08-28) to automation/bai_tap/discovery/answerSetMatcher.js - single shared
+ * implementation, was copy-pasted across 9 files (see that module's docblock for the full root-cause
+ * writeup: same answer-set shared across multiple questions - "word bank" style exercises - needed
+ * question-stem/passage disambiguation on top of the 2026-08-25/26 full-answer-set fix, xem
+ * project_teacher_materials_examid_order_mismatch.md). Re-exported here so the existing fixture test
+ * (e2e-teacher-assign-full-scored-target5.scoringAndMatcher.fixtureTest.mjs) keeps working unchanged. */
+export { normalizeAnswerText, buildNormalizedVisibleSet, findFullAnswerSetMatches, findMatchingQuestion };
 
 /**
  * locateOpenAndVerifyAssignment() - FIX (2026-08-22) cho OPEN_EXERCISE_AMBIGUOUS "sau 0 lượt" đã
@@ -471,7 +370,7 @@ export async function findMatchingQuestion(bridge, pool, priorTree, questionInde
  *   | { ok: false, status: "NOT_FOUND"|"ERROR"|"CONTENT_MISMATCH"|"AMBIGUOUS_UNRESOLVED"|"OPEN_STEP_FAILED", diagnostics: string, triedLog: Array }
  * >}
  */
-async function locateOpenAndVerifyAssignment(bridge, { title, dueDateDM, cta = null, questions, maxCandidates = MAX_DISAMBIGUATE_CANDIDATES }) {
+export async function locateOpenAndVerifyAssignment(bridge, { title, dueDateDM, cta = null, questions, maxCandidates = MAX_DISAMBIGUATE_CANDIDATES }) {
   await scrollToTop(bridge);
   const located = await findAssignment(bridge, { title, dueDateDM, cta });
   if (located.status === "NOT_FOUND") return { ok: false, status: "NOT_FOUND", diagnostics: located.diagnostics, triedLog: [] };
@@ -925,6 +824,32 @@ async function pickFeasibleRandomAssignment({ className, classId, maxAttempts = 
   const order = [...shuffle(uniqueCandidates), ...shuffle(nonUniqueCandidates)].slice(0, maxAttempts);
   const attempts = [];
   for (const cand of order) {
+    // FIX (2026-08-28, xác nhận thật qua flows/app/bai_tap/HW-PROFILE-BASIC-PRO-ADVANCED.yaml):
+    // item level="ADVANCED" ("Bài tập nâng cao") hiện CTA "Chinh phục" (KHÔNG PHẢI "Làm bài") - mở
+    // ra sheet nâng cấp PRO (profile BASIC) hoặc 1 luồng UI khác hẳn/AI Role Play (kể cả profile
+    // PRO, room.exams luôn null - không có Question/Exam pipeline chuẩn) - CẢ 2 trường hợp đều
+    // KHÔNG tương thích engine trả lời hiện có, gây CONTENT_MISMATCH/NO_MATCH giả (đã gặp thật,
+    // xem project_chinh_phuc_special_cta_bug.md). Loại NGAY tại prescan bằng resolveHomeworkLevel()
+    // ĐÃ CÓ SẴN (GET /api/cms/lesson-items/:id, nhẹ hơn hẳn parseQuestionsFromExamPageWithRetry())
+    // - gọi TRƯỚC bước scrape exam nặng để tránh phí công cho candidate chắc chắn bị loại.
+    const level = await resolveHomeworkLevel(cand.itemId).catch(() => null);
+    if (level === "ADVANCED") {
+      attempts.push({
+        unitName: cand.unitName,
+        lessonName: cand.lessonName,
+        itemName: cand.itemName,
+        itemId: cand.itemId,
+        examId: cand.examId,
+        occurrences: cand.occurrences,
+        unique: cand.unique,
+        questionCount: null,
+        ok: false,
+        reason: "ADVANCED_LEVEL_UNSUPPORTED (CTA Chinh phục - cần PRO/không có Question pipeline chuẩn, xem project_chinh_phuc_special_cta_bug.md)",
+      });
+      log(`  [PRESCAN] "${cand.unitName}/${cand.lessonName}/${cand.itemName}" (occurrences=${cand.occurrences}, unique=${cand.unique}): loại (ADVANCED_LEVEL_UNSUPPORTED)`);
+      continue;
+    }
+
     let questions = null;
     let errorMessage = null;
     try {

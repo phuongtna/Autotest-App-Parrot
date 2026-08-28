@@ -78,7 +78,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { parseEnvFile } from "../src/config.js";
 import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "./navigation/homeworkExamEngine.js";
+import { HomeworkExamEngine } from "./navigation/homeworkExamEngine.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "./discovery/teacherMaterialsExamResolver.js";
 import { getHomeworks } from "./discovery/homeworks.js";
 import { resolveMyStatus } from "./model/homeworkModel.js";
@@ -99,6 +99,7 @@ import {
 // luồng "làm lại" thật (ngoài phạm vi yêu cầu, tránh đổi hành vi production đã verify).
 import { findAssignment, scrollToTop } from "./discovery/findAssignment.js";
 import { formatDM } from "./verify-filter-web-vs-app.mjs";
+import { findMatchingQuestion } from "./discovery/answerSetMatcher.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..");
@@ -357,136 +358,14 @@ function isTextChoiceCompatible(questions) {
   });
 }
 
-/** ===================== [E] MATCHING (SỬA 2026-08-25 - full answer-set match) =====================
- * ROOT CAUSE xác nhận thật (xem memory project_teacher_materials_examid_order_mismatch.md): examId
- * catalog (dfe080b0-...) dùng để resolve CMS KHÁC examId thật của room (c1615ff2-...) - cùng 10
- * câu/đáp án NHƯNG thứ tự câu khác nhau, và nhiều câu DÙNG CHUNG một số từ đáp án (dress/friend/
- * these/celebrate...). Bản CŨ (duyệt `pool` theo thứ tự CMS, gọi decideAnswerAction() - hàm đó chỉ
- * yêu cầu >=2 answers của 1 candidate "nhìn thấy được" TRÊN TOÀN BỘ cây, KHÔNG cần đủ hết) trả về
- * candidate ĐẦU TIÊN thoả - khi thứ tự bị xáo trộn + có từ đáp án trùng giữa nhiều câu, candidate
- * SAI bị chọn nhầm ở câu sớm, để lại 2 candidate thật không khớp câu 9-10 -> "không khớp được câu
- * hỏi nào".
- *
- * SỬA: yêu cầu ĐỦ TOÀN BỘ answers[] của 1 candidate phải "nhìn thấy được" (full answer-set match,
- * so theo Set đã normalize - KHÔNG phụ thuộc thứ tự đáp án/thứ tự pool/thứ tự UI, xem
- * findFullAnswerSetMatches()) mới coi là khớp - KHÔNG tự chọn candidate đầu tiên có visibleCount>=2
- * như cũ. 0 candidate khớp full-set (nhưng có candidate lộ 1 phần) -> NO_MATCH (fail rõ, không
- * đoán); >1 candidate khớp full-set -> AMBIGUOUS (fail rõ, không tự chọn); ĐÚNG 1 -> chọn, rồi mới
- * gọi decideAnswerAction() (GIỮ NGUYÊN, KHÔNG sửa - dùng chung answerCurrentQuestionOneShot()/nhiều
- * flow khác) để lấy action tap thật cho đúng 1 candidate đó.
- *
- * FALLBACK giữ nguyên hành vi CŨ (first-fit qua decideAnswerAction() y nguyên, KHÔNG đổi) CHỈ khi
- * KHÔNG candidate nào lộ dù 1 phần đáp án dạng text (nghi ngờ màn hình đang render dạng
- * IMAGE_CHOICE_GRID - isTextChoiceCompatible() ở bước chọn candidate chỉ đảm bảo CMS MODEL có đáp
- * án text, KHÔNG đảm bảo UI thật render dạng text hay hình) - tránh regression cho case chưa từng
- * gặp lỗi này trong session chẩn đoán, không có dữ liệu thật để sửa đúng nên không suy đoán thêm.
- *
- * So sánh dùng Set string thuần (không dùng regex như isVisibleInTree/decideAnswerAction) - tránh
- * luôn rủi ro ký tự regex đặc biệt trong đáp án thật (dấu "(...)" đã từng phá regex Maestro, xem
- * memory project_maestro_regex_parens_due_today.md) làm hỏng so khớp.
- */
-function normalizeAnswerText(s) {
-  return String(s ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
-/** Set các text đang hiển thị, ĐÃ normalize - build 1 LẦN mỗi lượt gọi findMatchingQuestion() (không
- * phải mỗi candidate/mỗi answer) để tra cứu O(1) qua Set.has(), thay vì gọi lại isVisibleInTree()
- * (duyệt toàn bộ texts[], O(texts)) cho MỖI answer của MỖI candidate còn lại trong pool. */
-function buildNormalizedVisibleSet(texts) {
-  const set = new Set();
-  for (const t of texts) set.add(normalizeAnswerText(t));
-  return set;
-}
-
-/** Trả {matches, anyPartialTextVisible}: `matches` = TOÀN BỘ candidate trong pool có ĐỦ HẾT
- * answers[] (đã normalize) nằm trong tập đang hiển thị - không phụ thuộc thứ tự đáp án (so theo
- * Set) hay thứ tự pool (duyệt hết, không return sớm - Rule 1-3). `anyPartialTextVisible` = có ít
- * nhất 1 candidate lộ >=2 đáp án (ngưỡng "hợp lệ" cũ của decideAnswerAction()) nhưng chưa đủ hết -
- * dùng để phân biệt NO_MATCH thật (có text nhưng không đủ - case bug đã fix) với "không phải màn
- * text-choice" (fallback IMAGE_CHOICE_GRID bên dưới). */
-function findFullAnswerSetMatches(pool, normalizedVisibleSet) {
-  const matches = [];
-  let anyPartialTextVisible = false;
-  for (const q of pool) {
-    const answers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim().length > 0);
-    if (answers.length < 2) continue; // cùng ngưỡng "hợp lệ có đáp án" như decideAnswerAction() cũ.
-    const visibleCount = answers.filter((a) => normalizedVisibleSet.has(normalizeAnswerText(a))).length;
-    if (visibleCount >= 2) anyPartialTextVisible = true;
-    if (visibleCount === answers.length) matches.push(q);
-  }
-  return { matches, anyPartialTextVisible };
-}
-
-async function findMatchingQuestion(bridge, pool, priorTree, questionIndex) {
-  const tree = priorTree ?? (await bridge.hierarchy());
-  const texts = collectAllTexts(tree);
-  const isVisible = (t) => isVisibleInTree(texts, t); // GIỮ NGUYÊN - vẫn cần cho decideAnswerAction() thật + fallback dưới.
-  const normalizedVisibleSet = buildNormalizedVisibleSet(texts);
-
-  const { matches: fullMatches, anyPartialTextVisible } = findFullAnswerSetMatches(pool, normalizedVisibleSet);
-
-  if (fullMatches.length === 1) {
-    const winner = fullMatches[0];
-    const action = decideAnswerAction(tree, isVisible, winner, true);
-    if (action) {
-      log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${winner.id} | exact answer-set match`);
-      return { status: "MATCHED", question: { ...winner, _snapshot: { tree, texts } } };
-    }
-    // action=null dù full-set match (vd decideAnswerAction() không suy đoán tiếp cho loại câu hỏi
-    // không tương thích) - KHÔNG rơi xuống fallback first-fit (đã biết chắc đây là candidate đúng,
-    // rơi xuống fallback chỉ gây nhiễu) - báo NO_MATCH rõ ràng, không đoán tiếp.
-    log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - candidate id=${winner.id} khớp full answer-set nhưng decideAnswerAction() không tạo được action (loại câu hỏi không tương thích).`);
-    return {
-      status: "NO_MATCH",
-      diagnostic: { questionIndex, poolSize: pool.length, reason: `decideAnswerAction() returned null for unique full-set match id=${winner.id}` },
-    };
-  }
-
-  if (fullMatches.length > 1) {
-    log(
-      `  [MATCH][AMBIGUOUS] question_index=${questionIndex} pool_size=${pool.length} - ${fullMatches.length} candidate cùng khớp ĐỦ toàn bộ ` +
-        `answer-set đang hiển thị: ${fullMatches.map((m) => `id=${m.id} answers=${JSON.stringify(m.answers)}`).join(" | ")}.`,
-    );
-    return {
-      status: "AMBIGUOUS",
-      diagnostic: {
-        questionIndex,
-        normalizedVisibleAnswers: [...normalizedVisibleSet],
-        candidates: fullMatches.map((m) => ({ id: m.id, answers: m.answers })),
-      },
-    };
-  }
-
-  if (anyPartialTextVisible) {
-    // Có candidate lộ MỘT PHẦN đáp án (>=2 nhưng chưa đủ hết) nhưng KHÔNG candidate nào đủ HẾT - đây
-    // CHÍNH LÀ case bug đã fix: bản CŨ sẽ chọn nhầm candidate đầu tiên ở đây; bản MỚI báo NO_MATCH rõ
-    // ràng thay vì đoán tiếp.
-    log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - có candidate lộ MỘT PHẦN đáp án nhưng không candidate nào đủ HẾT answer-set.`);
-    return {
-      status: "NO_MATCH",
-      diagnostic: { questionIndex, poolSize: pool.length, reason: "partial-only matches (>=2 nhưng chưa đủ hết) - không candidate nào đủ full answer-set" },
-    };
-  }
-
-  // Không candidate nào lộ dù 1 phần đáp án dạng text - nghi ngờ màn hình đang render dạng khác (vd
-  // IMAGE_CHOICE_GRID) dù CMS ghi nhận answers dạng text - GIỮ NGUYÊN hành vi first-fit CŨ qua
-  // decideAnswerAction() cho trường hợp CHƯA có dữ liệu thật để sửa đúng, tránh regression.
-  for (const q of pool) {
-    const action = decideAnswerAction(tree, isVisible, q, true);
-    if (action) {
-      log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${q.id} | fallback first-fit (không có đáp án dạng text nào hiển thị, có thể IMAGE_CHOICE_GRID)`);
-      return { status: "MATCHED", question: { ...q, _snapshot: { tree, texts } } };
-    }
-  }
-  log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - fallback first-fit cũng không tìm được candidate nào (decideAnswerAction() trả null cho toàn bộ pool).`);
-  return {
-    status: "NO_MATCH",
-    diagnostic: { questionIndex, poolSize: pool.length, reason: "no text answers visible at all and legacy image-grid fallback found no match" },
-  };
-}
+/** ===================== [E] MATCHING =====================
+ * MOVED (2026-08-28) to automation/bai_tap/discovery/answerSetMatcher.js - single shared
+ * implementation (was copy-pasted across 9 files in the repo). The 2026-08-25 full-answer-set fix
+ * (see memory project_teacher_materials_examid_order_mismatch.md for the original root cause: examId
+ * catalog vs room order drift + shared answer options across questions) is preserved unchanged; the
+ * shared module additionally disambiguates by question-stem/passage content when >1 candidate shares
+ * the exact same answer-set ("word bank" exercises - confirmed live 2026-08-26 and 2026-08-28 that
+ * answer-set alone isn't always enough to pick the right one). */
 
 async function answerOneQuestion(exam, matched, isLast, wantCorrectMap) {
   const wantCorrect = wantCorrectMap.get(matched.id);
@@ -1048,7 +927,22 @@ async function main() {
       }
     } else {
       log(`[B] Cuộn "Bài tập về nhà" gom candidate cta="Làm lại" (distinct theo title, budget ${MAX_CANDIDATE_ATTEMPTS})...`);
-      collected = await collectDistinctCompletedCandidates(bridge, { maxScrolls: MAX_LOCATE_SCROLLS, maxDistinct: MAX_CANDIDATE_ATTEMPTS, scrollLog: profiling.phaseB.scrolls });
+      // maxNoProgressStreak (mặc định 2 của hàm) quá thấp cho danh sách thật (nhiều item CHƯA hoàn
+      // thành/đang làm dở xen giữa các item ĐÃ hoàn thành - xem feedback_homework_list_full_scroll_
+      // scan.md: "shallow scroll gives false 'no data'") - CONFIRMED 2026-08-28 (hồ sơ "Gia Linh"):
+      // dừng ở 0 candidate chỉ sau 2 lượt cuộn không tiến triển dù tài khoản có nhiều bài đã hoàn
+      // thành thật (xác nhận qua API room.json). 8 vẫn KHÔNG đủ (retry 2026-08-28: 8 lượt cuộn liên
+      // tiếp toàn "candidates=0" - danh sách hiện có 1 mảng lớn bài CHƯA làm liền nhau (một phần do
+      // các assignment mới tạo trong chính session test này) đứng chắn trước các bài ĐÃ hoàn thành ở
+      // xa hơn - xem ảnh chụp màn hình xác nhận thật). Tăng lên 30 (vẫn bounded bởi
+      // MAX_LOCATE_SCROLLS=60, không đổi hành vi dừng khi thật sự plateau/vào Bài tập nâng cao) -
+      // dùng lại tham số ĐÃ CÓ SẴN của collectDistinctCompletedCandidates(), không viết lại thuật toán.
+      collected = await collectDistinctCompletedCandidates(bridge, {
+        maxScrolls: MAX_LOCATE_SCROLLS,
+        maxDistinct: MAX_CANDIDATE_ATTEMPTS,
+        scrollLog: profiling.phaseB.scrolls,
+        maxNoProgressStreak: 30,
+      });
       if (collected.candidates.length === 0) {
         profiling.phaseB.startedAt = phaseBStart;
         profiling.phaseB.endedAt = now();
@@ -1151,9 +1045,33 @@ async function main() {
       requiredCorrectCount: chosen.scoringPlan.correctIndices.size,
     };
 
+    // FIX (2026-08-28, xác nhận thật): `chosen.candidate.ctaBounds` được ghi nhận TẠI VỊ TRÍ CUỘN lúc
+    // [B] LẦN ĐẦU thấy candidate này (vd lượt cuộn #9) - nhưng [B] còn tiếp tục cuộn thêm (tìm đủ
+    // maxDistinct/hết maxNoProgressStreak, có thể tới lượt #40+) SAU KHI đã thấy candidate này, nên
+    // toạ độ đó đã CŨ khi tới [D]. Tap thẳng vào toạ độ cũ landed ở "Vui học" (tab dưới) thay vì card
+    // thật - xác nhận qua visibleTexts đọc được ngay sau [E] hoàn toàn KHÔNG phải màn Doing. Trước khi
+    // tap, relocate lại chính card này bằng title (đã confirm UNIQUE qua API ở [C] - resolveUniqueRoomIdForCandidate
+    // matches.length===1 - nên khớp lại theo title vẫn CHẮC CHẮN đúng room, không đoán) qua
+    // locateSpecificCompletedCandidate() ĐÃ CÓ SẴN (tự scrollToTop() trước, cùng cơ chế fingerprint đã
+    // proven 2026-08-24 - xem docblock hàm đó) để lấy ctaBounds TƯƠI, không viết lại cơ chế cuộn mới.
+    log(`[D0] Relocate lại card "${chosen.candidate.title}" (toạ độ ghi ở [B] đã cũ do cuộn thêm sau đó)...`);
+    const relocateT = await timed(() =>
+      locateSpecificCompletedCandidate(bridge, chosen.candidate.title, { maxScrolls: MAX_LOCATE_SCROLLS }),
+    );
+    const freshCandidate = relocateT.result.candidates[0];
+    if (!freshCandidate) {
+      return finish({
+        status: "FAIL",
+        phase: "RELOCATE_BEFORE_TAP",
+        error: `Không relocate lại được card "${chosen.candidate.title}" trước khi tap "Làm lại" (đã cuộn xa trong bước gom candidate ở [B]) - scrollsUsed=${relocateT.result.scrollsUsed} stopReason=${relocateT.result.stopReason ?? "UNKNOWN"}.`,
+        evidence,
+      });
+    }
+    log(`  [PASS] Relocate xong sau ${relocateT.result.scrollsUsed} lượt cuộn - toạ độ tươi đã sẵn sàng.`);
+
     log(`[D] Tap "Làm lại" tại toạ độ đã capture cho card "${chosen.candidate.title}"...`);
     const phaseDStart = now();
-    const ctaPoint = centerPoint(chosen.candidate.ctaBounds);
+    const ctaPoint = centerPoint(freshCandidate.ctaBounds);
     // Tách "tap + AI hỗ trợ học tập (nếu có)" khỏi "chờ màn Doing sẵn sàng" thành 2 lần gọi runSteps
     // riêng (CÙNG lệnh/thứ tự cũ) để đo tapMs/waitReadyMs riêng - xem docblock PROFILING đầu file.
     const tapT = await timed(() =>

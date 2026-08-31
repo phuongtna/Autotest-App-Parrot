@@ -274,7 +274,13 @@ export async function locateSpecificCompletedCandidate(bridge, title, { maxScrol
     const nodes = collectNodesWithBoundsInsideScrollableList(tree, []);
     const advancedIdx = nodes.findIndex((n) => n.text === ADVANCED_SECTION_HEADER);
     if (advancedIdx !== -1) enteredAdvanced = true;
-    const relevantNodes = advancedIdx === -1 ? nodes : nodes.slice(0, advancedIdx);
+    // PHASE 9C (2026-08-31, xem PHASE 9B): KHÔNG còn cắt relevantNodes tại "Bài tập nâng cao" nữa -
+    // findCompletedCardsWithCtaBounds() đã tổng quát theo SECTION_HEADERS (gồm cả "Bài tập nâng cao",
+    // homeworkUiList.js:60) từ trước; evidence thật (Phase 9B, card "G7U2-HW-LB lang-BTNC" đã hoàn
+    // thành) xác nhận card completed trong section này CÙNG cấu trúc dòng (title -> "N / M" -> "Điểm
+    // N" -> "Xem bài đã làm" -> CTA "Làm lại") như card completed ở "Bài tập về nhà" - không cần loại
+    // riêng. `advancedIdx`/`enteredAdvanced` vẫn giữ để log/stopReason, chỉ không dùng để cắt/dừng.
+    const relevantNodes = nodes;
     const parseDurationMs = now() - parseStart;
     const matchStart = now();
     const { results, sectionSeen: newSectionSeen } = findCompletedCardsWithCtaBounds(relevantNodes, { sectionSeen });
@@ -315,7 +321,10 @@ export async function locateSpecificCompletedCandidate(bridge, title, { maxScrol
   let recoveryAttempted = false;
   let stopReason = null;
 
-  while (!found && scrollsUsed < maxScrolls && !enteredAdvanced) {
+  // PHASE 9C: bỏ `!enteredAdvanced` khỏi điều kiện dừng - xem comment trong readOnce() ở trên. Vòng
+  // lặp giờ chỉ dừng khi tìm thấy, hết maxScrolls, hoặc plateau thật (SWIPE_ERROR/NO_PROGRESS/
+  // END_OF_LIST, không đổi) - cho phép cuộn xuyên qua "Bài tập nâng cao" để tìm card completed nằm ở đó.
+  while (!found && scrollsUsed < maxScrolls) {
     const fingerprintBeforeScroll = lastFingerprint;
     const swipeResult = await doSwipe(NORMAL_SWIPE_STEP, `normal #${scrollsUsed + 1}`);
     if (!swipeResult.ok) {

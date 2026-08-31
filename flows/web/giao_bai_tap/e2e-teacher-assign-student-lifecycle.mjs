@@ -25,11 +25,11 @@
  * ENV: giống hệt e2e-teacher-assign-student-open.mjs (xem docblock file đó).
  */
 
-import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { execCliSync } from "../../../automation/src/execCli.js";
 import { assignHomeworkAndLocateOnApp, APP_ID, PHONE, OTP, deviceArgs } from "./e2e-teacher-assign-student-open.mjs";
 import { formatDMY, formatDM } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
 
@@ -46,7 +46,7 @@ const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "e2e_teacher_assi
 /** dueDateDm ("DD/MM"): neo tìm/tap card theo Hạn nộp thay vì theo title - ĐÃ GẶP THẬT title trùng
  * với 1 card cũ quá hạn (bài từng giao trước đó), xem cùng comment trong open-exercise.yaml. */
 function runLifecycleFlow(exerciseName, dueDateDm) {
-  return execFileSync(
+  return execCliSync(
     "maestro",
     [
       ...deviceArgs(),

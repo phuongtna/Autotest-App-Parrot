@@ -468,7 +468,11 @@ luồng OAuth2 Casdoor ở mục "Exam Scraper" phía trên (luồng đó chỉ 
 `exam.parrotedu.vn`/Exam Editor, không phải teacher portal này).
 
 Dùng `../get_teacher_token.sh` (điền `TEACHER_USERNAME`/`TEACHER_PASSWORD` vào `.env` 1 lần) để tự
-lấy/refresh `TEACHER_ACCESS_TOKEN` thay vì copy tay qua DevTools:
+lấy/refresh `TEACHER_ACCESS_TOKEN` thay vì copy tay qua DevTools. Script này (và `get_tokens.sh`
+tương tự cho `CMS_TOKEN`/`EXAM_COOKIE`) cần `jq`/`curl`/`awk`/`mktemp` có sẵn trong PATH - có sẵn
+mặc định trên hầu hết máy Linux, nhưng **KHÔNG có sẵn mặc định trên Windows** (kể cả trong Git Bash/
+MSYS) - cần cài `jq` riêng (vd `winget install jqlang.jq` hoặc tải từ https://jqlang.org/download/)
+trước khi chạy trên Windows:
 
 ```bash
 ./get_teacher_token.sh

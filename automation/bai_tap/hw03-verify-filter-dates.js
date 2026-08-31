@@ -81,11 +81,12 @@
  */
 "use strict";
 
-import { execFileSync } from "child_process";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import os from "os";
+
+import { execCliSync } from "../src/execCli.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -148,7 +149,7 @@ function runInlineSteps(yamlSteps) {
   const flowPath = join(dir, "step.yaml");
   writeFileSync(flowPath, `appId: ${APP_ID}\n---\n${yamlSteps}\n`, "utf8");
   try {
-    execFileSync(
+    execCliSync(
       "maestro",
       [...deviceArgs(), "test", flowPath, "-e", `APP_ID=${APP_ID}`, "-e", `PHONE=${PHONE}`, "-e", `OTP=${OTP}`],
       { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
@@ -159,7 +160,7 @@ function runInlineSteps(yamlSteps) {
 }
 
 function maestroHierarchy() {
-  const raw = execFileSync("maestro", [...deviceArgs(), "hierarchy"], {
+  const raw = execCliSync("maestro", [...deviceArgs(), "hierarchy"], {
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });

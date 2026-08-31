@@ -93,11 +93,11 @@
  *   APP_ID/PHONE/OTP/MAESTRO_DEVICE - đọc .env/test_data/accounts.env giống các script khác.
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { execCliSync } from "../../../automation/src/execCli.js";
 import { assignHomeworkFlow } from "../../../automation/giao_bai_tap/runtime/assignHomeworkFlow.js";
 import { fetchAllHomeworkRooms } from "../../../automation/bai_tap/discovery/homeworks.js";
 import { normalizeHomework } from "../../../automation/bai_tap/model/homeworkModel.js";
@@ -171,7 +171,7 @@ export const OTP = process.env.OTP || accountsEnv.OTP;
  * Truyền dueDateDm (Hạn nộp "DD/MM") để helper neo theo đó thay vì theo title - ĐÃ GẶP THẬT title
  * trùng với 1 card cũ quá hạn (bài từng giao trước đó), title-only scroll/tap không nhắm đúng. */
 function tapAndOpenExercise(exerciseName, dueDateDm) {
-  execFileSync(
+  execCliSync(
     "maestro",
     [
       ...deviceArgs(),
@@ -198,7 +198,7 @@ function tapAndOpenExercise(exerciseName, dueDateDm) {
  * flows/helpers/open-homework-list-for-locate.yaml.
  */
 function openHomeworkListForLocate(switchToMonthFilter) {
-  return execFileSync(
+  return execCliSync(
     "maestro",
     [
       ...deviceArgs(),
@@ -276,7 +276,7 @@ async function locateAssignmentOnApp(title, dueDateDm) {
  * mở, chỉ để ghi vào report "App evidence". */
 function observeExerciseTypeBestEffort() {
   try {
-    const raw = execFileSync("maestro", [...deviceArgs(), "hierarchy"], {
+    const raw = execCliSync("maestro", [...deviceArgs(), "hierarchy"], {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
     });

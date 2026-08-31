@@ -41,12 +41,12 @@
  *   ASSIGN_PRIMARY_CLASS (default "3B"), PROFILE_PRO_NAME (test_data/accounts.env, default "Ngoc").
  */
 
-import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseEnvFile } from "../../../automation/src/config.js";
+import { execCliSync } from "../../../automation/src/execCli.js";
 import { assignHomeworkAndLocateOnApp, APP_ID, PHONE, OTP, deviceArgs } from "./e2e-teacher-assign-student-open.mjs";
 import { formatDMY, formatDM } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
 
@@ -62,7 +62,7 @@ const YAML_REFERENCE_FILE = "flows/bai_tap/ktra_fullluong_lambai.yaml";
 function runMaestro(flowPath, envPairs) {
   const args = [...deviceArgs(), "test", flowPath];
   for (const [k, v] of Object.entries(envPairs)) args.push("-e", `${k}=${v}`);
-  return execFileSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  return execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
 
 function finish(result) {

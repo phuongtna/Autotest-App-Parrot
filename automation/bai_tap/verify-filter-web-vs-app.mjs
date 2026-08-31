@@ -95,7 +95,6 @@
  *   COLLECTION_HARD_TIMEOUT_MS - an toàn cứng (ms) cho 1 lần gọi collectAllVisibleHomeworkCards(), default 600000 (10 phút).
  */
 
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -104,6 +103,7 @@ import os from "node:os";
 import { fetchAllHomeworkRooms } from "./discovery/homeworks.js";
 import { normalizeHomework, resolveMyStatus } from "./model/homeworkModel.js";
 import { config, requireTeacherPortalConfig } from "../src/config.js";
+import { execCliSync } from "../src/execCli.js";
 import { MaestroMcpSession } from "./discovery/maestroMcpSession.js";
 
 const HOMEWORK_DIR = dirname(fileURLToPath(import.meta.url));
@@ -210,7 +210,7 @@ function runInlineSteps(yamlSteps) {
   const flowPath = join(dir, "step.yaml");
   writeFileSync(flowPath, `appId: ${APP_ID}\n---\n${yamlSteps}\n`, "utf8");
   try {
-    execFileSync(
+    execCliSync(
       "maestro",
       [...deviceArgs(), "test", flowPath, "-e", `APP_ID=${APP_ID}`, "-e", `PHONE=${PHONE}`, "-e", `OTP=${OTP}`],
       { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
@@ -221,7 +221,7 @@ function runInlineSteps(yamlSteps) {
 }
 
 function maestroHierarchy() {
-  const raw = execFileSync("maestro", [...deviceArgs(), "hierarchy"], {
+  const raw = execCliSync("maestro", [...deviceArgs(), "hierarchy"], {
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });

@@ -34,12 +34,12 @@
  * CHẠY: node automation/bai_tap/setup-ktra_ket_qua_tiep_theo_hoan_thanh.mjs
  */
 
-import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseEnvFile, requireTeacherPortalConfig } from "../src/config.js";
+import { execCliSync } from "../src/execCli.js";
 import { assignHomeworkFlow } from "../giao_bai_tap/runtime/assignHomeworkFlow.js";
 import { fetchEligibleAssignmentTree } from "../giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
 import { parseQuestionsFromExamPage } from "../discovery/examPageScraper.js";
@@ -220,7 +220,7 @@ async function main() {
   let maestroStatus = "PASS";
   let maestroOutput = "";
   try {
-    maestroOutput = execFileSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    maestroOutput = execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   } catch (err) {
     maestroStatus = "FAIL";
     maestroOutput = `${err.stdout?.toString?.() ?? ""}\n${err.stderr?.toString?.() ?? ""}\n${err.message}`;

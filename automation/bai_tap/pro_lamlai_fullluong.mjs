@@ -44,12 +44,12 @@
  *   pro_lamlai_fullluong_xemchitiet.mjs).
  */
 
-import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseEnvFile } from "../src/config.js";
+import { execCliSync } from "../src/execCli.js";
 import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
 import { getHomeworks } from "./discovery/homeworks.js";
 import { resolveMyStatus } from "./model/homeworkModel.js";
@@ -475,7 +475,7 @@ async function main() {
       await bridge.stop();
       bridgeStopped = true;
       try {
-        execFileSync(
+        execCliSync(
           "maestro",
           [...deviceArgs(), "test", FINISH_FLOW, "-e", `APP_ID=${APP_ID}`, "-e", `EXERCISE_NAME=${candidate.title}`],
           { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },

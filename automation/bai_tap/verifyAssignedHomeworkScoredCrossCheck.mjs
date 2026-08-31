@@ -65,7 +65,6 @@
  * VERDICT: PASS | FAIL | BLOCKED_<lý do> (severity PASS(0) < FAIL(1) < BLOCKED(2), đúng convention
  * repo - xem verify-filter-web-vs-app.mjs).
  */
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,6 +76,7 @@ import { fetchAllHomeworkRooms } from "./discovery/homeworks.js";
 import { normalizeHomework, resolveMyStatus } from "./model/homeworkModel.js";
 import { isoToVnYmd, formatDM, formatDMY, fetchRoomAnalyticScore } from "./verify-filter-web-vs-app.mjs";
 import { requireTeacherPortalConfig } from "../src/config.js";
+import { execCliSync } from "../src/execCli.js";
 import { openStudentResultFlow } from "../giao_bai_tap/runtime/openStudentResultFlow.js";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
@@ -140,7 +140,7 @@ function collectAllTexts(node, acc = []) {
 }
 
 function openHomeworkListForLocate() {
-  return execFileSync(
+  return execCliSync(
     "maestro",
     [...deviceArgs(), "test", OPEN_HOMEWORK_LIST_FOR_LOCATE_FLOW, "-e", `APP_ID=${APP_ID}`, "-e", `PHONE=${PHONE}`, "-e", `OTP=${OTP}`, "-e", "SWITCH_TO_MONTH_FILTER=true"],
     { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },

@@ -44,7 +44,11 @@ import { fileURLToPath } from "node:url";
 
 import { parseEnvFile } from "../src/config.js";
 import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "./navigation/homeworkExamEngine.js";
+import { HomeworkExamEngine } from "./navigation/homeworkExamEngine.js";
+// PHASE 4 (2026-08-31, migrate khỏi bản findMatchingQuestion() cục bộ - first-fit TUYỆT ĐỐI, đã
+// audit là nguy hiểm cho controlled scoring pipeline - script NÀY là controlled-scoring pipeline
+// thật, đã được xác định trực tiếp là target migrate) - dùng canonical.
+import { findMatchingQuestion } from "./discovery/answerSetMatcher.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "./discovery/teacherMaterialsExamResolver.js";
 import { getHomeworks } from "./discovery/homeworks.js";
 import { resolveMyStatus } from "./model/homeworkModel.js";
@@ -242,17 +246,6 @@ function isTextChoiceCompatible(questions) {
     const nonEmptyAnswers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim().length > 0);
     return nonEmptyAnswers.length >= 2 && q.correctAnswer && nonEmptyAnswers.includes(q.correctAnswer);
   });
-}
-
-async function findMatchingQuestion(bridge, pool, priorTree) {
-  const tree = priorTree ?? (await bridge.hierarchy());
-  const texts = collectAllTexts(tree);
-  const isVisible = (t) => isVisibleInTree(texts, t);
-  for (const q of pool) {
-    const action = decideAnswerAction(tree, isVisible, q, true);
-    if (action) return { ...q, _snapshot: { tree, texts } };
-  }
-  return null;
 }
 
 async function answerOneQuestion(exam, matched, isLast) {
@@ -485,15 +478,17 @@ async function main() {
     let lastOutcome = null;
     while (answeredIds.size < QUESTIONS.length) {
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
-      const matched = await findMatchingQuestion(bridge, pool, carryTree);
-      if (!matched) {
+      const matchResult = await findMatchingQuestion(bridge, pool, carryTree, answeredIds.size + 1, null);
+      if (matchResult.status !== "MATCHED") {
         return finish({
           status: "FAIL",
           phase: "ANSWER_LOOP",
-          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu).`,
+          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu). classification=${matchResult.diagnostic?.classification ?? matchResult.status}`,
+          diagnostic: matchResult.diagnostic ?? null,
           evidence: { ...evidence, answerLog },
         });
       }
+      const matched = matchResult.question;
       const isLast = answeredIds.size === QUESTIONS.length - 1;
       const outcome = await answerOneQuestion(exam, matched, isLast);
       lastOutcome = outcome;

@@ -24,6 +24,7 @@
  */
 
 import { decideAnswerAction } from "../navigation/homeworkExamEngine.js";
+import { detectQuestionType } from "./questionTypeDetector.js";
 
 function stripHtmlLite(value) {
   return String(value ?? "").replace(/<[^>]*>/g, " ");
@@ -141,123 +142,299 @@ function isVisibleInTree(texts, textPattern) {
   return texts.some((t) => pattern.test(t));
 }
 
+/** Flat walk thu resource-id thật trong tree (giống collectAllTexts nhưng đọc attributes["resource-id"])
+ * - MỚI (PHASE 4), dùng cho diagnostic payload khi không MATCH (xem PHASE 3B mục G/H). */
+function collectResourceIds(node, acc = []) {
+  const id = node?.attributes?.["resource-id"];
+  if (typeof id === "string" && id.trim()) acc.push(id.trim());
+  for (const c of node?.children ?? []) collectResourceIds(c, acc);
+  return acc;
+}
+
+/** Forensic evidence cho từng candidate lộ MỘT PHẦN đáp án (PHASE 3B mục 4 - Phase 3B Revision):
+ * matchedTexts (đáp án của CHÍNH candidate này đang hiển thị) / missingExpectedTexts (đáp án của
+ * candidate này KHÔNG thấy) / unexpectedVisibleTexts (đáp án CỦA CANDIDATE KHÁC trong pool đang
+ * hiển thị nhưng KHÔNG thuộc candidate này - tín hiệu "màn hình có thể đang là 1 câu khác"). CHỈ
+ * tính trên dữ liệu đã có sẵn (pool/normalizedVisibleSet) - không suy đoán field nào không tính
+ * được (để [] theo đúng yêu cầu, không bịa). */
+function buildPartialMatchForensics(pool, normalizedVisibleSet) {
+  const allKnownAnswerTexts = new Set();
+  for (const q of pool) {
+    for (const a of q.answers ?? []) {
+      if (typeof a === "string" && a.trim()) allKnownAnswerTexts.add(a);
+    }
+  }
+  const results = [];
+  for (const q of pool) {
+    const answers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim());
+    if (answers.length < 2) continue;
+    const matchedTexts = answers.filter((a) => normalizedVisibleSet.has(normalizeAnswerText(a)));
+    if (matchedTexts.length === 0 || matchedTexts.length === answers.length) continue; // 0 = không partial; full = đã xử lý ở nhánh khác
+    const missingExpectedTexts = answers.filter((a) => !matchedTexts.includes(a));
+    const unexpectedVisibleTexts = [...allKnownAnswerTexts].filter(
+      (a) => normalizedVisibleSet.has(normalizeAnswerText(a)) && !answers.includes(a),
+    );
+    results.push({ id: q.id, overlapCount: matchedTexts.length, totalCount: answers.length, matchedTexts, missingExpectedTexts, unexpectedVisibleTexts });
+  }
+  return results;
+}
+
+/** contentMatch/answerable -> nhãn failure classification cuối cùng (PHASE 3B mục F/H - Phase 3B
+ * Revision mục 5: CONTENT_MISMATCH KHÔNG BAO GIỜ được diễn giải thành WRONG_ASSIGNMENT/WRONG_ROOM/
+ * EXERCISE_IDENTITY_MISMATCH - chỉ có nghĩa "actual UI content != expected CMS content", không hơn).
+ * QUESTION_MISMATCH KHÔNG được tính ở đây - đó là quyết định CẤP CALLER (cần biết lịch sử phiên làm
+ * bài: các câu TRƯỚC đó trong CÙNG session đã MATCH sạch hay chưa - diagnoseCurrentQuestion() thuần/
+ * không trạng thái nên không tự biết điều này, xem docblock diagnoseCurrentQuestion()). */
+function classify(answerable, questionType, contentMatch) {
+  if (!answerable) {
+    // UNKNOWN (không detector nào nổ - "chưa đủ bằng chứng") KHÁC hẳn 1 type ĐÃ nhận diện được
+    // nhưng pipeline chưa hỗ trợ answer (DRAG_DROP/SPEAK) - không được gộp chung, đúng PHASE 3B §H.
+    if (questionType === "UNKNOWN") return "IDENTITY_UNVERIFIABLE";
+    if (questionType === "SORT_OR_SENTENCE_BUILDER") return "AMBIGUOUS_QUESTION_TYPE";
+    return "UNSUPPORTED_QUESTION_TYPE";
+  }
+  switch (contentMatch) {
+    case "MATCH":
+      return null; // thành công, không cần classification lỗi
+    case "AMBIGUOUS":
+      return "AMBIGUOUS_QUESTION_TYPE"; // nhiều candidate cùng khớp full answer-set, không phân biệt được - dùng chung nhãn AMBIGUOUS như trạng thái status hiện có
+    case "PARTIAL_MATCH":
+      return "PARTIAL_CONTENT_MATCH";
+    case "NO_CONTENT_MATCH":
+      return "CONTENT_MISMATCH";
+    case "NOT_ENOUGH_CONTENT":
+    default:
+      return "IDENTITY_UNVERIFIABLE";
+  }
+}
+
 /**
- * Orchestrator DUY NHẤT (thay 9 bản copy-paste rải rác) - matching thật cho 1 câu hỏi đang hiển
- * thị trên app, gọi bởi vòng lặp trả lời VÀ bởi content-fingerprint verify lúc mở/resume assignment.
+ * diagnoseCurrentQuestion() - THUẦN/ĐỒNG BỘ/CHỈ ĐỌC (PHASE 4, theo thiết kế PHASE 3B đã duyệt).
+ * KHÔNG gọi bridge, KHÔNG tap/type/submit/điều hướng - chỉ nhận `tree` đã fetch sẵn.
  *
- * Thứ tự quyết định (KHÔNG đổi cho case fullMatches.length <= 1 - giữ nguyên hành vi đã verify sống
- * trước đây, tránh regression theo đúng yêu cầu):
- *   1. fullMatches.length === 1  -> MATCHED ngay (answer-set đã đủ phân biệt, fast path).
- *   2. fullMatches.length > 1   -> [MỚI] thử disambiguateByQuestionText(); MATCHED nếu thắng rõ
- *      ràng, ngược lại AMBIGUOUS (không first-fit).
- *   3. fullMatches.length === 0, có candidate lộ 1 phần đáp án -> NO_MATCH.
- *   4. Không candidate nào lộ dù 1 phần đáp án dạng text (nghi IMAGE_CHOICE_GRID) -> fallback
- *      first-fit CŨ (GIỮ NGUYÊN, chưa có dữ liệu thật để sửa đúng hơn).
+ * Tách 2 bước TUẦN TỰ, bước 1 KHÔNG phụ thuộc bước 2 (khác `decideAnswerAction()` cũ vốn gộp chung
+ * detect+match+quyết định answer):
+ *   1. detectQuestionType() - loại câu hỏi trên màn là gì, có `answerable` không (questionTypeDetector.js).
+ *   2. Nếu answerable: so nội dung với `expectedPool` (TÁI SỬ DỤNG NGUYÊN `findFullAnswerSetMatches()`/
+ *      `disambiguateByQuestionText()` đã có, KHÔNG viết lại thuật toán answer-set/disambiguate) ->
+ *      1 trong 6 trạng thái `contentMatch`: MATCH/AMBIGUOUS/PARTIAL_MATCH/NO_CONTENT_MATCH/
+ *      NOT_ENOUGH_CONTENT/NOT_ATTEMPTED.
  *
- * @param {{hierarchy: () => Promise<object>}} bridge
- * @param {Array<object>} pool - QuestionModel[] còn lại chưa dùng
- * @param {?object} priorTree - cây hierarchy đã đọc sẵn (tránh gọi lại bridge.hierarchy())
- * @param {number|string} questionIndex - chỉ dùng cho log
- * @param {?{roomExamId?:string, candidateExamId?:string}} examIdContext - chỉ dùng cho log
+ * `identityStatus` CHỈ nhận "UNVERIFIED" hoặc "MISMATCH_SUSPECTED" - KHÔNG BAO GIỜ "VERIFIED" (đúng
+ * khoá cứng PHASE 3B Revision mục 5/6: app không expose immutable room/exam/lesson-item ID nào trên
+ * UI - content khớp/không khớp KHÔNG chứng minh được identity, xem "What this design can prove /
+ * cannot prove" trong PHASE 3B).
+ *
+ * @param {Object} tree - bridge.hierarchy() ĐÃ fetch sẵn
+ * @param {import("../model/questionModel.js").QuestionModel[]} expectedPool
+ * @param {{questionIndex?: number|string, examIdContext?: {roomExamId?:string, candidateExamId?:string}}} [ctx]
  */
-export async function findMatchingQuestion(bridge, pool, priorTree, questionIndex, examIdContext) {
-  const roomExamId = examIdContext?.roomExamId ?? "-";
-  const candidateExamId = examIdContext?.candidateExamId ?? "-";
-  const tree = priorTree ?? (await bridge.hierarchy());
+export function diagnoseCurrentQuestion(tree, expectedPool, { questionIndex, examIdContext } = {}) {
   const texts = collectAllTexts(tree);
   const isVisible = (t) => isVisibleInTree(texts, t);
   const normalizedVisibleSet = buildNormalizedVisibleSet(texts);
-  const logPrefix = `[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId}`;
+  const resourceIds = collectResourceIds(tree);
+  const typeResult = detectQuestionType(tree, texts, expectedPool);
 
-  const { matches: fullMatches, anyPartialTextVisible } = findFullAnswerSetMatches(pool, normalizedVisibleSet);
-
-  const tryDecide = (winner, matchKind) => {
-    const action = decideAnswerAction(tree, isVisible, winner, true);
-    if (!action) return null;
-    console.log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${winner.id} | ${matchKind}`);
-    console.log(`${logPrefix} fullAnswerSetMatch=true matchKind=${matchKind}`);
-    return { status: "MATCHED", question: { ...winner, _snapshot: { tree, texts } } };
+  const base = {
+    questionIndex: questionIndex ?? null,
+    poolSize: expectedPool.length,
+    examIdContext: examIdContext ?? null,
+    questionType: typeResult.questionType,
+    typeConfidence: typeResult.typeConfidence,
+    typeEvidence: typeResult.typeEvidence,
+    matchedDetectors: typeResult.matchedDetectors,
+    detectorConflict: typeResult.detectorConflict,
+    answerable: typeResult.answerable,
+    knownCorrectnessRisk: typeResult.knownCorrectnessRisk,
+    visibleTexts: texts,
+    resourceIds,
+    expectedPoolSummary: { size: expectedPool.length, ids: expectedPool.map((q) => q.id) },
+    tree,
   };
 
-  if (fullMatches.length === 1) {
-    const result = tryDecide(fullMatches[0], "exact answer-set match");
-    if (result) return result;
-    console.log(
-      `  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - candidate id=${fullMatches[0].id} ` +
-        `khớp full answer-set nhưng decideAnswerAction() không tạo được action (loại câu hỏi không tương thích).`,
+  const finalize = (contentMatch, extra, diagnosticReason, identityStatus) => ({
+    ...base,
+    contentMatch,
+    contentEvidence: extra.contentEvidence ?? null,
+    matchedQuestion: extra.matchedQuestion ?? null,
+    identityStatus,
+    diagnosticReason,
+    classification: classify(base.answerable, base.questionType, contentMatch),
+  });
+
+  if (!typeResult.answerable) {
+    return finalize(
+      "NOT_ATTEMPTED",
+      {},
+      `Loại câu "${typeResult.questionType}" chưa được pipeline này hỗ trợ answer - không thử content matching (xem matchedDetectors/typeEvidence để biết bằng chứng).`,
+      "UNVERIFIED",
     );
-    console.log(`${logPrefix} fullAnswerSetMatch=false`);
-    return {
-      status: "NO_MATCH",
-      diagnostic: { questionIndex, poolSize: pool.length, reason: `decideAnswerAction() returned null for unique full-set match id=${fullMatches[0].id}` },
-    };
+  }
+
+  // IMAGE_CHOICE_GRID: answers[] không có chữ (không thể answer-set match qua text) - tín hiệu nội
+  // dung DUY NHẤT khả dụng là SỐ LƯỢNG đáp án khớp số box. Khác bản cũ (chọn candidate ĐẦU TIÊN khớp
+  // box count không cần biết có >1 candidate cùng khớp hay không) - giờ phân biệt rõ:
+  // đúng-1-khớp -> MATCH thật; >1 cùng khớp -> AMBIGUOUS (không đoán); 0 khớp -> NOT_ENOUGH_CONTENT.
+  if (typeResult.questionType === "IMAGE_CHOICE_GRID") {
+    const boxCount = typeResult.gridBoxCount;
+    const boxCountMatches = expectedPool.filter((q) => (q.answers ?? []).length === boxCount);
+    if (boxCountMatches.length === 1) {
+      const winner = boxCountMatches[0];
+      const action = decideAnswerAction(tree, isVisible, winner, true);
+      if (action) {
+        return finalize(
+          "MATCH",
+          { matchedQuestion: winner, contentEvidence: { fullMatchIds: [winner.id], partialMatches: [] } },
+          `IMAGE_CHOICE_GRID: đúng 1 candidate có số đáp án (${boxCount}) khớp số box.`,
+          "UNVERIFIED",
+        );
+      }
+      return finalize(
+        "NOT_ENOUGH_CONTENT",
+        { contentEvidence: { fullMatchIds: [winner.id], partialMatches: [] } },
+        `IMAGE_CHOICE_GRID: candidate id=${winner.id} khớp số box nhưng decideAnswerAction() từ chối - bất thường, cần điều tra riêng.`,
+        "UNVERIFIED",
+      );
+    }
+    if (boxCountMatches.length > 1) {
+      return finalize(
+        "AMBIGUOUS",
+        { contentEvidence: { fullMatchIds: boxCountMatches.map((q) => q.id), partialMatches: [] } },
+        `IMAGE_CHOICE_GRID: ${boxCountMatches.length} candidate cùng có ${boxCount} đáp án - không phân biệt được chỉ bằng số box.`,
+        "MISMATCH_SUSPECTED",
+      );
+    }
+    return finalize(
+      "NOT_ENOUGH_CONTENT",
+      { contentEvidence: { fullMatchIds: [], partialMatches: [] } },
+      `IMAGE_CHOICE_GRID: không candidate nào trong pool có ${boxCount} đáp án - không đủ dữ liệu so khớp.`,
+      "UNVERIFIED",
+    );
+  }
+
+  // Mọi type answerable còn lại (TEXT_CHOICE/CONNECT/FILL_WORD) - TÁI SỬ DỤNG NGUYÊN answer-set
+  // matching/disambiguation đã có, KHÔNG viết lại thuật toán.
+  const { matches: fullMatches, anyPartialTextVisible } = findFullAnswerSetMatches(expectedPool, normalizedVisibleSet);
+
+  if (fullMatches.length === 1) {
+    const winner = fullMatches[0];
+    const action = decideAnswerAction(tree, isVisible, winner, true);
+    if (action) {
+      return finalize(
+        "MATCH",
+        { matchedQuestion: winner, contentEvidence: { fullMatchIds: [winner.id], partialMatches: [] } },
+        "Unique full answer-set match.",
+        "UNVERIFIED",
+      );
+    }
+    return finalize(
+      "NOT_ENOUGH_CONTENT",
+      { contentEvidence: { fullMatchIds: [winner.id], partialMatches: [] } },
+      `Full answer-set match id=${winner.id} nhưng decideAnswerAction() từ chối - bất thường cần điều tra riêng, KHÔNG phải content mismatch thông thường (xem PHASE 3A §I).`,
+      "UNVERIFIED",
+    );
   }
 
   if (fullMatches.length > 1) {
     const disambig = disambiguateByQuestionText(fullMatches, texts);
     if (disambig.status === "MATCHED") {
-      const result = tryDecide(disambig.winner, "answer-set + question-text disambiguation");
-      if (result) return result;
-      console.log(
-        `  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - question-text winner id=${disambig.winner.id} ` +
-          `nhưng decideAnswerAction() không tạo được action.`,
+      const action = decideAnswerAction(tree, isVisible, disambig.winner, true);
+      if (action) {
+        return finalize(
+          "MATCH",
+          { matchedQuestion: disambig.winner, contentEvidence: { fullMatchIds: fullMatches.map((m) => m.id), partialMatches: [] } },
+          "Answer-set + question-text disambiguation.",
+          "UNVERIFIED",
+        );
+      }
+      return finalize(
+        "NOT_ENOUGH_CONTENT",
+        { contentEvidence: { fullMatchIds: fullMatches.map((m) => m.id), partialMatches: [] } },
+        `Disambiguated winner id=${disambig.winner.id} nhưng decideAnswerAction() từ chối - bất thường.`,
+        "UNVERIFIED",
       );
-      console.log(`${logPrefix} fullAnswerSetMatch=false`);
-      return {
-        status: "NO_MATCH",
-        diagnostic: {
-          questionIndex,
-          poolSize: pool.length,
-          reason: `decideAnswerAction() returned null for question-text-disambiguated id=${disambig.winner.id}`,
+    }
+    return finalize(
+      "AMBIGUOUS",
+      {
+        contentEvidence: {
+          fullMatchIds: fullMatches.map((m) => m.id),
+          partialMatches: [],
+          normalizedVisibleAnswers: [...normalizedVisibleSet],
+          candidates: fullMatches.map((m) => ({ id: m.id, answers: m.answers, question: m.question })),
           questionTextScores: disambig.scores.map((s) => ({ id: s.question.id, coverage: s.coverage, tokenCount: s.tokenCount })),
         },
-      };
-    }
-    console.log(
-      `  [MATCH][AMBIGUOUS] question_index=${questionIndex} pool_size=${pool.length} - ${fullMatches.length} candidate cùng khớp ĐỦ ` +
-        `answer-set đang hiển thị, nội dung câu hỏi KHÔNG đủ phân biệt (scores=` +
-        `${JSON.stringify(disambig.scores.map((s) => ({ id: s.question.id, coverage: Number(s.coverage.toFixed(3)), tokenCount: s.tokenCount })))}).`,
-    );
-    console.log(`${logPrefix} fullAnswerSetMatch=false`);
-    return {
-      status: "AMBIGUOUS",
-      diagnostic: {
-        questionIndex,
-        normalizedVisibleAnswers: [...normalizedVisibleSet],
-        candidates: fullMatches.map((m) => ({ id: m.id, answers: m.answers, question: m.question })),
-        questionTextScores: disambig.scores.map((s) => ({ id: s.question.id, coverage: s.coverage, tokenCount: s.tokenCount })),
       },
-    };
+      `${fullMatches.length} candidate cùng khớp ĐỦ answer-set đang hiển thị, nội dung câu hỏi KHÔNG đủ phân biệt.`,
+      "MISMATCH_SUSPECTED",
+    );
   }
 
   if (anyPartialTextVisible) {
-    console.log(
-      `  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - có candidate lộ MỘT PHẦN đáp án nhưng không ` +
-        `candidate nào đủ HẾT answer-set.`,
+    return finalize(
+      "PARTIAL_MATCH",
+      { contentEvidence: { fullMatchIds: [], partialMatches: buildPartialMatchForensics(expectedPool, normalizedVisibleSet) } },
+      "Một số candidate lộ MỘT PHẦN đáp án nhưng không candidate nào đủ HẾT answer-set - nghi ngờ catalog content khác served content (H1/H2, KHÔNG phân biệt được - xem identityStatus).",
+      "MISMATCH_SUSPECTED",
     );
-    console.log(`${logPrefix} fullAnswerSetMatch=false`);
-    return {
-      status: "NO_MATCH",
-      diagnostic: { questionIndex, poolSize: pool.length, reason: "partial-only matches (>=2 nhưng chưa đủ hết) - không candidate nào đủ full answer-set" },
-    };
   }
 
-  // Không candidate nào lộ dù 1 phần đáp án dạng text - nghi ngờ IMAGE_CHOICE_GRID - GIỮ NGUYÊN
-  // hành vi first-fit CŨ cho trường hợp CHƯA có dữ liệu thật để sửa đúng, tránh regression.
-  for (const question of pool) {
-    const action = decideAnswerAction(tree, isVisible, question, true);
-    if (action) {
-      console.log(
-        `  [MATCH] UI question ${questionIndex} -> CMS question id=${question.id} | fallback first-fit (không có đáp án dạng text nào hiển thị, có thể IMAGE_CHOICE_GRID)`,
-      );
-      console.log(`${logPrefix} fullAnswerSetMatch=false (fallback first-fit, non-text UI)`);
-      return { status: "MATCHED", question: { ...question, _snapshot: { tree, texts } } };
-    }
+  return finalize(
+    "NO_CONTENT_MATCH",
+    { contentEvidence: { fullMatchIds: [], partialMatches: [] } },
+    `Type answerable (${typeResult.questionType}) nhưng KHÔNG candidate nào trong pool lộ dù 1 phần đáp án - CONTENT_MISMATCH khả nghi (mở nhầm room HOẶC đúng room nhưng served content khác catalog - 2 khả năng này KHÔNG phân biệt được từ automation, xem identityStatus).`,
+    "MISMATCH_SUSPECTED",
+  );
+}
+
+/**
+ * Orchestrator DUY NHẤT (thay 9 bản copy-paste rải rác) - matching thật cho 1 câu hỏi đang hiển
+ * thị trên app, gọi bởi vòng lặp trả lời VÀ bởi content-fingerprint verify lúc mở/resume assignment.
+ *
+ * PHASE 4 (2026-08-31): giờ chỉ là 1 lớp orchestration MỎNG quanh `diagnoseCurrentQuestion()` (tách
+ * biệt DETECTION/CONTENT MATCHING khỏi ANSWER EXECUTION, xem PHASE 3B Revision mục 1) - KHÔNG còn tự
+ * chứa heuristic rời rạc. Nhánh fallback first-fit CŨ ("không có đáp án dạng text nào hiển thị -> tap
+ * candidate ĐẦU TIÊN decideAnswerAction() không trả null") ĐÃ BỊ XOÁ HẲN theo yêu cầu khoá cứng PHASE
+ * 3B Revision mục 7 - KHÔNG giữ lại dưới tên khác, KHÔNG có "first candidate/random/partial/closest/
+ * shape-only candidate" nào trong pipeline này nữa. `contentMatch !== "MATCH"` -> LUÔN dừng, LUÔN trả
+ * diagnostic đầy đủ (`status: "NO_MATCH"` giữ nguyên tên field cũ để KHÔNG phá vỡ caller hiện có kiểm
+ * tra `result.status !== "MATCHED"`, nhưng `diagnostic` giờ là CHÍNH object `diagnoseCurrentQuestion()`
+ * trả về - giàu hơn hẳn field cũ `{questionIndex, poolSize, reason}` - kèm `diagnostic.classification`
+ * mang đúng 1 trong: UNSUPPORTED_QUESTION_TYPE/AMBIGUOUS_QUESTION_TYPE/CONTENT_MISMATCH/
+ * PARTIAL_CONTENT_MATCH/IDENTITY_UNVERIFIABLE - `QUESTION_MISMATCH` KHÔNG được gán ở đây (cần lịch sử
+ * phiên làm bài mà hàm THUẦN này không có - caller tự nâng cấp CONTENT_MISMATCH thành QUESTION_MISMATCH
+ * khi biết CÁC CÂU TRƯỚC trong CÙNG session đã MATCH sạch, xem comment classify()).
+ *
+ * @param {{hierarchy: () => Promise<object>}} bridge
+ * @param {Array<object>} pool - QuestionModel[] còn lại chưa dùng
+ * @param {?object} priorTree - cây hierarchy đã đọc sẵn (tránh gọi lại bridge.hierarchy())
+ * @param {number|string} questionIndex - dùng cho log VÀ đưa vào diagnostic
+ * @param {?{roomExamId?:string, candidateExamId?:string}} examIdContext - dùng cho log
+ */
+export async function findMatchingQuestion(bridge, pool, priorTree, questionIndex, examIdContext) {
+  const roomExamId = examIdContext?.roomExamId ?? "-";
+  const candidateExamId = examIdContext?.candidateExamId ?? "-";
+  const tree = priorTree ?? (await bridge.hierarchy());
+  const logPrefix = `[answer-match] roomExamId=${roomExamId} candidateExamId=${candidateExamId}`;
+
+  const diag = diagnoseCurrentQuestion(tree, pool, { questionIndex, examIdContext });
+
+  if (diag.contentMatch === "MATCH") {
+    console.log(`  [MATCH] UI question ${questionIndex} -> CMS question id=${diag.matchedQuestion.id} | ${diag.diagnosticReason}`);
+    console.log(`${logPrefix} fullAnswerSetMatch=true`);
+    return { status: "MATCHED", question: { ...diag.matchedQuestion, _snapshot: { tree, texts: diag.visibleTexts } } };
   }
-  console.log(`  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - fallback first-fit cũng không tìm được candidate nào (decideAnswerAction() trả null cho toàn bộ pool).`);
+
+  if (diag.contentMatch === "AMBIGUOUS" && diag.answerable) {
+    console.log(`  [MATCH][AMBIGUOUS] question_index=${questionIndex} pool_size=${pool.length} - ${diag.diagnosticReason}`);
+    console.log(`${logPrefix} fullAnswerSetMatch=false`);
+    return { status: "AMBIGUOUS", diagnostic: diag };
+  }
+
+  console.log(
+    `  [MATCH][NO_MATCH] question_index=${questionIndex} pool_size=${pool.length} - classification=${diag.classification} - ${diag.diagnosticReason}`,
+  );
   console.log(`${logPrefix} fullAnswerSetMatch=false`);
-  return {
-    status: "NO_MATCH",
-    diagnostic: { questionIndex, poolSize: pool.length, reason: "no text answers visible at all and legacy image-grid fallback found no match" },
-  };
+  return { status: "NO_MATCH", diagnostic: diag };
 }

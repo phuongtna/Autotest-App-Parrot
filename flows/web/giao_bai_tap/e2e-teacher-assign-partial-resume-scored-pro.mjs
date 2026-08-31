@@ -60,8 +60,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { parseEnvFile } from "../../../automation/src/config.js";
 import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { HomeworkExamEngine } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
 import { fetchEligibleAssignmentTree } from "../../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
+// PHASE 4 (2026-08-31, migrate khỏi bản findMatchingQuestion() cục bộ - first-fit TUYỆT ĐỐI, đã
+// audit là nguy hiểm cho controlled scoring pipeline) - dùng canonical.
+import { findMatchingQuestion } from "../../../automation/bai_tap/discovery/answerSetMatcher.js";
 import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
 import { normalizeQuestions } from "../../../automation/model/questionModel.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
@@ -254,12 +257,13 @@ async function openAssignmentDisambiguated(bridge, { title, dueDM, questionsPool
       log(`  [DISAMBIGUATE] index=${idx}: tap (cta="${state.cta}") thất bại - ${tapResult.error}.`);
       return { opened: false, triedCount: idx + 1 };
     }
-    const matched = await findMatchingQuestion(bridge, questionsPool);
-    if (matched) {
+    const matchResult = await findMatchingQuestion(bridge, questionsPool, undefined, idx, null);
+    if (matchResult.status === "MATCHED") {
+      const matched = matchResult.question;
       log(`  [DISAMBIGUATE] index=${idx}: ĐÚNG assignment (câu hiển thị khớp "${matched.id}", cta lúc mở="${state.cta}").`);
       return { opened: true, index: idx, firstMatched: matched, progressBefore: state };
     }
-    log(`  [DISAMBIGUATE] index=${idx}: nội dung KHÔNG khớp bộ questionsPool - room khác trùng title/Hạn nộp. Thoát, thử candidate kế tiếp.`);
+    log(`  [DISAMBIGUATE] index=${idx}: nội dung KHÔNG khớp bộ questionsPool (classification=${matchResult.diagnostic?.classification ?? matchResult.status}) - room khác trùng title/Hạn nộp. Thoát, thử candidate kế tiếp.`);
     await exitToHomeworkList(bridge);
   }
   return { opened: false, triedCount: maxCandidates };
@@ -319,18 +323,6 @@ async function exitToHomeworkList(bridge) {
 function isVisibleInTree(texts, textPattern) {
   const pattern = new RegExp(`^${textPattern}$`);
   return texts.some((t) => pattern.test(t));
-}
-
-/** COPY NGUYÊN từ bản gốc (không đổi). */
-async function findMatchingQuestion(bridge, pool, priorTree) {
-  const tree = priorTree ?? (await bridge.hierarchy());
-  const texts = collectAllTexts(tree);
-  const isVisible = (t) => isVisibleInTree(texts, t);
-  for (const q of pool) {
-    const action = decideAnswerAction(tree, isVisible, q, true);
-    if (action) return { ...q, _snapshot: { tree, texts } };
-  }
-  return null;
 }
 
 async function answerOneQuestion(exam, matched, isLast, wantCorrectMap) {
@@ -968,11 +960,19 @@ async function main() {
     let carryTree = openOutcome.firstMatched._snapshot?.tree ?? null;
     for (let i = 0; i < PARTIAL_COUNT; i++) {
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
-      const matched = await findMatchingQuestion(bridge, pool, carryTree);
-      if (!matched) {
+      const matchResult = await findMatchingQuestion(bridge, pool, carryTree, i + 1, null);
+      if (matchResult.status !== "MATCHED") {
         const visibleTexts = collectAllTexts(await bridge.hierarchy());
-        return finish({ status: "FAIL", phase: "PARTIAL_ANSWER", error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại.`, visibleTexts, evidence });
+        return finish({
+          status: "FAIL",
+          phase: "PARTIAL_ANSWER",
+          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại. classification=${matchResult.diagnostic?.classification ?? matchResult.status}`,
+          visibleTexts,
+          diagnostic: matchResult.diagnostic ?? null,
+          evidence,
+        });
       }
+      const matched = matchResult.question;
       const { wantCorrect, outcome } = await answerOneQuestion(exam, matched, false, WANT_CORRECT);
       carryTree = outcome.finalTree ?? null;
       answeredIds.add(matched.id);
@@ -1033,16 +1033,19 @@ async function main() {
 
     const remainingPool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
     const answeredPool = QUESTIONS.filter((q) => answeredIds.has(q.id));
-    const matchedAfterResume = await findMatchingQuestion(bridge, remainingPool);
-    const matchedAmongAnswered = matchedAfterResume ? null : await findMatchingQuestion(bridge, answeredPool);
+    const matchAfterResumeResult = await findMatchingQuestion(bridge, remainingPool, undefined, "resume-verify-remaining", null);
+    const matchedAfterResume = matchAfterResumeResult.status === "MATCHED" ? matchAfterResumeResult.question : null;
+    const matchAmongAnsweredResult = matchedAfterResume ? null : await findMatchingQuestion(bridge, answeredPool, undefined, "resume-verify-answered", null);
+    const matchedAmongAnswered = matchAmongAnsweredResult?.status === "MATCHED" ? matchAmongAnsweredResult.question : null;
     if (!matchedAfterResume) {
       return finish({
         status: "FAIL",
         phase: "RESUME_NOT_RESET",
         error: matchedAmongAnswered
           ? `RESUME_NOT_RESET FAIL: màn hình sau resume khớp câu "${matchedAmongAnswered.id}" - câu NÀY ĐÃ ĐƯỢC TRẢ LỜI ở PHASE PARTIAL, bằng chứng app RESET về câu cũ thay vì resume đúng câu đang dở.`
-          : `Không khớp được câu nào (cả pool chưa làm lẫn đã làm) với màn hình sau resume.`,
+          : `Không khớp được câu nào (cả pool chưa làm lẫn đã làm) với màn hình sau resume. classification=${matchAfterResumeResult.diagnostic?.classification ?? matchAfterResumeResult.status}`,
         visibleTexts: collectAllTexts(await bridge.hierarchy()),
+        diagnostic: matchAfterResumeResult.diagnostic ?? null,
         evidence,
       });
     }
@@ -1056,7 +1059,8 @@ async function main() {
     carryTree = matchedAfterResume._snapshot?.tree ?? null;
     while (answeredIds.size < QUESTIONS.length) {
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
-      const matched = await findMatchingQuestion(bridge, pool, carryTree);
+      const matchResult = await findMatchingQuestion(bridge, pool, carryTree, answeredIds.size + 1, null);
+      const matched = matchResult.status === "MATCHED" ? matchResult.question : null;
       if (!matched) {
         // MỚI (2026-08-19): `answeredIds` chỉ đếm số câu ĐÃ trả lời TRONG session này - nếu room
         // có sẵn tiến độ dở từ TRƯỚC (vd REUSE_ROOM_ID cho room mà 1 phiên chạy trước đã trả lời
@@ -1077,8 +1081,9 @@ async function main() {
         return finish({
           status: "FAIL",
           phase: "FINISH_REMAINING",
-          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại.`,
+          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại. classification=${matchResult.diagnostic?.classification ?? matchResult.status}`,
           visibleTexts: collectAllTexts(maybeResultTree),
+          diagnostic: matchResult.diagnostic ?? null,
           evidence: { ...evidence, resumeLog },
         });
       }

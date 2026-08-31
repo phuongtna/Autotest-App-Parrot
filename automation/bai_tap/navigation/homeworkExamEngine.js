@@ -377,7 +377,7 @@ function parseBounds(boundsStr) {
  * @param {Object} tree - `bridge.hierarchy()`
  * @returns {Array<{x1:number,y1:number,x2:number,y2:number,cx:number,cy:number}> | null}
  */
-function detectImageChoiceGrid(tree) {
+export function detectImageChoiceGrid(tree) {
   const all = flattenNodes(tree, []);
   const clickableWithText = all.filter(
     (n) => n?.attributes?.clickable === "true" && nodeHasNonEmptyTextDeep(n),

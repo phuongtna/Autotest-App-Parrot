@@ -27,9 +27,12 @@ import { fileURLToPath } from "node:url";
 
 import { parseEnvFile } from "../../../automation/src/config.js";
 import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { HomeworkExamEngine } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
 import { fetchRoomDetails } from "../../../automation/bai_tap/discovery/homeworks.js";
+// PHASE 4 (2026-08-31, migrate khỏi bản findMatchingQuestion() cục bộ - first-fit TUYỆT ĐỐI, đã
+// audit là nguy hiểm cho controlled scoring pipeline) - dùng canonical.
+import { findMatchingQuestion } from "../../../automation/bai_tap/discovery/answerSetMatcher.js";
 import { formatDM, formatDMY, isoToVnYmd } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
@@ -132,17 +135,6 @@ async function scrollAndReadCardState(bridge, title, dueDM, occurrenceIndex) {
     state = readCardState(await bridge.hierarchy(), title, dueDM, occurrenceIndex);
   }
   return state;
-}
-
-async function findMatchingQuestion(bridge, pool, priorTree) {
-  const tree = priorTree ?? (await bridge.hierarchy());
-  const texts = collectAllTexts(tree);
-  const isVisible = (t) => isVisibleInTree(texts, t);
-  for (const q of pool) {
-    const action = decideAnswerAction(tree, isVisible, q, true);
-    if (action) return { ...q, _snapshot: { tree, texts } };
-  }
-  return null;
 }
 
 async function answerOneQuestion(exam, matched, isLast, wantCorrectMap) {
@@ -419,15 +411,16 @@ async function main() {
         log(`  [DISAMBIGUATE] index=${idx}: tap thất bại (${tapResult.error}) - thử index kế.`);
         continue;
       }
-      const matched = await findMatchingQuestion(bridge, fullPool);
-      if (matched) {
+      const matchResult = await findMatchingQuestion(bridge, fullPool, undefined, idx, null);
+      if (matchResult.status === "MATCHED") {
+        const matched = matchResult.question;
         log(`  [DISAMBIGUATE] index=${idx}: ĐÚNG room (câu hiển thị khớp "${matched.id}" trong 10 câu đã resolve cho room ${ROOM_ID}).`);
         matchedAfterResume = matched;
         usedIndex = idx;
         beforeState = state;
         break;
       }
-      log(`  [DISAMBIGUATE] index=${idx}: nội dung KHÔNG khớp 10 câu của room ${ROOM_ID} - đây là room KHÁC trùng title/Hạn nộp. Thoát, thử index kế.`);
+      log(`  [DISAMBIGUATE] index=${idx}: nội dung KHÔNG khớp 10 câu của room ${ROOM_ID} (classification=${matchResult.diagnostic?.classification ?? matchResult.status}) - đây là room KHÁC trùng title/Hạn nộp. Thoát, thử index kế.`);
       await bridge.runSteps([
         { tapOn: { id: "exercise_close_button" } },
         { waitForAnimationToEnd: { timeout: 1500 } },
@@ -462,16 +455,18 @@ async function main() {
     let carryTree = matchedAfterResume._snapshot?.tree ?? null;
     while (answeredIds.size < QUESTIONS.length) {
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
-      const matched = await findMatchingQuestion(bridge, pool, carryTree);
-      if (!matched) {
+      const matchResult = await findMatchingQuestion(bridge, pool, carryTree, answeredIds.size + 1, null);
+      if (matchResult.status !== "MATCHED") {
         return finish({
           status: "FAIL",
           phase: "FINISH_REMAINING",
-          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại.`,
+          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại. classification=${matchResult.diagnostic?.classification ?? matchResult.status}`,
           visibleTexts: collectAllTexts(await bridge.hierarchy()),
+          diagnostic: matchResult.diagnostic ?? null,
           evidence: { ...evidence, resumeLog },
         });
       }
+      const matched = matchResult.question;
       const isLast = answeredIds.size === QUESTIONS.length - 1;
       const { wantCorrect, outcome } = await answerOneQuestion(exam, matched, isLast, WANT_CORRECT);
       lastOutcome = outcome;

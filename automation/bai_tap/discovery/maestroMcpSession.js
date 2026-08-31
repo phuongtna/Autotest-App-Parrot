@@ -60,7 +60,11 @@ export class MaestroMcpSession {
    * handshake - xem giải thích ở constructor.
    */
   async start() {
-    this.proc = spawn("maestro", ["mcp", "--no-viewer"], { stdio: ["pipe", "pipe", "pipe"] });
+    // shell: true trên win32 (cùng pattern automation/src/execCli.js) - `maestro` cài dưới dạng
+    // maestro.bat trên Windows, spawn() không có shell không tự thực thi được .bat (EINVAL, xác
+    // nhận thật 2026-08-31: thiếu shell:true -> EINVAL; thêm vào -> chạy được). args tĩnh
+    // ("mcp"/"--no-viewer"), không có input người dùng - an toàn với concatenation không escape.
+    this.proc = spawn("maestro", ["mcp", "--no-viewer"], { stdio: ["pipe", "pipe", "pipe"], shell: process.platform === "win32" });
     this.proc.stdout.on("data", (chunk) => this._onStdout(chunk));
     this.proc.on("exit", () => {
       for (const resolve of this._pending.values()) {
@@ -145,7 +149,15 @@ export class MaestroMcpSession {
   async run(appId, steps) {
     const yaml = `appId: ${appId}\n---\n${dump(steps, { lineWidth: -1 })}`;
     try {
-      await this._toolCall("run", { device_id: this.deviceId, yaml });
+      const rawText = await this._toolCall("run", { device_id: this.deviceId, yaml });
+      // DEBUG-ONLY (PHASE 6E, 2026-08-31) - opt-in qua MAESTRO_MCP_DEBUG_CAPTURE_RUN=1, off theo mặc
+      // định. Capture raw response text của MCP tool "run" (Phase 6D xác nhận bị discard hoàn toàn
+      // trước đây) vào side-channel riêng để investigation đọc lại sau - KHÔNG đổi return value/
+      // contract {success,error} bên dưới. XOÁ đoạn if này (3 dòng) để revert nguyên trạng.
+      if (process.env.MAESTRO_MCP_DEBUG_CAPTURE_RUN) {
+        this._debugRawRunResponses = this._debugRawRunResponses || [];
+        this._debugRawRunResponses.push({ atMs: Date.now(), yaml, rawText });
+      }
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };

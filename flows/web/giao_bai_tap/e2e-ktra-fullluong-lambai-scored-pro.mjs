@@ -77,7 +77,10 @@ import { fileURLToPath } from "node:url";
 
 import { parseEnvFile } from "../../../automation/src/config.js";
 import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
-import { HomeworkExamEngine, decideAnswerAction } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+import { HomeworkExamEngine } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
+// PHASE 4 (2026-08-31, migrate khỏi bản findMatchingQuestion() cục bộ - first-fit TUYỆT ĐỐI, đã
+// audit là nguy hiểm cho controlled scoring pipeline) - dùng canonical.
+import { findMatchingQuestion } from "../../../automation/bai_tap/discovery/answerSetMatcher.js";
 import { fetchEligibleAssignmentTree } from "../../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
 import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
 import { normalizeQuestions } from "../../../automation/model/questionModel.js";
@@ -277,17 +280,6 @@ async function scrollAndReadCardState(bridge, title, dueDM, occurrenceIndex) {
     state = readCardState(await bridge.hierarchy(), title, dueDM, occurrenceIndex);
   }
   return state;
-}
-
-async function findMatchingQuestion(bridge, pool, priorTree) {
-  const tree = priorTree ?? (await bridge.hierarchy());
-  const texts = collectAllTexts(tree);
-  const isVisible = (t) => isVisibleInTree(texts, t);
-  for (const q of pool) {
-    const action = decideAnswerAction(tree, isVisible, q, true);
-    if (action) return { ...q, _snapshot: { tree, texts } };
-  }
-  return null;
 }
 
 async function answerOneQuestion(exam, matched, isLast, wantCorrectMap) {
@@ -840,9 +832,9 @@ async function main() {
         { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } },
       ]);
       if (!tapResult.success) { openOutcome = { opened: false, triedCount: idx + 1 }; break; }
-      const matched = await findMatchingQuestion(bridge, QUESTIONS);
-      if (matched) { openOutcome = { opened: true, index: idx, firstMatched: matched, progressBefore: state }; break; }
-      // Không khớp nội dung - thoát rồi thử candidate kế
+      const matchResult = await findMatchingQuestion(bridge, QUESTIONS, undefined, idx, null);
+      if (matchResult.status === "MATCHED") { openOutcome = { opened: true, index: idx, firstMatched: matchResult.question, progressBefore: state }; break; }
+      // Không khớp nội dung (xem matchResult.diagnostic.classification) - thoát rồi thử candidate kế
       await bridge.runSteps([
         { tapOn: { id: "exercise_close_button" } },
         { extendedWaitUntil: { visible: ".*(Bài tập).*", timeout: 20000 } },
@@ -904,10 +896,18 @@ async function main() {
     let lastOutcome = null;
     while (answeredIds.size < QUESTIONS.length) {
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
-      const matched = await findMatchingQuestion(bridge, pool, carryTree);
-      if (!matched) {
-        return finish({ status: "FAIL", phase: "FINISH_REMAINING", error: `Không khớp được câu hỏi nào (còn ${pool.length} câu).`, visibleTexts: collectAllTexts(await bridge.hierarchy()), evidence: { ...evidence, answerLog } });
+      const matchResult = await findMatchingQuestion(bridge, pool, carryTree, answeredIds.size + 1, null);
+      if (matchResult.status !== "MATCHED") {
+        return finish({
+          status: "FAIL",
+          phase: "FINISH_REMAINING",
+          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu). classification=${matchResult.diagnostic?.classification ?? matchResult.status}`,
+          visibleTexts: collectAllTexts(await bridge.hierarchy()),
+          diagnostic: matchResult.diagnostic ?? null,
+          evidence: { ...evidence, answerLog },
+        });
       }
+      const matched = matchResult.question;
       const isLast = answeredIds.size === QUESTIONS.length - 1;
       const { wantCorrect, outcome } = await answerOneQuestion(exam, matched, isLast, WANT_CORRECT);
       lastOutcome = outcome;

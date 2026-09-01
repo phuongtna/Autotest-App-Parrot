@@ -10,6 +10,12 @@
  *   E. regression case project_teacher_materials_examid_order_mismatch (word-bank 4 câu cùng đáp
  *      án, câu hỏi CÓ nội dung phân biệt được) - không được silently match sai / không được vẫn
  *      AMBIGUOUS nếu nội dung đủ rõ để phân biệt.
+ *   F. regression case 2026-09-01 (room 22a98ee4-..., "G3-U18-Lesson 2: Read and tick True or
+ *      False") - 5 câu con True/False dùng CHUNG 1 đoạn văn dẫn đề hiển thị NGUYÊN VẸN cho mọi câu
+ *      con (đoạn văn liệt kê từ vựng của CẢ 5 câu), cộng 1 dòng phát biểu riêng ngắn đứng NGAY
+ *      TRƯỚC 2 nút True/False - coverage-toàn-trang cũ cho mọi candidate điểm cao gần bằng nhau (vì
+ *      đoạn văn chung chứa từ vựng của tất cả) nên luôn AMBIGUOUS dù dòng phát biểu riêng thừa sức
+ *      phân biệt - xem disambiguateByQuestionText() (cửa sổ dòng ngay trước block đáp án).
  *
  * Chạy: node automation/bai_tap/discovery/answerSetMatcher.fixtureTest.mjs
  */
@@ -175,6 +181,36 @@ async function main() {
     const textsNone = [...bank];
     const rNone = await findMatchingQuestion(staticBridge(textsNone), pool, undefined, 2, { roomExamId: "real", candidateExamId: "catalog" });
     report("[E3] vẫn AMBIGUOUS nếu không có đoạn dẫn đề nào hiển thị (an toàn, không đoán)", rNone.status === "AMBIGUOUS");
+  }
+
+  console.log('=== [F] regression 2026-09-01 (True/False group-passage, room 22a98ee4-...) ===');
+  {
+    const f1 = q("f1", { answers: ["True", "False"], correctAnswer: "True", question: "Today is Club Day." });
+    const f2 = q("f2", { answers: ["True", "False"], correctAnswer: "False", question: "The Reading Club is in the classroom." });
+    const f3 = q("f3", { answers: ["True", "False"], correctAnswer: "True", question: "The Sports Club is playing basketball." });
+    const f4 = q("f4", { answers: ["True", "False"], correctAnswer: "False", question: "The Art Club is drawing pictures in the schoolyard." });
+    const f5 = q("f5", { answers: ["True", "False"], correctAnswer: "False", question: "The Music Club is dancing in the music room." });
+    const pool = [f1, f2, f3, f4, f5];
+    // Đoạn văn dẫn đề CHUNG (hiển thị y hệt cho cả 5 câu con) + dòng phát biểu riêng của câu "1/5"
+    // đứng ngay trước 2 nút True/False - y hệt live capture thật (xem docblock đầu file).
+    const passage =
+      "Today is Club Day at school. The Music Club is singing and listening to music in the music room. " +
+      "The Art Club is drawing pictures in the art room. In the playground, the Sports Club is playing " +
+      "basketball because they like sports. In the library, the Reading Club is reading books. Everyone is happy and busy today.";
+    const texts = ["G3-U18-Lesson 2: Read and tick True or False", "True or false", passage, "Xem thêm", "1/5", "Today is Club Day.", "True", "False", "Tiếp theo"];
+    const disambig = disambiguateByQuestionText(pool, texts);
+    report(
+      "[F1] chọn đúng f1 (\"Today is Club Day.\") dù đoạn văn chung khiến mọi candidate đều có vẻ khớp",
+      disambig.status === "MATCHED" && disambig.winner.id === "f1",
+      JSON.stringify({ status: disambig.status, scores: disambig.scores.map((s) => ({ id: s.question.id, coverage: s.coverage })) }),
+    );
+
+    const texts2 = texts.slice(0, 5).concat(["The Sports Club is playing basketball.", "True", "False", "Tiếp theo"]);
+    const disambig2 = disambiguateByQuestionText(pool, texts2);
+    report("[F2] đổi dòng phát biểu riêng sang câu khác (f3) -> chọn đúng theo, không dính lại f1", disambig2.status === "MATCHED" && disambig2.winner.id === "f3");
+
+    const r = await findMatchingQuestion(staticBridge(texts), pool, undefined, 1, null);
+    report("[F3] findMatchingQuestion() end-to-end chọn đúng f1", r.status === "MATCHED" && r.question.id === "f1", JSON.stringify(r.status));
   }
 
   console.log("=== helper unit tests (normalize/tokenize) ===");

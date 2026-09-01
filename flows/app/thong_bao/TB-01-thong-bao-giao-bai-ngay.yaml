@@ -1,0 +1,71 @@
+# TB-01 (NỬA APP-SIDE) — Thông báo "giao bài mới" xuất hiện trong icon chuông trên App HS.
+#
+# CHỈ kiểm tra NỬA APP-SIDE của TB-01 (xem bảng + evidence đầy đủ ở
+# flows/app/thong_bao/TEST-CASES.md). NỬA WEB-SIDE (GV bấm "Giao bài đã chọn" trên Web GV, hạn nộp
+# đặt = HÔM NAY) KHÔNG nằm trong file này - đó là PRECONDITION bắt buộc, phải làm TRƯỚC khi chạy
+# file này, bằng 1 trong 2 cách:
+#   1. (khuyến nghị - đo được timing + tự đối chiếu đúng bài vừa giao) chạy
+#      `node flows/web/giao_bai_tap/e2e-teacher-assign-notification-immediate.mjs` - script đó tự
+#      login Web GV (Playwright), giao 1 bài random (hạn nộp = hôm nay), rồi tự poll icon chuông
+#      qua MaestroMcpSession (native, KHÔNG gọi được `runFlow:` tới 1 file .yaml thật vì MCP
+#      session không có ngữ cảnh thư mục để resolve đường dẫn tương đối - xem docblock đầu file đó
+#      để biết đầy đủ lý do kiến trúc).
+#   2. Tự tay trên Web GV: chọn lớp 3B, hạn nộp = hôm nay, chọn 1 bài bất kỳ -> bấm "Giao bài đã
+#      chọn" -> chờ toast thành công.
+#
+# File YAML THUẦN này (chạy bằng `maestro test`, KHÔNG qua MCP - khác 2 cách precondition ở trên)
+# chỉ verify NỬA CÒN LẠI: App HS mở icon chuông (`../helpers/open-notification.yaml`) rồi tìm 1
+# item mang NGỮ NGHĨA "giao bài mới" - KHÔNG giả định 1 mẫu câu cố định (khảo sát thật 2026-09-01
+# cho thấy CÓ NHIỀU mẫu câu khác nhau cho cùng 1 sự kiện, xem TEST-CASES.md mục "Phát hiện đáng chú
+# ý"). Regex OR bên dưới khớp 1 trong 5 cụm động từ đã xác nhận thật ở CẢ 5 mẫu câu quan sát được:
+# "giao bài", "bài tập mới", "nhận được bài tập", "đã giao cho", "đã sẵn sàng" - port nguyên vẹn từ
+# ASSIGNMENT_SHAPE_PATTERNS trong
+# flows/web/giao_bai_tap/e2e-teacher-assign-notification-immediate.mjs.
+#
+# KHÁC file .mjs ở trên: file .mjs đối chiếu CHẶT (đúng `"<tên bài vừa giao>"` + đúng
+# `Hạn nộp: <ngày hôm nay>`, đo timing chính xác kể từ lúc GV bấm giao). File YAML THUẦN này KHÔNG
+# đối chiếu được theo đúng title/ngày cụ thể (không có ngữ cảnh "bài vừa giao là gì" - Maestro YAML
+# thuần/runScript sandbox ở đây chỉ thao tác trên `output` đã có sẵn từ các bước copyTextFrom
+# trước đó, không có network/fetch, không đọc được hierarchy tuỳ ý - xem comment tương tự trong
+# flows/app/bai_tap/ktra_fullluong_lambai.yaml + test_data/hw_fullluong_compare_progress.js), nên
+# chỉ verify "CÓ 1 item mang hình dạng thông báo giao bài mới trong danh sách" - dùng để verify
+# NHANH bằng `maestro test` (vd khi debug lại UI/selector của icon chuông) mà không cần dựng lại cả
+# pipeline Playwright + MCP của file .mjs.
+#
+# scrollUntilVisible (không assertVisible tĩnh): danh sách Thông báo có thể đã dài thêm kể từ lúc
+# bài được giao (nhiều lượt test khác trong ngày cũng tạo thông báo mới) - item khớp không chắc còn
+# nằm ở màn hình đầu tiên khi chạy file này, cần cho phép cuộn tìm thay vì assert tĩnh.
+#
+# Chạy:
+#   maestro test flows/app/thong_bao/TB-01-thong-bao-giao-bai-ngay.yaml -e APP_ID=com.inet.parrotedu \
+#     -e PHONE=<test_data/accounts.env PHONE> -e OTP=<test_data/accounts.env OTP>
+# LAUNCH: `launch-keep-session.yaml` (KHÔNG phải `subflows/launch_app.yaml`) - ĐÃ XÁC NHẬN THẬT
+# (2026-09-01, chạy live TB-02 trước) `subflows/launch_app.yaml` (clearState + launchApp, KHÔNG có
+# bước chờ ổn định UI) khiến check `when: visible` (immediate, không phải wait/poll) của
+# `login.yaml` chạy SỚM HƠN lúc màn "Chào mừng bạn đến với ParrotEdu!" kịp render, bị đánh giá SAI
+# thành "đã có session" -> SKIPPED toàn bộ nhánh login -> assertVisible dashboard cuối file FAILED
+# dù thật ra đang đứng đúng màn welcome (đã xác nhận qua screen-hierarchy dump lúc FAILED).
+# `launch-keep-session.yaml` có sẵn `extendedWaitUntil` chờ 1 trong các màn ổn định
+# ("Đăng nhập|Vui học|Bài tập|Báo cáo") NGAY SAU launchApp - đúng lý do
+# `flows/app/bai_tap/ktra_fullluong_lambai.yaml` (file mẫu) dùng cặp
+# `launch-keep-session.yaml` + `login.yaml`, không dùng `subflows/launch_app.yaml`.
+appId: ${APP_ID}
+tags:
+  - regression
+name: TB-01 (app-side) - Thong bao giao bai moi trong icon chuong
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-notification.yaml
+- scrollUntilVisible:
+    element:
+      text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng).*"
+    direction: DOWN
+    timeout: 30000
+    speed: 60
+    waitToSettleTimeoutMs: 500
+- takeScreenshot: TB-01-notification-matched

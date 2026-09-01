@@ -110,3 +110,42 @@ export async function parseQuestionsFromExamPage(examId) {
 
   return { examId, examName: exam.name, questions: exam.questions ?? [] };
 }
+
+/**
+ * PHASE F (2026-09-01, xem hội thoại - BLOCKED thật tại resolveHomeworkExamQuestionsForRoomId() do
+ * chính page.goto() bên trong parseQuestionsFromExamPage() timeout): `page.goto(url, {waitUntil:
+ * "networkidle"})` ĐÃ ĐO THẬT là flaky CỐ HỮU (2026-08-18, xem docblock pro_lamlai_fullluong_
+ * xemchitiet.mjs#parseQuestionsFromExamPageWithRetry() - CÙNG examId, CÙNG session/token, KHÔNG đổi
+ * gì giữa các lần gọi -> 1/3 lần OK (~7.5-9.7s), 2/3 lần "page.goto: Timeout 30000ms exceeded" chờ
+ * networkidle - do chính trang có network activity nền không bao giờ "idle" 1 số lần tải, KHÔNG
+ * PHẢI session/token hỏng - lỗi session hỏng có dạng KHÁC hẳn, xem 2 throw phía trên).
+ *
+ * PROMOTE pattern retry ĐÃ PROVEN này (đã tồn tại độc lập, copy riêng ở >=4 flow khác - grep
+ * `parseQuestionsFromExamPageWithRetry` để xác nhận) vào ĐÚNG 1 nơi dùng chung - KHÔNG sửa
+ * `parseQuestionsFromExamPage()` gốc phía trên (mọi caller cũ giữ nguyên hành vi, không ai bị ảnh
+ * hưởng nếu không chủ động gọi hàm MỚI này). Retry CHỈ áp dụng cho lỗi có dạng "Timeout <n>ms
+ * exceeded" (dấu hiệu navigation timeout transient) - MỌI lỗi khác (session hết hạn, NUXT thiếu...)
+ * ném ra NGAY, không đoán/không thử lại (retry lỗi session sẽ luôn fail giống hệt, chỉ tốn thời
+ * gian + che giấu vấn đề thật). Bounded tối đa `maxAttempts` (default 2, KHÔNG vô hạn - khớp đúng
+ * convention đã proven ở 4 file kia). Mỗi attempt gọi lại `parseQuestionsFromExamPage()` NGUYÊN
+ * VẸN (tự launch browser/context/page MỚI, tự nạp lại session mỗi lần - không tái sử dụng trạng
+ * thái page cũ giữa các lần thử). KHÔNG backoff delay - giữ đúng pattern gốc đã chạy thật nhiều
+ * lần, không tự thêm biến chưa kiểm chứng.
+ * @param {string} examId
+ * @param {number} [maxAttempts]
+ */
+export async function parseQuestionsFromExamPageWithRetry(examId, maxAttempts = 2) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await parseQuestionsFromExamPage(examId);
+    } catch (err) {
+      lastErr = err;
+      if (!/Timeout \d+ms exceeded/.test(err.message)) throw err;
+      if (attempt < maxAttempts) {
+        console.log(`  [parseQuestionsFromExamPageWithRetry] examId=${examId}: attempt ${attempt}/${maxAttempts} thất bại (page.goto timeout - flaky networkidle đã đo thật) - thử lại.`);
+      }
+    }
+  }
+  throw lastErr;
+}

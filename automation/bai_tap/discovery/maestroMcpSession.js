@@ -150,13 +150,28 @@ export class MaestroMcpSession {
     const yaml = `appId: ${appId}\n---\n${dump(steps, { lineWidth: -1 })}`;
     try {
       const rawText = await this._toolCall("run", { device_id: this.deviceId, yaml });
-      // DEBUG-ONLY (PHASE 6E, 2026-08-31) - opt-in qua MAESTRO_MCP_DEBUG_CAPTURE_RUN=1, off theo mặc
-      // định. Capture raw response text của MCP tool "run" (Phase 6D xác nhận bị discard hoàn toàn
-      // trước đây) vào side-channel riêng để investigation đọc lại sau - KHÔNG đổi return value/
-      // contract {success,error} bên dưới. XOÁ đoạn if này (3 dòng) để revert nguyên trạng.
       if (process.env.MAESTRO_MCP_DEBUG_CAPTURE_RUN) {
         this._debugRawRunResponses = this._debugRawRunResponses || [];
         this._debugRawRunResponses.push({ atMs: Date.now(), yaml, rawText });
+      }
+      // PHASE I (2026-09-01) - trước đây hàm này LUÔN trả {success:true} khi `_toolCall` không throw,
+      // bất kể nội dung `rawText` (đã xác nhận thật qua MAESTRO_MCP_DEBUG_CAPTURE_RUN: khi flow THẬT
+      // thành công, tool "run" trả JSON {success:true, message, commands_executed,...}; khi flow THẬT
+      // thất bại - vd extendedWaitUntil timeout thật - trả TEXT THƯỜNG dạng "Failed to ..." (không
+      // phải JSON) - cả 2 dạng trước đây đều bị bỏ qua, luôn trả {success:true}). Live-reproduce 2 lần:
+      // `closeIfOpen()` báo {success:true} trong khi hierarchy() đọc ngay sau đó xác nhận thiết bị VẪN
+      // ở exercise_doing_screen, không phải homework_screen. Nay đọc rawText để trả ĐÚNG success/error
+      // thật của flow thay vì hardcode true, xử lý CẢ 2 dạng response đã xác nhận thật ở trên.
+      let parsed;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        // Dạng thất bại KHÔNG phải JSON - dùng nguyên văn rawText (đã xác nhận thật là message dễ đọc
+        // dạng "Failed to ...") làm error thay vì để lộ ra lỗi JSON.parse gây hiểu lầm.
+        return { success: false, error: rawText };
+      }
+      if (!parsed.success) {
+        return { success: false, error: parsed.message || "MCP tool \"run\" báo flow thất bại (rawText.success=false)." };
       }
       return { success: true };
     } catch (err) {

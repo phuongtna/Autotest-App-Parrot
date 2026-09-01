@@ -370,11 +370,42 @@ export { normalizeAnswerText, buildNormalizedVisibleSet, findFullAnswerSetMatche
  *   | { ok: false, status: "NOT_FOUND"|"ERROR"|"CONTENT_MISMATCH"|"AMBIGUOUS_UNRESOLVED"|"OPEN_STEP_FAILED", diagnostics: string, triedLog: Array }
  * >}
  */
+/**
+ * PHASE H (2026-09-01, xem hội thoại - FAIL thật: 2 candidate cùng title+dueDate, CẢ 2 "0/10 Làm
+ * bài" - đúng room vừa giao là candidate thứ 3+ nằm ngoài viewport findAssignment() đã dừng cuộn ở
+ * đó, vì `findAssignment()` (findAssignment.js) dừng NGAY khi đã thấy >=2 match trong 1 snapshot -
+ * ĐÚNG THIẾT KẾ của chính nó, dùng ĐÚNG bởi >=5 caller khác phụ thuộc hành vi đó - KHÔNG được sửa
+ * findAssignment.js). SỬA: bọc 1 vòng lặp "cuộn tiếp + gọi lại findAssignment() + loại-trừ candidate
+ * đã thử" NGAY TẠI ĐÂY (KHÔNG đụng findAssignment.js) - biến AMBIGUOUS-cùng-1-snapshot thành 1 trạng
+ * thái TRUNG GIAN (candidate set CHƯA đủ), không phải kết luận cuối. Giữ NGUYÊN 100% return contract
+ * (status enum/shape: NOT_FOUND/CONTENT_MISMATCH/AMBIGUOUS_CONTENT_MATCH/OPEN_STEP_FAILED/
+ * REOPEN_FAILED/ERROR, {ok,card,matched,triedLog} khi thành công) - KHÔNG caller nào (cả trong file
+ * này lẫn e2e-teacher-assign-partial-resume-scored.mjs) cần sửa theo.
+ *
+ * Safety GIỮ NGUYÊN 100%: mỗi "round" (1 snapshot findAssignment) vẫn thử HẾT candidate MỚI trong
+ * round đó trước khi kết luận (KHÔNG dừng sớm ở candidate khớp content ĐẦU TIÊN) - chỉ khi ĐÚNG 1
+ * candidate khớp trong round đó mới accept; 0 candidate khớp -> cuộn thêm sang round kế (KHÔNG bỏ
+ * cuộc như bản cũ); >=2 candidate CÙNG khớp trong 1 round -> AMBIGUOUS_CONTENT_MATCH thật (dừng
+ * ngay, không tìm thêm - đây là tín hiệu dữ liệu bất thường thật, không phải "chưa tìm đủ"). KHÔNG
+ * first-fit ở bất kỳ round nào. `triedSignatures` (theo `ctaBounds` - chỉ tín hiệu phân biệt được
+ * giữa các candidate CÙNG title/dueDate/cta trong 1 snapshot) tránh thử lại candidate đã biết SAI.
+ *
+ * Cuộn tiếp dùng LẠI đúng biên độ swipe đã proven trong findAssignment.js (`NORMAL_SWIPE`), dừng
+ * khi 2 lần liên tiếp KHÔNG có tiến triển thật (fingerprint toàn bộ text không đổi - dùng lại
+ * `collectAllTexts()` export sẵn trong CHÍNH file này) HOẶC đạt `maxCandidates` (trần an toàn tổng
+ * số candidate đã thử, KHÔNG phải trần "số round") - KHÔNG lặp vô hạn.
+ *
+ * `closeIfOpen()` SỬA THÊM (cùng PHASE H): bản cũ chỉ tap X + chờ text lỏng lẻo ".*(Bài tập).*"
+ * (không verify là ĐÃ về homework_screen thật, không xử lý dialog xác nhận thoát) - kết quả KHÔNG
+ * được caller kiểm tra, gây device kẹt giữa bài thật đã quan sát (PHASE G). SỬA: xử lý dialog xác
+ * nhận ("Thoát"/"Đồng ý"/"Xác nhận", optional - CÙNG chuỗi bước đã proven trong
+ * exitToHomeworkList() của e2e-teacher-assign-partial-resume-scored.mjs), verify bằng resource-id
+ * ổn định `homework_screen` (không phải regex text lỏng lẻo), trả `{ok,error}` và callsite BÊN
+ * DƯỚI giờ kiểm tra kết quả này - cleanup thất bại -> trả EXERCISE_OPEN_FAILED tường minh thay vì
+ * âm thầm tiếp tục với device đang ở trạng thái không xác định.
+ */
 export async function locateOpenAndVerifyAssignment(bridge, { title, dueDateDM, cta = null, questions, maxCandidates = MAX_DISAMBIGUATE_CANDIDATES }) {
   await scrollToTop(bridge);
-  const located = await findAssignment(bridge, { title, dueDateDM, cta });
-  if (located.status === "NOT_FOUND") return { ok: false, status: "NOT_FOUND", diagnostics: located.diagnostics, triedLog: [] };
-  if (located.status === "ERROR") return { ok: false, status: "ERROR", diagnostics: located.diagnostics, triedLog: [] };
 
   const openAndCheckContent = async (candidate) => {
     const tapResult = await tapFoundCard(bridge, candidate);
@@ -395,53 +426,96 @@ export async function locateOpenAndVerifyAssignment(bridge, { title, dueDateDM, 
     const contentMatched = matchResult.status === "MATCHED";
     return { opened: true, contentMatched, matched: contentMatched ? matchResult.question : null };
   };
-  const closeIfOpen = () =>
-    bridge.runSteps([
+  const closeIfOpen = async () => {
+    const r = await bridge.runSteps([
       { tapOn: { id: "exercise_close_button" }, optional: true },
-      { extendedWaitUntil: { visible: ".*(Bài tập).*", timeout: 20000 } },
+      { waitForAnimationToEnd: { timeout: 1500 } },
+      { tapOn: { text: "Thoát", optional: true } },
+      { tapOn: { text: "Đồng ý", optional: true } },
+      { tapOn: { text: "Xác nhận", optional: true } },
+      { waitForAnimationToEnd: { timeout: 1000 } },
+      { extendedWaitUntil: { visible: { id: "homework_screen" }, timeout: 20000 } },
     ]);
+    return { ok: r.success, error: r.success ? null : r.error };
+  };
+  const candidateSignature = (c) => JSON.stringify({ t: c.title, d: c.dueDate, cta: c.cta, b: c.ctaBounds });
+  const scrollForMoreCandidates = async () => {
+    const before = collectAllTexts(await bridge.hierarchy()).join("||");
+    const swipeResult = await bridge.runSteps([
+      { swipe: { start: "50%,80%", end: "50%,25%", duration: 400 } },
+      { waitForAnimationToEnd: { timeout: 800 } },
+    ]);
+    if (!swipeResult.success) return false;
+    const after = collectAllTexts(await bridge.hierarchy()).join("||");
+    return after !== before;
+  };
 
-  if (located.status === "FOUND") {
-    const outcome = await openAndCheckContent(located.card);
-    const triedLog = [{ candidate: located.card, ...outcome }];
-    if (outcome.opened && outcome.contentMatched) return { ok: true, card: located.card, matched: outcome.matched, triedLog };
-    if (outcome.opened) await closeIfOpen();
-    return { ok: false, status: outcome.opened ? "CONTENT_MISMATCH" : "OPEN_STEP_FAILED", diagnostics: located.diagnostics, triedLog };
-  }
-
-  // AMBIGUOUS (≥2 candidate cùng title+dueDate[+cta]): PHẢI thử HẾT mọi candidate rồi mới kết luận -
-  // KHÔNG dừng sớm ở candidate khớp content ĐẦU TIÊN (nếu dừng sớm sẽ không biết candidate còn lại
-  // có CŨNG khớp content hay không - "chỉ khi còn đúng 1 candidate match mới được mở/làm" đòi hỏi
-  // biết chắc KHÔNG có candidate thứ 2 nào cũng khớp).
-  const candidates = located.matches.slice(0, maxCandidates);
+  const triedSignatures = new Set();
   const triedLog = [];
-  const matchedCandidates = [];
-  for (const candidate of candidates) {
-    const outcome = await openAndCheckContent(candidate);
-    triedLog.push({ candidate, ...outcome });
-    if (outcome.opened) {
-      if (outcome.contentMatched) matchedCandidates.push({ candidate, matched: outcome.matched });
-      await closeIfOpen();
+  let lastDiagnostics = null;
+  let noProgressStreak = 0;
+  const MAX_SCROLL_ROUNDS = 40; // trần an toàn chống lặp vô hạn - KHÔNG phải "số room"; dừng sớm hơn
+  // trong thực tế qua noProgressStreak (hết phạm vi cuộn hợp lệ thật) hoặc maxCandidates (đã thử đủ).
+
+  for (let round = 0; round < MAX_SCROLL_ROUNDS && triedLog.length < maxCandidates && noProgressStreak < 2; round++) {
+    const located = await findAssignment(bridge, { title, dueDateDM, cta });
+    lastDiagnostics = located.diagnostics ?? lastDiagnostics;
+    if (located.status === "ERROR") {
+      return { ok: false, status: "ERROR", diagnostics: located.diagnostics, triedLog };
     }
+    const rawCandidates = located.status === "FOUND" ? [located.card] : located.status === "AMBIGUOUS" ? located.matches : [];
+    const untried = rawCandidates.filter((c) => !triedSignatures.has(candidateSignature(c))).slice(0, Math.max(0, maxCandidates - triedLog.length));
+
+    if (untried.length === 0) {
+      if (triedLog.length === 0 && located.status === "NOT_FOUND") break; // chưa từng thấy candidate nào - hết phạm vi cuộn hợp lệ thật.
+      const progressed = await scrollForMoreCandidates();
+      noProgressStreak = progressed ? 0 : noProgressStreak + 1;
+      continue;
+    }
+    noProgressStreak = 0;
+
+    // Thử HẾT candidate MỚI của round này trước khi kết luận (KHÔNG dừng sớm ở candidate khớp content
+    // ĐẦU TIÊN) - CÙNG safety đã có ở bản gốc, chỉ khác phạm vi "round" thay vì "toàn bộ 1 lần gọi".
+    const matchedThisRound = [];
+    for (const candidate of untried) {
+      triedSignatures.add(candidateSignature(candidate));
+      const outcome = await openAndCheckContent(candidate);
+      triedLog.push({ candidate, ...outcome });
+      if (outcome.opened && outcome.contentMatched) matchedThisRound.push({ candidate, matched: outcome.matched });
+      if (outcome.opened) {
+        const closed = await closeIfOpen();
+        if (!closed.ok) {
+          return { ok: false, status: "EXERCISE_OPEN_FAILED", diagnostics: `Không đóng lại được về homework_screen sau candidate mismatch: ${closed.error}`, triedLog };
+        }
+      }
+    }
+    if (matchedThisRound.length === 1) {
+      // Đúng 1 candidate khớp content trong round này - đã bị ĐÓNG lại ở vòng kiểm tra công bằng
+      // phía trên (để không thiên vị thứ tự thử) - mở LẠI đúng candidate này lần cuối để tiếp tục
+      // vào làm bài (postcondition trả về: exercise_close_button đang visible).
+      const winner = matchedThisRound[0];
+      const reopen = await openAndCheckContent(winner.candidate);
+      triedLog.push({ candidate: winner.candidate, ...reopen, reopen: true });
+      if (!reopen.opened || !reopen.contentMatched) {
+        return { ok: false, status: "REOPEN_FAILED", diagnostics: lastDiagnostics, triedLog };
+      }
+      return { ok: true, card: winner.candidate, matched: reopen.matched, triedLog };
+    }
+    if (matchedThisRound.length > 1) {
+      // >=2 candidate CÙNG khớp content trong CÙNG 1 round - bất thường dữ liệu thật, KHÔNG phải
+      // "chưa tìm đủ" - dừng ngay, không tìm thêm, không đoán chọn cái nào.
+      return { ok: false, status: "AMBIGUOUS_CONTENT_MATCH", diagnostics: lastDiagnostics, triedLog };
+    }
+    // 0 candidate khớp trong round này - vòng for ngoài tự lặp: round kế `untried` sẽ rỗng (đã tried
+    // hết candidate hiện thấy) -> tự cuộn thêm để lộ candidate MỚI (nhánh `untried.length === 0` trên).
   }
-  if (matchedCandidates.length !== 1) {
-    return {
-      ok: false,
-      status: matchedCandidates.length === 0 ? "CONTENT_MISMATCH" : "AMBIGUOUS_CONTENT_MATCH",
-      diagnostics: located.diagnostics,
-      triedLog,
-    };
-  }
-  // Đúng 1 candidate khớp content trong số các candidate ambiguous - candidate đó đã bị ĐÓNG lại ở
-  // vòng kiểm tra công bằng phía trên (để không thiên vị thứ tự thử) - mở LẠI đúng candidate này lần
-  // cuối để tiếp tục vào làm bài (postcondition trả về: exercise_close_button đang visible).
-  const winner = matchedCandidates[0];
-  const reopen = await openAndCheckContent(winner.candidate);
-  triedLog.push({ candidate: winner.candidate, ...reopen, reopen: true });
-  if (!reopen.opened || !reopen.contentMatched) {
-    return { ok: false, status: "REOPEN_FAILED", diagnostics: located.diagnostics, triedLog };
-  }
-  return { ok: true, card: winner.candidate, matched: reopen.matched, triedLog };
+
+  return {
+    ok: false,
+    status: triedLog.length === 0 ? "NOT_FOUND" : "CONTENT_MISMATCH",
+    diagnostics: lastDiagnostics,
+    triedLog,
+  };
 }
 
 /**

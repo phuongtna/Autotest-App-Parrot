@@ -1,0 +1,24 @@
+# Helper: mở màn "Thông báo" (icon chuông trên header dashboard).
+#
+# Selector: id "notification_bell_button" - đã xác nhận THẬT qua `maestro hierarchy` (2026-09-01,
+# thiết bị 3201d866d40a1681, MaestroMcpSession) là 1 trong số ít testID/resource-id thật có trong
+# app (khác phần lớn selector khác trong repo phải match text/content-desc vì "chỉ 4 testID trong
+# cả app" - xem flows/app/bai_tap/TEST-CASES.md mục D note #9; icon chuông này KHÔNG nằm trong số
+# đó, nó có resource-id native riêng). Đã xác nhận có mặt GIỐNG NHAU trên header của cả 3 tab
+# dashboard (Vui học / Bài tập / Báo cáo) - không phụ thuộc đang đứng tab nào.
+#
+# Giả định (giống open-tab-homework.yaml/open-tab-report.yaml): đã login + đang đứng ở 1 trong 3
+# tab dashboard. Helper này KHÔNG tự login/mở tab - caller tự đảm bảo precondition đó.
+#
+# Sau khi tap: màn "Thông báo" hiện tiêu đề "Thông báo" + danh sách item (mỗi item là 1
+# ViewGroup clickable, content-desc = "<nội dung thông báo>, <x phút/giờ trước>" - xem
+# flows/app/thong_bao/TEST-CASES.md để biết các mẫu text đã quan sát thật, KHÔNG chỉ 1 mẫu cố
+# định - tuỳ loại thông báo mà câu chữ khác nhau).
+appId: ${APP_ID}
+---
+- tapOn:
+    id: "notification_bell_button"
+- extendedWaitUntil:
+    visible:
+      text: "Thông báo"
+    timeout: 15000

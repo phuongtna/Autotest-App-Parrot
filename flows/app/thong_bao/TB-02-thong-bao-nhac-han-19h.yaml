@@ -1,0 +1,65 @@
+# TB-02 — Icon chuông có thông báo DẠNG NHẮC HẠN NỘP (MECHANIC-ONLY - đọc kỹ mục giới hạn dưới đây
+# TRƯỚC khi coi 1 lượt PASS của file này là "đã xác nhận TB-02 đầy đủ").
+#
+# FILE NÀY CHỨNG MINH ĐƯỢC GÌ VÀ KHÔNG CHỨNG MINH ĐƯỢC GÌ:
+#   - CHỨNG MINH: cơ chế "mở icon chuông -> có ít nhất 1 item mang hình dạng nhắc hạn nộp hiển thị"
+#     hoạt động đúng, lặp lại nhiều lượt đóng/mở (đúng kỹ thuật user yêu cầu: "thoát thông báo bấm
+#     lại vào check thông báo").
+#   - KHÔNG chứng minh "đúng lúc 19:00": file này KHÔNG chờ tới đúng 19:00 rồi mới chạy (xem
+#     flows/app/thong_bao/TEST-CASES.md mục "TB-02 — Quyết định: Tay" - lý do "time-gated,
+#     server-triggered", KHÔNG có cách rút ngắn trung thực bằng 1 file Maestro YAML thuần chạy bất
+#     kỳ lúc nào trong ngày). Bằng chứng "đúng khung giờ 19:00" DUY NHẤT hiện có vẫn là lượt quan
+#     sát thật tối 2026-09-01 (~19:00-20:02 giờ VN, ghi đầy đủ trong TEST-CASES.md). Chạy file này
+#     vào 1 thời điểm khác trong ngày CHỈ xác nhận lại là các item nhắc nhở (kể cả đợt ~12h trưa
+#     cũng đã xác nhận thật là CÓ THẬT, xem TEST-CASES.md) VẪN còn hiển thị trong danh sách - KHÔNG
+#     PHẢI bằng chứng MỚI về việc có/không 1 đợt nhắc riêng đúng lúc 19:00.
+#   - KHÔNG phân loại theo 3 trạng thái (due-today / quá hạn / sắp tới hạn): regex bên dưới chỉ cần
+#     khớp NGỮ NGHĨA nhắc nhở nói chung, không phân biệt trạng thái nào. Muốn phân loại chi tiết +
+#     cross-reference với dữ liệu thật qua API, dùng script quan sát riêng
+#     `flows/app/thong_bao/tb02-check-19h-reminder.mjs` (xem docblock đầu file đó).
+#
+# REGEX (port từ REMINDER_KEYWORD_PATTERN trong tb02-check-19h-reminder.mjs, ĐÃ BỎ cụm
+# "còn\s*\d+\s*(ngày|giờ|phút)" - phần số N biến thiên không viết gọn được thành 1 literal cố định
+# trong Maestro text-selector; 6 cụm còn lại đều là literal, đã đủ khớp cả 4 mẫu câu nhắc hạn nộp
+# THẬT quan sát được tối 2026-09-01, xem TEST-CASES.md):
+#   hạn nộp | quá hạn | sắp hết hạn | sắp đến hạn | nhắc nhở | nhắc con | nhắc bạn
+#
+# LẶP MỞ/ĐÓNG icon chuông bằng `repeat:` (native command - ĐÃ XÁC NHẬN hoạt động trên Maestro 2.8.0
+# của repo này, xem flows/app/bai_tap/ktra_fullluong_lambai.yaml, khối "repeat: times: 5" cuối
+# file): mỗi vòng = tap chuông -> assert có item khớp -> back (đóng) - đúng nguyên văn kỹ thuật
+# "thoát thông báo bấm lại vào check" user yêu cầu, không chỉ 1 lần mở-đọc tĩnh.
+#
+# Chạy:
+#   maestro test flows/app/thong_bao/TB-02-thong-bao-nhac-han-19h.yaml -e APP_ID=com.inet.parrotedu \
+#     -e PHONE=<test_data/accounts.env PHONE> -e OTP=<test_data/accounts.env OTP>
+# LAUNCH: `launch-keep-session.yaml` (KHÔNG phải `subflows/launch_app.yaml`) - ĐÃ XÁC NHẬN THẬT
+# (2026-09-01, lượt chạy đầu tiên FAILED) `subflows/launch_app.yaml` (clearState + launchApp,
+# KHÔNG có bước chờ ổn định UI) khiến check `when: visible` (immediate, không phải wait/poll) của
+# `login.yaml` chạy SỚM HƠN lúc màn "Chào mừng bạn đến với ParrotEdu!" kịp render, bị đánh giá SAI
+# thành "đã có session" -> SKIPPED toàn bộ nhánh login -> assertVisible dashboard cuối file FAILED
+# dù thật ra đang đứng đúng màn welcome (đã xác nhận qua screen-hierarchy dump lúc FAILED).
+# `launch-keep-session.yaml` có sẵn `extendedWaitUntil` chờ 1 trong các màn ổn định
+# ("Đăng nhập|Vui học|Bài tập|Báo cáo") NGAY SAU launchApp - đúng lý do
+# `flows/app/bai_tap/ktra_fullluong_lambai.yaml` (file mẫu) dùng cặp
+# `launch-keep-session.yaml` + `login.yaml`, không dùng `subflows/launch_app.yaml`.
+appId: ${APP_ID}
+tags:
+  - regression
+name: TB-02 (mechanic-only) - Icon chuong co thong bao dang nhac han nop
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- repeat:
+    times: 3
+    commands:
+      - runFlow: ../helpers/open-notification.yaml
+      - extendedWaitUntil:
+          visible:
+            text: ".*(hạn nộp|quá hạn|sắp hết hạn|sắp đến hạn|nhắc nhở|nhắc con|nhắc bạn).*"
+          timeout: 15000
+      - takeScreenshot: TB-02-notification-matched
+      - back

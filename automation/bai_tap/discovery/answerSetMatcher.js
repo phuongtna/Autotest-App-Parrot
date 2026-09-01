@@ -105,12 +105,11 @@ const MIN_MARGIN_OVER_RUNNER_UP = 0.25;
  * @returns {{status:"MATCHED", winner:object, scores:Array<{question:object, coverage:number, tokenCount:number}>}
  *         | {status:"AMBIGUOUS", scores:Array<{question:object, coverage:number, tokenCount:number}>}}
  */
-export function disambiguateByQuestionText(candidates, visibleTexts) {
+function scoreAgainstTexts(candidates, sourceTexts) {
   const visibleTokenSet = new Set();
-  for (const t of visibleTexts) {
+  for (const t of sourceTexts) {
     for (const tok of normalizeQuestionTokens(t)) visibleTokenSet.add(tok);
   }
-
   const scored = candidates.map((question) => {
     const tokens = [...new Set(normalizeQuestionTokens(question.question))];
     if (tokens.length < MIN_CONTENT_TOKENS) {
@@ -119,15 +118,49 @@ export function disambiguateByQuestionText(candidates, visibleTexts) {
     const hit = tokens.filter((tok) => visibleTokenSet.has(tok)).length;
     return { question, coverage: hit / tokens.length, tokenCount: tokens.length };
   });
-
   const ranked = [...scored].sort((a, b) => b.coverage - a.coverage);
   const [top, runnerUp] = ranked;
   const marginOk = runnerUp ? top.coverage - runnerUp.coverage >= MIN_MARGIN_OVER_RUNNER_UP : true;
-
   if (top.tokenCount >= MIN_CONTENT_TOKENS && top.coverage >= MIN_MATCH_COVERAGE && marginOk) {
     return { status: "MATCHED", winner: top.question, scores: ranked };
   }
   return { status: "AMBIGUOUS", scores: ranked };
+}
+
+export function disambiguateByQuestionText(candidates, visibleTexts) {
+  // FIX (2026-09-01, live "Read and tick True or False" group-passage: 5 câu con dùng chung ĐÚNG 1
+  // đoạn văn dẫn đề hiển thị NGUYÊN VẸN cho MỌI câu con, cộng 1 dòng phát biểu ("Today is Club
+  // Day.") ngắn, đứng RIÊNG ngay trước 2 nút True/False - đoạn văn chung liệt kê từ vựng của TẤT CẢ
+  // câu con (vd nhắc tới "Music Club"/"Art Club"/"Sports Club"/"Reading Club" trong 1 đoạn), nên
+  // coverage-toàn-trang cũ cho MỌI candidate điểm cao gần bằng nhau -> luôn thiếu margin -> AMBIGUOUS
+  // dù dòng phát biểu riêng NGAY TRƯỚC nút trả lời thừa sức phân biệt rạch ròi. SỬA: thử thêm coverage
+  // trên các "cửa sổ" dòng text ngay TRƯỚC block đáp án (1 dòng, 2 dòng, ... tới hết phần trước đáp
+  // án) TRƯỚC KHI tính coverage-toàn-trang - cửa sổ hẹp nhất cho kết quả đủ tin cậy (đạt CÙNG ngưỡng
+  // MIN_MATCH_COVERAGE/MIN_MARGIN_OVER_RUNNER_UP, không hạ chuẩn) thắng ngay. Không tìm được cửa sổ
+  // nào đủ tin cậy -> fallback NGUYÊN VẸN coverage-toàn-trang cũ (identical kết quả case [B]/[E] đã
+  // có fixture - đoạn dẫn đề của các case đó vốn đã nằm liền trước block đáp án, không có nội dung gây
+  // nhiễu đứng trước, nên cửa sổ hẹp hoặc toàn trang cho ra CÙNG 1 winner, chỉ khác điểm dừng).
+  const optionTexts = new Set();
+  for (const c of candidates) {
+    for (const a of c.answers ?? []) {
+      if (typeof a === "string" && a.trim()) optionTexts.add(normalizeAnswerText(a));
+    }
+  }
+  let optionsStartIdx = -1;
+  for (let i = 0; i < visibleTexts.length; i++) {
+    if (optionTexts.has(normalizeAnswerText(visibleTexts[i]))) {
+      optionsStartIdx = i;
+      break;
+    }
+  }
+  if (optionsStartIdx > 0) {
+    for (let windowSize = 1; windowSize <= optionsStartIdx; windowSize++) {
+      const windowTexts = visibleTexts.slice(Math.max(0, optionsStartIdx - windowSize), optionsStartIdx);
+      const windowResult = scoreAgainstTexts(candidates, windowTexts);
+      if (windowResult.status === "MATCHED") return windowResult;
+    }
+  }
+  return scoreAgainstTexts(candidates, visibleTexts);
 }
 
 function collectAllTexts(node, acc = []) {

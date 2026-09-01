@@ -5,58 +5,102 @@
  * Lifecycle ĐẦY ĐỦ "hành vi giống USER THẬT":
  *
  *   GV giao 1 bài MỚI random (Web GV, Playwright) -> App HS nhận đúng assignment -> HS mở đúng bài
- *   -> làm THẬT 2-3 câu đầu (đáp án lấy từ CMS, KHÔNG đoán) -> thoát bằng nút X (UI thật, KHÔNG
- *   stopApp/launchApp) -> quay về danh sách Bài tập (VẪN CÙNG session app) -> đọc progress của
- *   ĐÚNG card đó -> mở LẠI ĐÚNG bài đó -> xác nhận RESUME -> làm hết câu còn lại -> màn Kết quả ->
- *   đọc điểm THẬT -> verify điểm nằm trong [7.0, 8.0) (7.0 PASS, 8.0 KHÔNG PASS - KHÔNG ưu
- *   tiên riêng giá trị 7, không hardcode 7/10, xem computeScorePlan()).
+ *   -> làm THẬT 3 câu đầu (đáp án lấy từ CMS, KHÔNG đoán) -> thoát bằng nút X (UI thật, KHÔNG
+ *   stopApp/launchApp) -> quay về danh sách Bài tập (VẪN CÙNG session app) -> mở LẠI ĐÚNG bài đó ->
+ *   xác nhận RESUME -> làm hết câu còn lại -> màn Kết quả -> đọc điểm THẬT -> verify điểm khớp
+ *   CHÍNH XÁC FIRST_TARGET_SCORE -> tìm lại ĐÚNG assignment -> "Làm lại" -> làm hết nhắm
+ *   REDO_TARGET_SCORE -> màn Kết quả -> verify điểm khớp CHÍNH XÁC REDO_TARGET_SCORE -> đọc CTA
+ *   thật ("Tiếp theo"/"Hoàn thành") -> tap CTA thật -> verify navigation.
  *
- * KHÁC bản PINNED cũ (2026-08-17, theo yêu cầu mới - xem hội thoại cùng ngày):
- *   1. KHÔNG còn pin cứng "Unit 1: Hello/Lesson 1/Choose the correct answer." - RANDOM thật trong
- *      TOÀN BỘ cây eligible của lớp (mọi Unit/Lesson), nhưng CHỈ trong tập con đã pre-scan READ-ONLY
- *      xác nhận (a) KHÔNG phải SPEAK, (b) đúng 1 exam_id (không AMBIGUOUS), (c) MỌI câu có
- *      correctAnswer hợp lệ + >=2 đáp án dạng chữ (khớp đúng 2 chiến lược mà decideAnswerAction() hỗ
- *      trợ - KHÔNG né SPEAK/CONNECT/DRAG_DROP theo kiểu "chọn lại cho dễ", mà vì bài KHÔNG kiểm soát
- *      được đúng/sai thì không thể nhắm điểm theo yêu cầu đề bài - xem pickFeasibleRandomAssignment()),
- *      (d) tồn tại correctCount nguyên cho điểm dự đoán nằm trong [7.0, 8.0) theo công thức GIẢ ĐỊNH
- *      (xem mục 2). KHÔNG hardcode QUESTIONS/correctCount - tất cả resolve tại runtime.
- *   2. KHÔNG còn giả định cứng "7 đúng/10 câu = điểm 7" - tổng số câu N của bài random ra QUYẾT ĐỊNH
- *      correctCount cần thiết. Công thức GIẢ ĐỊNH (thang điểm 10 tỉ lệ thuận, làm tròn 1 chữ số -
- *      CHƯA có đủ dữ liệu thật để chứng minh, xem docblock computeScorePlan()) chỉ dùng để LẬP KẾ
- *      HOẠCH trước - PASS/FAIL cuối cùng dựa vào ĐIỂM THẬT đọc được trên màn Kết quả, không fake.
- *   3. Định danh assignment/progress KHÔNG còn dựa vào (title, occurrenceIndex-theo-title) - đã xác
- *      nhận THẬT (2026-08-17) lớp 3B có tới 5+ room cùng title "Choose the correct answer." ở NHIỀU
- *      Hạn nộp khác nhau, khiến readCardState() bản cũ (title-only) đọc NHẦM progress của 1 card
- *      khác (Hạn nộp 21/08 thay vì 24/08). Bản này BẮT BUỘC anchor cả (title, Hạn nộp) khi đếm
- *      occurrence (xem readCardState()), và đọc CTA thật của ĐÚNG occurrence trước khi tap (xem
- *      openAssignmentDisambiguated()) - không còn dùng 1 `cta` cố định cho mọi candidate.
- *   4. maxCandidates disambiguate: không còn cố định 3 (đã gây FAIL thật OPEN_EXERCISE_AMBIGUOUS
- *      2026-08-17 vì lớp có sẵn 4 room khác cùng lesson_item_id do các lần chạy test trước để lại) -
- *      nâng lên 10, vẫn CÓ giới hạn (không lặp vô hạn), hết candidate -> BLOCKED_AMBIGUOUS_MATCH.
+ * ═══════════════════════════ PHASE C - FULL ARCHITECTURE MIGRATION (2026-09-01) ═══════════════════
+ * Sau chuỗi FAIL/BLOCKED thật (AMBIGUOUS do title-only identity, CONTENT_MISMATCH do locate-Làm-lại
+ * không verify nội dung, occurrence-counting sai trong 1 hierarchy() snapshot...), đã audit TOÀN BỘ
+ * execution chain (PHASE A) + thiết kế kiến trúc canonical (PHASE B) trước khi sửa - xem hội thoại.
+ * Thay đổi so với bản trước (KHÔNG đụng answer semantics/scoring mathematics/CTA cuối/matcher):
+ *
+ *   1. SCORING: bỏ hẳn bản copy private (buildScoringPlan/scaledSumForScore/achievableScoresList/
+ *      buildWeightedWantCorrectPlan/correctIndicesForExactScore) - IMPORT THẲNG từ
+ *      `e2e-teacher-assign-full-scored-target5.mjs` (file ĐÃ EXPORT toàn bộ scoring engine subset-
+ *      sum THẬT, cùng công thức, ĐÃ có fixture test riêng - xem
+ *      e2e-teacher-assign-full-scored-target5.scoringAndMatcher.fixtureTest.mjs). `resolveScoringPlanForCandidate(questions,
+ *      {mode:"target", targetScoreEnv})` đã đọc TOÀN VĂN trước khi dùng (PHASE C mục 2 yêu cầu) -
+ *      semantics XÁC NHẬN tương đương 100% `correctIndicesForExactScore()` cũ (cùng buildScoringPlan
+ *      + scaledSumForScore + correctIndicesForScaledSum bên trong), chỉ khác trả object có cấu trúc
+ *      thay vì throw khi không khả thi (AN TOÀN HƠN - không throw ngoài dự kiến, xử lý BLOCKED tường
+ *      minh). KHÔNG dùng mode="range" (không cần - luôn nhắm ĐÚNG 1 target cụ thể, không random range).
+ *
+ *   2. LOCATE + CONTENT VERIFICATION: bỏ hẳn `openAssignmentDisambiguated()`/`scrollAndReadCardState()`/
+ *      `readCardState()`/`scrollToNextUntriedCardState()`/`cardStateSignature()`/`scrollToCard()`
+ *      (bản private, dùng `findAssignment()`/`tapFoundCard()` riêng lẻ không content-verify hoặc
+ *      dùng cơ chế đếm occurrence trong 1 hierarchy() snapshot đã audit là SAI khi RecyclerView
+ *      không mount đồng thời nhiều occurrence) - IMPORT THẲNG `locateOpenAndVerifyAssignment()` từ
+ *      `e2e-teacher-assign-full-scored-target5.mjs` (ĐÃ EXPORT, ĐÃ có lịch sử fix bug thật 2026-08-22
+ *      trên room 19e78018-8c11-48e9-845f-efefe4dff82f - ĐÚNG loại lỗi "card liền kề title gần giống
+ *      + cùng hạn nộp" mà file này từng gặp). Hàm này gọi lại NGUYÊN VẸN `findAssignment()`/
+ *      `tapFoundCard()`/`findMatchingQuestion()` (KHÔNG viết lại, KHÔNG sửa `findAssignment.js`) -
+ *      chỉ thêm ĐÚNG 1 lớp: mở candidate ra rồi xác thực nội dung câu hỏi hiển thị khớp với
+ *      `QUESTIONS` đã resolve THẬT theo room.id - identity thật duy nhất còn lại khi UI không lộ
+ *      room.id. KHÔNG first-fit: khi AMBIGUOUS (>=2 candidate cùng title+Hạn nộp[+cta]), thử HẾT mọi
+ *      candidate (đóng lại sau mỗi lần), chỉ accept khi ĐÚNG 1 candidate khớp content.
+ *      DÙNG CHUNG cho CẢ 3 use case (đúng thiết kế gốc của hàm, xem docblock trong file nguồn):
+ *        - NEW (mở lần đầu):  cta = null (bất kỳ CTA nào - "Làm bài"/"Chinh phục" tuỳ tier)
+ *        - RESUME:            cta = "Tiếp tục"
+ *        - REDO ("Làm lại"):  cta = "Làm lại"
+ *
+ *   3. ROOM RESOLUTION: bỏ phụ thuộc `assignHomeworkAndLocateOnApp()` (e2e-teacher-assign-student-
+ *      open.mjs) cho việc LOCATE khi giao bài mới - hàm đó vẫn CÒN 6 caller thật khác trong repo
+ *      (đã audit qua grep, xem PHASE A/B), KHÔNG được sửa. Thay bằng gọi trực tiếp
+ *      `assignHomeworkFlow()` (Web GV, PIN theo unitName/lessonName/homeworkItemId đã random chọn ở
+ *      prescan - CÙNG cách `e2e-giaobai-profilehientai-diem3-lamlai-diem8.mjs` đã dùng) rồi
+ *      `findRoomIdByLessonItem({lessonItemId, classId, endTimeDatePrefix})` (export,
+ *      teacherAssignmentApiDiscovery.js, deterministic theo lesson_item_id - KHÔNG qua title/UI,
+ *      throw rõ ràng nếu >1 match, KHÔNG đoán) - CANONICAL room resolver đã chốt, thay hẳn cơ chế
+ *      diff-before/after room.json (vẫn tồn tại nguyên trong assignHomeworkAndLocateOnApp() cho 6
+ *      caller kia, KHÔNG xoá).
+ *
+ *   4. PARTIAL_COUNT: từ `QUESTIONS.length >= 4 ? 3 : 2` (fallback ngầm, không phải guarantee) sang
+ *      hard invariant `PARTIAL_COUNT = 3` + reject tường minh (`DATA_INVALID`) nếu N<3 TRƯỚC KHI mở
+ *      bài (đã có sẵn N>=3 qua `isTextChoiceCompatible()` ở prescan/CMS_RESOLUTION, nhưng vẫn thêm
+ *      assertion trực tiếp tại đây - đúng chính xác điều acceptance criterion yêu cầu, không suy ra
+ *      gián tiếp qua 1 điều kiện khác).
+ *
+ *   5. ERROR TAXONOMY: chuẩn hoá `phase` trong file này theo taxonomy canonical (DATA_INVALID/
+ *      PREFLIGHT_REJECT/ASSIGN_FAILED/ROOM_RESOLUTION_FAILED/CARD_NOT_FOUND/CARD_AMBIGUOUS/
+ *      CARD_IDENTITY_MISMATCH/EXERCISE_OPEN_FAILED/QUESTION_NOT_FOUND/QUESTION_AMBIGUOUS/
+ *      RESUME_INVALID/FIRST_SCORE_MISMATCH/REDO_CARD_NOT_FOUND/REDO_CARD_AMBIGUOUS/
+ *      REDO_IDENTITY_MISMATCH/SECOND_SCORE_MISMATCH/CTA_INVALID) - CHỈ trong file này, KHÔNG refactor
+ *      file khác.
+ *
+ * KHÔNG đổi (No-regression boundary, đã audit không có root cause liên quan):
+ *   `findMatchingQuestion()`/`diagnoseCurrentQuestion()` (answerSetMatcher.js),
+ *   `HomeworkExamEngine.answerCurrentQuestionOneShot()`, `resolveHomeworkExamQuestionsForRoomId()`,
+ *   `assignHomeworkFlow()`, `exitToHomeworkList()` (giữ nguyên trong file, không đụng), vòng lặp trả
+ *   lời partial/resume/redo (giữ nguyên cấu trúc, chỉ đổi NGUỒN correctIndices), CTA cuối (chưa có
+ *   evidence lỗi), `findAssignment.js`/`tapFoundCard()` (không sửa, chỉ không còn gọi trực tiếp).
  *
  * TÁI SỬ DỤNG (không viết lại):
- *   - assignHomeworkAndLocateOnApp() (e2e-teacher-assign-student-open.mjs) - Web GV + matching App
- *     HS, PIN theo ASSIGN_HOMEWORK_ITEM_ID/NAME đã random chọn được ở bước pre-scan (không còn giá
- *     trị cố định qua ENV thủ công như bản cũ).
- *   - MaestroMcpBridge (bridge/maestroMcpBridge.js, MỚI 2026-08-17, đã smoke-test + verify thật qua
- *     1 lượt chạy thành công tới OPEN_EXERCISE) - 1 tiến trình `maestro mcp` DUY NHẤT xuyên suốt
+ *   - assignHomeworkFlow() (automation/giao_bai_tap/runtime/assignHomeworkFlow.js) - Web GV
+ *     (Playwright), PIN theo unitName/lessonName/homeworkItemId đã random chọn ở pre-scan.
+ *   - findRoomIdByLessonItem() (teacherAssignmentApiDiscovery.js) - canonical room resolver.
+ *   - resolveScoringPlanForCandidate()/buildWeightedWantCorrectPlan()/locateOpenAndVerifyAssignment()
+ *     (e2e-teacher-assign-full-scored-target5.mjs) - canonical scoring + locate/content-verify.
+ *   - MaestroMcpBridge (bridge/maestroMcpBridge.js) - 1 tiến trình `maestro mcp` DUY NHẤT xuyên suốt
  *     toàn bộ phần thao tác thiết bị, KHÔNG spawn CLI mới cho từng tương tác.
  *   - HomeworkExamEngine (bai_tap/navigation/homeworkExamEngine.js) - decideAnswerAction()/
- *     answerCurrentQuestionOneShot(), KHÔNG sửa thêm (đã sửa đúng 1 dòng await ở lượt trước, xem
- *     git log cùng ngày).
- *   - resolveHomeworkExamQuestionsForRoomId() (bai_tap/discovery/teacherMaterialsExamResolver.js,
- *     MỚI 2026-08-17) - resolve câu hỏi/đáp án CHÍNH XÁC theo room.id (KHÔNG qua title, tránh đúng
- *     bug duplicate-title ở mục 3 trên) - dùng làm NGUỒN SỰ THẬT DUY NHẤT cho QUESTIONS của room vừa
- *     được giao (pre-scan chỉ dùng để CHỌN candidate, không dùng content pre-scan để trả lời thật).
+ *     answerCurrentQuestionOneShot(), KHÔNG sửa.
+ *   - resolveHomeworkExamQuestionsForRoomId() (bai_tap/discovery/teacherMaterialsExamResolver.js) -
+ *     resolve câu hỏi/đáp án CHÍNH XÁC theo room.id (KHÔNG qua title) - nguồn sự thật DUY NHẤT cho
+ *     QUESTIONS của room vừa được giao.
  *   - fetchEligibleAssignmentTree()/parseQuestionsFromExamPage()/normalizeQuestions() - pre-scan
  *     read-only toàn bộ cây eligible + đọc thử nội dung candidate (KHÔNG side-effect, không giao bài
  *     thật cho tới khi đã chọn xong 1 candidate khả thi).
  *
  * CHẠY: node flows/giao_bai_tap/e2e-teacher-assign-partial-resume-scored.mjs
- * ENV: giống e2e-teacher-assign-student-open.mjs (APP_ID/PHONE/OTP/MAESTRO_DEVICE, TEACHER_* trong
- *   .env cho Playwright, ASSIGN_PRIMARY_CLASS default "3B") - KHÔNG set ASSIGN_UNIT_NAME/
- *   ASSIGN_LESSON_NAME/ASSIGN_HOMEWORK_ITEM_NAME/ASSIGN_HOMEWORK_ITEM_ID (file này tự set sau khi
- *   random chọn xong candidate khả thi, TRƯỚC khi dynamic-import assignHomeworkAndLocateOnApp()).
+ * ENV: APP_ID/PHONE/OTP/MAESTRO_DEVICE (.env, test_data/accounts.env), TEACHER_* (.env, dùng bởi
+ *   assignHomeworkFlow), ASSIGN_PRIMARY_CLASS (default "3B"), FIRST_TARGET_SCORE (default 3, chỉ là
+ *   fallback KHÔNG phải hardcode logic - truyền qua env để đổi), REDO_TARGET_SCORE (default 8, cùng
+ *   ý nghĩa), MAX_PRESCAN_ATTEMPTS (default 12), MAX_DISAMBIGUATE_CANDIDATES (default 10),
+ *   ASSIGN_DUE_DATE_DAYS_AHEAD (default 7).
  */
 
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -65,15 +109,20 @@ import { fileURLToPath } from "node:url";
 
 import { MaestroMcpBridge } from "../../../automation/bridge/maestroMcpBridge.js";
 import { HomeworkExamEngine } from "../../../automation/bai_tap/navigation/homeworkExamEngine.js";
-// PHASE 4 (2026-08-31, migrate khỏi bản findMatchingQuestion() cục bộ - first-fit TUYỆT ĐỐI, đã
-// audit là nguy hiểm cho controlled scoring pipeline) - dùng canonical.
-import { findMatchingQuestion } from "../../../automation/bai_tap/discovery/answerSetMatcher.js";
-import { fetchEligibleAssignmentTree } from "../../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
-import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
+import { findMatchingQuestion, normalizeAnswerText } from "../../../automation/bai_tap/discovery/answerSetMatcher.js";
+import { fetchEligibleAssignmentTree, findRoomIdByLessonItem } from "../../../automation/giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
+// PHASE F (2026-09-01) - parseQuestionsFromExamPageWithRetry() thay parseQuestionsFromExamPage()
+// trực tiếp ở prescan: page.goto() bên trong ĐÃ ĐO THẬT flaky (~2/3 timeout do networkidle - đúng
+// nguyên nhân BLOCKED thật gặp ở PHASE D) - retry BOUNDED tối đa 2 lần, CHỈ cho lỗi timeout-shaped.
+import { parseQuestionsFromExamPageWithRetry } from "../../../automation/discovery/examPageScraper.js";
 import { normalizeQuestions } from "../../../automation/model/questionModel.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
 import { fetchRoomDetails } from "../../../automation/bai_tap/discovery/homeworks.js";
 import { formatDM, formatDMY, isoToVnYmd } from "../../../automation/bai_tap/verify-filter-web-vs-app.mjs";
+import { assignHomeworkFlow } from "../../../automation/giao_bai_tap/runtime/assignHomeworkFlow.js";
+// PHASE C (2026-09-01, xem docblock đầu file mục 1/2) - canonical scoring + locate/content-verify,
+// IMPORT THẲNG từ file ĐÃ EXPORT + ĐÃ PROVEN (KHÔNG copy, KHÔNG viết lại, KHÔNG sửa findAssignment.js).
+import { resolveScoringPlanForCandidate, buildWeightedWantCorrectPlan, locateOpenAndVerifyAssignment } from "./e2e-teacher-assign-full-scored-target5.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
@@ -82,6 +131,10 @@ const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 const TARGET_CLASS = process.env.ASSIGN_PRIMARY_CLASS || "3B";
 const MAX_PRESCAN_ATTEMPTS = Number(process.env.MAX_PRESCAN_ATTEMPTS || 12);
 const MAX_DISAMBIGUATE_CANDIDATES = Number(process.env.MAX_DISAMBIGUATE_CANDIDATES || 10);
+// Target score ĐỘNG qua env - default là fallback, KHÔNG phải giá trị ép cứng.
+const FIRST_TARGET_SCORE = Number(process.env.FIRST_TARGET_SCORE || 3);
+const REDO_TARGET_SCORE = Number(process.env.REDO_TARGET_SCORE || 8);
+const ASSIGN_DUE_DATE_DAYS_AHEAD = Number(process.env.ASSIGN_DUE_DATE_DAYS_AHEAD || 7);
 
 function log(...args) {
   console.log(...args);
@@ -103,120 +156,16 @@ function collectAllTexts(node, acc = []) {
   return acc;
 }
 
-const CTA_TEXTS = ["Làm bài", "Tiếp tục", "Làm lại", "Chinh phục"];
-const PROGRESS_BADGE_PATTERN = /^\d+\s*\/\s*\d+$/;
-
-/**
- * Đọc badge N/M + CTA thô của ĐÚNG 1 card (title + Hạn nộp) từ hierarchy hiện tại. FIX
- * (2026-08-17, root-cause thật của FAIL trước đó): bản cũ chỉ anchor theo `title`, đếm
- * occurrenceIndex KHÔNG phân biệt Hạn nộp - lớp 3B có sẵn 2 assignment cùng title nhưng KHÁC Hạn
- * nộp (24/08 vs 21/08), khiến occurrenceIndex=0 đọc NHẦM sang card 21/08 (đã xác nhận qua
- * `progressBefore.dueLine` thật = "Hạn nộp 21/08" trong lần chạy trước). Bản này CHỈ đếm occurrence
- * nào có `Hạn nộp ${dueDateDm}` xuất hiện NGAY SAU title (trong window 10 dòng) - loại hẳn occurrence
- * trùng title nhưng khác Hạn nộp trước khi đếm occurrenceIndex.
- */
-function readCardState(tree, title, dueDateDm, occurrenceIndex = 0) {
-  const texts = collectAllTexts(tree);
-  const dueLabel = `Hạn nộp ${dueDateDm}`;
-  let seen = -1;
-  let idx = -1;
-  for (let i = 0; i < texts.length; i++) {
-    if (texts[i] !== title) continue;
-    const window = texts.slice(i + 1, i + 10);
-    if (!window.includes(dueLabel)) continue;
-    seen++;
-    if (seen === occurrenceIndex) {
-      idx = i;
-      break;
-    }
-  }
-  if (idx === -1) return { found: false, texts: null };
-  const windowTexts = texts.slice(idx + 1, idx + 10);
-  const badge = windowTexts.find((t) => PROGRESS_BADGE_PATTERN.test(t)) ?? null;
-  const cta = windowTexts.find((t) => CTA_TEXTS.includes(t)) ?? null;
-  return { found: true, badge, cta, dueLine: dueLabel, windowTexts };
+function addDaysDdMmYyyy(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-/**
- * Mở ĐÚNG assignment khi title+Hạn nộp KHÔNG unique trên UI (đã xác nhận THẬT 2026-08-17: lớp 3B
- * có thể có >=4-5 room cùng title/Hạn nộp tích tụ từ các lần chạy test trước). Disambiguate bằng
- * NỘI DUNG THẬT (questionsPool đã resolve CHÍNH XÁC theo room.id, xem main()) - mở candidate, kiểm
- * tra câu hỏi hiển thị có khớp bộ questionsPool hay không; nếu KHÔNG khớp, thoát rồi thử candidate
- * kế tiếp. CTA tap dùng ĐÚNG CTA đọc được của TỪNG occurrence (KHÔNG dùng 1 CTA cố định cho mọi
- * candidate - fix cùng lúc với readCardState(), vì các room trùng title có thể ở trạng thái CTA
- * khác nhau: 1 số "Làm bài" (chưa đụng), 1 số "Tiếp tục" (đã dở từ lần chạy test trước)).
- * Trả kèm `progressBefore` = state đọc được NGAY TRƯỚC lúc tap candidate KHỚP - đây chính là card
- * ĐÚNG (không còn tách rời bước đọc progress-before khỏi bước disambiguate như bản cũ, loại bỏ hẳn
- * rủi ro đọc nhầm card).
- */
-async function openAssignmentDisambiguated(bridge, { title, dueDM, questionsPool, maxCandidates = MAX_DISAMBIGUATE_CANDIDATES }) {
-  const esc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  for (let idx = 0; idx < maxCandidates; idx++) {
-    const state = await scrollAndReadCardState(bridge, title, dueDM, idx);
-    if (!state.found || !state.cta) {
-      log(`  [DISAMBIGUATE] index=${idx}: không còn occurrence nào (title+Hạn nộp=${dueDM}) - hết candidate (đã retry 1 lần).`);
-      return { opened: false, triedCount: idx };
-    }
-    const tapResult = await bridge.runSteps([
-      { tapOn: { text: state.cta, below: { text: `Hạn nộp ${dueDM}`, below: { text: `.*${esc}.*` } }, index: idx } },
-      { waitForAnimationToEnd: { timeout: 3000 } },
-      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
-      { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } },
-    ]);
-    if (!tapResult.success) {
-      log(`  [DISAMBIGUATE] index=${idx}: tap (cta="${state.cta}") thất bại - ${tapResult.error}.`);
-      return { opened: false, triedCount: idx + 1 };
-    }
-    const matchResult = await findMatchingQuestion(bridge, questionsPool, undefined, idx, null);
-    if (matchResult.status === "MATCHED") {
-      const matched = matchResult.question;
-      log(`  [DISAMBIGUATE] index=${idx}: ĐÚNG assignment (câu hiển thị khớp "${matched.id}", cta lúc mở="${state.cta}").`);
-      return { opened: true, index: idx, firstMatched: matched, progressBefore: state };
-    }
-    log(`  [DISAMBIGUATE] index=${idx}: nội dung KHÔNG khớp bộ questionsPool (classification=${matchResult.diagnostic?.classification ?? matchResult.status}) - room khác trùng title/Hạn nộp. Thoát, thử candidate kế tiếp.`);
-    await exitToHomeworkList(bridge);
-  }
-  return { opened: false, triedCount: maxCandidates };
-}
-
-/** scrollToCard() + readCardState(), cuộn thêm AN TOÀN nếu chưa thấy đủ CTA - xem docblock
- * scrollToCard() cho root-cause + LÝ DO AN TOÀN (KHÔNG target trực tiếp text CTA để cuộn - đã xác
- * nhận THẬT 2026-08-17 trên thiết bị rằng `scrollUntilVisible` nhắm ĐÚNG vào text nút bấm CÓ THỂ vô
- * tình TAP luôn nút đó ở lượt cuộn cuối (quan sát thật: đang ở màn danh sách, gọi
- * `scrollUntilVisible(element: "Làm bài", ...)` xong thì màn hình đã CHUYỂN THẲNG vào màn làm bài
- * dù không có `tapOn` nào trong step - đã audit + rollback ngay, xem git log cùng ngày) - vì vậy
- * CHỈ dùng `swipe` (kéo thô, không target text nào) để cuộn thêm, không bao giờ target CTA. */
-async function scrollAndReadCardState(bridge, title, dueDM, occurrenceIndex) {
-  await scrollToCard(bridge, title, dueDM);
-  let state = readCardState(await bridge.hierarchy(), title, dueDM, occurrenceIndex);
-  for (let attempt = 0; attempt < 2 && (!state.found || !state.cta); attempt++) {
-    await bridge.runSteps([
-      { swipe: { start: "50%,80%", end: "50%,45%", duration: 500 } },
-      { waitForAnimationToEnd: { timeout: 800 } },
-    ]);
-    state = readCardState(await bridge.hierarchy(), title, dueDM, occurrenceIndex);
-  }
-  return state;
-}
-
-async function scrollToCard(bridge, title, dueDateDm) {
-  const esc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const r1 = await bridge.runSteps([
-    {
-      scrollUntilVisible: {
-        element: { text: `Hạn nộp ${dueDateDm}`, below: { text: `.*${esc}.*` } },
-        direction: "DOWN",
-        timeout: 90000,
-        speed: 70,
-        waitToSettleTimeoutMs: 500,
-      },
-    },
-  ]);
-  if (r1.success) return;
-  const r2 = await bridge.runSteps([
-    { scrollUntilVisible: { element: { text: `.*${esc}.*` }, direction: "DOWN", timeout: 90000, speed: 70, waitToSettleTimeoutMs: 500 } },
-  ]);
-  if (!r2.success) throw new Error(`Không cuộn tới được card "${title}": ${r1.error} / fallback: ${r2.error}`);
+function toIsoDatePrefix(ddmmyyyy) {
+  const [dd, mm, yyyy] = ddmmyyyy.split("/");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 async function exitToHomeworkList(bridge) {
@@ -259,7 +208,7 @@ function finish(result) {
  * chiến lược TEXT_CHOICE từ nội dung CMS (đáp án dạng chữ + correctAnswer xác định); KHÔNG pre-check
  * được IMAGE_CHOICE_GRID (cần nhìn layout thật trên màn hình, không suy ra được từ CMS) - CHỦ ĐÍCH
  * loại luôn candidate nào chỉ hỗ trợ được qua GRID (an toàn hơn, tránh false-positive lúc pre-scan).
- * Yêu cầu thêm N>=3 (đủ chỗ cho PARTIAL 2-3 câu + còn ít nhất 1 câu để RESUME).
+ * Yêu cầu thêm N>=3 (đủ chỗ cho PARTIAL đúng 3 câu + còn ít nhất 1 câu để RESUME).
  */
 function isTextChoiceCompatible(questions) {
   if (!Array.isArray(questions) || questions.length < 3) return false;
@@ -270,67 +219,55 @@ function isTextChoiceCompatible(questions) {
 }
 
 /**
- * GIẢ ĐỊNH công thức chấm (CHƯA có đủ dữ liệu thật để chứng minh - CHỈ 1 điểm dữ liệu quan sát được
- * trong toàn bộ codebase: 5/5 câu đúng -> "ĐIỂM SỐ"=10, xem automation/README.md mục 7 - khớp NHƯNG
- * KHÔNG chứng minh được quy tắc làm tròn cho trường hợp KHÔNG đúng hết): thang điểm 10, tỉ lệ thuận
- * theo số câu đúng/tổng số câu, làm tròn 1 chữ số - `score = round((correct/total)*10, 1)`. Dùng để
- * LẬP KẾ HOẠCH trước (chọn correctCount nào cho điểm dự đoán rơi vào khoảng mục tiêu THẬT
- * `7.0 <= score < 8.0`, đo bằng khoảng cách tới tâm 7.5) - KHÔNG dùng để tự phán PASS, PASS/FAIL
- * cuối cùng dựa vào điểm THẬT đọc từ màn Kết quả (xem main()).
- *
- * SỬA (2026-08-17, theo yêu cầu mới trong hội thoại cùng ngày): trước đây target range là [6,8]
- * (đóng cả 2 đầu) ưu tiên đúng 7 - ĐỔI hẳn sang range NỬA MỞ [7.0, 8.0) đúng nghĩa toán học (7.0
- * PASS, 8.0 KHÔNG PASS) - loại c=totalCount (mọi câu đúng, thường ra đúng 10.0) và bất kỳ c nào
- * làm tròn ra đúng 8.0 khỏi tập hợp lệ, KHÔNG còn ưu tiên riêng giá trị 7 (7.3/7.5/7.8... đều PASS
- * ngang nhau theo yêu cầu đề bài, không hardcode 7/10).
- * @returns {{correctCount: number, predictedScore: number, distanceToCenter: number} | null}
+ * Loại candidate có >=2 câu cùng "full answer-set" (tập đáp án hiển thị giống hệt nhau sau khi
+ * normalize) - đây CHÍNH XÁC là điều kiện khiến `findMatchingQuestion()`/`findFullAnswerSetMatches()`
+ * (answerSetMatcher.js) trả nhiều candidate cùng khớp đủ answer-set cho 1 màn hình, dẫn tới
+ * AMBIGUOUS. Dùng LẠI `normalizeAnswerText()` (export, CÙNG hàm canonical matcher dùng nội bộ để so
+ * answer-set - KHÔNG viết lại quy tắc normalize riêng) - KHÔNG đụng `findMatchingQuestion()`, chỉ
+ * loại candidate NGAY TỪ PRESCAN, trước khi giao bài thật.
  */
-function computeScorePlan(totalCount) {
-  let best = null;
-  for (let c = 0; c <= totalCount; c++) {
-    const predicted = Math.round((c / totalCount) * 100) / 10;
-    if (predicted < 7.0 || predicted >= 8.0) continue;
-    const distanceToCenter = Math.abs(predicted - 7.5);
-    const isBetter = !best || distanceToCenter < best.distanceToCenter;
-    if (isBetter) best = { correctCount: c, predictedScore: predicted, distanceToCenter };
+function hasDuplicateFullAnswerSet(questions) {
+  const seenSignatures = new Set();
+  for (const q of questions) {
+    const nonEmptyAnswers = (q.answers ?? []).filter((a) => typeof a === "string" && a.trim().length > 0);
+    if (nonEmptyAnswers.length < 2) continue;
+    const signature = [...new Set(nonEmptyAnswers.map((a) => normalizeAnswerText(a)))].sort().join("|");
+    if (seenSignatures.has(signature)) return true;
+    seenSignatures.add(signature);
   }
-  return best;
+  return false;
 }
 
-function buildWantCorrectPlan(questionIds, correctCount) {
-  const shuffled = shuffle(questionIds);
-  const correctSet = new Set(shuffled.slice(0, correctCount));
-  const map = new Map();
-  for (const id of questionIds) map.set(id, correctSet.has(id));
-  return map;
+/** Feasibility check dùng chung cho pre-scan (pickFeasibleRandomAssignment) VÀ CMS_RESOLUTION
+ * re-verify trong main() - CẢ FIRST_TARGET_SCORE và REDO_TARGET_SCORE phải khả thi trên CÙNG bộ
+ * questions (2 lượt làm dùng lại đúng 1 room/bộ câu hỏi). Dùng LẠI `resolveScoringPlanForCandidate()`
+ * (canonical, imported, mode="target") - KHÔNG tự làm subset-sum, chỉ orchestrate 2 lần gọi cho 2
+ * target khác nhau (nhu cầu riêng của file này, không phải logic scoring mới). */
+function bothTargetsAchievable(questions) {
+  const first = resolveScoringPlanForCandidate(questions, { mode: "target", targetScoreEnv: FIRST_TARGET_SCORE });
+  const redo = resolveScoringPlanForCandidate(questions, { mode: "target", targetScoreEnv: REDO_TARGET_SCORE });
+  const achievableScores = first.achievableScores ?? redo.achievableScores ?? [];
+  return { ok: Boolean(first.achievable && redo.achievable), hasFirst: Boolean(first.achievable), hasRedo: Boolean(redo.achievable), achievableScores };
 }
 
 /**
  * Random 1 candidate khả thi trong TOÀN BỘ cây eligible của `className` - đọc read-only, KHÔNG giao
  * bài thật cho tới khi hàm này trả về `ok:true` (main() mới thực sự gọi Web GV sau đó). Duyệt theo
- * thứ tự RANDOM (Fisher-Yates), dừng ở candidate ĐẦU TIÊN thoả cả 2 điều kiện: (a) handler hỗ trợ
- * đầy đủ (isTextChoiceCompatible), (b) tồn tại correctCount cho điểm dự đoán trong [7.0, 8.0)
- * (computeScorePlan). Giới hạn `maxAttempts` (mỗi lượt gọi `parseQuestionsFromExamPage()` mở 1
- * trang Exam Editor thật qua Playwright, ~7-30s/candidate đo thật 2026-08-17 - KHÔNG duyệt hết cả
- * trăm candidate). Không tìm được -> `ok:false` kèm toàn bộ `attempts` đã thử (để báo cáo trung
- * thực, không đoán/không âm thầm hạ tiêu chuẩn).
+ * thứ tự RANDOM (Fisher-Yates), dừng ở candidate ĐẦU TIÊN thoả cả 3 điều kiện: (a) handler hỗ trợ
+ * đầy đủ (isTextChoiceCompatible), (b) KHÔNG có câu trùng full answer-set (hasDuplicateFullAnswerSet),
+ * (c) achievableScores (subset-sum thật) chứa CẢ FIRST_TARGET_SCORE và REDO_TARGET_SCORE. Giới hạn
+ * `maxAttempts` (mỗi lượt gọi `parseQuestionsFromExamPage()` mở 1 trang Exam Editor thật qua
+ * Playwright, ~7-30s/candidate - KHÔNG duyệt hết cả trăm candidate). Không tìm được -> `ok:false`
+ * kèm toàn bộ `attempts` đã thử (để báo cáo trung thực, không đoán/không âm thầm hạ tiêu chuẩn).
  */
 async function pickFeasibleRandomAssignment({ className, maxAttempts = MAX_PRESCAN_ATTEMPTS }) {
   const tree = await fetchEligibleAssignmentTree(className);
   const flat = [];
   for (const u of tree.eligibleTree) {
-    // LOẠI Unit "Review N" (SỬA 2026-08-17, xác nhận thật qua 2 lần random random TRÚNG Review
-    // ĐỀU FAIL giống nhau ở "selectUnitLessonHomework" - Review 3/VOCABULARY rồi Review 1/WRITING):
-    // Web GV UI cho Unit dạng Review LUÔN hiển thị ĐÚNG 3 tab lesson CỐ ĐỊNH ("Vocabulary"/
-    // "Sentence patterns"/"Other" - xác nhận qua Playwright DOM dump thật, KHÔNG đổi theo Unit) -
-    // trong khi tên Lesson mà CMS API (fetchEligibleAssignmentTree) trả về cho Review là tên
-    // TAXONOMY KHÁC hẳn (vd "VOCABULARY", "WRITING"...) KHÔNG khớp bất kỳ tab nào trong 3 tab cố
-    // định đó ("WRITING" không phải "Vocabulary"/"Sentence patterns"/"Other" - không phải lỗi
-    // casing, là 2 hệ phân loại KHÁC NHAU thật). listLessonCandidates()/resolveAndSelectLesson()
-    // vì vậy KHÔNG THỂ chọn đúng Lesson cho Review bằng tên lessonName từ CMS - đây là hạn chế THẬT
-    // của automation hiện tại (mục 6 đề bài: "Loại bài không được automation hỗ trợ"), không phải
-    // đoán/né lỗi. Unit thường ("Unit N: ...") KHÔNG bị ảnh hưởng (đã xác nhận buttons "Lesson 1/2/3"
-    // khớp đúng tên CMS).
+    // LOẠI Unit "Review N" - Web GV UI cho Unit dạng Review LUÔN hiển thị ĐÚNG 3 tab lesson CỐ ĐỊNH
+    // ("Vocabulary"/"Sentence patterns"/"Other") trong khi tên Lesson mà CMS API trả về cho Review
+    // là tên TAXONOMY KHÁC hẳn - KHÔNG THỂ chọn đúng Lesson cho Review bằng tên lessonName từ CMS
+    // (hạn chế THẬT của automation hiện tại, không phải đoán/né lỗi). Unit thường KHÔNG bị ảnh hưởng.
     if (/^Review\s+\d+/i.test(u.unitName)) continue;
     for (const l of u.lessons) {
       for (const it of l.items) {
@@ -353,14 +290,15 @@ async function pickFeasibleRandomAssignment({ className, maxAttempts = MAX_PRESC
     let questions = null;
     let errorMessage = null;
     try {
-      const examData = await parseQuestionsFromExamPage(cand.examId);
+      const examData = await parseQuestionsFromExamPageWithRetry(cand.examId);
       questions = normalizeQuestions(examData);
     } catch (err) {
       errorMessage = err.message;
     }
     const compatible = questions ? isTextChoiceCompatible(questions) : false;
-    const scorePlan = compatible ? computeScorePlan(questions.length) : null;
-    const ok = Boolean(compatible && scorePlan);
+    const duplicateAnswerSet = compatible ? hasDuplicateFullAnswerSet(questions) : false;
+    const feasibility = compatible && !duplicateAnswerSet ? bothTargetsAchievable(questions) : { ok: false, achievableScores: [] };
+    const ok = Boolean(feasibility.ok);
     attempts.push({
       unitName: cand.unitName,
       lessonName: cand.lessonName,
@@ -369,17 +307,26 @@ async function pickFeasibleRandomAssignment({ className, maxAttempts = MAX_PRESC
       examId: cand.examId,
       questionCount: questions?.length ?? null,
       ok,
-      reason: errorMessage ?? (!compatible ? "UNSUPPORTED_TYPE_OR_MISSING_CORRECT_ANSWER" : !scorePlan ? "NO_INTEGER_CORRECT_COUNT_IN_SCORE_RANGE_7_TO_8" : null),
+      reason:
+        errorMessage ??
+        (!compatible
+          ? "UNSUPPORTED_TYPE_OR_MISSING_CORRECT_ANSWER"
+          : duplicateAnswerSet
+            ? "DUPLICATE_FULL_ANSWER_SET"
+            : !ok
+              ? `achievableScores=[${feasibility.achievableScores.join(", ")}] thiếu ${!feasibility.hasFirst ? FIRST_TARGET_SCORE : ""}${!feasibility.hasFirst && !feasibility.hasRedo ? " và " : ""}${!feasibility.hasRedo ? REDO_TARGET_SCORE : ""}`
+              : null),
     });
     log(
       `  [PRESCAN] "${cand.unitName}/${cand.lessonName}/${cand.itemName}" (N=${questions?.length ?? "?"}): ${
-        ok ? `KHẢ THI (correctCount=${scorePlan.correctCount} -> dự đoán ${scorePlan.predictedScore})` : `loại (${attempts[attempts.length - 1].reason})`
+        ok ? `KHẢ THI (achievableScores chứa cả ${FIRST_TARGET_SCORE} và ${REDO_TARGET_SCORE})` : `loại (${attempts[attempts.length - 1].reason})`
       }`,
     );
     if (ok) {
       return {
         ok: true,
-        chosen: { ...cand, questions, scorePlan },
+        chosen: { ...cand, questions },
+        classId: tree.classId,
         attempts,
         totalEligibleNonSpeakSingleExam: flat.length,
         treeStats: tree.stats,
@@ -390,35 +337,36 @@ async function pickFeasibleRandomAssignment({ className, maxAttempts = MAX_PRESC
 }
 
 async function main() {
+  if (Number.isNaN(FIRST_TARGET_SCORE) || FIRST_TARGET_SCORE < 0 || FIRST_TARGET_SCORE > 10) {
+    throw new Error(`FIRST_TARGET_SCORE=${process.env.FIRST_TARGET_SCORE} ngoài thang [0,10].`);
+  }
+  if (Number.isNaN(REDO_TARGET_SCORE) || REDO_TARGET_SCORE < 0 || REDO_TARGET_SCORE > 10) {
+    throw new Error(`REDO_TARGET_SCORE=${process.env.REDO_TARGET_SCORE} ngoài thang [0,10].`);
+  }
+
   const evidence = {};
 
-  // ===== [RANDOM_SELECTION] - pre-scan READ-ONLY, chưa giao bài thật =====
+  // ===== [SELECT_CANDIDATE] + [ASSIGN] + [RESOLVE_ROOM] =====
   let assignment, dueVnYmd, startVnYmd, APP_ID;
 
   if (process.env.REUSE_ROOM_ID) {
-    // Escape hatch (giống bản PINNED cũ) cho ĐÚNG 1 lớp lỗi đã gặp THẬT: teacher-assign THẬT thành
-    // công (xác nhận qua API diff, room_id đã biết) nhưng App HS locate bị BLOCKED bởi race
-    // TRANSIENT giữa 2 lệnh CLI riêng biệt trong assignHomeworkAndLocateOnApp() (`maestro test`
-    // scrollUntilVisible xong RỒI `maestro hierarchy` đọc lại không kịp thấy - KHÔNG phải lỗi ở
-    // random-selection/CMS/MaestroMcpBridge của file này) - KHÔNG gọi lại Web GV (tránh tạo room
-    // trùng), chỉ đọc lại metadata room đã có (read-only) rồi tự locate+disambiguate lại trên App
-    // HS bằng nội dung câu hỏi thật (xem openAssignmentDisambiguated).
+    // Escape hatch cho ĐÚNG 1 lớp lỗi đã gặp THẬT: teacher-assign THẬT thành công (room_id đã biết)
+    // nhưng cần locate+resolve lại trên App HS - KHÔNG gọi lại Web GV (tránh tạo room trùng), chỉ
+    // đọc lại metadata room đã có (read-only) rồi locate lại bằng canonical locate+verify bên dưới.
     const roomId = process.env.REUSE_ROOM_ID;
-    log(`[1-2/10] REUSE_ROOM_ID=${roomId} - bỏ qua pre-scan + giao bài lại, tự locate+resolve lại trên room đã có.`);
+    log(`[SELECT_CANDIDATE] REUSE_ROOM_ID=${roomId} - bỏ qua pre-scan + giao bài lại, tự locate+resolve lại trên room đã có.`);
     const roomDetails = await fetchRoomDetails(roomId);
     const room = roomDetails?.room;
     if (!room) {
-      return finish({ status: "FAIL", phase: "TEACHER_ASSIGN_OR_LOCATE", error: `fetchRoomDetails("${roomId}") không trả về room hợp lệ.`, evidence });
+      return finish({ status: "FAIL", phase: "ROOM_RESOLUTION_FAILED", error: `fetchRoomDetails("${roomId}") không trả về room hợp lệ.`, evidence });
     }
     assignment = { id: room.id, title: room.name, classIds: room.class_id ?? [] };
     dueVnYmd = isoToVnYmd(room.end_time);
     startVnYmd = isoToVnYmd(room.start_time);
-    evidence.locateCaveat =
-      `Room "${roomId}" đã được xác nhận PASS ở lần chạy trước qua API diff (before/after room.json) - ` +
-      "lần chạy này KHÔNG gọi lại Web GV (tránh tạo room trùng), chỉ tự locate+disambiguate lại trên App HS bằng nội dung câu hỏi thật.";
+    evidence.locateCaveat = `Room "${roomId}" đã được xác nhận tồn tại thật qua fetchRoomDetails() - lần chạy này KHÔNG gọi lại Web GV (tránh tạo room trùng), chỉ tự locate+content-verify lại trên App HS.`;
     ({ APP_ID } = await import("./e2e-teacher-assign-student-open.mjs"));
   } else {
-    log(`[1/10] Pre-scan READ-ONLY toàn bộ cây eligible lớp ${TARGET_CLASS} để chọn 1 candidate khả thi (handler hỗ trợ + điểm mục tiêu [7.0, 8.0) khả thi)...`);
+    log(`[SELECT_CANDIDATE] Pre-scan READ-ONLY toàn bộ cây eligible lớp ${TARGET_CLASS} để chọn 1 candidate khả thi (handler hỗ trợ + CẢ target=${FIRST_TARGET_SCORE} và target=${REDO_TARGET_SCORE} đều khả thi theo point CMS thật)...`);
     const picked = await pickFeasibleRandomAssignment({ className: TARGET_CLASS });
     evidence.randomSelection = {
       totalEligibleNonSpeakSingleExam: picked.totalEligibleNonSpeakSingleExam,
@@ -430,42 +378,60 @@ async function main() {
       log(`  [BLOCKED] Đã thử ${picked.attempts.length} candidate, không candidate nào khả thi.`);
       return finish({
         status: "BLOCKED",
-        phase: "RANDOM_SELECTION",
-        error: `Đã thử ${picked.attempts.length}/${MAX_PRESCAN_ATTEMPTS} candidate random trong lớp ${TARGET_CLASS} - không candidate nào vừa có handler hỗ trợ đầy đủ vừa có correctCount nguyên cho điểm dự đoán trong [7.0, 8.0).`,
+        phase: "PREFLIGHT_REJECT",
+        error: `Đã thử ${picked.attempts.length}/${MAX_PRESCAN_ATTEMPTS} candidate random trong lớp ${TARGET_CLASS} - không candidate nào vừa có handler hỗ trợ đầy đủ vừa đạt được CẢ 2 target score (${FIRST_TARGET_SCORE}, ${REDO_TARGET_SCORE}) trên cùng 1 room (subset-sum theo point CMS thật).`,
         evidence,
       });
     }
     const chosen = picked.chosen;
     evidence.chosenCandidate = { unitName: chosen.unitName, lessonName: chosen.lessonName, itemName: chosen.itemName, itemId: chosen.itemId, examId: chosen.examId };
-    log(
-      `  [PASS] Chọn "${chosen.unitName}/${chosen.lessonName}/${chosen.itemName}" (itemId=${chosen.itemId}, N=${chosen.questions.length}, correctCount kế hoạch=${chosen.scorePlan.correctCount}, điểm dự đoán=${chosen.scorePlan.predictedScore}).`,
-    );
+    log(`  [PASS] Chọn "${chosen.unitName}/${chosen.lessonName}/${chosen.itemName}" (itemId=${chosen.itemId}, N=${chosen.questions.length}) - cả target=${FIRST_TARGET_SCORE} và target=${REDO_TARGET_SCORE} đều khả thi.`);
 
-    // ===== [TEACHER_ASSIGN] - giao bài THẬT cho ĐÚNG candidate vừa chọn =====
-    process.env.ASSIGN_UNIT_NAME = chosen.unitName;
-    process.env.ASSIGN_LESSON_NAME = chosen.lessonName;
-    process.env.ASSIGN_HOMEWORK_ITEM_NAME = chosen.itemName;
-    process.env.ASSIGN_HOMEWORK_ITEM_ID = chosen.itemId;
-    const assignModule = await import("./e2e-teacher-assign-student-open.mjs");
-    APP_ID = assignModule.APP_ID;
-
-    log(`[2/10] GV giao bài (random đã chọn) + App HS locate đúng card...`);
-    const located = await assignModule.assignHomeworkAndLocateOnApp();
-    if (!located.ok) {
-      return finish({ status: "FAIL", phase: "TEACHER_ASSIGN_OR_LOCATE", located, evidence });
+    // ===== [ASSIGN] - giao bài THẬT (Web GV, Playwright) cho ĐÚNG candidate vừa chọn =====
+    const dueDateDdMmYyyy = addDaysDdMmYyyy(ASSIGN_DUE_DATE_DAYS_AHEAD);
+    log(`[ASSIGN] Giao bài "${chosen.itemName}" cho lớp ${TARGET_CLASS}, hạn nộp ${dueDateDdMmYyyy}...`);
+    const assignResult = await assignHomeworkFlow({
+      primaryClass: TARGET_CLASS,
+      dueDate: dueDateDdMmYyyy,
+      unitName: chosen.unitName,
+      lessonName: chosen.lessonName,
+      homeworkItemId: chosen.itemId,
+      homeworkItemName: chosen.itemName,
+      headless: true,
+    });
+    evidence.assignResult = { status: assignResult.status, steps: assignResult.steps?.map((s) => ({ name: s.name, status: s.status })) };
+    if (assignResult.status !== "PASS") {
+      return finish({ status: "FAIL", phase: "ASSIGN_FAILED", error: `assignHomeworkFlow() FAIL: ${assignResult.error}`, evidence });
     }
-    ({ assignment, dueVnYmd, startVnYmd } = located);
+    log(`  [PASS] Đã giao bài qua Web GV.`);
+
+    // ===== [RESOLVE_ROOM] - canonical, deterministic theo lesson_item_id (KHÔNG qua title/UI) =====
+    log(`[RESOLVE_ROOM] Resolve room_id thật của bài vừa giao (lessonItemId=${chosen.itemId})...`);
+    const room = await findRoomIdByLessonItem({
+      lessonItemId: chosen.itemId,
+      classId: picked.classId,
+      endTimeDatePrefix: toIsoDatePrefix(dueDateDdMmYyyy),
+    });
+    const roomDetails = await fetchRoomDetails(room.id);
+    const roomFull = roomDetails?.room;
+    if (!roomFull) {
+      return finish({ status: "BLOCKED", phase: "ROOM_RESOLUTION_FAILED", error: `fetchRoomDetails("${room.id}") không trả về room hợp lệ ngay sau findRoomIdByLessonItem().`, evidence });
+    }
+    assignment = { id: roomFull.id, title: roomFull.name, classIds: roomFull.class_id ?? [] };
+    dueVnYmd = isoToVnYmd(roomFull.end_time);
+    startVnYmd = isoToVnYmd(roomFull.start_time);
+    ({ APP_ID } = await import("./e2e-teacher-assign-student-open.mjs"));
   }
   const dueDM = formatDM(dueVnYmd);
   log(`  [PASS] room_id=${assignment.id} title="${assignment.title}" due=${formatDMY(dueVnYmd)}`);
 
-  // ===== [CMS_RESOLUTION] - nguồn sự thật DUY NHẤT cho câu hỏi/đáp án của ĐÚNG room này =====
-  log(`[3/10] Resolve câu hỏi/đáp án CHÍNH XÁC theo room.id (KHÔNG qua title)...`);
+  // ===== [RESOLVE_CONTENT] - nguồn sự thật DUY NHẤT cho câu hỏi/đáp án của ĐÚNG room này =====
+  log(`[RESOLVE_CONTENT] Resolve câu hỏi/đáp án CHÍNH XÁC theo room.id (KHÔNG qua title)...`);
   const resolved = await resolveHomeworkExamQuestionsForRoomId(assignment.id);
   if (resolved.status !== "RESOLVED") {
     return finish({
       status: "BLOCKED",
-      phase: "CMS_RESOLUTION",
+      phase: "DATA_INVALID",
       error: `resolveHomeworkExamQuestionsForRoomId("${assignment.id}") trả về status=${resolved.status}: ${resolved.reason}`,
       evidence,
     });
@@ -475,8 +441,8 @@ async function main() {
   if (swapAnswer || swapQuestion) {
     return finish({
       status: "BLOCKED",
-      phase: "CMS_RESOLUTION",
-      error: `Room "${assignment.id}" có is_swap_answer=${swapAnswer}/is_swap_question=${swapQuestion} - CHƯA verify content khớp catalog khi swap=true (xem docblock teacherMaterialsExamResolver.js), KHÔNG tin tưởng đáp án.`,
+      phase: "DATA_INVALID",
+      error: `Room "${assignment.id}" có is_swap_answer=${swapAnswer}/is_swap_question=${swapQuestion} - CHƯA verify content khớp catalog khi swap=true, KHÔNG tin tưởng đáp án.`,
       evidence,
     });
   }
@@ -484,25 +450,45 @@ async function main() {
   if (!isTextChoiceCompatible(QUESTIONS)) {
     return finish({
       status: "BLOCKED",
-      phase: "CMS_RESOLUTION",
+      phase: "DATA_INVALID",
       error: `Nội dung THẬT của room "${assignment.id}" KHÔNG còn khớp điều kiện handler hỗ trợ đầy đủ (khác pre-scan candidate ban đầu - có thể do is_swap hoặc CMS đổi nội dung giữa lúc pre-scan và lúc giao bài).`,
       evidence,
     });
   }
-  const scorePlan = computeScorePlan(QUESTIONS.length);
-  if (!scorePlan) {
+  // PARTIAL phải EXACTLY 3 câu (acceptance requirement, hard invariant - KHÔNG fallback xuống 2).
+  if (QUESTIONS.length < 3) {
     return finish({
       status: "BLOCKED",
-      phase: "CMS_RESOLUTION",
-      error: `Room "${assignment.id}" có N=${QUESTIONS.length} câu - không tồn tại correctCount nguyên cho điểm dự đoán trong [7.0, 8.0).`,
+      phase: "DATA_INVALID",
+      error: `Room "${assignment.id}" chỉ có N=${QUESTIONS.length} câu (<3) - không đủ để đảm bảo PARTIAL_COUNT=3 câu.`,
       evidence,
     });
   }
-  const WANT_CORRECT = buildWantCorrectPlan(QUESTIONS.map((q) => q.id), scorePlan.correctCount);
-  const PARTIAL_COUNT = QUESTIONS.length >= 4 ? 3 : 2;
-  // Nguồn unitName/lessonName/lessonItemId: LUÔN lấy từ `resolved.roomDetails` (ground truth của
-  // ĐÚNG room này qua fetchRoomDetails, xem teacherMaterialsExamResolver.js) - KHÔNG lấy từ
-  // `chosen` (biến chỉ tồn tại ở nhánh pre-scan random, KHÔNG có khi REUSE_ROOM_ID).
+  const PARTIAL_COUNT = 3;
+  const feasibility = bothTargetsAchievable(QUESTIONS);
+  if (!feasibility.ok) {
+    return finish({
+      status: "BLOCKED",
+      phase: "DATA_INVALID",
+      error: `Room "${assignment.id}" (N=${QUESTIONS.length} câu) - achievableScores=[${feasibility.achievableScores.join(", ")}] không chứa cả 2 target (${FIRST_TARGET_SCORE}, ${REDO_TARGET_SCORE}) theo point CMS thật (khác pre-scan - có thể do is_swap hoặc CMS đổi nội dung giữa lúc pre-scan và lúc giao bài).`,
+      evidence,
+    });
+  }
+  const firstPlan = resolveScoringPlanForCandidate(QUESTIONS, { mode: "target", targetScoreEnv: FIRST_TARGET_SCORE });
+  const redoPlan = resolveScoringPlanForCandidate(QUESTIONS, { mode: "target", targetScoreEnv: REDO_TARGET_SCORE });
+  if (!firstPlan.achievable || !redoPlan.achievable) {
+    // Không nên xảy ra (đã pass bothTargetsAchievable() ngay phía trên, cùng questions) - báo tường
+    // minh thay vì throw ngoài dự kiến, giữ đúng "không đoán/không silently proceed".
+    return finish({
+      status: "BLOCKED",
+      phase: "DATA_INVALID",
+      error: `Không resolve được correctIndices cho target dù bothTargetsAchievable() đã PASS - firstPlan.achievable=${firstPlan.achievable} (${firstPlan.reason ?? "-"}), redoPlan.achievable=${redoPlan.achievable} (${redoPlan.reason ?? "-"}).`,
+      evidence,
+    });
+  }
+  const firstCorrectIndices = firstPlan.correctIndices;
+  const redoCorrectIndices = redoPlan.correctIndices;
+  const WANT_CORRECT = buildWeightedWantCorrectPlan(QUESTIONS, firstCorrectIndices);
   const rd = resolved.roomDetails;
   evidence.randomAssignment = {
     unitName: rd.unit_name,
@@ -515,11 +501,12 @@ async function main() {
     dueTimeVn: formatDMY(dueVnYmd),
     classIds: assignment.classIds,
     questionCount: QUESTIONS.length,
-    plannedCorrectCount: scorePlan.correctCount,
-    predictedScore: scorePlan.predictedScore,
+    firstTargetScore: FIRST_TARGET_SCORE,
+    redoTargetScore: REDO_TARGET_SCORE,
+    achievableScores: feasibility.achievableScores,
     partialCount: PARTIAL_COUNT,
   };
-  log(`  [PASS] N=${QUESTIONS.length} câu, kế hoạch correctCount=${scorePlan.correctCount} (dự đoán điểm=${scorePlan.predictedScore}), PARTIAL_COUNT=${PARTIAL_COUNT}.`);
+  log(`  [PASS] N=${QUESTIONS.length} câu, achievableScores=[${feasibility.achievableScores.join(", ")}] (chứa cả ${FIRST_TARGET_SCORE} và ${REDO_TARGET_SCORE}), PARTIAL_COUNT=${PARTIAL_COUNT}.`);
 
   const bridge = new MaestroMcpBridge({ appId: APP_ID, deviceId: MAESTRO_DEVICE });
   await bridge.start();
@@ -535,27 +522,29 @@ async function main() {
       newMaestroProcessesSpawnedForThisPhase: 1,
     };
 
-    // ===== [OPEN_EXERCISE] + [PROGRESS_BEFORE] (cùng 1 bước - xem docblock openAssignmentDisambiguated) =====
-    log('[4/10] Bấm CTA + xác nhận identity BẰNG NỘI DUNG (disambiguate nếu title+Hạn nộp trùng)...');
-    const openOutcome = await openAssignmentDisambiguated(bridge, { title: assignment.title, dueDM, questionsPool: QUESTIONS });
-    evidence.openDisambiguation = { opened: openOutcome.opened, triedCount: openOutcome.triedCount, index: openOutcome.index ?? null };
-    if (!openOutcome.opened) {
+    // ===== [LOCATE] + [VERIFY] + [OPEN] - canonical locate+content-verify, cta=null (bất kỳ CTA
+    // nào - "Làm bài"/"Chinh phục" tuỳ tier, đây là lần mở ĐẦU TIÊN của bài vừa giao) =====
+    log('[LOCATE+VERIFY+OPEN] Tìm + mở + xác thực nội dung đúng room vừa giao...');
+    const openOutcome = await locateOpenAndVerifyAssignment(bridge, { title: assignment.title, dueDateDM: dueDM, cta: null, questions: QUESTIONS, maxCandidates: MAX_DISAMBIGUATE_CANDIDATES });
+    evidence.openDisambiguation = { ok: openOutcome.ok, status: openOutcome.status ?? "FOUND", triedLogLength: openOutcome.triedLog?.length ?? 0 };
+    if (!openOutcome.ok) {
+      const phaseMap = { NOT_FOUND: "CARD_NOT_FOUND", AMBIGUOUS_CONTENT_MATCH: "CARD_AMBIGUOUS", CONTENT_MISMATCH: "CARD_IDENTITY_MISMATCH", OPEN_STEP_FAILED: "EXERCISE_OPEN_FAILED", REOPEN_FAILED: "EXERCISE_OPEN_FAILED", ERROR: "EXERCISE_OPEN_FAILED" };
       return finish({
-        status: "BLOCKED",
-        phase: "OPEN_EXERCISE_AMBIGUOUS",
-        error: `Đã thử ${openOutcome.triedCount} candidate cùng title="${assignment.title}"/Hạn nộp=${dueDM} nhưng không candidate nào khớp nội dung câu hỏi CMS đã resolve theo room.id - không đoán, dừng lại.`,
+        status: openOutcome.status === "NOT_FOUND" || openOutcome.status === "CONTENT_MISMATCH" ? "FAIL" : "BLOCKED",
+        phase: phaseMap[openOutcome.status] ?? "CARD_NOT_FOUND",
+        error: `locateOpenAndVerifyAssignment() (mở lần đầu) status=${openOutcome.status}: title="${assignment.title}"/Hạn nộp=${dueDM} - không tự chọn/không đoán.`,
+        diagnostics: openOutcome.diagnostics,
+        triedLog: openOutcome.triedLog,
         evidence,
       });
     }
-    const beforeState = openOutcome.progressBefore;
-    evidence.progressBefore = beforeState;
-    log(`  [PASS] Đã vào ĐÚNG màn làm bài (candidate index=${openOutcome.index}). progressBefore: badge="${beforeState.badge}" cta="${beforeState.cta}"`);
+    log(`  [PASS] Đã vào ĐÚNG màn làm bài (nội dung khớp room_id=${assignment.id} thật, câu đầu id="${openOutcome.matched.id}").`);
 
-    // ===== [PARTIAL_ANSWER] =====
-    log(`[5/10] Làm THẬT ${PARTIAL_COUNT} câu đầu (đúng/sai theo kế hoạch correctCount=${scorePlan.correctCount}/${QUESTIONS.length})...`);
+    // ===== [PARTIAL] - trả lời ĐÚNG 3 câu đầu =====
+    log(`[PARTIAL] Làm THẬT ${PARTIAL_COUNT} câu đầu (đúng/sai theo kế hoạch nhắm target=${FIRST_TARGET_SCORE}, N=${QUESTIONS.length})...`);
     const answeredIds = new Set();
     const partialLog = [];
-    let carryTree = openOutcome.firstMatched._snapshot?.tree ?? null;
+    let carryTree = openOutcome.matched._snapshot?.tree ?? null;
     for (let i = 0; i < PARTIAL_COUNT; i++) {
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
       const matchResult = await findMatchingQuestion(bridge, pool, carryTree, i + 1, null);
@@ -563,7 +552,7 @@ async function main() {
         const visibleTexts = collectAllTexts(await bridge.hierarchy());
         return finish({
           status: "FAIL",
-          phase: "PARTIAL_ANSWER",
+          phase: matchResult.status === "AMBIGUOUS" ? "QUESTION_AMBIGUOUS" : "QUESTION_NOT_FOUND",
           error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại. classification=${matchResult.diagnostic?.classification ?? matchResult.status}`,
           visibleTexts,
           diagnostic: matchResult.diagnostic ?? null,
@@ -579,66 +568,53 @@ async function main() {
     }
     evidence.partial = { questionsAnswered: answeredIds.size, questionsTotal: QUESTIONS.length, log: partialLog };
 
-    // ===== [EXIT_TO_LIST] =====
-    log("[6/10] Thoát giữa chừng bằng nút X (KHÔNG stopApp/launchApp)...");
+    // ===== [EXIT] =====
+    log("[EXIT] Thoát giữa chừng bằng nút X (KHÔNG stopApp/launchApp)...");
     await exitToHomeworkList(bridge);
     log("  [PASS] Đã về lại homework_screen, CÙNG session app (không restart).");
 
-    // ===== [PROGRESS_AFTER_EXIT] =====
-    log("[7/10] Đọc progress card SAU khi thoát giữa chừng (ĐÚNG occurrence index đã dùng để mở bài)...");
-    const afterState = await scrollAndReadCardState(bridge, assignment.title, dueDM, openOutcome.index);
-    evidence.progressAfter = afterState;
-    const progressChangedByCta = beforeState.cta !== afterState.cta && afterState.cta === "Tiếp tục";
-    const progressChangedByBadge = beforeState.badge !== afterState.badge;
-    const progressChanged = progressChangedByCta || progressChangedByBadge;
-    evidence.progressChanged = { byCta: progressChangedByCta, byBadge: progressChangedByBadge, overall: progressChanged };
-    log(`  badge="${afterState.badge}" cta="${afterState.cta}" -> progressChanged=${progressChanged}`);
-    if (!progressChanged) {
+    // ===== [LOCATE_REDO... không, đây là RESUME] - canonical locate+content-verify, cta="Tiếp tục"
+    // (cùng hàm dùng cho mở lần đầu ở trên - chỉ khác cta). ok:true tự chứng minh CẢ 2 điều: (a)
+    // progress đã đổi thật (tồn tại card cta="Tiếp tục" - nếu KHÔNG đổi, card vẫn "Làm bài"/"Chinh
+    // phục", sẽ NOT_FOUND với target cta="Tiếp tục"), (b) đúng room (content-verify) =====
+    log('[RESUME] Tìm + mở lại + xác thực đúng room (cta="Tiếp tục")...');
+    const resumeOutcome = await locateOpenAndVerifyAssignment(bridge, { title: assignment.title, dueDateDM: dueDM, cta: "Tiếp tục", questions: QUESTIONS, maxCandidates: MAX_DISAMBIGUATE_CANDIDATES });
+    if (!resumeOutcome.ok) {
+      const phaseMap = { NOT_FOUND: "RESUME_INVALID", AMBIGUOUS_CONTENT_MATCH: "RESUME_INVALID", CONTENT_MISMATCH: "RESUME_INVALID", OPEN_STEP_FAILED: "RESUME_INVALID", REOPEN_FAILED: "RESUME_INVALID", ERROR: "RESUME_INVALID" };
       return finish({
         status: "FAIL",
-        phase: "PROGRESS_CHANGED",
-        error: `Card KHÔNG có dấu hiệu thay đổi sau khi làm dở ${PARTIAL_COUNT} câu (before: cta="${beforeState.cta}" badge="${beforeState.badge}" | after: cta="${afterState.cta}" badge="${afterState.badge}").`,
+        phase: phaseMap[resumeOutcome.status] ?? "RESUME_INVALID",
+        error: `locateOpenAndVerifyAssignment() (resume) status=${resumeOutcome.status}: title="${assignment.title}"/Hạn nộp=${dueDM}/cta="Tiếp tục" - card KHÔNG tìm lại được đúng, không đoán.`,
+        diagnostics: resumeOutcome.diagnostics,
+        triedLog: resumeOutcome.triedLog,
         evidence,
       });
     }
+    evidence.progressChanged = { confirmedByResumeLocate: true };
+    log(`  [PASS] Resume: card cta="Tiếp tục" tìm thấy + nội dung khớp room_id=${assignment.id} thật.`);
 
-    // ===== [RESUME] =====
-    log("[8/10] Mở LẠI đúng assignment (tap CTA hiện tại của ĐÚNG occurrence index, anchor title+Hạn nộp+index)...");
-    const resumeCta = afterState.cta ?? "Tiếp tục";
-    const escTitle = assignment.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const resumeResult = await bridge.runSteps([
-      { tapOn: { text: resumeCta, below: { text: `Hạn nộp ${dueDM}`, below: { text: `.*${escTitle}.*` } }, index: openOutcome.index } },
-      { waitForAnimationToEnd: { timeout: 3000 } },
-      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
-      { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } },
-    ]);
-    if (!resumeResult.success) {
-      return finish({ status: "FAIL", phase: "RESUME_OPEN", error: resumeResult.error, evidence });
-    }
-
+    // Verify resume vào ĐÚNG câu TIẾP THEO (chưa làm), KHÔNG phải reset về câu đã làm ở PARTIAL -
+    // logic verify này GIỮ NGUYÊN (No-regression boundary) - locateOpenAndVerifyAssignment() chỉ
+    // xác nhận "đúng room", KHÔNG xác nhận "đúng vị trí câu hỏi trong room" (2 việc khác nhau).
     const remainingPool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
     const answeredPool = QUESTIONS.filter((q) => answeredIds.has(q.id));
-    const matchAfterResumeResult = await findMatchingQuestion(bridge, remainingPool, undefined, "resume-verify-remaining", null);
-    const matchedAfterResume = matchAfterResumeResult.status === "MATCHED" ? matchAfterResumeResult.question : null;
-    const matchAmongAnsweredResult = matchedAfterResume ? null : await findMatchingQuestion(bridge, answeredPool, undefined, "resume-verify-answered", null);
-    const matchedAmongAnswered = matchAmongAnsweredResult?.status === "MATCHED" ? matchAmongAnsweredResult.question : null;
+    const matchedAfterResume = remainingPool.some((q) => q.id === resumeOutcome.matched.id) ? resumeOutcome.matched : null;
     if (!matchedAfterResume) {
+      const isAlreadyAnswered = answeredPool.some((q) => q.id === resumeOutcome.matched.id);
       return finish({
         status: "FAIL",
-        phase: "RESUME_NOT_RESET",
-        error: matchedAmongAnswered
-          ? `RESUME_NOT_RESET FAIL: màn hình sau resume khớp câu "${matchedAmongAnswered.id}" - câu NÀY ĐÃ ĐƯỢC TRẢ LỜI ở PHASE PARTIAL, bằng chứng app RESET về câu cũ thay vì resume đúng câu đang dở.`
-          : `Không khớp được câu nào (cả pool chưa làm lẫn đã làm) với màn hình sau resume. classification=${matchAfterResumeResult.diagnostic?.classification ?? matchAfterResumeResult.status}`,
-        visibleTexts: collectAllTexts(await bridge.hierarchy()),
-        diagnostic: matchAfterResumeResult.diagnostic ?? null,
+        phase: "RESUME_INVALID",
+        error: isAlreadyAnswered
+          ? `RESUME_NOT_RESET FAIL: màn hình sau resume khớp câu "${resumeOutcome.matched.id}" - câu NÀY ĐÃ ĐƯỢC TRẢ LỜI ở PHASE PARTIAL, bằng chứng app RESET về câu cũ thay vì resume đúng câu đang dở.`
+          : `Câu khớp sau resume ("${resumeOutcome.matched.id}") không thuộc pool chưa làm lẫn đã làm - không nhất quán.`,
         evidence,
       });
     }
     evidence.resume = { sameAssignment: true, resumedAtQuestionId: matchedAfterResume.id, resumedAtQuestion: matchedAfterResume.question, isAlreadyAnsweredQuestion: false };
     log(`  [PASS] Resume đúng vào câu "${matchedAfterResume.id}", KHÔNG phải câu đã làm ở PARTIAL.`);
 
-    // ===== [FINISH_REMAINING] =====
-    log("[9/10] Làm tiếp tất cả câu còn lại...");
+    // ===== [COMPLETE_FIRST_ATTEMPT] - làm tiếp tất cả câu còn lại =====
+    log("[COMPLETE_FIRST_ATTEMPT] Làm tiếp tất cả câu còn lại...");
     const resumeLog = [];
     let lastOutcome = null;
     carryTree = matchedAfterResume._snapshot?.tree ?? null;
@@ -649,7 +625,7 @@ async function main() {
       if (!matched) {
         return finish({
           status: "FAIL",
-          phase: "FINISH_REMAINING",
+          phase: matchResult.status === "AMBIGUOUS" ? "QUESTION_AMBIGUOUS" : "QUESTION_NOT_FOUND",
           error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) với màn hình hiện tại. classification=${matchResult.diagnostic?.classification ?? matchResult.status}`,
           visibleTexts: collectAllTexts(await bridge.hierarchy()),
           diagnostic: matchResult.diagnostic ?? null,
@@ -666,47 +642,132 @@ async function main() {
     }
     evidence.resumeLog = resumeLog;
 
-    // ===== [RESULT_SCREEN] + [FINAL_SCORE] =====
-    log("[10/10] Xác nhận màn Kết quả + đọc điểm thật...");
+    // ===== [VERIFY_FIRST_RESULT] =====
+    log("[VERIFY_FIRST_RESULT] Xác nhận màn Kết quả (lần 1) + đọc điểm thật...");
     const finalTree = lastOutcome?.finalTree ?? null;
     if (!exam.isResultScreen(finalTree)) {
-      return finish({ status: "FAIL", phase: "RESULT_SCREEN", error: "Không thấy màn hình Kết quả sau khi trả lời hết toàn bộ câu.", evidence });
+      return finish({ status: "FAIL", phase: "FIRST_SCORE_MISMATCH", error: "Không thấy màn hình Kết quả sau khi trả lời hết toàn bộ câu.", evidence });
     }
     const result = exam.readResult(finalTree);
     evidence.result = result;
     log(`  ĐIỂM SỐ=${result.score} CHÍNH XÁC=${result.correct}`);
 
-    const achievedCorrectCount = [...WANT_CORRECT.values()].filter(Boolean).length;
     const scoreNumber = result.score === null ? null : Number(result.score);
-    const scoreValid = scoreNumber !== null && !Number.isNaN(scoreNumber);
-    // [7.0, 8.0) NỬA MỞ - 7.0 PASS, 8.0 KHÔNG PASS (SỬA 2026-08-17, xem computeScorePlan()).
-    const scoreInRange = scoreValid && scoreNumber >= 7.0 && scoreNumber < 8.0;
-    evidence.scoreInterpretation = {
-      questionCount: QUESTIONS.length,
-      plannedCorrectCount: scorePlan.correctCount,
-      achievedCorrectCountByPlan: achievedCorrectCount,
-      realCorrectCountFromResultScreen: result.correctCount,
-      predictedScore: scorePlan.predictedScore,
-      actualScore: scoreNumber,
-      scoreInRangeTarget: scoreInRange,
-      targetRange: "[7.0, 8.0)",
-      note:
-        QUESTIONS.length === 10
-          ? `Bài có đúng 10 câu - "${achievedCorrectCount}/10 câu đúng" tương ứng hợp lệ.`
-          : `Bài có ${QUESTIONS.length} câu (KHÔNG phải 10) - KHÔNG diễn giải điểm số theo "X/10 câu đúng", chỉ báo cáo achievedCorrectCount=${achievedCorrectCount}/${QUESTIONS.length} và actualScore=${scoreNumber} riêng biệt.`,
-    };
+    const firstMatched = scoreNumber !== null && !Number.isNaN(scoreNumber) && Math.abs(scoreNumber - FIRST_TARGET_SCORE) < 1e-6;
+    evidence.firstAttempt = { targetScore: FIRST_TARGET_SCORE, actualScore: scoreNumber, correct: result.correct, matched: firstMatched };
+    if (!firstMatched) {
+      return finish({ status: "FAIL", phase: "FIRST_SCORE_MISMATCH", error: `Điểm thật ${scoreNumber} KHÁC target ${FIRST_TARGET_SCORE}.`, evidence });
+    }
+    log(`  [PASS] TARGET=${FIRST_TARGET_SCORE} ĐIỂM THẬT=${scoreNumber} khớp.`);
 
+    // Đóng màn Kết quả lần 1 để về danh sách - chỉ vừa giao ĐÚNG 1 bài nên không có "Tiếp theo"
+    // thật để làm, xử lý "Hoàn thành" là chính (workaround đóng X cho "Tiếp theo" chỉ để an toàn) -
+    // CTA CUỐI (sau Làm lại) mới bắt buộc bấm CTA THẬT.
     await bridge.runSteps([
       { runFlow: { when: { visible: "Hoàn thành" }, commands: [{ tapOn: { text: ".*(Hoàn thành).*" } }] } },
       { runFlow: { when: { visible: "Tiếp theo" }, commands: [{ tapOn: { id: "exercise_result_close_button" } }] } },
     ]);
     await bridge.wait({ id: "homework_screen" }, { timeout: 30000 });
+    log("  [PASS] Đã đóng màn Kết quả (lần 1), về lại danh sách Bài tập.");
 
-    const overallPass = progressChanged && evidence.resume && !evidence.resume.isAlreadyAnsweredQuestion && answeredIds.size === QUESTIONS.length && scoreInRange;
+    // ===== [LOCATE_REDO] + [VERIFY_REDO] - canonical locate+content-verify, cta="Làm lại" =====
+    log('[LOCATE_REDO+VERIFY_REDO] Tìm + mở + xác thực đúng room để "Làm lại"...');
+    const redoOpenOutcome = await locateOpenAndVerifyAssignment(bridge, { title: assignment.title, dueDateDM: dueDM, cta: "Làm lại", questions: QUESTIONS, maxCandidates: MAX_DISAMBIGUATE_CANDIDATES });
+    if (!redoOpenOutcome.ok) {
+      const phaseMap = { NOT_FOUND: "REDO_CARD_NOT_FOUND", AMBIGUOUS_CONTENT_MATCH: "REDO_CARD_AMBIGUOUS", CONTENT_MISMATCH: "REDO_IDENTITY_MISMATCH", OPEN_STEP_FAILED: "REDO_IDENTITY_MISMATCH", REOPEN_FAILED: "REDO_IDENTITY_MISMATCH", ERROR: "REDO_IDENTITY_MISMATCH" };
+      return finish({
+        status: redoOpenOutcome.status === "NOT_FOUND" ? "FAIL" : "BLOCKED",
+        phase: phaseMap[redoOpenOutcome.status] ?? "REDO_CARD_NOT_FOUND",
+        error: `locateOpenAndVerifyAssignment() (Làm lại) status=${redoOpenOutcome.status}: title="${assignment.title}"/Hạn nộp=${dueDM}/cta="Làm lại" - không tự chọn/không đoán.`,
+        diagnostics: redoOpenOutcome.diagnostics,
+        triedLog: redoOpenOutcome.triedLog,
+        evidence,
+      });
+    }
+    evidence.lamLaiTapped = true;
+    log(`  [PASS] Đã tap "Làm lại" - vào màn Doing (lần 2), nội dung khớp room_id=${assignment.id} thật.`);
+
+    // ===== [REDO] - CÙNG vòng lặp findMatchingQuestion+answerCurrentQuestionOneShot đã dùng ở
+    // PARTIAL/COMPLETE_FIRST_ATTEMPT, KHÔNG viết matcher/answer logic mới =====
+    log(`[REDO] Trả lời lại ${QUESTIONS.length} câu, nhắm điểm ${REDO_TARGET_SCORE}...`);
+    const redoWantCorrect = buildWeightedWantCorrectPlan(QUESTIONS, redoCorrectIndices);
+    const redoAnsweredIds = new Set();
+    const redoLog = [];
+    let redoCarryTree = redoOpenOutcome.matched._snapshot?.tree ?? null;
+    let redoLastOutcome = null;
+    while (redoAnsweredIds.size < QUESTIONS.length) {
+      const pool = QUESTIONS.filter((q) => !redoAnsweredIds.has(q.id));
+      const matchResult = await findMatchingQuestion(bridge, pool, redoCarryTree, redoAnsweredIds.size + 1, null);
+      if (matchResult.status !== "MATCHED") {
+        return finish({
+          status: "FAIL",
+          phase: matchResult.status === "AMBIGUOUS" ? "QUESTION_AMBIGUOUS" : "QUESTION_NOT_FOUND",
+          error: `Không khớp được câu hỏi nào (còn ${pool.length} câu) khi Làm lại. classification=${matchResult.diagnostic?.classification ?? matchResult.status}`,
+          visibleTexts: collectAllTexts(await bridge.hierarchy()),
+          diagnostic: matchResult.diagnostic ?? null,
+          evidence: { ...evidence, redoLog },
+        });
+      }
+      const matched = matchResult.question;
+      const isLast = redoAnsweredIds.size === QUESTIONS.length - 1;
+      const { wantCorrect, outcome } = await answerOneQuestion(exam, matched, isLast, redoWantCorrect);
+      redoLastOutcome = outcome;
+      redoCarryTree = outcome.finalTree ?? null;
+      redoAnsweredIds.add(matched.id);
+      redoLog.push({ id: matched.id, question: matched.question, wantCorrect, isTargetCorrect: outcome.isTargetCorrect, type: outcome.type });
+      log(`  Câu ${redoAnsweredIds.size}/${QUESTIONS.length} (${matched.id}): "${matched.question}" - nhắm ${wantCorrect ? "ĐÚNG" : "SAI"}, isTargetCorrect=${outcome.isTargetCorrect}`);
+    }
+    evidence.redoLog = redoLog;
+
+    // ===== [VERIFY_SECOND_RESULT] =====
+    const redoFinalTree = redoLastOutcome?.finalTree ?? null;
+    if (!exam.isResultScreen(redoFinalTree)) {
+      return finish({ status: "FAIL", phase: "SECOND_SCORE_MISMATCH", error: "Không thấy màn Kết quả sau khi trả lời hết câu (Làm lại).", evidence });
+    }
+    const redoResult = exam.readResult(redoFinalTree);
+    const redoScoreNumber = redoResult.score === null ? null : Number(redoResult.score);
+    const redoMatched = redoScoreNumber !== null && !Number.isNaN(redoScoreNumber) && Math.abs(redoScoreNumber - REDO_TARGET_SCORE) < 1e-6;
+    evidence.redoAttempt = { targetScore: REDO_TARGET_SCORE, actualScore: redoScoreNumber, correct: redoResult.correct, matched: redoMatched };
+    log(`  TARGET=${REDO_TARGET_SCORE} ĐIỂM THẬT=${redoResult.score} CHÍNH XÁC=${redoResult.correct}`);
+    if (!redoMatched) {
+      return finish({ status: "FAIL", phase: "SECOND_SCORE_MISMATCH", error: `Điểm thật ${redoScoreNumber} KHÁC target ${REDO_TARGET_SCORE}.`, evidence });
+    }
+
+    // ===== [FINAL_CTA] - đọc CTA THẬT đang hiển thị rồi bấm THẬT (KHÔNG dùng workaround đóng X ở
+    // màn Kết quả CUỐI này) =====
+    log('[FINAL_CTA] Đọc CTA thật đang hiển thị trên màn Kết quả (Tiếp theo/Hoàn thành) rồi bấm THẬT...');
+    const ctaTexts = collectAllTexts(redoFinalTree);
+    const hasTiepTheo = ctaTexts.some((t) => /Tiếp theo/.test(t));
+    const hasHoanThanh = ctaTexts.some((t) => /Hoàn thành/.test(t));
+    if (!hasTiepTheo && !hasHoanThanh) {
+      return finish({ status: "FAIL", phase: "CTA_INVALID", error: `Không thấy CTA "Tiếp theo" lẫn "Hoàn thành" trên màn Kết quả sau Làm lại. Texts: ${JSON.stringify(ctaTexts)}`, evidence });
+    }
+    const ctaToTap = hasTiepTheo ? "Tiếp theo" : "Hoàn thành";
+    const tapFinalCta = await bridge.runSteps([{ tapOn: { text: `.*(${ctaToTap}).*` } }]);
+    if (!tapFinalCta.success) {
+      return finish({ status: "FAIL", phase: "CTA_INVALID", error: `Tap "${ctaToTap}" thất bại: ${tapFinalCta.error}`, evidence });
+    }
+    const landExpectation = ctaToTap === "Tiếp theo" ? { id: "exercise_close_button" } : { id: "homework_screen" };
+    const landResult = await bridge.wait(landExpectation, { timeout: 30000 });
+    evidence.finalCta = { cta: ctaToTap, landed: landResult.success };
+    if (!landResult.success) {
+      return finish({ status: "FAIL", phase: "CTA_INVALID", error: `Bấm "${ctaToTap}" nhưng không xác nhận được điều hướng đúng (${JSON.stringify(landExpectation)}): ${landResult.error}`, evidence });
+    }
+    log(`  [PASS] Đã bấm THẬT "${ctaToTap}" - điều hướng đúng.`);
+
+    const overallPass =
+      evidence.progressChanged?.confirmedByResumeLocate &&
+      evidence.resume &&
+      !evidence.resume.isAlreadyAnsweredQuestion &&
+      answeredIds.size === QUESTIONS.length &&
+      firstMatched &&
+      redoAnsweredIds.size === QUESTIONS.length &&
+      redoMatched &&
+      landResult.success;
 
     return finish({
       status: overallPass ? "PASS" : "FAIL",
-      phase: overallPass ? null : "SCORE_VERIFY",
+      phase: overallPass ? null : "FINAL_VERIFY",
       evidence,
     });
   } finally {

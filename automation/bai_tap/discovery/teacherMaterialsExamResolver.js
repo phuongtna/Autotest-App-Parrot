@@ -1,6 +1,12 @@
 import { getHomeworks, fetchRoomDetails } from "./homeworks.js";
 import { fetchLessonItems } from "../../giao_bai_tap/navigation/teacherAssignmentApiDiscovery.js";
-import { parseQuestionsFromExamPage } from "../../discovery/examPageScraper.js";
+// PHASE F (2026-09-01) - parseQuestionsFromExamPageWithRetry() thay parseQuestionsFromExamPage()
+// trực tiếp: page.goto() bên trong ĐÃ ĐO THẬT flaky (~2/3 timeout do networkidle, xem docblock hàm
+// đó trong examPageScraper.js) - retry BOUNDED tối đa 2 lần, CHỈ cho lỗi timeout-shaped, KHÔNG che
+// giấu lỗi session/nội dung thật. status "SESSION_ERROR" bên dưới GIỮ NGUYÊN (KHÔNG đổi tên) - đã
+// grep xác nhận >=3 caller khác (pro_lamlai_target_score.mjs, pro_lamlai_fullluong_xemchitiet.mjs,
+// pro_lamlai_beat_previous_score.mjs) pattern-match cứng trên đúng literal string này.
+import { parseQuestionsFromExamPageWithRetry } from "../../discovery/examPageScraper.js";
 import { normalizeQuestions } from "../../model/questionModel.js";
 
 /**
@@ -117,7 +123,7 @@ export async function resolveHomeworkExamQuestionsForRoomId(roomId) {
 
   let examData;
   try {
-    examData = await parseQuestionsFromExamPage(resolved.examId);
+    examData = await parseQuestionsFromExamPageWithRetry(resolved.examId);
   } catch (err) {
     return { status: "SESSION_ERROR", reason: err.message, examId: resolved.examId, roomDetails };
   }
@@ -175,7 +181,7 @@ export async function resolveHomeworkExamQuestionsFromTeacherMaterials(
 
   let examData;
   try {
-    examData = await parseQuestionsFromExamPage(resolved.examId);
+    examData = await parseQuestionsFromExamPageWithRetry(resolved.examId);
   } catch (err) {
     return { status: "SESSION_ERROR", reason: err.message, examId: resolved.examId, room };
   }

@@ -20,6 +20,25 @@ flow), không suy đoán ngoài phần đã quan sát/đã chạy thật dưới
 Cột **Auto** = có file Maestro/script chạy tự động. Cột **Tay** = cần QA kiểm chứng thêm bằng
 mắt/thao tác.
 
+**Artifact case-level (Maestro YAML thuần, chạy bằng `maestro test`, giống mọi case khác dưới
+`flows/app/*/`)**:
+
+- `flows/app/thong_bao/TB-01-thong-bao-giao-bai-ngay.yaml` — nửa APP-SIDE của TB-01 (mở icon
+  chuông, tìm 1 item mang ngữ nghĩa "giao bài mới").
+- `flows/app/thong_bao/TB-02-thong-bao-nhac-han-19h.yaml` — TB-02 mechanic-only (mở/đóng icon
+  chuông lặp lại, tìm 1 item mang ngữ nghĩa "nhắc hạn nộp").
+
+2 file .mjs mô tả bên dưới (`e2e-teacher-assign-notification-immediate.mjs`,
+`tb02-check-19h-reminder.mjs`) VẪN giữ nguyên, đóng vai trò công cụ ORCHESTRATION/quan sát (không
+phải bị thay thế): `.mjs` của TB-01 chạy TOÀN BỘ pipeline Web-GV-giao-bài -> App-HS-đối-chiếu
+end-to-end (đối chiếu CHẶT theo đúng title+hạn nộp vừa giao, đo timing chính xác) - dùng cho CI/lượt
+chứng minh 1 lần duy nhất "xuất hiện NGAY sau khi giao". `.mjs` của TB-02 là công cụ CHẨN
+ĐOÁN/QUAN SÁT phong phú hơn (poll quanh mốc 19:00, phân loại text, cross-reference với dữ liệu
+due-state thật qua API) - dùng khi cần điều tra sâu, KHÔNG tự PASS/FAIL. 2 file `.yaml` mới ở trên
+mới là ARTIFACT CASE-LEVEL đúng quy ước Maestro thuần của repo (`maestro test <file>.yaml`, có thể
+chạy độc lập không cần Node/Playwright/MCP), verify NGỮ NGHĨA chung (không đối chiếu title/ngày cụ
+thể) - nhanh hơn để chạy lại khi debug UI/selector.
+
 ---
 
 ## Bảng test case
@@ -50,6 +69,27 @@ phần Web GV, xem docblock đầu file để biết đầy đủ lý do kiến 
   không phải riêng độ trễ backend/push - vẫn đủ để kết luận "xuất hiện ngay" theo đúng yêu cầu
   TB-01 (không phải chờ nhiều phút/phải refresh nhiều lần).
 
+### TB-01.yaml — ĐÃ CHẠY THẬT bằng `maestro test` (2026-09-01, thiết bị `3201d866d40a1681`)
+
+`flows/app/thong_bao/TB-01-thong-bao-giao-bai-ngay.yaml`:
+`maestro test flows/app/thong_bao/TB-01-thong-bao-giao-bai-ngay.yaml -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888`
+- **PASS** (exit code 0) - `scrollUntilVisible` khớp regex
+  `.*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng).*` NGAY Ở MÀN HÌNH ĐẦU TIÊN
+  (không cần cuộn - "Scrolling DOWN until ... COMPLETED" trong log, item khớp đã nằm sẵn trong
+  viewport) - bài TB-01 giao sáng nay (`"Read the text and choose the correct answer."`, hạn nộp
+  01/09) vẫn còn hiển thị gần đầu danh sách lúc chạy (~20:20 tối, chưa bị đẩy xuống xa).
+- **Friction gặp phải khi build (ĐÃ SỬA)**: lượt thử ĐẦU TIÊN dùng `runFlow: ../subflows/launch_app.yaml`
+  (clearState + launchApp, không có bước chờ ổn định UI) làm login.yaml `Run flow when ".*(Chào
+  mừng...|Nhập số điện thoại).*" is visible` SKIPPED sai (check chạy TRƯỚC khi màn welcome kịp
+  render) -> assertVisible dashboard cuối `login.yaml` FAILED dù đang đứng đúng màn welcome (xác
+  nhận qua screen-hierarchy dump lúc FAILED, thấy rõ "Chào mừng bạn đến với ParrotEdu!" +
+  "Nhập số điện thoại" trong cây view). SỬA: đổi sang `runFlow: ../helpers/launch-keep-session.yaml`
+  (có sẵn `extendedWaitUntil` chờ ổn định UI trước khi vào login.yaml) - đúng cặp
+  `flows/app/bai_tap/ktra_fullluong_lambai.yaml` đã dùng làm mẫu. Sau khi sửa: PASS ngay lượt chạy
+  kế tiếp (session lúc đó đã login sẵn từ lượt chạy TB-02 trước đó trong cùng phiên làm việc nên
+  nhánh login SKIPPED đúng nghĩa "đã có session" - đã verify riêng 1 lượt clearState thật ở TB-02
+  bên dưới để xác nhận login.yaml tự chạy đúng khi cần login thật từ đầu).
+
 ### Phát hiện đáng chú ý — KHÔNG có 1 mẫu câu thông báo cố định
 
 `flows/web/giao_bai_tap/TESTCASES.md` TC1 (2026-08-09) từng ghi nhận đúng 1 mẫu câu:
@@ -75,7 +115,16 @@ cùng tạo thông báo cho cùng 1 sự kiện (dễ lệch nội dung không k
 
 ---
 
-## TB-02 — Quyết định: **Tay** (không tự động hoá) - lý do
+## TB-02 — Quyết định: **Tay** cho phần TIMING 19:00, **Auto (mechanic-only)** cho phần cơ chế
+
+Cập nhật (2026-09-01, sau khi user yêu cầu case app-side phải viết bằng Maestro YAML thuần): đã
+thêm `flows/app/thong_bao/TB-02-thong-bao-nhac-han-19h.yaml` - file này tự động hoá ĐÚNG PHẦN CƠ CHẾ
+("mở icon chuông -> có item dạng nhắc hạn nộp -> đóng/mở lại -> vẫn thấy") bằng `maestro test` thật,
+xem kết quả chạy live ở mục "TB-02.yaml — ĐÃ CHẠY THẬT" cuối file. **KHÔNG đổi cột Auto/Tay của bảng
+ở đầu file** (vẫn giữ "Tay") vì lý do dưới đây KHÔNG đổi: file `.yaml` mới chỉ chứng minh cơ chế mở
+chuông thấy thông báo dạng nhắc nhở, KHÔNG chứng minh đúng lúc 19:00 (không chờ tới giờ đó mới
+chạy) và KHÔNG phân loại theo 3 trạng thái - đọc header comment của chính file `.yaml` đó để biết
+đầy đủ giới hạn. Phần lý luận gốc bên dưới (vì sao KHÔNG tự động hoá được phần TIMING) vẫn nguyên vẹn.
 
 TB-02 là thông báo **kích hoạt theo giờ tường (19:00, có khả năng cron/scheduled job phía server)**,
 không phải hệ quả trực tiếp của 1 hành động do script điều khiển được (khác TB-01, nơi trigger là
@@ -106,6 +155,29 @@ chuông trên App HS (tài khoản có sẵn ≥1 bài due-today/quá hạn/sắ
 nhắc nhở tương ứng (không nhất thiết đúng 5 mẫu "bài tập mới" ở trên - phần chữ của thông báo nhắc
 hạn nộp CHƯA có mẫu nào được xác nhận thật, cần ghi lại nguyên văn khi quan sát lần đầu để bổ sung
 bảng mẫu câu cho case này, giống cách TB-01 đã làm).
+
+### TB-02.yaml — ĐÃ CHẠY THẬT bằng `maestro test` (2026-09-01 ~20:20 giờ VN, thiết bị `3201d866d40a1681`)
+
+`flows/app/thong_bao/TB-02-thong-bao-nhac-han-19h.yaml`:
+`maestro test flows/app/thong_bao/TB-02-thong-bao-nhac-han-19h.yaml -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888`
+- **PASS** (exit code 0) - cả **3/3 vòng lặp** `repeat:` (mở chuông -> assert -> đóng) đều khớp
+  regex `.*(hạn nộp|quá hạn|sắp hết hạn|sắp đến hạn|nhắc nhở|nhắc con|nhắc bạn).*` - các item nhắc
+  hạn nộp thật ghi nhận từ trưa nay (mục "PHÁT HIỆN NGOÀI DỰ KIẾN" bên dưới, quan sát ~13:00 giờ VN)
+  VẪN còn hiển thị trong danh sách lúc chạy (~20:20 tối) - đúng dự đoán trong yêu cầu ("timestamp
+  '1 giờ trước' lúc ~20:02 thì giờ sẽ hiện '~1-2 giờ trước' nhưng vẫn còn trong danh sách").
+- **Login từ đầu (clearState thật, không phải session cũ)**: lượt chạy này thực thi ĐẦY ĐỦ chuỗi
+  bước login.yaml (nhập SĐT, "Đăng nhập", nhập OTP, "Xác nhận" - tất cả COMPLETED, không SKIPPED) vì
+  state trước đó đã bị `clearState` bởi 1 lượt thử trước (xem friction bên dưới) - xác nhận
+  `login.yaml` hoạt động đúng cả khi cần login thật từ đầu lẫn khi đã có session.
+- **Friction gặp phải khi build (ĐÃ SỬA - cùng root cause với TB-01.yaml)**: lượt thử ĐẦU TIÊN dùng
+  `runFlow: ../subflows/launch_app.yaml` FAILED vì thiếu bước chờ ổn định UI trước
+  `login.yaml`'s `when: visible` check (xem chi tiết đầy đủ trong mục "Friction" của TB-01.yaml ở
+  trên - cùng 1 lỗi, gặp lần đầu ở đây). SỬA: đổi sang `runFlow: ../helpers/launch-keep-session.yaml`
+  - PASS ngay sau khi sửa.
+- **`repeat:` (native Maestro command) hoạt động đúng trên Maestro 2.8.0 của repo** - không cần
+  unroll thủ công thành N khối riêng lẻ (khác giả định dự phòng nêu trong yêu cầu ban đầu).
+- Screenshot bằng chứng: `TB-02-notification-matched` (Maestro tự lưu vào output folder mặc định
+  của lượt chạy, 3 lần - 1 lần/vòng lặp).
 
 ### Công cụ cho lượt chạy thật tối nay (2026-09-01, ~19:00 giờ VN)
 

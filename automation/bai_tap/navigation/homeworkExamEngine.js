@@ -49,6 +49,22 @@ const NEXT_OR_SUBMIT_CTA_CANDIDATES = ["Tiếp theo", "Nộp bài", "Hoàn thàn
 // Nhãn nút xác nhận phổ biến của app - dùng best-effort cho popup xác nhận nộp bài NẾU xuất hiện,
 // không throw nếu không thấy (chưa xác nhận popup này có tồn tại thật hay không).
 const CONFIRM_SUBMIT_BUTTON_CANDIDATES = ["Nộp bài", "Đồng ý", "Xác nhận"];
+// PERF (2026-09-03, đo THẬT qua MaestroMcpBridge live trên thiết bị 3201d866d40a1681, xem
+// automation/output/answer_step_timing_investigation.md): `answerCurrentQuestionOneShot()` trước
+// đây phát N `tapOn: { text: candidate, optional: true }` RIÊNG LẺ cho từng candidate (N=3 cho CTA,
+// N=3 cho CONFIRM) - MỖI candidate không khớp tự trả giá "element lookup" riêng của Maestro (~2-8s/
+// candidate, đo trực tiếp: 1 candidate miss ~7.8s, 3 candidate miss RIÊNG LẺ trong 1 runSteps()
+// ~10.1-10.9s) TRƯỚC KHI bỏ qua như optional - đây CHÍNH LÀ nguồn gốc thật của "answer step ~31-40s/
+// câu" (KHÔNG phải network/business logic - `match`/`hierarchy()` đã xác nhận rẻ ~0-0.6s qua chính
+// report). Gộp N candidate thành 1 regex alternation (`A|B|C`) giữ NGUYÊN 100% khả năng phát hiện
+// (Maestro match toàn bộ text node qua regex - alternation vẫn khớp ĐÚNG 1 trong N nhãn y hệt trước,
+// KHÔNG đổi ngữ nghĩa/KHÔNG bỏ candidate nào) nhưng chỉ tốn 1 lượt lookup thay vì N lượt - đo THẬT:
+// 3 candidate miss RIÊNG LẺ ~10.1-10.9s -> gộp 1 regex miss ~7.8-8.3s (tiết kiệm ~2.3-3s/nhóm, 2
+// nhóm/câu -> ~5-6s/câu). ĐÃ THỬ `tapOn: { timeout: N }` để rút ngắn thêm - Maestro 2.8.0 KHÔNG hỗ
+// trợ property này ("Unknown Property: timeout"), nên KHÔNG áp dụng (không đoán, đã kiểm chứng trực
+// tiếp trước khi kết luận không khả thi).
+const NEXT_OR_SUBMIT_CTA_REGEX = NEXT_OR_SUBMIT_CTA_CANDIDATES.join("|");
+const CONFIRM_SUBMIT_BUTTON_REGEX = CONFIRM_SUBMIT_BUTTON_CANDIDATES.join("|");
 
 const RESULT_SCORE_LABEL = "ĐIỂM SỐ";
 const RESULT_CORRECT_LABEL = "CHÍNH XÁC";
@@ -751,7 +767,7 @@ export class HomeworkExamEngine {
       steps.push({ tapOn: { id: "exercise_check_button", optional: true } });
       steps.push({ waitForAnimationToEnd: { timeout: 1500 } });
       steps.push({ tapOn: { id: "exercise_check_button", optional: true } });
-      steps.push(...NEXT_OR_SUBMIT_CTA_CANDIDATES.map((cta) => ({ tapOn: { text: cta, optional: true } })));
+      steps.push({ tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } });
       steps.push({ waitForAnimationToEnd: { timeout: 1000 } });
       if (resultLabel) steps.push({ takeScreenshot: resultLabel });
 
@@ -816,7 +832,7 @@ export class HomeworkExamEngine {
       steps.push({ tapOn: { id: "exercise_check_button", optional: true } });
       steps.push({ waitForAnimationToEnd: { timeout: 1500 } });
       steps.push({ tapOn: { id: "exercise_check_button", optional: true } });
-      steps.push(...NEXT_OR_SUBMIT_CTA_CANDIDATES.map((cta) => ({ tapOn: { text: cta, optional: true } })));
+      steps.push({ tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } });
       steps.push({ waitForAnimationToEnd: { timeout: 1000 } });
       if (resultLabel) steps.push({ takeScreenshot: resultLabel });
 
@@ -860,9 +876,7 @@ export class HomeworkExamEngine {
       tapStep,
       { waitForAnimationToEnd: { timeout: 1500 } },
       { takeScreenshot: "before_submit" },
-      ...NEXT_OR_SUBMIT_CTA_CANDIDATES.map((cta) => ({ tapOn: { text: cta, optional: true } })),
-      { waitForAnimationToEnd: { timeout: 1500 } },
-      ...CONFIRM_SUBMIT_BUTTON_CANDIDATES.map((label) => ({ tapOn: { text: label, optional: true } })),
+      { tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } },
       { waitForAnimationToEnd: { timeout: 1000 } },
     ];
     if (resultLabel) steps.push({ takeScreenshot: resultLabel });
@@ -880,8 +894,35 @@ export class HomeworkExamEngine {
     // so sánh textsAfter (bản cũ gọi RIÊNG isResultScreen() - 2 lượt isVisible/hierarchy - RỒI MỚI
     // gọi thêm bridge.hierarchy() lần nữa cho textsAfter nếu chưa xong - tổng 3 lượt lãng phí cho
     // đúng 1 lần "xác nhận state mới", xem bug/fix 2026-08-17 ở đầu file).
-    const treeAfter = await this.bridge.hierarchy();
-    const textsAfter = collectTexts(treeAfter);
+    let treeAfter = await this.bridge.hierarchy();
+    let textsAfter = collectTexts(treeAfter);
+
+    // PERF vòng 2 (2026-09-03, đo THẬT qua MaestroMcpBridge trực tiếp trên thiết bị, so sánh cặp
+    // trên CÙNG 1 luồng câu hỏi thật: OLD (tap CONFIRM_SUBMIT_BUTTON_REGEX MÙ ngay sau CTA, luôn
+    // MISS trong mọi lần quan sát) = 22.36s/câu vs NEW (bỏ tap mù, CHỈ kiểm tra CONFIRM_SUBMIT_
+    // BUTTON_CANDIDATES trên CHÍNH `treeAfter` đã fetch ở trên - 0 chi phí thêm) = 12.58s/câu, tiết
+    // kiệm ~9.78s/câu, CẢ 2 lần đều verify tiến đúng qua device thật (progress X/10 tăng đúng, không
+    // suy đoán). KHÔNG giả định popup xác nhận "không bao giờ xuất hiện" (dù CHƯA TỪNG quan sát thấy
+    // qua hàng trăm câu đã chạy) - nếu texts đã fetch THẬT SỰ chứa 1 trong các nhãn xác nhận, vẫn tap
+    // xử lý + fetch lại để verify, giữ NGUYÊN toàn bộ khả năng phát hiện của bản gốc, chỉ đổi CÁCH
+    // phát hiện (đọc dữ liệu đã có thay vì tap mù đoán mò).
+    const confirmCandidateVisible = CONFIRM_SUBMIT_BUTTON_CANDIDATES.some((label) => textsAfter.includes(label));
+    if (confirmCandidateVisible) {
+      const confirmSteps = [
+        { tapOn: { text: CONFIRM_SUBMIT_BUTTON_REGEX, optional: true } },
+        { waitForAnimationToEnd: { timeout: 1000 } },
+      ];
+      if (resultLabel) confirmSteps.push({ takeScreenshot: resultLabel });
+      const confirmResult = await this.bridge.runSteps(confirmSteps);
+      if (!confirmResult.success) {
+        throw new Error(
+          `Phát hiện nhãn popup xác nhận (${CONFIRM_SUBMIT_BUTTON_CANDIDATES.join("/")}) trên màn hình nhưng tap xử lý thất bại: ${confirmResult.error}`,
+        );
+      }
+      treeAfter = await this.bridge.hierarchy();
+      textsAfter = collectTexts(treeAfter);
+    }
+
     if (!this.isResultScreen(treeAfter)) {
       if (JSON.stringify(textsAfter) === JSON.stringify(textsBefore)) {
         throw new Error("Không chuyển được câu tiếp theo - màn hình không đổi sau khi bấm CTA.");

@@ -6,6 +6,18 @@ gửi lúc 19:00) + khảo sát THẬT trên thiết bị (`maestro hierarchy` q
 flow), không suy đoán ngoài phần đã quan sát/đã chạy thật dưới đây. Cùng quy ước cột với
 `flows/app/bai_tap/TEST-CASES.md`.
 
+Cập nhật (2026-09-03): QA cung cấp thêm 1 ảnh đặc tả RULE CHÍNH THỨC cho nội dung notification (2
+nhóm sự kiện, mỗi nhóm random 1 trong 10 mẫu câu cố định + hành vi click chung) - xem nguyên văn ở
+mục "QUY TẮC NỘI DUNG THÔNG BÁO CHÍNH THỨC" cuối file. Bổ sung TB-03 (nhóm "Sắp tới hạn nộp bài",
+tách riêng khỏi TB-02 vốn gộp chung 3 trạng thái) + TB-04 (verify hành vi click) - TB-04 phát hiện
+1 lỗi thật (KHÔNG khớp mô tả rule), xem mục "TB-04" để biết đầy đủ bằng chứng.
+
+Cập nhật tiếp (2026-09-03, cùng ngày): QA cung cấp thêm 1 rule nữa cho nhóm sự kiện thứ 3 - "HS đã
+hoàn thành bài tập" (báo cho PHỤ HUYNH, không phải HS - văn bản xưng hô "Ba mẹ"), 3 mức điểm
+(<5 / 5-<7 / ≥7) x 5 mẫu câu/mức = 15 mẫu, xem mục "QUY TẮC NỘI DUNG THÔNG BÁO CHÍNH THỨC" phần
+"Nhóm 3". Bổ sung TB-05 - KHÁC TB-04: hành vi click của nhóm này **ĐÃ XÁC NHẬN THẬT ĐÚNG** như rule
+mô tả (dẫn tới màn "Xem chi tiết bài làm", không phải lỗi như TB-04).
+
 - Icon chuông: `resource-id: notification_bell_button` - có mặt trên header của **cả 3 tab**
   dashboard (Vui học / Bài tập / Báo cáo), xác nhận qua `maestro hierarchy` thật (không phải 1
   trong "4 testID" đã ghi ở `flows/app/bai_tap/TEST-CASES.md` mục D#9 - icon này có resource-id
@@ -27,6 +39,18 @@ mắt/thao tác.
   chuông, tìm 1 item mang ngữ nghĩa "giao bài mới").
 - `flows/app/thong_bao/TB-02-thong-bao-nhac-han-19h.yaml` — TB-02 mechanic-only (mở/đóng icon
   chuông lặp lại, tìm 1 item mang ngữ nghĩa "nhắc hạn nộp").
+- `flows/app/thong_bao/TB-03-thong-bao-sap-den-han.yaml` — TB-03 MỚI (2026-09-03), riêng cho nhóm
+  "Sắp tới hạn nộp bài" của rule chính thức (10 mẫu câu) - KHÁC TB-02 (TB-02 gộp chung cả 3 trạng
+  thái hôm nay/quá hạn/sắp tới hạn, KHÔNG loại trừ "quá hạn"; TB-03 dùng regex hẹp hơn, cố tình
+  loại trừ các cụm "quá hạn"/"đã hết hạn" để chỉ khớp đúng nhóm "sắp tới" theo rule mới).
+- `flows/app/thong_bao/TB-04-thong-bao-click-focus.yaml` — TB-04 MỚI (2026-09-03), verify hành vi
+  click 1 item thông báo có đúng "hiển thị màn hình danh sách bài tập và focus vào bài tập đó" như
+  rule mô tả không. **ĐÃ CHẠY THẬT: FAIL** - hành vi thật sự KHÁC hẳn mô tả rule, xem mục "TB-04"
+  để biết đầy đủ bằng chứng (KHÔNG phải lỗi viết test - đã tái hiện 2 lần độc lập, 2 item khác
+  nhau, cả 2 lần đều cho cùng 1 kết quả).
+- `flows/app/thong_bao/TB-05-thong-bao-hoan-thanh-bai-tap.yaml` — TB-05 MỚI (2026-09-03), nhóm sự
+  kiện thứ 3 "HS đã hoàn thành bài tập" (báo phụ huynh) + verify click → màn "Xem chi tiết bài
+  làm". **ĐÃ CHẠY THẬT: PASS** - cả nội dung LẪN hành vi click đều khớp đúng rule, xem mục "TB-05".
 
 2 file .mjs mô tả bên dưới (`e2e-teacher-assign-notification-immediate.mjs`,
 `tb02-check-19h-reminder.mjs`) VẪN giữ nguyên, đóng vai trò công cụ ORCHESTRATION/quan sát (không
@@ -47,6 +71,9 @@ thể) - nhanh hơn để chạy lại khi debug UI/selector.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | TB-01 | Thông báo giao bài xuất hiện NGAY sau khi GV bấm "Giao bài đã chọn" | Tài khoản GV "Phương" (0912312312, lớp 3B, `TARGET_CLASS_ID=b3336062-...`), tài khoản HS "Ngoc" (PHONE=0915775115, lớp 3B) đã login sẵn trên App; hạn nộp đặt = **hôm nay** | 1. App HS: login, đứng ở dashboard.<br>2. Web GV (Playwright): chọn lớp 3B, hạn nộp = hôm nay, random 1 Unit/Lesson/bài -> bấm "Giao bài đã chọn" -> chờ toast thành công (mốc t0).<br>3. App HS: tap icon chuông -> đọc danh sách thông báo -> đối chiếu.<br>4. Nếu chưa thấy: đóng (back) rồi mở lại icon chuông, lặp lại tới khi khớp hoặc hết 90s. | Trong danh sách Thông báo xuất hiện **1 item** mà `content-desc` chứa cả `"<tên bài vừa giao>"` (giữ nguyên ngoặc kép) VÀ `Hạn nộp: <hôm nay DD/MM/YYYY>` - đo được thời gian từ t0 tới lúc khớp | Sau 90s poll (đóng/mở lại icon chuông) KHÔNG có item nào khớp cả 2 điều kiện trên | ✅ | |
 | TB-02 | Nhắc hạn nộp (hôm nay/quá hạn/sắp tới hạn) gửi lúc 19:00 | Có ít nhất 1 bài của HS đang test rơi vào 1 trong 3 trạng thái: hạn nộp hôm nay, đã quá hạn, sắp tới hạn | Vào đúng lúc 19:00 (giờ VN): mở icon chuông trên App HS, kiểm tra có thông báo nhắc nhở tương ứng | Xuất hiện thông báo nhắc nhở đúng ngữ cảnh (hạn nộp hôm nay/quá hạn/sắp hạn), đúng khung giờ 19:00 | Không có thông báo nhắc nào trong icon chuông tại/quanh 19:00 dù có bài rơi vào 1 trong 3 trạng thái trên | | ✔ |
+| TB-03 | Nội dung thông báo "Sắp tới hạn nộp bài" khớp 1 trong 10 mẫu câu chính thức (rule QA 2026-09-03) | Có ít nhất 1 item thông báo dạng "sắp tới hạn" (KHÔNG phải "quá hạn"/"hôm nay") đang hiển thị trong icon chuông | Mở icon chuông, tìm 1 item khớp NGỮ NGHĨA nhóm "sắp tới hạn" (không khớp "quá hạn"/"đã hết hạn") | Có ≥1 item content-desc khớp regex nhóm "sắp tới hạn" (xem file .yaml để biết cụm từ) | Không có item nào khớp trong toàn bộ danh sách cuộn được | ✅ | |
+| TB-04 | Click 1 item thông báo → hiển thị màn "danh sách bài tập", focus vào đúng bài tập đó | Có ≥1 item thông báo dạng bài tập (giao bài mới HOẶC sắp tới hạn) đang hiển thị | Mở icon chuông, tap vào 1 item, (nếu có) chấp nhận popup "AI hỗ trợ học tập" bằng "Tiếp tục" | Màn "Bài tập" (danh sách) hiện ra, đúng card/bài tập vừa click được cuộn tới/hiển thị nổi bật | Không thấy màn danh sách Bài tập sau khi click (vd rơi thẳng vào màn làm bài, hoặc báo lỗi, hoặc ở lại màn Thông báo) | ✅ (đã chạy - **FAIL, xem mục TB-04**) | |
+| TB-05 | Thông báo "HS đã hoàn thành bài tập" (báo phụ huynh, 3 mức điểm x 5 mẫu) + click → xem chi tiết bài làm | Có ≥1 thông báo dạng "đã hoàn thành ... bài tập ... điểm" đang hiển thị (HS vừa nộp xong 1 bài bất kỳ) | Mở icon chuông, tìm item khớp NGỮ NGHĨA "hoàn thành + bài tập + điểm", tap vào -> (nếu có) chấp nhận "AI hỗ trợ học tập" | Có ≥1 item khớp regex; sau khi click, hiện màn "Xem chi tiết bài làm" (điểm, đáp án đúng/sai từng câu, nút "Giải thích") | Không có item khớp; HOẶC click không dẫn tới màn xem chi tiết bài làm | ✅ (đã chạy - **PASS**, xem mục TB-05) | |
 
 ---
 
@@ -89,6 +116,11 @@ phần Web GV, xem docblock đầu file để biết đầy đủ lý do kiến 
   kế tiếp (session lúc đó đã login sẵn từ lượt chạy TB-02 trước đó trong cùng phiên làm việc nên
   nhánh login SKIPPED đúng nghĩa "đã có session" - đã verify riêng 1 lượt clearState thật ở TB-02
   bên dưới để xác nhận login.yaml tự chạy đúng khi cần login thật từ đầu).
+
+**Cập nhật (2026-09-03)** - regex mở rộng thêm cụm "gửi bài tập" (xem mục "QUY TẮC NỘI DUNG THÔNG
+BÁO CHÍNH THỨC" nhóm 1 mẫu #8) - đã chạy lại `maestro test` THẬT: **PASS** (exit code 0), khớp ngay
+màn hình đầu (không cần cuộn) qua cụm "đã giao cho" của item thật hiện có trên máy - regex mới
+không phá vỡ hành vi cũ, chỉ mở rộng thêm phạm vi khớp.
 
 ### Phát hiện đáng chú ý — KHÔNG có 1 mẫu câu thông báo cố định
 
@@ -223,3 +255,253 @@ khác gửi vào khoảng giữa trưa (~12h). Cần đối chiếu kỹ khi ch�
 trên (hoặc mẫu tương tự) xuất hiện MỚI quanh 19:00, đó là bằng chứng có (thêm) 1 đợt nhắc lúc 19:00;
 nếu KHÔNG thấy gì mới quanh 19:00 (chỉ thấy lại các item cũ từ trưa), cần báo lại rõ ràng thay vì
 mặc định "PASS" chỉ vì đã có nhắc hạn nộp (đợt trưa) trong danh sách.
+
+---
+
+## QUY TẮC NỘI DUNG THÔNG BÁO CHÍNH THỨC (theo ảnh yêu cầu QA đính kèm, 2026-09-03)
+
+QA cung cấp 1 bảng rule (ảnh) mô tả nội dung notification cho 2 nhóm sự kiện, mỗi nhóm **random 1
+trong 10 mẫu câu cố định** (biến `[...]` là placeholder điền động: tên HS, Thầy/Cô, tên bài, hạn
+nộp). Chép lại nguyên văn 10 mẫu của mỗi nhóm bên dưới để làm nguồn đối chiếu - LƯU Ý: các test case
+tự động (TB-01/TB-03 bên dưới) **KHÔNG match nguyên văn cả câu** (đúng tinh thần đã áp dụng ở TB-01
+gốc - xem mục "Phát hiện đáng chú ý" phía trên: có nhiều mẫu câu, match theo NGỮ NGHĨA/cụm từ chung
+bền vững hơn là match nguyên văn dễ vỡ khi câu chữ đổi nhỏ).
+
+### Nhóm 1 — "Giáo viên giao bài tập mới"
+
+1. `[Tên học sinh] ơi, [Thầy/Cô] [Tên giáo viên] vừa giao bài "[Tên bài tập]". Hạn nộp: [Hạn nộp]. Đừng quên hoàn thành nhé!`
+2. `[Thầy/Cô] [Tên giáo viên] đã giao cho [Tên học sinh] bài "[Tên bài tập]". Hạn nộp: [Hạn nộp].`
+3. `Bài tập mới "[Tên bài tập]" từ [Thầy/Cô] [Tên giáo viên] đã sẵn sàng cho [Tên học sinh]. Hạn nộp: [Hạn nộp].`
+4. `[Tên học sinh] nhận được bài tập "[Tên bài tập]" từ [Thầy/Cô] [Tên giáo viên]. Hạn nộp: [Hạn nộp]. Chúc con học tốt!`
+5. `[Thầy/Cô] [Tên giáo viên] nhắc [Tên học sinh] kiểm tra bài tập mới "[Tên bài tập]". Hạn nộp: [Hạn nộp].`
+6. `Đã có bài tập mới "[Tên bài tập]" từ [Thầy/Cô] [Tên giáo viên] đã sẵn sàng cho [Tên học sinh]. Hạn nộp: [Hạn nộp].`
+7. `[Thầy/Cô] [Tên giáo viên] chú ý: [Thầy/Cô] [Tên giáo viên] vừa giao bài "[Tên bài tập]" cho [Tên học sinh]. Hạn nộp: [Hạn nộp].`
+8. `[Thầy/Cô] [Tên giáo viên] gửi bài tập "[Tên bài tập]" cho [Tên học sinh]. Hạn nộp: [Hạn nộp]. Đừng bỏ lỡ!`
+9. `[Tên học sinh] ơi, đã có bài tập mới "[Tên bài tập]" từ [Thầy/Cô] [Tên giáo viên]. Hạn nộp: [Hạn nộp].`
+10. `[Thầy/Cô] [Tên giáo viên] giao bài "[Tên bài tập]" cho [Tên học sinh]. Hạn nộp: [Hạn nộp]. Hãy hoàn thành đúng hạn nhé!`
+
+**Đối chiếu với 5 mẫu ĐÃ QUAN SÁT THẬT ở TB-01 (2026-09-01, mục "Phát hiện đáng chú ý" phía trên)**:
+4/5 mẫu thật khớp gần đúng 1 trong 10 mẫu rule này (mẫu thật #4 "Cô Phương đã giao cho Ngoc bài
+..." ≈ mẫu rule #2; mẫu thật #1 "Cô Phương giao bài ... cho Ngoc" ≈ mẫu rule #10; mẫu thật #2 "Đã có
+bài tập mới ... cho Gia Linh" ≈ mẫu rule #6/#9; mẫu thật #3 "Bài tập mới ... đã sẵn sàng cho Ngoc" =
+mẫu rule #3 gần như nguyên văn) - xác nhận rule này PHẢN ÁNH ĐÚNG hệ thống thật đang chạy, không
+phải spec lý thuyết chưa triển khai. Cụm mới CHƯA từng quan sát thật trước đây: "gửi bài tập" (mẫu
+#8) - đã bổ sung vào regex TB-01 (xem file .yaml).
+
+### Nhóm 2 — "Sắp tới hạn nộp bài"
+
+1. `[Tên học sinh] ơi, bài "[Tên bài tập]" của [Thầy/Cô] [Tên giáo viên] sắp đến hạn nộp rồi!`
+2. `[Thầy/Cô] [Tên giáo viên] nhắc [Tên học sinh] bài "[Tên bài tập]" của [Thầy/Cô] [Tên giáo viên] sắp đến hạn nộp. Đừng quên hoàn thành nhé!`
+3. `Hạn nộp bài "[Tên bài tập]" của [Thầy/Cô] [Tên giáo viên] sắp tới rồi! Còn 1 ngày nữa là đến hạn nộp.`
+4. `[Tên học sinh] lưu ý: Bài "[Tên bài tập]" của [Thầy/Cô] [Tên giáo viên] sẽ hết hạn vào [Hạn nộp].`
+5. `[Thầy/Cô] [Tên giáo viên] nhắc nhở [Tên học sinh] hoàn thành bài "[Tên bài tập]" trước [Hạn nộp].`
+6. `Chỉ còn 1 ngày để [Tên học sinh] nộp bài "[Tên bài tập]" cho [Thầy/Cô] [Tên giáo viên]!`
+7. `[Tên học sinh] hãy kiểm tra lại bài "[Tên bài tập]" từ [Thầy/Cô] [Tên giáo viên], hạn nộp sắp đến rồi!`
+8. `[Thầy/Cô] [Tên giáo viên] gửi lời nhắc: "[Tên bài tập]" của [Tên học sinh] sắp hết hạn rồi!`
+9. `[Tên học sinh] đừng quên hoàn thành bài "[Tên bài tập]" từ [Thầy/Cô] [Tên giáo viên] trước hạn nộp!`
+10. `[Thầy/Cô] [Tên giáo viên] nhắc [Tên học sinh] bài "[Tên bài tập]" chỉ còn 24h nữa là đến hạn nộp.`
+
+**Đối chiếu với dữ liệu thật quan sát được (2026-09-03, khảo sát cho TB-04 bên dưới)**: item thật
+`Cô Phương nhắc Gia Linh bài "Choose the correct answer." chỉ còn 1 ngày nữa là đến hạn nộp!` khớp
+RẤT SÁT cấu trúc mẫu rule #10 (chỉ khác "1 ngày" thay vì "24h" - cùng nghĩa) - xác nhận nhóm 2 của
+rule này cũng PHẢN ÁNH ĐÚNG hệ thống thật, không phải spec chưa triển khai.
+
+### Hành vi click — Nhóm 1 & 2 ("giao bài mới" / "sắp tới hạn nộp bài")
+
+> User nhận được thông báo, click chọn sẽ hiển thị màn hình danh sách bài tập và focus vào bài tập đó.
+
+**ĐÃ KIỂM CHỨNG THẬT - KHÔNG KHỚP** (2026-09-03) - xem mục "TB-04" bên dưới để biết đầy đủ bằng
+chứng: hành vi thật là mở THẲNG màn LÀM BÀI (exercise doing screen) của bài tập đó, không phải màn
+danh sách Bài tập.
+
+### Nhóm 3 — "HS đã hoàn thành bài tập" (báo PHỤ HUYNH, KHÔNG phải HS)
+
+QA cung cấp thêm rule cho 1 nhóm sự kiện KHÁC (2026-09-03, cùng ngày, gửi tiếp text không kèm ảnh):
+thông báo khi HS **nộp xong 1 bài tập** (bất kể đúng/sai), nội dung xưng hô hướng tới **phụ huynh**
+("Ba mẹ...") chứ không phải HS như nhóm 1/2 - nhưng vẫn hiện CHUNG trong 1 icon chuông trên App HS
+(đúng như đã ghi nhận trước đó: bell này gộp cả thông báo hướng-HS lẫn hướng-phụ-huynh, xem các mẫu
+"Bố mẹ Gia Linh ơi..." đã quan sát ở TB-02). Random 1 trong 5 mẫu theo **3 mức điểm** (thang điểm
+bài tập vừa hoàn thành, KHÔNG phải điểm trung bình cộng dồn):
+
+**TH1 — Điểm dưới trung bình (< 5)**
+
+1. `{Tên học sinh} đã hoàn thành tất cả bài tập với kết quả {Điểm số} điểm. Ba mẹ hãy động viên con cố gắng hơn ở những bài tiếp theo nhé!`
+2. `{Tên học sinh} đã làm xong toàn bộ bài tập, kết quả lần này là {Điểm số} điểm. Ba mẹ hãy cùng con xem lại bài và hỗ trợ con học tốt hơn nhé!`
+3. `{Tên học sinh} đã hoàn thành các bài tập được giao, điểm của con là {Điểm số}. Ba mẹ hãy khích lệ con ôn tập thêm để tiến bộ hơn!`
+4. `Ba mẹ ơi, {Tên học sinh} đã hoàn thành bài tập với kết quả {Điểm số} điểm. Ba mẹ động viên con cố gắng hơn ở những lần sau nhé!`
+5. `{Tên học sinh} đã hoàn thành bài tập, điểm số lần này chưa cao ({Điểm số}). Ba mẹ hãy động viên giúp con cải thiện nhé!`
+
+**TH2 — Điểm trung bình (5 đến dưới 7)**
+
+1. `{Tên học sinh} đã hoàn thành tất cả bài tập với kết quả {Điểm số} điểm. Ba mẹ hãy động viên con tiếp tục cố gắng nhé!`
+2. `{Tên học sinh} đã làm xong toàn bộ bài tập và đạt {Điểm số} điểm. Ba mẹ hãy khen ngợi và khuyến khích con học tốt hơn nữa!`
+3. `Tuyệt vời! {Tên học sinh} đã hoàn thành các bài tập với kết quả {Điểm số} điểm. Ba mẹ hãy cùng con xem lại kết quả và động viên con nhé!`
+4. `{Tên học sinh} đã hoàn thành đầy đủ các bài tập được giao và đạt {Điểm số} điểm. Ba mẹ hãy tiếp tục đồng hành cùng con!`
+5. `Ba mẹ ơi, {Tên học sinh} đã hoàn thành tất cả bài tập với điểm {Điểm số}. Ba mẹ động viên con phát huy thêm nhé!`
+
+**TH3 — Điểm cao (từ 7 trở lên)**
+
+1. `Chúc mừng {Tên học sinh} đã hoàn thành tất cả bài tập với kết quả {Điểm số} điểm! Ba mẹ hãy động viên con tiếp tục phát huy nhé!`
+2. `{Tên học sinh} đã xuất sắc hoàn thành toàn bộ bài tập và đạt {Điểm số} điểm. Ba mẹ hãy khen ngợi con nhé!`
+3. `Tuyệt vời! {Tên học sinh} đã làm xong toàn bộ bài tập với điểm {Điểm số}. Ba mẹ hãy cùng con xem lại kết quả và động viên con học tiếp nhé!`
+4. `{Tên học sinh} đã hoàn thành đầy đủ các bài tập được giao và đạt {Điểm số} điểm. Ba mẹ hãy tiếp tục đồng hành cùng con trên hành trình học tập nhé!`
+5. `Ba mẹ ơi, {Tên học sinh} đã hoàn thành tất cả bài tập với kết quả {Điểm số} điểm. Ba mẹ dành lời khen cho con nhé!`
+
+**ĐÃ ĐỐI CHIẾU THẬT (2026-09-03, hồ sơ "QA Auto Child 20260828_131937", lớp "7QA-ReRun-0820")** -
+đọc content-desc thật trong icon chuông, tìm thấy **4 item khớp NGUYÊN VĂN 100%** với 4 mẫu rule ở
+trên (không phải chỉ giống cấu trúc - khớp TỪNG CHỮ), trải đủ cả 2/3 mức điểm (chưa quan sát được
+mẫu TH2 thật, nhưng không cần thiết - đã đủ bằng chứng rule PHẢN ÁNH ĐÚNG hệ thống thật):
+
+- Điểm 4 (TH1) → khớp NGUYÊN VĂN mẫu TH1 #2: `"QA Auto Child 20260828_131937 đã làm xong toàn bộ
+  bài tập, kết quả lần này là 4 điểm. Ba mẹ hãy cùng con xem lại bài và hỗ trợ con học tốt hơn
+  nhé!"`
+- Điểm 7 (TH3) → khớp NGUYÊN VĂN mẫu TH3 #1: `"Chúc mừng QA Auto Child 20260828_131937 đã hoàn
+  thành tất cả bài tập với kết quả 7 điểm! Ba mẹ hãy động viên con tiếp tục phát huy nhé!"`
+- Điểm 8 (TH3) → khớp NGUYÊN VĂN mẫu TH3 #5: `"Ba mẹ ơi, QA Auto Child 20260828_131937 đã hoàn
+  thành tất cả bài tập với kết quả 8 điểm. Ba mẹ dành lời khen cho con nhé!"`
+- Điểm 10 (TH3) → khớp NGUYÊN VĂN mẫu TH3 #4: `"QA Auto Child 20260828_131937 đã hoàn thành đầy đủ
+  các bài tập được giao và đạt 10 điểm. Ba mẹ hãy tiếp tục đồng hành cùng con trên hành trình học
+  tập nhé!"`
+
+### Hành vi click — Nhóm 3
+
+> User nhận được thông báo click chọn sẽ hiển thị màn hình xem chi tiết bài làm của học sinh: có
+> nhận xét, điểm, đáp án đúng/sai.
+
+**ĐÃ KIỂM CHỨNG THẬT - KHỚP ĐÚNG RULE** (2026-09-03, item điểm 8 ở trên) - **KHÁC hẳn Nhóm 1/2**
+(xem TB-04 - nhóm đó click SAI, mở thẳng màn làm bài): click vào item Nhóm 3 dẫn ĐÚNG tới màn "Xem
+chi tiết bài làm" (`exercise_show_answer_title` = "Choose the best answer. Focus on countable and
+uncountable nouns. (Đúng 8/10)") - hiện đủ: tiêu đề bài + tổng số đúng/tổng ("Đúng 8/10"), từng câu
+đánh dấu đúng/sai riêng (`exercise_show_answer_question_{i}_correct` / `..._incorrect` - quan sát
+thật: câu 1/2/3 = `_correct`, câu 4 = `_incorrect`), nội dung câu hỏi + đáp án, nút "Giải thích"
+(`exercise_explain_button`) và "Tiếp theo" (`exercise_show_answer_next_button`) để xem tiếp câu kế.
+Đúng khớp mô tả rule "có nhận xét, điểm, đáp án đúng/sai" - **KHÔNG PHẢI 1 bug như TB-04**.
+
+---
+
+## TB-03 — "Sắp tới hạn nộp bài" khớp 1 trong 10 mẫu rule (regex hẹp, loại trừ "quá hạn")
+
+`flows/app/thong_bao/TB-03-thong-bao-sap-den-han.yaml` - khác TB-02 (TB-02 dùng
+`REMINDER_KEYWORD_PATTERN` gộp chung CẢ 3 trạng thái, không loại trừ "quá hạn"/"đã hết hạn"): TB-03
+dùng regex CHỈ khớp các cụm xuất hiện ở 10 mẫu rule nhóm 2 (sắp đến hạn/sắp tới hạn/sẽ hết hạn/sắp
+hết hạn/chỉ còn N ngày...) và **loại trừ** câu có "quá hạn"/"đã hết hạn" (dấu hiệu nhóm "đã trễ hạn"
+- KHÔNG thuộc rule nhóm 2 này) bằng negative lookahead, tránh nhận nhầm 1 item "quá hạn" (nhóm KHÁC,
+chưa có rule cố định) thành "sắp tới hạn".
+
+### TB-03.yaml — ĐÃ CHẠY THẬT bằng `maestro test` (2026-09-03 ~08:50 giờ VN, thiết bị `3201d866d40a1681`)
+
+`maestro test flows/app/thong_bao/TB-03-thong-bao-sap-den-han.yaml -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888`
+- **PASS** (exit code 0) - login SKIPPED đúng (đã có session), mở icon chuông, `scrollUntilVisible`
+  khớp NGAY item thật `Cô Phương nhắc Gia Linh bài "Choose the correct answer." chỉ còn 1 ngày nữa
+  là đến hạn nộp!` qua cụm "còn 1 ngày nữa" (khớp `còn\s*\d+\s*(ngày|giờ|h)\s*nữa`) - item này đúng
+  khớp cấu trúc mẫu rule nhóm 2 #10, xác nhận cả regex lẫn rule đều phản ánh đúng dữ liệu thật đang
+  có trên máy, không phải giả định suông.
+
+---
+
+## TB-04 — Click thông báo: **CONFIRMED KHÔNG KHỚP RULE** (2026-09-03, thiết bị `3201d866d40a1681`)
+
+Rule QA mô tả: "User nhận được thông báo, click chọn sẽ hiển thị màn hình danh sách bài tập và
+focus vào bài tập đó." Đã kiểm chứng THẬT qua `MaestroMcpSession` (đăng nhập tài khoản PHONE
+`0915775115`, hồ sơ "Ngoc", lớp 3B/Khối 3, Pro) - **hành vi thật không khớp mô tả này**.
+
+### Tái hiện lần 1 — item nhóm "quá hạn" (KHÔNG thuộc rule nhóm 1/2, dùng để dò cơ chế chung)
+
+Item: `Cô Phương thông báo: "Read the text and choose the correct answer." của Ngoc đã quá hạn
+nộp., 13 giờ trước`.
+
+1. Mở icon chuông -> tap vào item trên.
+2. Popup **"AI hỗ trợ học tập"** (bottom sheet, xin đồng ý gửi nội dung học tập cho AI bên thứ 3 -
+   Google Gemini/Microsoft Azure AI) hiện ra NGAY (che 1 phần màn Thông báo) - đây là consent
+   1-lần/phiên đã biết trong repo (xem `flows/app/helpers/open-exercise.yaml` dòng 178-183, cùng
+   1 dialog dùng cho luồng "mở bài làm").
+   - Nếu bấm **"Để sau"** (từ chối): dialog đóng, app hiện toast **"Không thể bắt đầu làm bài"**,
+     ở lại NGUYÊN màn Thông báo - không có gì xảy ra thêm.
+   - Nếu bấm **"Tiếp tục"** (đồng ý - đúng cách xử lý chuẩn của repo, xem `open-exercise.yaml`):
+     app điều hướng THẲNG vào **màn LÀM BÀI** (`exercise_title` = "Read the text and choose the
+     correct answer.", câu hỏi 1/10, các đáp án, nút "Tiếp tục"/`exercise_check_button`) - **KHÔNG
+     PHẢI** màn danh sách Bài tập.
+3. Thoát màn làm bài bằng `exercise_close_button` (không trả lời câu nào) -> app quay lại **màn
+   Thông báo** (không phải màn danh sách Bài tập) - vì đó là màn đã push từ trước khi mở bài làm.
+
+### Tái hiện lần 2 — item nhóm 2 CHÍNH THỨC "Sắp tới hạn nộp bài" (đúng phạm vi rule)
+
+Item: `Cô Phương nhắc Gia Linh bài "Choose the correct answer." chỉ còn 1 ngày nữa là đến hạn nộp!,
+13 giờ trước` (khớp cấu trúc mẫu rule nhóm 2 #10 - xem mục rule phía trên).
+
+1. Mở icon chuông (đã có sẵn từ bước dọn dẹp trước) -> tap vào item trên.
+2. Popup "AI hỗ trợ học tập" xuất hiện lại (mỗi lần mở 1 bài MỚI đều hỏi lại - không phải chỉ
+   1 lần/phiên như đoán ban đầu) -> bấm "Tiếp tục".
+3. Kết quả: điều hướng THẲNG vào màn LÀM BÀI (`exercise_title` = "Choose the correct answer.", câu
+   hỏi "Which phrase means "đạp xe"?", 4 đáp án, `exercise_check_button` "Tiếp theo") - **CÙNG 1
+   HÀNH VI** như lần 1, dù đây là item thuộc ĐÚNG 1 trong 2 nhóm rule chính thức (không phải nhóm
+   "quá hạn" ngoài phạm vi rule).
+
+### Kết luận
+
+**Xác nhận 2 lần độc lập, 2 item khác nhau (1 item "quá hạn" ngoài rule + 1 item "sắp tới hạn"
+ĐÚNG phạm vi rule)**: click vào 1 item thông báo bài tập mở **THẲNG màn làm bài (exercise doing
+screen)** của đúng bài đó, chứ **KHÔNG** hiển thị "màn hình danh sách bài tập và focus vào bài tập
+đó" như rule mô tả. Đóng màn làm bài sẽ quay lại màn Thông báo (nơi vừa tap ra), không phải màn
+danh sách Bài tập - nghĩa là toàn bộ hành trình KHÔNG đi qua màn danh sách Bài tập ở bất kỳ bước
+nào.
+
+**Ghi nhận cho dev**: đây là 1 sự khác biệt THẬT giữa rule/spec và hành vi app hiện tại - không rõ
+đây là (a) rule mô tả sai/lỗi thời so với hành vi đã triển khai thật (mở thẳng bài làm có thể là
+UX chủ đích, tiện hơn cho HS), hay (b) app đang làm sai so với spec đúng (spec muốn HS thấy được
+NGỮ CẢNH trong danh sách - vd các bài khác cùng lúc - trước khi vào làm bài). Cần xác nhận lại với
+PM/QA gốc trước khi coi đây là bug cần fix hay chỉ là spec cần cập nhật lại cho khớp thực tế.
+
+**Phát hiện phụ**: popup "AI hỗ trợ học tập" xuất hiện lại ở CẢ 2 lần thử (2 bài khác nhau trong
+CÙNG 1 phiên đăng nhập) - không phải "chỉ hỏi 1 lần/phiên" như có thể suy đoán từ tên gọi "consent"
+- cần lưu ý khi viết case mới có luồng "mở bài làm" từ notification: luôn xử lý `runFlow.when`
+cho dialog này (đúng pattern `open-exercise.yaml` dòng 178-183), không giả định nó chỉ xuất hiện
+lần đầu.
+
+File `.yaml` cho case này (`TB-04-thong-bao-click-focus.yaml`) viết ASSERT ĐÚNG THEO RULE (màn danh
+sách Bài tập hiện ra + đúng bài được cuộn tới) - **CHẠY THẬT SẼ FAIL** ở bước cuối, đúng như bằng
+chứng ở trên - đây là chủ đích (test case theo rule, không phải theo hành vi bug hiện tại), giữ lại
+để tự động phát hiện khi nào dev sửa/spec đổi thì case này tự chuyển PASS.
+
+### TB-04.yaml — ĐÃ CHẠY THẬT bằng `maestro test` (2026-09-03 ~08:55 giờ VN, thiết bị `3201d866d40a1681`)
+
+`maestro test flows/app/thong_bao/TB-04-thong-bao-click-focus.yaml -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888`
+- **FAILED đúng như dự đoán** (exit code khác 0) - toàn bộ các bước TRƯỚC đó đều COMPLETED bình
+  thường (login SKIPPED đúng vì đã có session, mở icon chuông, cuộn tìm + tap item khớp regex, `Run
+  flow when "AI hỗ trợ học tập"` lần này **SKIPPED** - dialog KHÔNG xuất hiện lượt chạy này, khác 2
+  lần thử qua MCP session trước đó cùng ngày, có thể vì tài khoản đã "Tiếp tục" đủ số lần cần thiết
+  từ các lượt thử trước - xác nhận thêm là dialog này KHÔNG xuất hiện theo quy luật cố định, đến
+  bước cuối `extendedWaitUntil` chờ marker "Bài tập về nhà|Bài tập nâng cao|Bạn không có bài tập
+  nào đang chờ" **FAILED** đúng 15s timeout.
+- Screenshot debug tại thời điểm FAILED
+  (`~/.maestro/tests/2026-09-03_085534/.../step-019-assertCondition-...png`) xác nhận NGUYÊN VĂN:
+  app đang đứng ở màn LÀM BÀI thật ("Choose the correct answer.", câu hỏi "Which phrase means "đạp
+  xe"?", 4 đáp án cycling/flying a kite/playing badminton/painting a picture, nút "Tiếp theo") -
+  **KHÔNG PHẢI** màn danh sách Bài tập - khớp CHÍNH XÁC bằng chứng đã ghi nhận qua MCP session ở
+  trên (2 lần tái hiện độc lập trước đó) - tổng cộng **3/3 lần thử độc lập** (2 qua MCP + 1 qua
+  `maestro test` CLI thật) đều cho CÙNG 1 kết quả: click thông báo mở thẳng màn làm bài, không phải
+  màn danh sách Bài tập như rule mô tả.
+
+---
+
+## TB-05 — "HS đã hoàn thành bài tập" khớp rule + click ĐÚNG (2026-09-03, thiết bị `3201d866d40a1681`)
+
+`flows/app/thong_bao/TB-05-thong-bao-hoan-thanh-bai-tap.yaml`:
+`maestro test flows/app/thong_bao/TB-05-thong-bao-hoan-thanh-bai-tap.yaml -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888`
+
+- **PASS** (exit code 0, chạy TOÀN BỘ end-to-end thật, KHÔNG cố ý FAIL như TB-04) - login SKIPPED
+  đúng (đã có session, hồ sơ active lúc chạy là "QA Auto Child 20260828_131937" - login.yaml SKIP
+  không phụ thuộc PHONE param có khớp hồ sơ active hay không, chỉ cần CÓ session, đúng cơ chế đã
+  dùng ở TB-01/03/04), mở icon chuông, `scrollUntilVisible` khớp NGAY màn đầu (item điểm 8, xem
+  mục "Nhóm 3" phía trên) qua regex `.*(đã hoàn thành|đã làm xong|đã xuất sắc hoàn thành).*(bài
+  tập).*(điểm).*`, tap vào item -> `AI hỗ trợ học tập` SKIPPED (không xuất hiện cho luồng "xem lại
+  bài đã nộp", khác luồng "mở bài làm mới" của TB-04 - đúng dự đoán trong docblock file) ->
+  `exercise_show_answer_title` COMPLETED ngay.
+- Screenshot bằng chứng
+  (`~/.maestro/tests/2026-09-03_163235/.../TB-05-show-answer-detail.png`) xác nhận màn "Xem chi
+  tiết bài làm" đầy đủ: tiêu đề bài + 4 chip "Câu 1/2/3/4" (3 xanh lá = đúng, 1 đỏ = sai, khớp
+  đúng thứ tự đã đọc qua hierarchy: câu 4 sai), câu hỏi + 4 đáp án (đáp án HS đã chọn "bowls" tô
+  xanh - SAI so với đáp án đúng thật của câu này, đúng ngữ nghĩa "câu 4 incorrect"), nút "Giải
+  thích" (💡) và "Tiếp theo" - khớp ĐÚNG mô tả rule "có nhận xét, điểm, đáp án đúng/sai" 100%.
+- **Kết luận**: Nhóm 3 ("HS đã hoàn thành bài tập") là nhóm DUY NHẤT trong 3 nhóm rule mà CẢ nội
+  dung LẪN hành vi click đều khớp đúng như QA mô tả - khác hẳn Nhóm 1/2 (TB-04, click sai).

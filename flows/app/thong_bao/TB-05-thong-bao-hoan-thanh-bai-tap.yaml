@@ -1,0 +1,70 @@
+# TB-05 — Thông báo "HS đã hoàn thành bài tập" (báo phụ huynh, rule QA 2026-09-03 - xem
+# flows/app/thong_bao/TEST-CASES.md mục "QUY TẮC NỘI DUNG THÔNG BÁO CHÍNH THỨC" Nhóm 3 để đọc
+# nguyên văn cả 15 mẫu, 3 mức điểm x 5 mẫu/mức) + verify hành vi click.
+#
+# KHÁC TB-04 (flows/app/thong_bao/TB-04-thong-bao-click-focus.yaml, nhóm 1/2 "giao bài mới"/"sắp
+# tới hạn" - click SAI, mở thẳng màn làm bài thay vì danh sách Bài tập): nhóm 3 này **click ĐÚNG
+# như rule mô tả** - đã xác nhận thật qua MaestroMcpSession (2026-09-03, hồ sơ "QA Auto Child
+# 20260828_131937") dẫn tới màn "Xem chi tiết bài làm" (`exercise_show_answer_title`), không phải
+# màn làm bài (`exercise_title`/`exercise_check_button` như TB-04) - nên case này viết ASSERT PASS
+# thật, không phải "cố ý FAIL để track bug" như TB-04.
+#
+# Cụm dương tính cho nội dung (khớp NGỮ NGHĨA chung cả 15 mẫu, KHÔNG match nguyên văn - cùng tinh
+# thần TB-01/TB-03): tất cả 15 mẫu đều chứa 1 trong 3 cụm động từ "đã hoàn thành"/"đã làm
+# xong"/"đã xuất sắc hoàn thành", theo sau (không nhất thiết liền kề) bởi "bài tập" rồi "điểm" (số
+# điểm/"điểm số"). Đã đối chiếu THẬT: tìm thấy 4 item khớp NGUYÊN VĂN 100% với 4/15 mẫu rule (điểm
+# 4/7/8/10, xem TEST-CASES.md mục "Nhóm 3" để đọc đầy đủ).
+#
+# Consent "AI hỗ trợ học tập": xử lý phòng hờ giống TB-04 (`runFlow.when` + "Tiếp tục") dù màn "Xem
+# chi tiết bài làm" là màn XEM LẠI (không phải làm bài AI-graded mới) nên nhiều khả năng KHÔNG kích
+# hoạt dialog này - vẫn giữ bước xử lý để an toàn nếu hành vi đổi khác ở lượt chạy sau.
+#
+# Chạy:
+#   maestro test flows/app/thong_bao/TB-05-thong-bao-hoan-thanh-bai-tap.yaml \
+#     -e APP_ID=com.inet.parrotedu -e PHONE=<test_data/accounts.env PHONE> -e OTP=<...OTP>
+# LƯU Ý: cần tài khoản/hồ sơ ĐANG ĐĂNG NHẬP đã có ≥1 bài tập vừa nộp xong gần đây (thông báo hoàn
+# thành có thể bị đẩy khỏi đầu danh sách nếu có nhiều thông báo mới hơn xen giữa) - nếu FAIL ở bước
+# `scrollUntilVisible` đầu tiên, đó là do THIẾU DỮ LIỆU (chưa có bài nào vừa hoàn thành), không
+# phải lỗi app - cần hoàn thành 1 bài tập bất kỳ trước khi chạy lại (vd
+# `npm run run-homework-random-e2e` trong thư mục automation/).
+# LAUNCH: `launch-keep-session.yaml` (KHÔNG phải `subflows/launch_app.yaml`) - cùng lý do đã xác
+# nhận thật ở TB-01/TB-02/TB-03/TB-04 (xem docblock các file đó).
+appId: ${APP_ID}
+tags:
+  - regression
+name: TB-05 - Thong bao HS hoan thanh bai tap + click ve xem chi tiet bai lam
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-notification.yaml
+- scrollUntilVisible:
+    element:
+      text: ".*(đã hoàn thành|đã làm xong|đã xuất sắc hoàn thành).*(bài tập).*(điểm).*"
+    direction: DOWN
+    timeout: 30000
+    speed: 60
+    waitToSettleTimeoutMs: 500
+- takeScreenshot: TB-05-notification-matched
+
+- tapOn:
+    text: ".*(đã hoàn thành|đã làm xong|đã xuất sắc hoàn thành).*(bài tập).*(điểm).*"
+    index: 0
+
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+# ĐÚNG THEO RULE: màn "Xem chi tiết bài làm" - đã xác nhận thật qua marker
+# `exercise_show_answer_title` (chứa "(Đúng N/M)") - đây LÀ hành vi ĐÚNG (không phải case cố ý FAIL
+# như TB-04).
+- extendedWaitUntil:
+    visible:
+      id: "exercise_show_answer_title"
+    timeout: 15000
+- takeScreenshot: TB-05-show-answer-detail

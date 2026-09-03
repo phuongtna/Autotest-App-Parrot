@@ -17,10 +17,13 @@
 # chỉ verify NỬA CÒN LẠI: App HS mở icon chuông (`../helpers/open-notification.yaml`) rồi tìm 1
 # item mang NGỮ NGHĨA "giao bài mới" - KHÔNG giả định 1 mẫu câu cố định (khảo sát thật 2026-09-01
 # cho thấy CÓ NHIỀU mẫu câu khác nhau cho cùng 1 sự kiện, xem TEST-CASES.md mục "Phát hiện đáng chú
-# ý"). Regex OR bên dưới khớp 1 trong 5 cụm động từ đã xác nhận thật ở CẢ 5 mẫu câu quan sát được:
-# "giao bài", "bài tập mới", "nhận được bài tập", "đã giao cho", "đã sẵn sàng" - port nguyên vẹn từ
-# ASSIGNMENT_SHAPE_PATTERNS trong
-# flows/web/giao_bai_tap/e2e-teacher-assign-notification-immediate.mjs.
+# ý"). Regex OR bên dưới khớp 1 trong 6 cụm động từ: 5 cụm đã xác nhận thật ở 5 mẫu câu quan sát
+# được ("giao bài", "bài tập mới", "nhận được bài tập", "đã giao cho", "đã sẵn sàng" - port nguyên
+# vẹn từ ASSIGNMENT_SHAPE_PATTERNS trong
+# flows/web/giao_bai_tap/e2e-teacher-assign-notification-immediate.mjs) + 1 cụm MỚI "gửi bài tập"
+# (2026-09-03, bổ sung theo rule 10-mẫu chính thức của QA - xem TEST-CASES.md mục "QUY TẮC NỘI
+# DUNG THÔNG BÁO CHÍNH THỨC" nhóm 1 mẫu #8 "... gửi bài tập ... cho ..." - cụm này CHƯA từng quan
+# sát thật trước đây, 5 cụm cũ không khớp được nó).
 #
 # KHÁC file .mjs ở trên: file .mjs đối chiếu CHẶT (đúng `"<tên bài vừa giao>"` + đúng
 # `Hạn nộp: <ngày hôm nay>`, đo timing chính xác kể từ lúc GV bấm giao). File YAML THUẦN này KHÔNG
@@ -63,7 +66,7 @@ name: TB-01 (app-side) - Thong bao giao bai moi trong icon chuong
 - runFlow: ../helpers/open-notification.yaml
 - scrollUntilVisible:
     element:
-      text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng).*"
+      text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng|gửi bài tập).*"
     direction: DOWN
     timeout: 30000
     speed: 60

@@ -1,0 +1,67 @@
+# TB-04 — Click 1 item thông báo bài tập PHẢI hiển thị màn "danh sách Bài tập" + focus vào đúng
+# bài tập đó (rule QA 2026-09-03, xem flows/app/thong_bao/TEST-CASES.md mục "QUY TẮC NỘI DUNG
+# THÔNG BÁO CHÍNH THỨC" phần "Hành vi click").
+#
+# !!! ĐÃ CHẠY THẬT (2026-09-03, thiết bị 3201d866d40a1681): FAIL !!! - xem TEST-CASES.md mục
+# "TB-04" để biết đầy đủ bằng chứng (2 lần tái hiện độc lập, 2 item khác nhau - 1 item "quá hạn" +
+# 1 item ĐÚNG nhóm rule "Sắp tới hạn nộp bài"). Hành vi THẬT: click mở THẲNG màn LÀM BÀI (exercise
+# doing screen) của bài đó, KHÔNG PHẢI màn danh sách Bài tập - file này viết ASSERT ĐÚNG THEO RULE
+# (cố ý, không viết theo hành vi bug hiện tại) nên bước `extendedWaitUntil` cuối cùng SẼ FAIL khi
+# chạy `maestro test` cho tới khi dev sửa app hoặc QA xác nhận lại rule/cập nhật spec cho khớp thực
+# tế - KHÔNG xoá/sửa file này để "cho pass giả" khi gặp FAIL đó, đó là bằng chứng thật.
+#
+# Consent "AI hỗ trợ học tập" xuất hiện lại MỖI LẦN mở 1 bài MỚI (ĐÃ XÁC NHẬN THẬT 2026-09-03 - qua
+# 2 lần thử độc lập với 2 bài khác nhau trong CÙNG 1 phiên đăng nhập, cả 2 lần đều hiện lại) - KHÔNG
+# phải chỉ 1 lần/phiên như tên gọi "consent" có thể gợi ý. Xử lý bằng "Tiếp tục" (chấp nhận) - đúng
+# cách xử lý chuẩn đã verify trong flows/app/helpers/open-exercise.yaml (dòng 178-183), KHÔNG dùng
+# "Để sau" (từ chối) - đã xác nhận thật "Để sau" khiến app báo lỗi toast "Không thể bắt đầu làm
+# bài" và không điều hướng đi đâu cả (không giúp quan sát được màn đích thật sự là gì).
+#
+# Chọn item để tap: DÙNG CHUNG 1 regex "assignment-shaped" gộp cả 2 nhóm rule chính thức (nhóm 1
+# "giao bài mới" port từ TB-01 + nhóm 2 "sắp tới hạn" port từ TB-03) - KHÔNG cố định 1 item cụ thể
+# (nội dung/thứ tự danh sách đổi liên tục theo dữ liệu thật) - `index: 0` để tap ĐÚNG 1 item xác
+# định khi có nhiều item cùng khớp (tránh lỗi "nhiều match" - xem bài học tương tự ở
+# flows/app/TEST-CASES.md khắp repo về "Confirm-dialog selector overlap").
+#
+# Chạy:
+#   maestro test flows/app/thong_bao/TB-04-thong-bao-click-focus.yaml -e APP_ID=com.inet.parrotedu \
+#     -e PHONE=<test_data/accounts.env PHONE> -e OTP=<test_data/accounts.env OTP>
+# LAUNCH: `launch-keep-session.yaml` (KHÔNG phải `subflows/launch_app.yaml`) - cùng lý do đã xác
+# nhận thật ở TB-01/TB-02/TB-03 (xem docblock các file đó).
+appId: ${APP_ID}
+tags:
+  - regression
+name: TB-04 - Click thong bao phai ve danh sach Bai tap (hien FAIL - xem TEST-CASES.md)
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-notification.yaml
+- scrollUntilVisible:
+    element:
+      text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng|gửi bài tập|sắp đến hạn|sắp tới hạn|sắp hết hạn|sẽ hết hạn|chỉ còn.*hạn nộp|còn\\s*\\d+\\s*(ngày|giờ|h)\\s*nữa).*"
+    direction: DOWN
+    timeout: 30000
+    speed: 60
+    waitToSettleTimeoutMs: 500
+- tapOn:
+    text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng|gửi bài tập|sắp đến hạn|sắp tới hạn|sắp hết hạn|sẽ hết hạn|chỉ còn.*hạn nộp|còn\\s*\\d+\\s*(ngày|giờ|h)\\s*nữa).*"
+    index: 0
+
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+# ĐÚNG THEO RULE: phải là màn danh sách Bài tập (cùng marker open-tab-homework.yaml dùng để chốt
+# tab Bài tập đã render xong) - KHÔNG PHẢI màn làm bài. Bằng chứng thật hiện tại: đây là bước SẼ
+# FAIL (app rơi vào exercise_title/exercise_check_button thay vì các marker dưới đây).
+- extendedWaitUntil:
+    visible:
+      text: ".*(Bài tập về nhà|Bài tập nâng cao|Bạn không có bài tập nào đang chờ).*"
+    timeout: 15000
+- takeScreenshot: TB-04-after-click-expect-homework-list

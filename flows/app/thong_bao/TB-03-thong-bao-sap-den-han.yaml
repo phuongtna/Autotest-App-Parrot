@@ -1,0 +1,43 @@
+# TB-03 — Thông báo nhóm "Sắp tới hạn nộp bài" khớp 1 trong 10 mẫu rule chính thức của QA
+# (2026-09-03, xem flows/app/thong_bao/TEST-CASES.md mục "QUY TẮC NỘI DUNG THÔNG BÁO CHÍNH THỨC"
+# nhóm 2 để đọc nguyên văn cả 10 mẫu).
+#
+# KHÁC TB-02 (flows/app/thong_bao/TB-02-thong-bao-nhac-han-19h.yaml): TB-02 dùng
+# REMINDER_KEYWORD_PATTERN GỘP CHUNG cả 3 trạng thái nhắc nhở (hôm nay/quá hạn/sắp tới hạn), không
+# loại trừ "quá hạn"/"đã hết hạn" - đúng mục đích ban đầu (verify CÓ cơ chế nhắc nói chung). File
+# này verify RIÊNG đúng 1 nhóm rule mới ("Sắp tới hạn nộp bài", KHÔNG bao gồm "quá hạn"/"đã hết
+# hạn" - đó là 1 trạng thái KHÁC, chưa có mẫu câu rule cố định nào được QA cung cấp) - regex CỐ Ý
+# hẹp hơn TB-02, dùng negative lookahead loại trừ 2 cụm "quá hạn"/"đã hết hạn" để không nhận nhầm.
+#
+# Cụm dương tính (khớp NGỮ NGHĨA chung của 10 mẫu rule nhóm 2, KHÔNG match nguyên văn cả câu - cùng
+# tinh thần TB-01/TB-02, vì câu chữ thật có thể lệch nhỏ so với rule): "sắp đến hạn", "sắp tới hạn",
+# "sắp hết hạn", "sẽ hết hạn", "chỉ còn ... hạn nộp", "còn N ngày/giờ nữa", "nhắc nhở ... hoàn
+# thành", "đừng quên hoàn thành". Đã đối chiếu THẬT (2026-09-03, xem TEST-CASES.md mục TB-04): item
+# thật `"...chỉ còn 1 ngày nữa là đến hạn nộp!"` khớp regex này qua cụm "còn 1 ngày nữa".
+#
+# Chạy:
+#   maestro test flows/app/thong_bao/TB-03-thong-bao-sap-den-han.yaml -e APP_ID=com.inet.parrotedu \
+#     -e PHONE=<test_data/accounts.env PHONE> -e OTP=<test_data/accounts.env OTP>
+# LAUNCH: `launch-keep-session.yaml` (KHÔNG phải `subflows/launch_app.yaml`) - cùng lý do đã xác
+# nhận thật ở TB-01/TB-02 (xem docblock 2 file đó): `subflows/launch_app.yaml` thiếu bước chờ ổn
+# định UI trước check `when: visible` của login.yaml, gây SKIPPED sai nhánh login.
+appId: ${APP_ID}
+tags:
+  - regression
+name: TB-03 - Thong bao nhom Sap toi han nop bai khop 10 mau rule
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-notification.yaml
+- scrollUntilVisible:
+    element:
+      text: ".*(?!.*(quá hạn|đã hết hạn))(.*(sắp đến hạn|sắp tới hạn|sắp hết hạn|sẽ hết hạn|chỉ còn.*hạn nộp|còn\\s*\\d+\\s*(ngày|giờ|h)\\s*nữa|nhắc nhở.*hoàn thành|đừng quên hoàn thành).*)"
+    direction: DOWN
+    timeout: 30000
+    speed: 60
+    waitToSettleTimeoutMs: 500
+- takeScreenshot: TB-03-notification-matched

@@ -40,6 +40,15 @@
  * thực theo đúng tiêu chí đề bài ("Handler không hỗ trợ Question Type" là 1 lý do FAIL hợp lệ).
  */
 
+import {
+  parseBoundsSimple,
+  findNodeBounds,
+  isFullyInViewport,
+  collectByScrollingIfNeeded,
+  ensureIdVisible,
+  ensureTextVisible,
+} from "../../bridge/scrollUntilVisible.js";
+
 const AI_POPUP_TRIGGER = "AI hỗ trợ học tập";
 const AI_POPUP_ACTION = "Tiếp tục";
 // Chưa xác nhận chữ CTA thật ở câu CUỐI (README không nói tới nút "Nộp bài" riêng - mô tả "làm hết
@@ -196,75 +205,11 @@ export function resolveFillWordValues(questionModel) {
  * (bat cac phan tu chua duoc mount o lan doc truoc, dung cho ca 2 kieu UI ScrollView/RecyclerView
  * ma khong can biet truoc dang nao).
  */
-const CONTENT_SWIPE = { start: "50%,80%", end: "50%,30%", duration: 400 };
-const MAX_CONTENT_SCROLLS = 10;
-
-/** Bounds string "[x1,y1][x2,y2]" -> {x1,y1,x2,y2} - dung LAI dinh dang da xac nhan that trong
- * discovery/homeworkUiList.js#parseBounds() (khong bia dinh dang moi). */
-function parseBoundsSimple(boundsStr) {
-  const m = /\[(\d+),(\d+)\]\[(\d+),(\d+)\]/.exec(boundsStr || "");
-  if (!m) return null;
-  const [, x1, y1, x2, y2] = m.map(Number);
-  return { x1, y1, x2, y2 };
-}
-
-/** Tim bounds cua node dau tien khop resource-id pattern (DFS) - dung "exercise_doing_screen" lam
- * khung nhin (viewport) THAM CHIEU DUY NHAT: container goc, LUON co mat o moi man Doing bat ke dang
- * cau hoi (da xac nhan qua hierarchy dump that FILL_WORD/CONNECT cung ngay) - khong tu doan kich
- * thuoc man hinh thiet bi. */
-function findNodeBounds(tree, idPattern) {
-  let found = null;
-  function walk(node) {
-    if (found) return;
-    if (idPattern.test(node?.attributes?.["resource-id"] || "")) {
-      found = parseBoundsSimple(node.attributes.bounds);
-      return;
-    }
-    for (const c of node?.children ?? []) walk(c);
-  }
-  walk(tree);
-  return found;
-}
-
-/** true neu bounds NAM HOAN TOAN trong viewport (khong bi cat tren/duoi) - dinh nghia "visible +
- * day du" DUY NHAT dung trong file nay (yeu cau ro rang: khong dua vao "ton tai trong hierarchy" de
- * ket luan visible). Khong xac dinh duoc bounds/viewport -> fail-open (coi nhu du, khong chan flow -
- * an toan hon la treo vong lap cuon vo ich khi khong doc duoc toa do). */
-function isFullyInViewport(bounds, viewport) {
-  if (!bounds || !viewport) return true;
-  return bounds.y1 >= viewport.y1 && bounds.y2 <= viewport.y2;
-}
-
-/**
- * Nguyen tac CHUNG cho ca 3 dang bai (FILL_WORD/CONNECT/TEXT_CHOICE-IMAGE_CHOICE_GRID): doc hien
- * tai -> kiem tra du chua (`isDone`) -> neu chua, cuon 1 buoc + doc lai + gop vao accumulator
- * (`collect`, PHAI idempotent/merge duoc qua nhieu lan goi) -> lap lai toi da `MAX_CONTENT_SCROLLS`
- * lan HOAC toi khi 2 lan cuon lien tiep khong tien trien them (`sizeOf` khong tang - CUNG tieu chi
- * dung-som da dung o findAssignment.js/collectVisibleHomeworkCards()). KHONG cuon gi ca neu `tree`
- * ban dau da du (0 chi phi them - giu nguyen hieu nang cho cau vua 1 man hinh, da so cau thuc te).
- * @returns {Promise<{ tree: Object, acc: any, scrollCount: number }>}
- */
-async function collectByScrollingIfNeeded(bridge, initialTree, { collect, isDone, sizeOf, initialAcc }) {
-  let tree = initialTree;
-  let acc = collect(tree, initialAcc);
-  if (isDone(acc)) return { tree, acc, scrollCount: 0 };
-
-  let lastSize = sizeOf(acc);
-  let noProgressStreak = 0;
-  let scrollCount = 0;
-  while (scrollCount < MAX_CONTENT_SCROLLS && noProgressStreak < 2) {
-    const swipeResult = await bridge.runSteps([{ swipe: CONTENT_SWIPE }, { waitForAnimationToEnd: { timeout: 600 } }]);
-    if (!swipeResult.success) break;
-    scrollCount++;
-    tree = await bridge.hierarchy();
-    acc = collect(tree, acc);
-    if (isDone(acc)) return { tree, acc, scrollCount };
-    const size = sizeOf(acc);
-    noProgressStreak = size > lastSize ? 0 : noProgressStreak + 1;
-    lastSize = size;
-  }
-  return { tree, acc, scrollCount };
-}
+// `parseBoundsSimple`/`findNodeBounds`/`isFullyInViewport`/`collectByScrollingIfNeeded` ĐÃ DI DỜI
+// sang `automation/bridge/scrollUntilVisible.js` (2026-09-04, "áp dụng UI-visibility-safety cho
+// mọi dạng bài + cả 2 pipeline") - KHÔNG đổi thuật toán, chỉ tách ra để `runtime/handlers/*.js`
+// (pipeline thứ 2, trước đây KHÔNG có cơ chế scroll nào) tái sử dụng ĐÚNG cùng 1 thuật toán thay vì
+// viết lại. Import ở đầu file.
 
 /** FILL_WORD: cuon (neu can) toi khi doc du SO O TRONG mong doi (theo CMS) - merge index qua cac
  * lan doc (Set, idempotent). */
@@ -533,8 +478,8 @@ export class HomeworkExamEngine {
    *   | { supported: false, reason: string, texts: string[] }>}
    */
   async answerCurrentQuestion(questionModel = null, { wantCorrect = true } = {}) {
-    const tree = this.bridge.hierarchy();
-    const textsBefore = collectTexts(tree);
+    let tree = this.bridge.hierarchy();
+    let textsBefore = collectTexts(tree);
     const isVisible = (t) => this.bridge.isVisible(t);
 
     // CONNECT (dạng Nối/Match) - PHẢI kiểm tra TRƯỚC decideAnswerAction(): dispatcher đó chỉ biết
@@ -554,7 +499,16 @@ export class HomeworkExamEngine {
           texts: textsBefore,
         };
       }
-      const slots = collectConnectSlots(tree);
+      // PHASE A (nội dung): cuộn (chỉ khi cần - xem ensureAllConnectPairsVisible) tới khi đọc đủ
+      // TEXT cả 2 phía của TOÀN BỘ cặp đúng - bản gốc này TRƯỚC ĐÂY đọc thẳng collectConnectSlots()
+      // KHÔNG cuộn (khác bản answerCurrentQuestionOneShot() bên dưới đã có sẵn bước này) - vá lại
+      // cho nhất quán, tránh throw BLOCKED_CONNECT_INTERACTION oan khi câu dài hơn 1 màn hình.
+      const connectVisibleResult = await ensureAllConnectPairsVisible(this.bridge, tree, correctPairs);
+      const slots = connectVisibleResult.slots;
+      if (connectVisibleResult.scrollCount > 0) {
+        tree = connectVisibleResult.tree;
+        textsBefore = collectTexts(tree);
+      }
       // wantCorrect=false + >=2 cặp: xoay vòng rightText 1 vị trí -> đảm bảo KHÔNG cặp nào đúng
       // (derangement bằng rotate, không có điểm cố định khi n>=2). n===1 không thể tạo sai (chỉ 1
       // lựa chọn khả dĩ) - nối đúng, trả isTargetCorrect=true bất kể wantCorrect yêu cầu gì.
@@ -581,11 +535,19 @@ export class HomeworkExamEngine {
         throw new Error(`CONNECT: tap cặp thất bại: ${connectTapResult.error}`);
       }
 
-      const afterTapTree = this.bridge.hierarchy();
+      let afterTapTree = this.bridge.hierarchy();
       if (!hasResourceId(afterTapTree, /^exercise_check_button$/)) {
-        throw new Error(
-          `CONNECT: đã tap đủ ${n} cặp nhưng "exercise_check_button" chưa xuất hiện - chưa nối kín hết ô.`,
-        );
+        // PHASE B (control): "chưa xuất hiện" ở đây trước đây kết luận NGAY từ 1 lần đọc - có thể
+        // chỉ là chưa cuộn tới (RecyclerView ảo hoá chưa mount control) chứ không hẳn là chưa nối
+        // kín ô. Thử cuộn 1 lượt bounded trước khi kết luận thật (không lẫn "ngoài khung hình" với
+        // "không tồn tại").
+        const ctaRecovery = await ensureIdVisible(this.bridge, afterTapTree, /^exercise_check_button$/);
+        afterTapTree = ctaRecovery.tree;
+        if (!hasResourceId(afterTapTree, /^exercise_check_button$/)) {
+          throw new Error(
+            `CONNECT: đã tap đủ ${n} cặp nhưng "exercise_check_button" chưa xuất hiện (đã thử cuộn ${ctaRecovery.scrollCount} lần) - chưa nối kín hết ô.`,
+          );
+        }
       }
 
       let connectAdvanced = false;
@@ -612,6 +574,14 @@ export class HomeworkExamEngine {
       return { supported: true, type: "CONNECT", isTargetCorrect };
     }
 
+    // PHASE A (nội dung): cuộn (chỉ khi cần) tới khi TOÀN BỘ answers[] (từ CMS) đã hiển thị đầy đủ
+    // trong khung nhìn - bản gốc này TRƯỚC ĐÂY gọi thẳng decideAnswerAction() KHÔNG cuộn (khác bản
+    // answerCurrentQuestionOneShot() bên dưới đã có sẵn bước này) - vá lại cho nhất quán, tránh
+    // decideAnswerAction() chỉ thấy <2 đáp án (không đủ để nhận diện TEXT_CHOICE) khi câu dài hơn
+    // 1 màn hình. `isVisible` không cần cập nhật lại (đọc live qua bridge, không phụ thuộc `tree`).
+    const answersVisibleResult = await ensureAllAnswersVisible(this.bridge, tree, questionModel);
+    if (answersVisibleResult.scrollCount > 0) tree = answersVisibleResult.tree;
+
     const action = decideAnswerAction(tree, isVisible, questionModel, wantCorrect);
     if (!action) {
       return {
@@ -635,6 +605,12 @@ export class HomeworkExamEngine {
       throw new Error(`UI không nhận câu trả lời (${JSON.stringify(tapStep)} thất bại): ${tapResult.error}`);
     }
 
+    // PHASE B (control): ĐỘC LẬP với Phase A ở trên - không yêu cầu đáp án vừa chọn vẫn hiển thị
+    // cùng lúc CTA. Đọc state MỚI (đã tap đáp án) rồi cuộn bounded nếu CHƯA thấy candidate CTA nào,
+    // trước khi vòng lặp bên dưới kết luận "không tìm thấy" (tránh lẫn "ngoài khung hình" với
+    // "không tồn tại").
+    const ctaRecoveryResult = await ensureTextVisible(this.bridge, this.bridge.hierarchy(), NEXT_OR_SUBMIT_CTA_CANDIDATES);
+
     let advanced = false;
     for (const cta of NEXT_OR_SUBMIT_CTA_CANDIDATES) {
       if (this.bridge.isVisible(cta)) {
@@ -648,7 +624,7 @@ export class HomeworkExamEngine {
     }
     if (!advanced) {
       throw new Error(
-        `Không tìm thấy nút chuyển câu/nộp bài sau khi chọn đáp án (đã thử: ${NEXT_OR_SUBMIT_CTA_CANDIDATES.join(", ")}).`,
+        `Không tìm thấy nút chuyển câu/nộp bài sau khi chọn đáp án (đã thử: ${NEXT_OR_SUBMIT_CTA_CANDIDATES.join(", ")}, kể cả sau khi cuộn ${ctaRecoveryResult.scrollCount} lần).`,
       );
     }
 
@@ -754,26 +730,39 @@ export class HomeworkExamEngine {
       const isTargetCorrect = wantCorrect;
       const valuesToType = isTargetCorrect ? correctValues : correctValues.map(() => "zzzsaizzz");
 
-      const steps = [];
+      const fillSteps = [];
       blankIndices.forEach((idx, i) => {
-        steps.push({ tapOn: { id: `exercise_fillword_blank_${idx}` } });
-        steps.push({ inputText: valuesToType[i] });
+        fillSteps.push({ tapOn: { id: `exercise_fillword_blank_${idx}` } });
+        fillSteps.push({ inputText: valuesToType[i] });
       });
       // Bare string, KHONG phai { hideKeyboard: null } - da xac nhan cu phap that qua
       // flows/app/exercise/EX-07-fillword-wrong.yaml dong 40 ("- hideKeyboard", khong co ":").
-      steps.push("hideKeyboard");
-      steps.push({ waitForAnimationToEnd: { timeout: 1500 } });
-      steps.push({ takeScreenshot: "before_submit" });
-      steps.push({ tapOn: { id: "exercise_check_button", optional: true } });
-      steps.push({ waitForAnimationToEnd: { timeout: 1500 } });
-      steps.push({ tapOn: { id: "exercise_check_button", optional: true } });
-      steps.push({ tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } });
-      steps.push({ waitForAnimationToEnd: { timeout: 1000 } });
-      if (resultLabel) steps.push({ takeScreenshot: resultLabel });
+      fillSteps.push("hideKeyboard");
+      fillSteps.push({ waitForAnimationToEnd: { timeout: 1500 } });
+      fillSteps.push({ takeScreenshot: "before_submit" });
 
-      const stepsResult = await this.bridge.runSteps(steps);
-      if (!stepsResult.success) {
-        throw new Error(`FILL_WORD: chuỗi thao tác thất bại: ${stepsResult.error}`);
+      const fillStepsResult = await this.bridge.runSteps(fillSteps);
+      if (!fillStepsResult.success) {
+        throw new Error(`FILL_WORD: chuỗi thao tác thất bại: ${fillStepsResult.error}`);
+      }
+
+      // PHASE B (control): ĐỘC LẬP với Phase A (điền ô trống) ở trên - trước đây tapOn
+      // "exercise_check_button" ("optional: true") ÂM THẦM bỏ qua nếu control ngoài khung hình,
+      // khiến câu bị kết luận sai "màn hình không đổi" dù thực ra chỉ chưa cuộn tới. Cuộn bounded
+      // (dừng ngay khi đã visible - 0 chi phí thêm nếu `tree` hiện có đã đủ) trước khi tap.
+      await ensureIdVisible(this.bridge, tree, /^exercise_check_button$/);
+
+      const ctaSteps = [
+        { tapOn: { id: "exercise_check_button", optional: true } },
+        { waitForAnimationToEnd: { timeout: 1500 } },
+        { tapOn: { id: "exercise_check_button", optional: true } },
+        { tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } },
+        { waitForAnimationToEnd: { timeout: 1000 } },
+      ];
+      if (resultLabel) ctaSteps.push({ takeScreenshot: resultLabel });
+      const ctaStepsResult = await this.bridge.runSteps(ctaSteps);
+      if (!ctaStepsResult.success) {
+        throw new Error(`FILL_WORD: chuỗi thao tác thất bại: ${ctaStepsResult.error}`);
       }
 
       const treeAfter = await this.bridge.hierarchy();
@@ -816,29 +805,43 @@ export class HomeworkExamEngine {
         ? correctPairs
         : correctPairs.map((p, i) => ({ leftText: p.leftText, rightText: correctPairs[(i + 1) % n].rightText }));
 
-      const steps = [];
+      const tapSteps = [];
       for (const pair of pairsToTap) {
         const leftIndex = resolveConnectSlotIndex(slots, "left", pair.leftText, questionModel?.id);
         const rightIndex = resolveConnectSlotIndex(slots, "right", pair.rightText, questionModel?.id);
-        steps.push({ tapOn: { id: `exercise_connect_left_${leftIndex}` } });
-        steps.push({ tapOn: { id: `exercise_connect_right_${rightIndex}` } });
+        tapSteps.push({ tapOn: { id: `exercise_connect_left_${leftIndex}` } });
+        tapSteps.push({ tapOn: { id: `exercise_connect_right_${rightIndex}` } });
       }
-      steps.push({ waitForAnimationToEnd: { timeout: 1500 } });
-      steps.push({ takeScreenshot: "before_submit" });
+      tapSteps.push({ waitForAnimationToEnd: { timeout: 1500 } });
+      tapSteps.push({ takeScreenshot: "before_submit" });
+
+      const tapStepsResult = await this.bridge.runSteps(tapSteps);
+      if (!tapStepsResult.success) {
+        throw new Error(`CONNECT: chuỗi thao tác thất bại: ${tapStepsResult.error}`);
+      }
+
+      // PHASE B (control): ĐỘC LẬP với Phase A (nối cặp) ở trên - cuộn bounded (dừng ngay khi đã
+      // visible - 0 chi phí thêm nếu control đã nằm trong khung hình hiện tại) trước khi tap, tránh
+      // tapOn "optional: true" bên dưới ÂM THẦM bỏ qua control ngoài khung hình.
+      const ctaAnchorTree = await this.bridge.hierarchy();
+      await ensureIdVisible(this.bridge, ctaAnchorTree, /^exercise_check_button$/);
+
       // "exercise_check_button" ("Kiểm tra" -> đổi nhãn Tiếp tục/Thử lại/Hoàn thành, cùng 1 nút) -
       // bấm theo ID 2 lần cho đủ chu kỳ (như ktra_fullluong_lambai.yaml) + toàn bộ candidate CTA
       // khác dạng optional - GỘP CHUNG 1 lượt runSteps(), Maestro tự bỏ qua candidate không tồn
       // tại, KHÔNG cần dò bằng isVisible() (mỗi lượt tốn 1 `maestro hierarchy` riêng).
-      steps.push({ tapOn: { id: "exercise_check_button", optional: true } });
-      steps.push({ waitForAnimationToEnd: { timeout: 1500 } });
-      steps.push({ tapOn: { id: "exercise_check_button", optional: true } });
-      steps.push({ tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } });
-      steps.push({ waitForAnimationToEnd: { timeout: 1000 } });
-      if (resultLabel) steps.push({ takeScreenshot: resultLabel });
+      const ctaSteps = [
+        { tapOn: { id: "exercise_check_button", optional: true } },
+        { waitForAnimationToEnd: { timeout: 1500 } },
+        { tapOn: { id: "exercise_check_button", optional: true } },
+        { tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } },
+        { waitForAnimationToEnd: { timeout: 1000 } },
+      ];
+      if (resultLabel) ctaSteps.push({ takeScreenshot: resultLabel });
 
-      const stepsResult = await this.bridge.runSteps(steps);
-      if (!stepsResult.success) {
-        throw new Error(`CONNECT: chuỗi thao tác thất bại: ${stepsResult.error}`);
+      const ctaStepsResult = await this.bridge.runSteps(ctaSteps);
+      if (!ctaStepsResult.success) {
+        throw new Error(`CONNECT: chuỗi thao tác thất bại: ${ctaStepsResult.error}`);
       }
 
       const treeAfter = await this.bridge.hierarchy();
@@ -872,20 +875,30 @@ export class HomeworkExamEngine {
     }
 
     const tapStep = action.type === "TEXT_CHOICE" ? { tapOn: action.text } : { tapOn: { point: action.point } };
-    const steps = [
-      tapStep,
-      { waitForAnimationToEnd: { timeout: 1500 } },
-      { takeScreenshot: "before_submit" },
+    const answerSteps = [tapStep, { waitForAnimationToEnd: { timeout: 1500 } }, { takeScreenshot: "before_submit" }];
+
+    const answerStepsResult = await this.bridge.runSteps(answerSteps);
+    if (!answerStepsResult.success) {
+      throw new Error(
+        `UI không nhận được chuỗi hành động cho câu hỏi (${JSON.stringify(tapStep)} thất bại): ${answerStepsResult.error}`,
+      );
+    }
+
+    // PHASE B (control): ĐỘC LẬP với Phase A (chọn đáp án) ở trên - cuộn bounded (dừng ngay khi đã
+    // visible) trước khi tap CTA, tránh tapOn "optional: true" bên dưới ÂM THẦM bỏ qua CTA ngoài
+    // khung hình rồi bị kết luận sai "màn hình không đổi" ở bước xác nhận phía dưới.
+    const ctaAnchorTree = await this.bridge.hierarchy();
+    await ensureTextVisible(this.bridge, ctaAnchorTree, NEXT_OR_SUBMIT_CTA_CANDIDATES);
+
+    const ctaSteps = [
       { tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } },
       { waitForAnimationToEnd: { timeout: 1000 } },
     ];
-    if (resultLabel) steps.push({ takeScreenshot: resultLabel });
+    if (resultLabel) ctaSteps.push({ takeScreenshot: resultLabel });
 
-    const stepsResult = await this.bridge.runSteps(steps);
-    if (!stepsResult.success) {
-      throw new Error(
-        `UI không nhận được chuỗi hành động cho câu hỏi (${JSON.stringify(tapStep)} thất bại): ${stepsResult.error}`,
-      );
+    const ctaStepsResult = await this.bridge.runSteps(ctaSteps);
+    if (!ctaStepsResult.success) {
+      throw new Error(`UI không bấm được CTA sau khi chọn đáp án: ${ctaStepsResult.error}`);
     }
 
     // Xác nhận ĐÃ chuyển sang câu tiếp theo (hoặc màn Kết thúc) - CÙNG cách so khớp text

@@ -1145,6 +1145,15 @@ function formatReport(evidence, result, runId) {
   push(`hierarchy_calls=${perf.hierarchyCallCount ?? "-"}`);
   push(`run_calls=${perf.runCallCount ?? "-"}`);
   push(``);
+  push(`[TIMING_LAM_BAI]`);
+  const tm = evidence.timing ?? {};
+  push(`doing_exercise_total=${tm.doingExerciseSeconds != null ? `${tm.doingExerciseSeconds}s` : "-"} (mở -> thoát X -> resume -> trả lời hết -> màn Kết quả)`);
+  push(`answering_only=${tm.answeringSeconds != null ? `${tm.answeringSeconds}s` : "-"} (từ lúc resume xong tới màn Kết quả, ${tm.questionCount ?? "-"} câu)`);
+  push(`avg_per_question=${tm.avgPerQuestionMs != null ? `${tm.avgPerQuestionMs}ms` : "-"}`);
+  for (const t of tm.perQuestionTimingsMs ?? []) {
+    push(`  question_${t.questionIndex}: total=${t.totalMs}ms (match=${t.matchMs}ms, answer=${t.answerMs}ms) id=${t.id}`);
+  }
+  push(``);
   push(`[APP_RESTART]`);
   push(`stopApp=false`); push(`terminateApp=false`); push(`clearState=false`); push(`forceStop=false`); push(`unexpected_restart=false`);
   push(``);
@@ -1571,6 +1580,12 @@ async function main() {
     // scrollAndReadCardState/readCardState/readCardStateById (root cause OPEN_EXERCISE_AMBIGUOUS
     // "sau 0 lượt" thật đã xác nhận trên room 19e78018-8c11-48e9-845f-efefe4dff82f - xem docblock
     // locateOpenAndVerifyAssignment()) =====
+    // TIMING (MỚI, theo yêu cầu "ghi nhận thời gian chi tiết làm bài mất bao lâu"): doingExerciseStart
+    // đánh dấu mốc BẮT ĐẦU của toàn bộ "làm bài" (mở lần đầu -> thoát X -> resume -> trả lời hết ->
+    // màn Kết quả) - KHÔNG tính thời gian giao bài/resolve câu hỏi phía trên ([1-4/N], network-bound,
+    // không phải "làm bài" trên app). answeringStart (set sau khi resume OK, trước vòng lặp [9/N]) và
+    // perQuestionTimingsMs (set trong vòng lặp) cho breakdown chi tiết hơn - xem finish()/evidence.timing.
+    const doingExerciseStart = Date.now();
     log(`[5/N] Mở đúng assignment "${assignment.title}" / Hạn nộp ${dueDM} (identity-based: findAssignment() + content-fingerprint verify theo room.id=${assignment.id})...`);
     const openLocate = await locateOpenAndVerifyAssignment(bridge, { title: assignment.title, dueDateDM: dueDM, questions: QUESTIONS });
     evidence.openDisambiguation = {
@@ -1650,15 +1665,19 @@ async function main() {
     log(
       `[9/N] Trả lời TẤT CẢ ${QUESTIONS.length} câu theo kế hoạch (targetScore=${runtimeTargetScore}, cần đúng ${scoringPlan.correctIndices.size}/${QUESTIONS.length} item) - dùng HomeworkExamEngine (CMS thật), KHÔNG dùng dispatcher blind...`,
     );
+    const answeringStart = Date.now(); // TIMING: mốc BẮT ĐẦU trả lời câu hỏi (đã resume xong, đứng ở câu 1).
     const examIdContext = { roomExamId: realRoomExamId, candidateExamId: resolved.examId };
     const answeredIds = new Set();
     const answerLog = [];
+    const perQuestionTimingsMs = []; // TIMING: 1 entry/câu - {questionIndex, id, matchMs, answerMs, totalMs}.
     let carryTree = null;
     let lastOutcome = null;
     while (answeredIds.size < QUESTIONS.length) {
       const questionIndex = answeredIds.size + 1;
+      const questionStartedAt = Date.now();
       const pool = QUESTIONS.filter((q) => !answeredIds.has(q.id));
       const matchResult = await findMatchingQuestion(bridge, pool, carryTree, questionIndex, examIdContext);
+      const matchedAt = Date.now();
       // KHÔNG dùng partial/first-fit khi có full-set match - AMBIGUOUS/NO_MATCH -> FAIL rõ ràng
       // NGAY, KHÔNG đoán candidate, KHÔNG retry mù (yêu cầu rõ - xem mục 5/10 của spec).
       if (matchResult.status !== "MATCHED") {
@@ -1672,17 +1691,26 @@ async function main() {
           error: errorMessage,
           matchDiagnostic: matchResult.diagnostic,
           visibleTexts: collectAllTexts(carryTree ?? (await bridge.hierarchy())),
-          evidence: { ...evidence, answerLog },
+          evidence: { ...evidence, answerLog, timing: { perQuestionTimingsMs } },
         });
       }
       const matched = matchResult.question;
       const isLast = answeredIds.size === QUESTIONS.length - 1;
       const { wantCorrect, outcome } = await answerOneQuestion(exam, matched, isLast, WANT_CORRECT);
+      const questionEndedAt = Date.now();
       lastOutcome = outcome;
       carryTree = outcome.finalTree ?? null;
       answeredIds.add(matched.id);
-      answerLog.push({ id: matched.id, question: matched.question, wantCorrect, isTargetCorrect: outcome.isTargetCorrect, type: outcome.type });
-      log(`  Câu ${answeredIds.size}/${QUESTIONS.length}: nhắm ${wantCorrect ? "ĐÚNG" : "SAI"}, isTargetCorrect=${outcome.isTargetCorrect}`);
+      const timing = {
+        questionIndex,
+        id: matched.id,
+        matchMs: matchedAt - questionStartedAt,
+        answerMs: questionEndedAt - matchedAt,
+        totalMs: questionEndedAt - questionStartedAt,
+      };
+      perQuestionTimingsMs.push(timing);
+      answerLog.push({ id: matched.id, question: matched.question, wantCorrect, isTargetCorrect: outcome.isTargetCorrect, type: outcome.type, ...timing });
+      log(`  Câu ${answeredIds.size}/${QUESTIONS.length}: nhắm ${wantCorrect ? "ĐÚNG" : "SAI"}, isTargetCorrect=${outcome.isTargetCorrect} (mất ${(timing.totalMs / 1000).toFixed(1)}s: match=${timing.matchMs}ms, answer=${timing.answerMs}ms)`);
     }
     evidence.answerLog = answerLog;
     evidence.answeredCount = answeredIds.size;
@@ -1714,6 +1742,27 @@ async function main() {
     const result = exam.readResult(finalTree);
     evidence.result = result;
     log(`  ĐIỂM SỐ=${result.score} CHÍNH XÁC=${result.correct}`);
+
+    // TIMING SUMMARY (MỚI, theo yêu cầu "ghi nhận thời gian chi tiết làm bài mất bao lâu"):
+    //   - answeringMs: từ lúc resume xong (đứng ở câu 1) tới lúc màn Kết quả xuất hiện - PHẦN "làm
+    //     bài" thuần (trả lời hết N câu + chờ chấm điểm câu cuối), KHÔNG tính mở/thoát/resume.
+    //   - doingExerciseMs: từ lúc BẮT ĐẦU mở assignment lần đầu ([5/N]) tới màn Kết quả - toàn bộ
+    //     lifecycle "làm bài" trên app (mở -> thoát X -> resume -> trả lời hết -> Kết quả), KHÔNG
+    //     tính thời gian giao bài/resolve câu hỏi ở các bước [1-4/N] phía trước (network/CMS-bound).
+    const doingExerciseEnd = Date.now();
+    const answeringMs = doingExerciseEnd - answeringStart;
+    const doingExerciseMs = doingExerciseEnd - doingExerciseStart;
+    const avgPerQuestionMs = perQuestionTimingsMs.length > 0 ? Math.round(perQuestionTimingsMs.reduce((a, t) => a + t.totalMs, 0) / perQuestionTimingsMs.length) : null;
+    evidence.timing = {
+      doingExerciseMs,
+      doingExerciseSeconds: Number((doingExerciseMs / 1000).toFixed(1)),
+      answeringMs,
+      answeringSeconds: Number((answeringMs / 1000).toFixed(1)),
+      questionCount: QUESTIONS.length,
+      avgPerQuestionMs,
+      perQuestionTimingsMs,
+    };
+    log(`  [TIMING] Làm bài (mở->thoát X->resume->trả lời hết->Kết quả): ${(doingExerciseMs / 1000).toFixed(1)}s | riêng phần trả lời ${QUESTIONS.length} câu: ${(answeringMs / 1000).toFixed(1)}s (TB ${avgPerQuestionMs}ms/câu)`);
 
     const achievedCorrectCount = [...WANT_CORRECT.values()].filter(Boolean).length;
     const scoreNumber = result.score === null ? null : Number(result.score);

@@ -1,4 +1,5 @@
 import { QuestionHandler } from "./questionHandler.js";
+import { collectByScrollingIfNeeded, ensureIdVisible } from "../../bridge/scrollUntilVisible.js";
 
 function stripHtml(value) {
   if (typeof value !== "string") return value;
@@ -58,6 +59,48 @@ function resolveSlotIndex(slots, side, text, questionId) {
   return matches[0].index;
 }
 
+function hasResourceId(node, id) {
+  if (node?.attributes?.["resource-id"] === id) return true;
+  return (node?.children ?? []).some((c) => hasResourceId(c, id));
+}
+
+/**
+ * PHASE A (UI-visibility-safety): cuộn (CHỈ khi cần) tới khi đọc đủ TEXT cả 2 phía của TOÀN BỘ
+ * cặp đúng trước khi tap - trước đây `execute()` đọc `collectConnectSlots()` đúng 1 lần KHÔNG
+ * cuộn, khiến `resolveSlotIndex()` throw `BLOCKED_CONNECT_INTERACTION` OAN khi câu dài hơn 1 màn
+ * hình/UI ảo hoá (CÙNG lớp bug đã xác nhận thật ở pipeline bai_tap - xem
+ * automation/bai_tap/navigation/homeworkExamEngine.js#ensureAllConnectPairsVisible(), thuật toán
+ * cuộn TÁI SỬ DỤNG nguyên `collectByScrollingIfNeeded()` dùng chung, chỉ merge logic theo
+ * `collectConnectSlots()` riêng của file này).
+ */
+async function ensurePairsVisible(bridge, initialTree, pairs) {
+  const requiredLeft = new Set(pairs.map((p) => p.leftText));
+  const requiredRight = new Set(pairs.map((p) => p.rightText));
+  const { tree, acc } = await collectByScrollingIfNeeded(bridge, initialTree, {
+    collect: (t, acc) => {
+      const slots = collectConnectSlots(t);
+      const next = { left: new Map(acc.left), right: new Map(acc.right) };
+      for (const s of slots.left) if (s.text) next.left.set(s.index, s.text);
+      for (const s of slots.right) if (s.text) next.right.set(s.index, s.text);
+      return next;
+    },
+    isDone: (acc) => {
+      const leftTexts = new Set(acc.left.values());
+      const rightTexts = new Set(acc.right.values());
+      return [...requiredLeft].every((t) => leftTexts.has(t)) && [...requiredRight].every((t) => rightTexts.has(t));
+    },
+    sizeOf: (acc) => acc.left.size + acc.right.size,
+    initialAcc: { left: new Map(), right: new Map() },
+  });
+  return {
+    tree,
+    slots: {
+      left: [...acc.left].map(([index, text]) => ({ index, text })),
+      right: [...acc.right].map(([index, text]) => ({ index, text })),
+    },
+  };
+}
+
 /**
  * Dạng Nối (Matching) - type "CONNECT".
  *
@@ -112,8 +155,9 @@ export class MatchingHandler extends QuestionHandler {
       );
     }
 
-    const tree = this.bridge.hierarchy();
-    const slots = collectConnectSlots(tree);
+    const initialTree = this.bridge.hierarchy();
+    // PHASE A (nội dung) - xem docblock ensurePairsVisible() ở trên.
+    const { slots } = await ensurePairsVisible(this.bridge, initialTree, pairs);
 
     const tappedPairs = [];
     for (const pair of pairs) {
@@ -127,11 +171,17 @@ export class MatchingHandler extends QuestionHandler {
     // "Bài tập" (ConnectAnswerListV2) chỉ bật nút Kiểm tra khi đã nối KÍN hết ô - không có nhãn
     // đúng/sai theo cặp (xem docblock trên). Đọc lại hierarchy để xác nhận đã "registered" (nút đã
     // xuất hiện) TRƯỚC khi bấm, thay vì bấm mù rồi mới biết có tác dụng hay không.
-    const afterTapTree = this.bridge.hierarchy();
-    const checkButtonPresent = (function hasId(node, id) {
-      if (node?.attributes?.["resource-id"] === id) return true;
-      return (node?.children ?? []).some((c) => hasId(c, id));
-    })(afterTapTree, "exercise_check_button");
+    let afterTapTree = this.bridge.hierarchy();
+    let checkButtonPresent = hasResourceId(afterTapTree, "exercise_check_button");
+
+    if (!checkButtonPresent) {
+      // PHASE B (control): ĐỘC LẬP với Phase A ở trên - "chưa xuất hiện" trước đây kết luận NGAY
+      // từ 1 lần đọc, có thể chỉ là chưa cuộn tới (không lẫn "ngoài khung hình" với "không tồn
+      // tại") - thử cuộn bounded trước khi kết luận BLOCKED_CONNECT_INTERACTION thật.
+      const ctaRecovery = await ensureIdVisible(this.bridge, afterTapTree, /^exercise_check_button$/);
+      afterTapTree = ctaRecovery.tree;
+      checkButtonPresent = hasResourceId(afterTapTree, "exercise_check_button");
+    }
 
     if (!checkButtonPresent) {
       return {

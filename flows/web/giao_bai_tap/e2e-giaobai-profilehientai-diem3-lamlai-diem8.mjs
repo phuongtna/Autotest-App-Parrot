@@ -16,10 +16,20 @@
  *     (buildScoringPlan/resolveScoringPlanForCandidate/buildWeightedWantCorrectPlan/vòng lặp
  *     findMatchingQuestion+answerCurrentQuestionOneShot ở phase [E] file đó) - dùng LẠI 2 lần
  *     (lượt làm đầu + lượt "Làm lại"), KHÔNG viết engine chấm điểm thứ 2.
- *   - Mở bài LẦN ĐẦU (chưa từng làm): findAssignment()/scrollToTop()/tapFoundCard()
- *     (automation/bai_tap/discovery/findAssignment.js).
- *   - Tìm lại card để "Làm lại": locateSpecificCompletedCandidate()
- *     (automation/bai_tap/discovery/locateCompletedCandidate.js) - CÙNG cơ chế pro_lamlai_target_score.mjs.
+ *   - Mở bài LẦN ĐẦU (chưa từng làm): locateOpenAndVerifyAssignment()
+ *     (flows/web/giao_bai_tap/e2e-teacher-assign-full-scored-target5.mjs) - identity-based qua
+ *     findAssignment() + verify nội dung câu hỏi khớp room.id (content-fingerprint), KHÔNG selector
+ *     text/index thô. FIX (2026-09-07, debug "click nhầm bài" xác nhận thật qua
+ *     repro-locate-reuse-room.mjs trên room "G8U2-Listening-BTTH"): bản trước dùng 1 compound
+ *     `scrollUntilVisible` + `tapOn below below` nội tuyến (chỉ so text title/dueDate trên UI,
+ *     KHÔNG so nội dung câu hỏi thật) - tái diễn đúng lớp bug OPEN_EXERCISE_AMBIGUOUS đã fix ở
+ *     locateOpenAndVerifyAssignment() ngày 2026-08-22 (2 card cùng title+dueDate liền kề nhau khiến
+ *     selector thô bấm nhầm card kế bên).
+ *   - Tìm lại card để "Làm lại": CÙNG locateOpenAndVerifyAssignment() dùng ở bước mở lần đầu (gọi
+ *     lại với cta=COMPLETED_CTA="Làm lại", KHÔNG dùng locateSpecificCompletedCandidate() nữa - FIX
+ *     2026-09-07, xem comment tại lời gọi bên dưới: cơ chế đó từng cuộn lạc vào "Kiến thức trong
+ *     bài" rồi báo END_OF_LIST sai, đúng bug ADVANCED_SECTION_REACHED đã ghi nhận trong docblock
+ *     automation/bai_tap/pro_lamlai_target_score.mjs).
  *   - CTA màn Kết quả "Tiếp theo"/"Hoàn thành": CÙNG 2 nhãn đã verify trong
  *     flows/app/bai_tap/ktra_ket_qua_tiep_theo_hoan_thanh.yaml/helpers/finish-exercise-and-return.yaml
  *     - KHÁC finish-exercise-and-return.yaml ở chỗ đây bấm THẬT "Tiếp theo" nếu hiện (đúng yêu cầu
@@ -66,10 +76,16 @@ import { assignHomeworkFlow } from "../../../automation/giao_bai_tap/runtime/ass
 import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPageScraper.js";
 import { normalizeQuestions } from "../../../automation/model/questionModel.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
-import { scrollToTop } from "../../../automation/bai_tap/discovery/findAssignment.js";
-import { locateSpecificCompletedCandidate } from "../../../automation/bai_tap/discovery/locateCompletedCandidate.js";
-import { centerPoint } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
+import { COMPLETED_CTA } from "../../../automation/bai_tap/discovery/locateCompletedCandidate.js";
 import { findMatchingQuestion } from "../../../automation/bai_tap/discovery/answerSetMatcher.js";
+// FIX (2026-09-07, debug "click nhầm bài" xác nhận thật qua repro-locate-reuse-room.mjs): bước
+// "Mở bài LẦN ĐẦU" dưới đây từng dùng 1 compound `scrollUntilVisible` + `tapOn below below` nội
+// tuyến (KHÔNG identity-based - chỉ so text title/dueDate trên UI, KHÔNG so nội dung câu hỏi thật)
+// - ĐÚNG lớp bug OPEN_EXERCISE_AMBIGUOUS đã từng gặp và ĐÃ ĐƯỢC FIX trong
+// e2e-teacher-assign-full-scored-target5.mjs ngày 2026-08-22 (xem docblock
+// locateOpenAndVerifyAssignment() ở file đó). GỌI LẠI NGUYÊN VẸN hàm đã fix + đã proven (repro PASS
+// 2026-09-07 trên room thật "G8U2-Listening-BTTH") thay vì viết lại logic locate lần thứ 2.
+import { locateOpenAndVerifyAssignment } from "./e2e-teacher-assign-full-scored-target5.mjs";
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..");
@@ -89,7 +105,6 @@ const FIRST_TARGET_SCORE = Number(process.env.FIRST_TARGET_SCORE || 3);
 const REDO_TARGET_SCORE = Number(process.env.REDO_TARGET_SCORE || 8);
 const ASSIGN_DUE_DATE_DAYS_AHEAD = Number(process.env.ASSIGN_DUE_DATE_DAYS_AHEAD || 7);
 const MAX_CANDIDATE_PRESCAN_ATTEMPTS = Number(process.env.MAX_CANDIDATE_PRESCAN_ATTEMPTS || 40);
-const MAX_LOCATE_SCROLLS = 60;
 const POINT_SCALE = 1000;
 
 function log(...args) {
@@ -517,54 +532,20 @@ async function main() {
     }
     log(`  [PASS] Hồ sơ "${PROFILE_NAME}" xác nhận đang active.`);
 
-    log(`[2] Cuộn về đỉnh danh sách "Bài tập" trước khi tìm bài vừa giao...`);
-    const topResult = await scrollToTop(bridge);
-    if (!topResult.atTop) log(`  [WARN] scrollToTop() không xác nhận: ${topResult.reason} - vẫn tiếp tục tìm từ vị trí hiện tại.`);
-
-    // ĐÃ ĐỔI (2026-08-31, FAIL thật xác nhận qua run trước): findAssignment()/tapFoundCard() (đọc
-    // hierarchy qua Node + 1 swipe cố định 55% màn hình/lượt) BỎ LỠ card vừa giao khi CTA của nó
-    // CHƯA kịp mount trong cây (title+due-date đã thấy ngay ở lượt đọc đầu tiên nhưng CTA "Làm bài"
-    // nằm ngoài viewport - RecyclerView virtualization) - lượt cuộn kế tiếp lại NHẢY QUÁ xa (không
-    // có cơ chế "cuộn nhỏ dò dần + tự chờ ổn định" như scrollUntilVisible gốc của Maestro), làm mất
-    // hẳn card khỏi màn hình. CHUYỂN sang compound `scrollUntilVisible` NGUYÊN VĂN của Maestro
-    // (SCROLL TARGET = title, due-date chỉ dùng VERIFY, tapOn CTA lồng 2 cấp "below") - CÙNG cơ chế
-    // ĐÃ VERIFY trong flows/app/helpers/open-exercise.yaml (không viết lại logic, chỉ inline qua
-    // bridge.runSteps() vì MaestroMcpSession không resolve được runFlow:{file:...} - xem docblock
-    // automation/bai_tap/pro_lamlai_fullluong.mjs mục [F]). Escape regex đặc biệt trong title tính
-    // sẵn ở Node (không cần biểu thức JS ${...} của Maestro, tránh luôn bug "$" đã ghi nhận ở đó).
-    log(`[2] Mở bài "${picked.itemName}" (hạn nộp ${toDM(dueDateDdMmYyyy)}) qua scrollUntilVisible compound selector...`);
-    const escapedTitle = picked.itemName.replace(/[.*+?^()|[\]\\]/g, (m) => "\\" + m);
+    // (locateOpenAndVerifyAssignment() bên dưới tự gọi scrollToTop() ở bước đầu tiên của chính nó -
+    // KHÔNG cần tự cuộn trước ở đây nữa.)
     const dueDateDM = toDM(dueDateDdMmYyyy);
-    const openNew = await bridge.runSteps([
-      {
-        scrollUntilVisible: {
-          element: { text: `.*${escapedTitle}.*` },
-          direction: "DOWN",
-          timeout: 150000,
-          speed: 70,
-          waitToSettleTimeoutMs: 500,
-        },
-      },
-      { assertVisible: { text: `.*Hạn nộp ${dueDateDM}.*`, below: { text: `.*${escapedTitle}.*` } } },
-      {
-        tapOn: {
-          // PHASE 7 (2026-08-31, xem PHASE 6F/6G): thêm "Chinh phục" - CTA thật của card "Bài tập
-          // nâng cao" chưa làm (vd "G7U2-HW-LB lang-BTNC", resource-id
-          // homework_card_advanced_0_action_conquer) - đã xác nhận là giá trị hợp lệ từ trước trong
-          // CTA_TEXTS (discovery/homeworkUiList.js:61), chỉ chưa được đưa vào selector RIÊNG của file
-          // này. Trước bản vá: selector không match card dạng này -> Maestro trả "Element not found"
-          // -> tap không bao giờ dispatch -> flow kẹt ở màn danh sách.
-          text: ".*(Làm bài|Làm lại|Tiếp tục|Chinh phục).*",
-          below: { text: `.*Hạn nộp ${dueDateDM}.*`, below: { text: `.*${escapedTitle}.*` } },
-        },
-      },
-      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
-      { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 40000 } },
-    ]);
-    if (!openNew.success) {
-      return finish({ status: "FAIL", phase: "OPEN_NEW_ASSIGNMENT", error: `Mở bài vừa giao thất bại: ${openNew.error}`, evidence });
+    log(`[2] Mở bài "${picked.itemName}" (hạn nộp ${dueDateDM}) qua locateOpenAndVerifyAssignment() (identity-based: findAssignment() liệt kê candidate + verify nội dung câu hỏi khớp room.id=${room.id} qua content-fingerprint, KHÔNG selector text/index thô)...`);
+    const openNew = await locateOpenAndVerifyAssignment(bridge, { title: picked.itemName, dueDateDM, questions: QUESTIONS });
+    if (!openNew.ok) {
+      return finish({
+        status: "FAIL",
+        phase: "OPEN_NEW_ASSIGNMENT",
+        error: `Mở bài vừa giao thất bại (status=${openNew.status}): ${openNew.diagnostics ?? ""}`,
+        evidence: { ...evidence, openNewTriedLog: openNew.triedLog },
+      });
     }
-    log(`  [PASS] Đã vào màn Doing (lần làm đầu).`);
+    log(`  [PASS] Đã vào màn Doing (lần làm đầu) - verified content-fingerprint khớp room.id=${room.id} (matchedQuestionId=${openNew.matched?.id}).`);
 
     // ===== [3] LẦN LÀM ĐẦU - target FIRST_TARGET_SCORE =====
     log(`[3] Trả lời ${QUESTIONS.length} câu, nhắm điểm ${FIRST_TARGET_SCORE}...`);
@@ -600,25 +581,25 @@ async function main() {
     log(`  [PASS] Đã đóng màn Kết quả (lần đầu), về lại danh sách Bài tập.`);
 
     // ===== [4] TÌM LẠI CARD -> "Làm lại" =====
-    log(`[4] Tìm lại card "${picked.itemName}" (cta="Làm lại")...`);
-    const relocated = await locateSpecificCompletedCandidate(bridge, picked.itemName, { maxScrolls: MAX_LOCATE_SCROLLS });
-    const freshCandidate = relocated.candidates[0];
-    if (!freshCandidate) {
-      return finish({ status: "FAIL", phase: "LOCATE_LAM_LAI", error: `Không tìm lại được card "${picked.itemName}" với cta="Làm lại" sau ${relocated.scrollsUsed} lượt cuộn (stopReason=${relocated.stopReason ?? "UNKNOWN"}).`, evidence });
+    // FIX (2026-09-07, xác nhận thật qua chạy live): locateSpecificCompletedCandidate() (implementation
+    // riêng của chính file này) từng cuộn lạc vào mục "Kiến thức trong bài" (unit content, KHÔNG có
+    // card bài tập nào) rồi dừng ở END_OF_LIST mà không hề thấy card - ĐÚNG bug BLOCKED/
+    // ADVANCED_SECTION_REACHED đã ghi nhận trong docblock automation/bai_tap/pro_lamlai_target_score.mjs
+    // (mục PRECHECK) cho CHÍNH cơ chế locate này. GỌI LẠI locateOpenAndVerifyAssignment() (đã dùng ở
+    // [2] bên trên) thay vì locateSpecificCompletedCandidate() - hàm đó vốn thiết kế dùng CHUNG cho cả
+    // "mở mới" lẫn "tìm lại để resume" (xem docblock tại nguồn), qua findAssignment() CANONICAL +
+    // content-fingerprint, không phải cơ chế cuộn riêng dễ lạc màn của file này.
+    log(`[4] Tìm lại card "${picked.itemName}" (cta="Làm lại") qua locateOpenAndVerifyAssignment()...`);
+    const relocated = await locateOpenAndVerifyAssignment(bridge, { title: picked.itemName, dueDateDM, cta: COMPLETED_CTA, questions: QUESTIONS });
+    if (!relocated.ok) {
+      return finish({
+        status: "FAIL",
+        phase: "LOCATE_LAM_LAI",
+        error: `Không tìm lại được card "${picked.itemName}" với cta="${COMPLETED_CTA}" (status=${relocated.status}): ${relocated.diagnostics ?? ""}`,
+        evidence: { ...evidence, relocateTriedLog: relocated.triedLog },
+      });
     }
-    log(`  [PASS] Tìm thấy card "Làm lại" sau ${relocated.scrollsUsed} lượt cuộn.`);
-
-    const ctaPoint = centerPoint(freshCandidate.ctaBounds);
-    const tapRedo = await bridge.runSteps([
-      { tapOn: { point: `${ctaPoint.x},${ctaPoint.y}` } },
-      { waitForAnimationToEnd: { timeout: 3000 } },
-      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
-      { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } },
-    ]);
-    if (!tapRedo.success) {
-      return finish({ status: "FAIL", phase: "TAP_LAM_LAI", error: `Tap "Làm lại" thất bại: ${tapRedo.error}`, evidence });
-    }
-    log(`  [PASS] Đã tap "Làm lại" - vào màn Doing (lần 2).`);
+    log(`  [PASS] Đã tap "Làm lại" - vào màn Doing (lần 2) - verified content-fingerprint khớp room.id=${room.id} (matchedQuestionId=${relocated.matched?.id}).`);
 
     // ===== [5] LÀM LẠI - target REDO_TARGET_SCORE =====
     log(`[5] Trả lời lại ${QUESTIONS.length} câu, nhắm điểm ${REDO_TARGET_SCORE}...`);

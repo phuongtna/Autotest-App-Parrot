@@ -22,10 +22,16 @@
     "test-random-homework-open": "node bai_tap/runRandomOpenHomeworkFlow.js",
     "run-homework-random-e2e": "node bai_tap/runtime/homeworkRandomE2E.js",
     "run-homework-random-scoring-e2e": "node bai_tap/runtime/homeworkRandomScoringE2E.js",
-    "run-homework-random-scoring-e2e-onesession": "node bai_tap/runtime/homeworkRandomScoringE2EOneSession.js"
+    "run-homework-random-scoring-e2e-onesession": "node bai_tap/runtime/homeworkRandomScoringE2EOneSession.js",
+    "test-goi-dich-vu": "node quan_ly_goi_dich_vu/cli.js",
+    "cleanup-goi-dich-vu": "node quan_ly_goi_dich_vu/cleanupCli.js",
+    "test-goi-dich-vu-pw": "playwright test"
   },
   "dependencies": {
     "js-yaml": "^5.2.3",
     "playwright": "^1.62.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

@@ -59,7 +59,53 @@ export const config = {
   // CHƯA có bằng chứng web SPA đọc được token đó để coi là đã đăng nhập).
   teacherUsername: readVar("TEACHER_USERNAME"),
   teacherPassword: readVar("TEACHER_PASSWORD"),
+
+  // CMS Quản lý (web admin: /packages, /orders, /students) - KHÁC cmsBaseUrl ở trên (đó là API
+  // nội dung bài học/Exam). CMS_ADMIN_ENV chọn 1 trong 3 URL bên dưới - xem resolveCmsAdminBaseUrl().
+  // Đăng nhập dùng chung cmsUsername/cmsPassword (CMS_USERNAME/CMS_PASSWORD) - cùng 1 tài khoản
+  // admin cho cả 3 môi trường (xác nhận 2026-09-07).
+  cmsUsername: readVar("CMS_USERNAME"),
+  cmsPassword: readVar("CMS_PASSWORD"),
+  cmsAdminEnv: (readVar("CMS_ADMIN_ENV") || "staging").trim().toLowerCase(),
+  cmsAdminUrlsByEnv: {
+    dev: readVar("CMS_ADMIN_URL_DEV").replace(/\/+$/, ""),
+    staging: readVar("CMS_ADMIN_URL_STAGING").replace(/\/+$/, ""),
+    production: readVar("CMS_ADMIN_URL_PRODUCTION").replace(/\/+$/, ""),
+  },
+  // Số điện thoại 1 học sinh CÓ THẬT trên môi trường đang test - dùng bởi
+  // quan_ly_goi_dich_vu/runtime/grantCasesFlow.js (nhóm case GRANT-*/DEACT-05, tạo đơn hàng thật
+  // gán cho profile này). PHẢI đổi giá trị khi đổi CMS_ADMIN_ENV - mỗi môi trường có dữ liệu học
+  // sinh khác nhau, KHÔNG dùng chung số điện thoại giữa dev/staging/production được. Để trống thì
+  // nhóm case đó tự SKIP (không giả định Pass/Fail).
+  cmsAdminTestStudentPhone: readVar("CMS_ADMIN_TEST_STUDENT_PHONE"),
 };
+
+/**
+ * Trả về base URL của CMS Quản lý (web admin) ứng với CMS_ADMIN_ENV hiện tại (mặc định "staging"
+ * nếu không set). Truyền `envOverride` để ép chạy 1 môi trường cụ thể bất kể .env (vd script nhận
+ * tham số CLI --env=production) mà không cần đổi file .env.
+ *
+ * Throw lỗi rõ ràng (liệt kê tên biến .env cần điền) nếu môi trường chưa cấu hình URL, thay vì
+ * âm thầm test nhầm môi trường khác hoặc gọi tới URL rỗng.
+ */
+export function resolveCmsAdminBaseUrl(envOverride) {
+  const env = (envOverride || config.cmsAdminEnv || "staging").trim().toLowerCase();
+  const known = Object.keys(config.cmsAdminUrlsByEnv);
+  if (!known.includes(env)) {
+    throw new Error(
+      `CMS_ADMIN_ENV="${env}" không hợp lệ - chỉ chấp nhận: ${known.join(" | ")}.`,
+    );
+  }
+  const url = config.cmsAdminUrlsByEnv[env];
+  if (!url) {
+    const envVarName = `CMS_ADMIN_URL_${env.toUpperCase()}`;
+    throw new Error(
+      `Thiếu ${envVarName} trong .env (môi trường "${env}" chưa có URL). ` +
+        `Điền giá trị vào ${envVarName} rồi thử lại.`,
+    );
+  }
+  return url;
+}
 
 export function requireCmsConfig() {
   const missing = [];
@@ -80,6 +126,23 @@ export function requireTeacherPortalConfig() {
     throw new Error(
       `Thiếu biến môi trường trong .env: ${missing.join(", ")}. ` +
         `Xem automation/README.md mục "Bài tập" để biết cách lấy giá trị này.`,
+    );
+  }
+}
+
+/**
+ * Validate cấu hình cho CMS Quản lý (web admin /packages, /orders, /students). Gọi trước khi
+ * đăng nhập (vd trong cmsAdminSession.js) - resolveCmsAdminBaseUrl() tự throw riêng nếu môi
+ * trường chưa có URL, hàm này chỉ kiểm tra phần tài khoản đăng nhập.
+ */
+export function requireCmsAdminConfig() {
+  const missing = [];
+  if (!config.cmsUsername) missing.push("CMS_USERNAME");
+  if (!config.cmsPassword) missing.push("CMS_PASSWORD");
+  if (missing.length > 0) {
+    throw new Error(
+      `Thiếu biến môi trường trong .env: ${missing.join(", ")}. ` +
+        `Xem automation/README.md để biết cách cấu hình.`,
     );
   }
 }

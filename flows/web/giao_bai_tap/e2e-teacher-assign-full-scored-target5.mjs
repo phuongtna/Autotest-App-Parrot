@@ -428,7 +428,7 @@ export async function locateOpenAndVerifyAssignment(bridge, { title, dueDateDM, 
   };
   const closeIfOpen = async () => {
     const r = await bridge.runSteps([
-      { tapOn: { id: "exercise_close_button" }, optional: true },
+      { tapOn: { id: "exercise_close_button", optional: true } },
       { waitForAnimationToEnd: { timeout: 1500 } },
       { tapOn: { text: "Thoát", optional: true } },
       { tapOn: { text: "Đồng ý", optional: true } },
@@ -1508,7 +1508,7 @@ async function main() {
         };
         await bridge.runSteps([
           { tapOn: { text: "Bài tập", optional: true } },
-          { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|2 tuần gần nhất|1 tháng gần nhất).*" }, timeout: 30000 }, optional: true },
+          { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|2 tuần gần nhất|1 tháng gần nhất).*" }, timeout: 30000, optional: true } },
         ]);
         let man1Check = await verifyOnHomeworkList();
         if (!man1Check.ok) {
@@ -1525,9 +1525,9 @@ async function main() {
           log(`  [CẢNH BÁO] back() không phục hồi được - relaunch app rồi tap lại "Bài tập"...`);
           await bridge.runSteps([
             { launchApp: { permissions: { all: "allow" } } },
-            { extendedWaitUntil: { visible: { text: ".*(Vui học|Bài tập|Báo cáo).*" }, timeout: 30000 }, optional: true },
+            { extendedWaitUntil: { visible: { text: ".*(Vui học|Bài tập|Báo cáo).*" }, timeout: 30000, optional: true } },
             { tapOn: { text: "Bài tập", optional: true } },
-            { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|2 tuần gần nhất|1 tháng gần nhất).*" }, timeout: 30000 }, optional: true },
+            { extendedWaitUntil: { visible: { text: ".*(Bài tập về nhà|Bài tập nâng cao|2 tuần gần nhất|1 tháng gần nhất).*" }, timeout: 30000, optional: true } },
           ]);
           man1Check = await verifyOnHomeworkList();
         }
@@ -1840,7 +1840,7 @@ async function main() {
           // tap CTA thật (evidence vẫn ghi rõ CTA chưa từng được tap).
           await bridge.runSteps([
             { launchApp: { permissions: { all: "allow" } } },
-            { extendedWaitUntil: { visible: { text: ".*(Vui học|Bài tập|Báo cáo).*" }, timeout: 30000 }, optional: true },
+            { extendedWaitUntil: { visible: { text: ".*(Vui học|Bài tập|Báo cáo).*" }, timeout: 30000, optional: true } },
           ]);
           return finish({
             status: "FAIL",

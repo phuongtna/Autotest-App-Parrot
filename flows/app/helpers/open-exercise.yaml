@@ -72,6 +72,14 @@ appId: ${APP_ID}
 # phải giả thuyết) - từng bấm NHẦM sang "G3-U2-Lesson 3: Listen and repeat" (SPEAK) thay vì
 # "G3-U19-L3: Listen and choose" (LISTENING) dù cả 2 đều "Hạn nộp 19/08".
 #
+# ĐÃ SỬA (2026-09-07): khi caller (vd HW-30 ktra_doan_van_dai_dich_va_dich_tu.yaml) KHÔNG truyền
+# EXERCISE_DUE_DATE_DM qua CLI, Maestro 2.8.0 KHÔNG coi biến là null thật mà thay bằng chuỗi literal
+# "undefined" - "${EXERCISE_DUE_DATE_DM != null}" vẫn ra true (đã tái hiện thật: assertVisible
+# "Hạn nộp undefined" FAILED dù bỏ trống tham số). Thêm điều kiện loại trừ literal "undefined" để
+# nhánh due-date CHỈ chạy khi caller thật sự truyền 1 giá trị DD/MM - card đã hoàn thành (hiện
+# "Điểm X"/"Xem bài đã làm" thay vì "Hạn nộp") cũng không có dòng "Hạn nộp" để assert, nên bắt buộc
+# phải né nhánh này khi không có due-date thật.
+#
 # Lượt 2 (đổi hẳn sang neo DUY NHẤT theo title + assertVisible Hạn nộp riêng) CŨNG SAI kiểu khác -
 # ĐÃ GẶP THẬT: scrollUntilVisible theo title dừng cuộn ngay khi title mới chỉ hiện HÉ ở SÁT MÉP
 # DƯỚI màn hình (đủ ngưỡng "visible"), trong khi dòng "Hạn nộp" của CHÍNH card đó vẫn còn nằm NGOÀI
@@ -105,7 +113,7 @@ appId: ${APP_ID}
 # CTA) - cơ chế đó đã verify hoạt động đúng cho bước TAP (khác bước SCROLL bị lỗi), không đổi.
 - runFlow:
     when:
-      true: ${EXERCISE_DUE_DATE_DM != null}
+      true: ${EXERCISE_DUE_DATE_DM != null && EXERCISE_DUE_DATE_DM != 'undefined'}
     commands:
       # waitToSettleTimeoutMs (ĐÃ GẶP THẬT 2026-08-12): thiếu tham số này, scrollUntilVisible báo
       # COMPLETED ngay khi target vừa chớm đủ ngưỡng visible, nhưng scroll vẫn còn trớn (momentum)
@@ -157,7 +165,7 @@ appId: ${APP_ID}
               text: '.*${(EXERCISE_NAME == null ? "Read and choose" : EXERCISE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
 - runFlow:
     when:
-      true: ${EXERCISE_DUE_DATE_DM == null}
+      true: ${EXERCISE_DUE_DATE_DM == null || EXERCISE_DUE_DATE_DM == 'undefined'}
     commands:
       # ĐO THẬT (2026-08-12, thiết bị 3201d866d40a1681, xem docblock TARGET_LOOKUP_* trong
       # flows/homework/verify-filter-web-vs-app.mjs + flows/helpers/locate-assignment-card.yaml):

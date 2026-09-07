@@ -59,7 +59,7 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
 - copyTextFrom:
     below: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
     above: "Bài tập về nhà"
-- runScript: ../../test_data/hw_fullluong_save_before_progress.js
+- runScript: ../../../test_data/hw_fullluong_save_before_progress.js
 
 # --- PROGRESS_BEFORE: đọc progress RIÊNG của ĐÚNG assignment sắp làm (vd "9/10") - KHÁC với
 # thanh tiến độ TỔNG "Bài tập X/Y" vừa đọc ở trên. Phải đọc TRƯỚC khi gọi open-exercise.yaml
@@ -137,7 +137,7 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
       - copyTextFrom:
           below:
             text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
-- runScript: ../../test_data/hw_fullluong_save_before_card_progress.js
+- runScript: ../../../test_data/hw_fullluong_save_before_card_progress.js
 - takeScreenshot: HW-14_15-before-open-assignment
 
 # --- Mở ĐÚNG assignment (không index 0 - open-exercise.yaml scroll+tap theo EXERCISE_NAME) ---
@@ -402,8 +402,8 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
     text: ".*Điểm\\s*[0-9.,]+.*"
     below:
       text: ".*${EXERCISE_NAME == null ? 'Read and choose' : EXERCISE_NAME}.*"
-- runScript: ../../test_data/hw_fullluong_save_after_card_progress.js
-- runScript: ../../test_data/hw_fullluong_compare_card_progress.js
+- runScript: ../../../test_data/hw_fullluong_save_after_card_progress.js
+- runScript: ../../../test_data/hw_fullluong_compare_card_progress.js
 - assertTrue: ${output.cardProgressOk}
 - takeScreenshot: HW-14_15-progress-after
 
@@ -428,7 +428,7 @@ name: HW-14_15 Lifecycle - mo dung bai, thoat X, resume dung bai, hoan thanh
 - copyTextFrom:
     below: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
     above: "Bài tập về nhà"
-- runScript: ../../test_data/hw_fullluong_save_after_progress.js
-- runScript: ../../test_data/hw_fullluong_compare_progress.js
+- runScript: ../../../test_data/hw_fullluong_save_after_progress.js
+- runScript: ../../../test_data/hw_fullluong_compare_progress.js
 - assertTrue: ${output.progressOk}
 - takeScreenshot: HW-14_15-progress-increased

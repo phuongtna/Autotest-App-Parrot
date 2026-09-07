@@ -265,7 +265,7 @@ async function resolveUniqueRoomIdForCandidate(candidate) {
 
 /** ===================== EXAM_SESSION + CMS resolve (COPY nguyên - CÙNG pipeline CMS duy nhất) ===================== */
 
-function refreshExamSessionFromEnvCookie() {
+export function refreshExamSessionFromEnvCookie() {
   const examCookie = process.env.EXAM_COOKIE || ROOT_ENV.EXAM_COOKIE;
   if (!examCookie) {
     return { refreshed: false, reason: "EXAM_COOKIE không tồn tại trong .env - chạy get_tokens.sh trước." };
@@ -316,7 +316,7 @@ function readCmsCacheEntry(roomId) {
 /** Wrapper cache quanh resolveHomeworkExamQuestionsForRoomIdWithRetry() - KHÔNG đổi hàm gốc (giữ
  * nguyên để nơi khác vẫn gọi trực tiếp nếu cần bản không-cache). Cache HIT bỏ qua network hoàn
  * toàn; MISS gọi như cũ rồi ghi cache nếu RESOLVED. */
-async function resolveHomeworkExamQuestionsForRoomIdCachedWithRetry(roomId, maxAttempts = 2) {
+export async function resolveHomeworkExamQuestionsForRoomIdCachedWithRetry(roomId, maxAttempts = 2) {
   if (!CMS_CACHE_DISABLE) {
     const cacheCheck = readCmsCacheEntry(roomId);
     if (cacheCheck.hit) {
@@ -332,7 +332,7 @@ async function resolveHomeworkExamQuestionsForRoomIdCachedWithRetry(roomId, maxA
   return { ...result, _profiling: { ...(result._profiling ?? {}), cacheHit: false } };
 }
 
-async function resolveHomeworkExamQuestionsForRoomIdWithRetry(roomId, maxAttempts = 2) {
+export async function resolveHomeworkExamQuestionsForRoomIdWithRetry(roomId, maxAttempts = 2) {
   // _profiling gắn THÊM vào object trả về (KHÔNG đổi field cũ nào) - chỉ để đo số lần gọi API +
   // thời gian từng lần, phục vụ Phase C profiling - xem docblock PROFILING đầu file.
   const attemptsLog = [];
@@ -385,7 +385,15 @@ function parsePreviousScoreForLog(scoreText) {
   return m ? Number(m[1].replace(",", ".")) : null;
 }
 
-/** ===================== SCORING ENGINE (subset-sum theo point THẬT, không giả định trọng số đều) ===================== */
+/** ===================== SCORING ENGINE (subset-sum theo point THẬT, không giả định trọng số đều) =====================
+ * EXPORTED (2026-09-07, yêu cầu mở rộng HW-29 verify điểm thật - xem
+ * automation/bai_tap/setup-ktra_ket_qua_tiep_theo_hoan_thanh.mjs): `buildScoringPlan`,
+ * `scaledSumForScore`, `achievableScoresList`, `resolveScoringPlanForCandidate`,
+ * `buildWeightedWantCorrectPlan` (cùng `refreshExamSessionFromEnvCookie`,
+ * `resolveHomeworkExamQuestionsForRoomIdWithRetry`, `resolveHomeworkExamQuestionsForRoomIdCachedWithRetry`
+ * phía trên) giờ có `export` để HW-29 tái sử dụng NGUYÊN VẸN cùng 1 scoring engine/CMS-cache thay vì
+ * viết lại DP/target logic lần thứ 2 - KHÔNG đổi logic bên trong bất kỳ hàm nào, chỉ thêm từ khoá
+ * `export`. */
 
 /**
  * DP 0/1 knapsack trên mảng điểm (đã quy đổi nguyên qua POINT_SCALE) - tìm MỌI tổng điểm khả thi
@@ -396,7 +404,7 @@ function parsePreviousScoreForLog(scoreText) {
  * @param {import("../model/questionModel.js").QuestionModel[]} questions
  * @returns {null | { scaledTotal: number, achievableScaledSums: number[], correctIndicesForScaledSum: (s:number)=>Set<number>|null }}
  */
-function buildScoringPlan(questions) {
+export function buildScoringPlan(questions) {
   const scaledPoints = questions.map((q) => Math.round((Number(q.metadata?.point) || 0) * POINT_SCALE));
   const scaledTotal = scaledPoints.reduce((a, b) => a + b, 0);
   if (scaledTotal <= 0) return null;
@@ -438,14 +446,14 @@ function buildScoringPlan(questions) {
 
 /** score (thang 0-10) -> scaledSum nguyên - null nếu score không rơi đúng vào 1 mốc điểm nguyên
  * (theo scale nội bộ) - KHÔNG làm tròn để "cho qua", coi thẳng là không khả thi. */
-function scaledSumForScore(scaledTotal, score) {
+export function scaledSumForScore(scaledTotal, score) {
   const raw = (score * scaledTotal) / 10;
   const rounded = Math.round(raw);
   if (Math.abs(raw - rounded) > 1e-6) return null;
   return rounded;
 }
 
-function achievableScoresList(scaledTotal, achievableScaledSums) {
+export function achievableScoresList(scaledTotal, achievableScaledSums) {
   const set = new Set();
   for (const s of achievableScaledSums) {
     set.add(Math.round(((s / scaledTotal) * 10) * 1e6) / 1e6);
@@ -461,7 +469,7 @@ function achievableScoresList(scaledTotal, achievableScaledSums) {
  * mode="random": random NGAY TRÊN tập điểm khả thi thật của candidate (không random đáp án rồi chờ
  *   xem điểm ra bao nhiêu).
  */
-function resolveScoringPlanForCandidate(questions, { mode, targetScoreEnv }) {
+export function resolveScoringPlanForCandidate(questions, { mode, targetScoreEnv }) {
   const plan = buildScoringPlan(questions);
   if (!plan) {
     return { achievable: false, reason: "Tổng điểm (metadata.point) của toàn bộ scored items = 0 - không tính được scoring." };
@@ -508,7 +516,7 @@ function resolveScoringPlanForCandidate(questions, { mode, targetScoreEnv }) {
 /** Map câu hỏi -> wantCorrect: item nằm trong tập "correctIndices" (đã truy vết từ DP) -> đúng; item
  * point<=0 (không tham gia DP) -> mặc định đúng (không ảnh hưởng điểm, an toàn); còn lại -> SAI CHỦ
  * ĐÍCH (đây chính là phần "chọn sai đáp án cho số item còn lại" theo yêu cầu). */
-function buildWeightedWantCorrectPlan(questions, correctIndices) {
+export function buildWeightedWantCorrectPlan(questions, correctIndices) {
   const map = new Map();
   questions.forEach((q, i) => {
     const pointRaw = Number(q.metadata?.point) || 0;

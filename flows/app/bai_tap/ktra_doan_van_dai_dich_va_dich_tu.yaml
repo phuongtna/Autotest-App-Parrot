@@ -100,7 +100,7 @@ name: HW-30 Doan van dai - Xem them, dich doan van, dich tu
             # vi tri cuon do. Dung 3 khoi runFlow.when rieng (KHONG dung repeat.times dong tu bien
             # JS) vi repeat.times dong da xac nhan CHUA duoc dung/verify o dau khac trong repo -
             # tranh dua vao cu phap chua kiem chung.
-            - runScript: ../../test_data/bai_tap_random_scroll.js
+            - runScript: ../../../test_data/bai_tap_random_scroll.js
             - runFlow:
                 when:
                   true: ${output.scrollTimes >= 1}
@@ -180,7 +180,7 @@ name: HW-30 Doan van dai - Xem them, dich doan van, dich tu
 # doan van duoc chon).
 - copyTextFrom:
     id: "paragraph_translate_result"
-- runScript: ../../test_data/passage_check_copied_text_non_empty.js
+- runScript: ../../../test_data/passage_check_copied_text_non_empty.js
 - assertTrue:
     ${output.copiedTextNonEmpty}
 
@@ -269,7 +269,7 @@ name: HW-30 Doan van dai - Xem them, dich doan van, dich tu
           while:
             notVisible: "Xem thêm"
           commands:
-            - runScript: ../../test_data/bai_tap_random_scroll.js
+            - runScript: ../../../test_data/bai_tap_random_scroll.js
             - runFlow:
                 when:
                   true: ${output.scrollTimes >= 1}

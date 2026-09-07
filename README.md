@@ -24,9 +24,12 @@ Bộ khung test automation cho app Android chạy trên máy ảo (AVD) trong An
 │   │   ├── helpers/                # subflow dùng chung riêng cho các bộ App ở trên (login, mở tab...)
 │   │   └── subflows/
 │   │       └── launch_app.yaml  # subflow dùng chung: clear state + mở app (tự cấp quyền notification)
-│   └── web/                  # testcase/flow chạy trên Web (Playwright, phía GV)
-│       ├── giao_bai_tap/        # e2e GV giao bài (web) <-> HS làm bài (app)
-│       └── teacher/             # spec/testcase Web Teacher Dashboard (quản lý lớp, giao bài)
+│   ├── web/                  # testcase/flow chạy trên Web (Playwright, phía GV)
+│   │   ├── giao_bai_tap/        # e2e GV giao bài (web) <-> HS làm bài (app)
+│   │   └── teacher/             # spec/testcase Web Teacher Dashboard (quản lý lớp, giao bài)
+│   └── cms/                  # testcase CMS Quản lý (Web Admin, Playwright, KHÁC web GV ở trên)
+│       └── goi_dich_vu/         # TESTCASES.md (40 case) + *.spec.js (Playwright Test thật) - code
+│                                 # dùng lại nằm ở automation/quan_ly_goi_dich_vu/
 ├── scripts/
 │   ├── find_appid.sh        # tìm package name (appId) của app trên máy ảo
 │   └── run_tests.sh         # chạy toàn bộ test và xuất báo cáo JUnit
@@ -34,6 +37,10 @@ Bộ khung test automation cho app Android chạy trên máy ảo (AVD) trong An
 │   ├── accounts.env         # tài khoản test dạng biến môi trường (số chưa đăng ký...) - không commit lên git
 │   └── datatest.js          # tài khoản test dạng JS, nạp bằng runScript (dùng cho flow login, vui_hoc) - không commit lên git
 ├── .env                     # APP_ID=com.inet.parrotedu (đã cấu hình sẵn)
+├── package.json             # CHỈ có {"type": "module"} - BẮT BUỘC để Playwright Test (chạy từ
+│                             # automation/) load đúng các file .js ở automation/ khi được import
+│                             # từ file test đặt ở flows/cms/goi_dich_vu/ (xem automation/README.md
+│                             # mục "Playwright Test thật" để biết chi tiết lý do)
 └── reports/                 # báo cáo test sau khi chạy (tự tạo, không commit)
 ```
 

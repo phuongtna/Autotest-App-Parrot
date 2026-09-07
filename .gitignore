@@ -8,5 +8,6 @@ reports/
 automation/node_modules/
 automation/.cache/
 automation/output/
+automation/test-results/
 flows/app/vui_hoc/generated/
 test_data/weekly_report/*.xlsx

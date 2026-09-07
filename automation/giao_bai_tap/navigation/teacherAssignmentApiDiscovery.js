@@ -63,7 +63,7 @@ async function rawFetch(path, { method = "GET", body } = {}) {
 /** Tìm đúng academic_year_id chứa NGÀY HIỆN TẠI (không hardcode 1 năm học cố định - repo này
  * chạy lâu dài, năm học sẽ đổi) - fallback: nếu không có năm học nào bao trùm ngày hiện tại
  * (hiếm, vd đang giữa 2 năm học), lấy năm học có start_date GẦN NHẤT trong quá khứ. */
-async function resolveCurrentAcademicYearId() {
+export async function resolveCurrentAcademicYearId() {
   const years = await rawFetch("/api/academic-years");
   if (!Array.isArray(years) || years.length === 0) {
     throw new TeacherAssignmentApiError("GET /api/academic-years trả về rỗng - không xác định được năm học.");
@@ -93,16 +93,32 @@ export async function fetchLessonItems({ unitId, tagId }) {
   return rawFetch("/api/learn/items", { method: "POST", body: { tag_ids: [tagId], unit_id: unitId } });
 }
 
-/** className hiển thị trên UI (vd "3B") -> class_id thật dùng cho query param. */
-export async function resolveClassId(className) {
+/** Toàn bộ lớp của GV trong năm học HIỆN TẠI (không hardcode academic_year_id - xem
+ * resolveCurrentAcademicYearId()). Export riêng (MỚI 2026-09-07) cho nhu cầu "tra ngược lớp thật
+ * của 1 học sinh theo tên profile đang active trên app" - xem
+ * automation/bai_tap/setup-ktra_ket_qua_tiep_theo_hoan_thanh.mjs#resolveClassForProfileName() -
+ * KHÔNG hardcode tên lớp nào ở đây, chỉ liệt kê thật. */
+export async function listClassesForCurrentYear() {
   const academicYearId = await resolveCurrentAcademicYearId();
   const data = await rawFetch(
     `/api/classes/teacher?academic_year_id=${encodeURIComponent(academicYearId)}&limit=10000&page=1`,
   );
-  const match = (data?.classes || []).find((c) => c.name === className);
+  return data?.classes || [];
+}
+
+/** Danh sách học sinh thật của 1 lớp (GET /api/classes/:id/students) - MỚI 2026-09-07, cùng lý do
+ * export listClassesForCurrentYear() ở trên. */
+export async function fetchClassStudents(classId) {
+  return rawFetch(`/api/classes/${classId}/students`);
+}
+
+/** className hiển thị trên UI (vd "3B") -> class_id thật dùng cho query param. */
+export async function resolveClassId(className) {
+  const classes = await listClassesForCurrentYear();
+  const match = classes.find((c) => c.name === className);
   if (!match) {
     throw new TeacherAssignmentApiError(
-      `Không tìm thấy lớp "${className}" trong năm học hiện tại (academic_year_id=${academicYearId}) - kiểm tra lại primaryClass.`,
+      `Không tìm thấy lớp "${className}" trong năm học hiện tại - kiểm tra lại primaryClass. Các lớp hiện có: ${classes.map((c) => c.name).join(", ")}.`,
     );
   }
   return match.id;

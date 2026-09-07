@@ -85,6 +85,14 @@ CMS_ACCESS_TOKEN=<token thật của bạn>
 # nối. Để trống thì maestro/adb tự chọn thiết bị duy nhất đang kết nối. `discover` KHÔNG dùng
 # biến này (không cần thiết bị nào).
 DEVICE_ID=
+
+# CMS Quản lý (web admin: /packages, /orders, /students) - KHÁC CMS_BASE_URL ở trên (đó là API
+# nội dung bài học/Exam). Đăng nhập dùng chung CMS_USERNAME/CMS_PASSWORD đã có sẵn (cùng 1 tài
+# khoản admin cho cả 3 môi trường). Xem mục "Quản lý gói dịch vụ" ở cuối file.
+CMS_ADMIN_ENV=staging   # dev | staging | production
+CMS_ADMIN_URL_DEV=
+CMS_ADMIN_URL_STAGING=https://cms-staging.parrotedu.vn
+CMS_ADMIN_URL_PRODUCTION=https://cms.parrotedu.vn
 ```
 
 ## Random Book/Unit/Lesson/Exercise (thuần CMS, không kiểm tra trạng thái Hoàn thành)
@@ -771,3 +779,168 @@ load average >2) giá trị "before" đôi lúc vẫn đọc sai (renderer bị 
 đã về" không đồng nghĩa "DOM đã cập nhật xong") dù DELETE/POST thật đã chạy đúng - đây là giới hạn
 của môi trường chạy test lúc đó, KHÔNG phải bug nghiệp vụ (đã đối chiếu qua API thật ở trên xác nhận
 hành vi xóa luôn đúng). Nên chạy lại khi máy đỡ tải nếu gặp lại lỗi tương tự.
+
+## Quản lý gói dịch vụ (CMS Admin, web) - Playwright (`quan_ly_goi_dich_vu/`)
+
+Testcase đầy đủ (40 case, nhóm "Gói mặc định" + "Gán gói dùng thử khi tạo đơn thủ công"): xem
+[`flows/cms/goi_dich_vu/TESTCASES.md`](../flows/cms/goi_dich_vu/TESTCASES.md).
+
+CMS Quản lý (đăng nhập `admin`/mật khẩu ở `CMS_USERNAME`/`CMS_PASSWORD`, các màn `/packages` "Quản
+lý gói dịch vụ", `/orders` "Quản lý đơn hàng", `/students` "Quản lý học sinh") là **hệ thống KHÁC
+hẳn** `CMS_BASE_URL`/`giao_bai_tap`/`quan_ly_lop_hoc` ở trên (những cái đó là CMS nội dung bài
+học/Exam và web GV `parrotedu.vn/teacher`) - web admin nghiệp vụ gói dịch vụ/đơn hàng/gán gói dùng
+thử, UI Nuxt + Naive UI (class prefix `n-`, KHÔNG có resource-id).
+
+**ĐÃ CHẠY THẬT THÀNH CÔNG (2026-09-07, `npm run test-goi-dich-vu`, môi trường staging)**: 30/35 case
+Pass tự động, 1 Skip (GRANT-07, chờ 24h - xem bên dưới), 4 case cần thêm vài vòng fix trước khi ổn
+định (race condition/eventual-consistency, đã sửa - xem "Bài học đã gặp thật" bên dưới). Report JSON
+đầy đủ mỗi lần chạy: `automation/output/goi_dich_vu_report_<runId>.json`.
+
+```
+quan_ly_goi_dich_vu/
+  navigation/
+    cmsAdminSession.js        # đăng nhập thật qua form (Playwright, giống teacherPortalSession.js)
+    cmsAdminPageObjects.js    # TOÀN BỘ selector đã xác nhận thật qua DOM dump (không đoán từ ảnh) +
+                              # helper thao tác dùng chung (n-select, switch, checkbox, bảng, modal)
+  runtime/
+    packageCasesFlow.js       # UI-01..06, SAVE-01..05, DEACT-01..04, ORDER-01..04, FIELD-01,
+                              # REG-01..03 - TỰ TẠO gói riêng (AUTO-<runId>-A/B/C/D), không phụ
+                              # thuộc dữ liệu có sẵn -> an toàn chạy lại nhiều lần, mọi môi trường
+    grantCasesFlow.js         # GRANT-01,02,02b,03,04a,04b,05,06,08,12 + DEACT-05 - CẦN 1 học sinh
+                              # thật (CMS_ADMIN_TEST_STUDENT_PHONE), tự SKIP nếu thiếu
+  cli.js                      # entrypoint `npm run test-goi-dich-vu`
+```
+
+### Chạy - 1 lệnh duy nhất, chọn môi trường qua biến
+
+```bash
+cd automation
+CMS_ADMIN_ENV=staging npm run test-goi-dich-vu        # hoặc dev / production
+npm run test-goi-dich-vu -- --env=production          # cách khác, không cần sửa .env
+CMS_ADMIN_HEADLESS=false npm run test-goi-dich-vu      # xem browser thật khi cần debug selector
+```
+
+Không cần đổi code khi đổi môi trường - `cli.js` tự resolve URL qua `resolveCmsAdminBaseUrl()` +
+tự lấy `studentPhone` qua `CMS_ADMIN_TEST_STUDENT_PHONE` (xem mục biến môi trường bên dưới).
+
+### Biến môi trường (3 môi trường: dev/staging/production)
+
+```
+# .env
+CMS_ADMIN_ENV=staging   # dev | staging | production - chọn môi trường khi chạy test
+CMS_ADMIN_URL_DEV=
+CMS_ADMIN_URL_STAGING=https://cms-staging.parrotedu.vn
+CMS_ADMIN_URL_PRODUCTION=https://cms.parrotedu.vn
+
+# 1 học sinh CÓ THẬT trên môi trường đang test - dùng bởi grantCasesFlow.js (tạo đơn hàng thật gán
+# cho profile này). PHẢI đổi khi đổi môi trường - mỗi môi trường có dữ liệu học sinh khác nhau.
+CMS_ADMIN_TEST_STUDENT_PHONE=0944123123
+```
+
+- Đăng nhập dùng chung `CMS_USERNAME`/`CMS_PASSWORD` đã có sẵn trong `.env` (xác nhận cùng 1 tài
+  khoản `admin`/`Parrot@20266` cho cả 3 môi trường, 2026-09-07) - KHÔNG cần thêm biến riêng.
+- `CMS_ADMIN_URL_DEV` đang để trống - **chưa có môi trường dev riêng tại thời điểm này**. Nếu
+  `CMS_ADMIN_ENV=dev` mà biến này trống, code throw lỗi rõ ràng (tên biến cần điền) thay vì âm thầm
+  chạy nhầm môi trường khác.
+- `CMS_ADMIN_URL_PRODUCTION` **chưa xác nhận truy cập thật** - suy ra theo quy ước bỏ tiền tố
+  `-staging` khỏi domain staging (xác nhận qua lựa chọn trong hội thoại, chưa tự tay mở link kiểm
+  tra). Sửa lại giá trị này nếu sai, không cần đổi code.
+- `CMS_ADMIN_TEST_STUDENT_PHONE` để trống thì `grantCasesFlow.js` tự SKIP toàn bộ case GRANT-*
+  (không giả định Pass/Fail) - report sẽ liệt kê rõ lý do.
+
+### Resolver (`automation/src/config.js`)
+
+```js
+import { config, resolveCmsAdminBaseUrl, requireCmsAdminConfig } from "./src/config.js";
+
+requireCmsAdminConfig();                           // throw nếu thiếu CMS_USERNAME/CMS_PASSWORD
+const baseUrl = resolveCmsAdminBaseUrl();          // đọc CMS_ADMIN_ENV trong .env
+const stagingUrl = resolveCmsAdminBaseUrl("staging"); // hoặc ép 1 môi trường cụ thể
+```
+
+### Playwright Test thật (`*.spec.js`, `npx playwright test`)
+
+Ngoài script tự viết (`cli.js`, dùng bởi `npm run test-goi-dich-vu`), 34 case (UI-01..06,
+SAVE-01..05, DEACT-01..05, ORDER-01..04, FIELD-01, REG-01..03,
+GRANT-01/02/02b/03/04a/08/12/05/06/04b) còn có bản chuyển sang **Playwright Test** (test runner
+chính thức, `test()`/`expect()`) - **ĐÃ CHẠY THẬT PASS 34/34** (2026-09-07, `npx playwright test`,
+môi trường staging), TẤT CẢ DỒN CHUNG 1 FILE theo yêu cầu (1 `test.describe.serial()`, dùng chung
+đúng 3 gói tự tạo `AUTO-<runId>-A/B/C` xuyên suốt cho cả nhóm Gói mặc định lẫn nhóm GRANT - không
+tạo thêm gói D/E riêng, khớp đúng luồng liên tục gốc của `packageCasesFlow.js`/`grantCasesFlow.js`).
+GRANT-12 chạy TRƯỚC GRANT-05/06 (xác nhận đơn Thành công) vì sau khi Thành công gói dùng thử tự
+inactive (GRANT-06) - không còn "đang hiệu lực" để test premise của GRANT-12 nữa:
+
+```
+../flows/cms/goi_dich_vu/
+  goi-mac-dinh-pass-01-20.spec.js   # 34 case, 1 file duy nhất (tên giữ nguyên dù đã hơn 20 case -
+                                    # tiếp tục thêm case mới vào ĐÂY, không tách file khác).
+                                    # DEACT-05/GRANT-03/GRANT-04a/GRANT-12/GRANT-05/GRANT-06/
+                                    # GRANT-04b cần CMS_ADMIN_TEST_STUDENT_PHONE, tự test.skip()
+                                    # nếu thiếu - đặt ở flows/ (không phải automation/), cùng quy
+                                    # ước file test/entrypoint thật nằm ở
+                                    # flows/web/giao_bai_tap/*.mjs. Import code dùng lại từ
+                                    # automation/quan_ly_goi_dich_vu/ qua đường dẫn tương đối + qua
+                                    # playwrightTest.js (xem ghi chú dưới).
+quan_ly_goi_dich_vu/
+  playwrightTest.js                 # re-export test/expect từ @playwright/test - file ở flows/
+                                    # PHẢI import qua đây, KHÔNG import "@playwright/test" trực
+                                    # tiếp (Node resolve node_modules ngược từ vị trí file, flows/
+                                    # không có node_modules riêng - xem comment trong file)
+playwright.config.js                # testDir=../flows/cms/goi_dich_vu, workers=1 (case phụ thuộc
+                                    # trạng thái lẫn nhau, KHÔNG chạy song song được)
+```
+
+**Lưu ý quan trọng khi thêm file `.spec.js` mới trong `flows/`:** repo gốc (thư mục cha của cả
+`automation/` và `flows/`) giờ có 1 `package.json` tối giản `{"type": "module"}` - BẮT BUỘC phải có
+file này thì Playwright Test mới load được các module `.js` ở `automation/` (vd `src/config.js` có
+dùng `import.meta.url`) khi được import từ file test nằm NGOÀI `automation/` (ĐÃ GẶP THẬT
+2026-09-07: thiếu file này báo lỗi `Cannot use 'import.meta' outside a module` dù `automation/`
+đã tự có `"type": "module"` riêng - Playwright Test tính "rootDir" theo tổ tiên chung của `testDir`
+và thư mục chứa config, không phải theo `package.json` gần nhất của từng file như Node thuần).
+
+Chạy:
+```bash
+cd automation
+CMS_ADMIN_ENV=staging npx playwright test    # hoặc npm run test-goi-dich-vu-pw
+CMS_ADMIN_HEADLESS=false npx playwright test # xem browser thật
+npx playwright show-report output/playwright-report  # xem HTML report sau khi chạy
+```
+
+Dùng `test.describe.serial()` + 1 `page` DÙNG CHUNG cho cả file (tạo ở `test.beforeAll` qua fixture
+`browser`, KHÔNG dùng fixture `page` mặc định vì fixture đó tạo context mới cho MỖI test - sẽ mất
+popup/gói vừa tạo ở test trước, các case này phụ thuộc trạng thái lẫn nhau theo đúng thứ tự nghiệp
+vụ y hệt `packageCasesFlow.js`). Nhớ chạy `npm run cleanup-goi-dich-vu` sau khi test xong (spec tự
+tạo gói riêng tiền tố `AUTO-`, không tự dọn).
+
+### Case KHÔNG có trong bộ chạy tự động
+
+- **GRANT-07** (đơn tự Hủy sau 24h): luôn SKIP - không automate việc chờ 24h trong 1 lần chạy ngắn.
+- **FIELD-02/03, GRANT-09**: Blocked từ khi test tay (field ẩn hoàn toàn khỏi UI / điều kiện tiên
+  quyết không đạt được) - không có gì để tự động hoá thêm.
+- **GRANT-10/11**: Exploratory, chưa có rule chính thức để assert Pass/Fail (cần BA xác nhận trước).
+
+### Bài học đã gặp thật khi viết automation (Naive UI + Playwright)
+
+- **Login**: không có `<form>` thật, input định vị bằng `input[placeholder="..."]`. Sau khi bấm
+  "Đăng nhập", app điều hướng bằng client-side routing (Nuxt) - PHẢI `page.waitForURL(...)`, dùng
+  `waitForLoadState("networkidle")` không đủ (không có full page navigation).
+- **Naive UI `n-select` (Gói dịch vụ mua / Gói dùng thử áp dụng / Tên Profile học sinh)**: mỗi
+  select MỞ RA 1 `.n-base-select-menu` TELEPORT riêng, nhưng menu CŨ không unmount khi đóng - chỉ
+  ẩn đi (còn nguyên trong DOM). Query `.n-base-select-option` không kèm `:visible` sẽ khớp NHẦM
+  option của 1 dropdown khác đã mở trước đó trong cùng phiên popup. Luôn dùng
+  `.n-base-select-option:visible`.
+- **Field "Tên Profile học sinh" (order popup)**: hết class `--disabled` KHÔNG đồng nghĩa danh sách
+  profile đã load xong (API tìm theo số điện thoại có debounce) - bấm mở đúng lúc dữ liệu chưa về
+  sẽ ra dropdown rỗng, chọn hụt. Khắc phục bằng tự poll mở lại (Escape rồi mở lại) tới khi thấy
+  option thật, không tin 1 lần mở là đủ (xem `selectFirstOrderProfileOption`).
+- **1 số điện thoại có thể có NHIỀU profile con** (`/students` hiện 1 dòng/profile, cùng chung số
+  điện thoại) - lọc dòng bảng chỉ theo số điện thoại có thể khớp NHẦM profile. Phải lọc thêm theo
+  TÊN profile đã chọn lúc tạo đơn (`selectFirstOrderProfileOption` trả về tên đã chọn để dùng lại).
+- **Eventual consistency sau khi Lưu** (cả popup gói dịch vụ lẫn đơn hàng): đọc lại trạng thái NGAY
+  sau khi popup đóng đôi lúc vẫn thấy dữ liệu CŨ trong vài trăm ms (vd SAVE-05: 2 lần lưu gần như
+  đồng thời, đọc ngay sau đó vẫn thấy gói lưu TRƯỚC là mặc định, phải poll thêm ~1-3s mới thấy gói
+  lưu SAU thắng đúng như kỳ vọng). `savePackagePopup`/`saveOrderPopup` đợi popup đóng HẲN (không
+  dùng `waitForTimeout` cố định), và các case nhạy cảm với thứ tự ghi (SAVE-05, DEACT-01) tự poll
+  thêm tới khi đúng trạng thái mong đợi hoặc hết lượt thử.
+- **Xác định đơn hàng vừa tạo**: KHÔNG tin "dòng đầu bảng" ngay sau khi lưu (bảng có thể chưa kịp
+  refetch) - đối chiếu tập mã đơn TRƯỚC/SAU khi lưu, lấy mã KHÔNG có trong tập trước.

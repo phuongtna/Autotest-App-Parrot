@@ -1,0 +1,29 @@
+# Helper: từ 1 trong 3 tab dashboard, mở màn "Thông tin các con" (danh sách hồ sơ con).
+#
+# Đường vào thật (xác nhận trên thiết bị 3201d866d40a1681, 2026-09-07): tab "Báo cáo" > cuộn
+# qua card "Nâng cấp tài khoản" + card "Báo cáo học tập" > mục "Thông tin các con" nằm trong nhóm
+# menu tài khoản (cùng nhóm với "Khôi phục đăng ký", "Quản lý tài khoản", "Đăng xuất").
+#
+# KHÔNG dùng `scrollUntilVisible` nhắm thẳng "Thông tin các con": đã verify thật là nó báo
+# COMPLETED quá sớm (dừng ở giữa card "Báo cáo học tập", trước khi mục menu vào khung hình) - cùng
+# lỗi "scrollUntilVisible dừng sớm khi card quá cao" đã ghi trong README gốc mục đó. Thay bằng
+# `repeat.while notVisible` cuộn từng bước tới khi thấy thật, tự dừng ngay nếu account không có
+# card "Nâng cấp tài khoản" (đã Pro) nên không cần cuộn nhiều.
+#
+# Giả định: đã login + đang đứng ở 1 trong 3 tab dashboard. Helper KHÔNG tự login.
+appId: ${APP_ID}
+---
+- runFlow: open-tab-report.yaml
+- repeat:
+    while:
+      notVisible:
+        text: "Thông tin các con"
+    times: 8
+    commands:
+      - scroll
+- assertVisible: "Thông tin các con"
+- tapOn: "Thông tin các con"
+- extendedWaitUntil:
+    visible:
+      text: "Thêm hồ sơ mới"
+    timeout: 15000

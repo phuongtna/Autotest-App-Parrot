@@ -1,0 +1,27 @@
+# Helper: mở màn "Hồ sơ học tập" (Chỉnh sửa hồ sơ) của ĐÚNG 1 profile con theo tên.
+#
+# Selector cho nút "Chỉnh sửa hồ sơ" dùng `below: "${PROFILE_NAME}"` thay vì index cố định
+# (0/1/2...) vì thứ tự card trong "Thông tin các con" không đảm bảo ổn định giữa các lần chạy
+# (thêm/xoá hồ sơ, hoặc backend trả về thứ tự khác) - xác nhận thật trên thiết bị
+# 3201d866d40a1681 mỗi card có cấu trúc cố định: Tên -> trạng thái lớp -> link "Chỉnh sửa hồ sơ"
+# ngay bên dưới, nên `below` bám đúng card của tên đang tìm bất kể vị trí trong danh sách.
+#
+# Tham số: PROFILE_NAME (tên hồ sơ con muốn mở, vd "Hang", "Duy").
+appId: ${APP_ID}
+---
+- runFlow: open-thong-tin-cac-con.yaml
+- extendedWaitUntil:
+    visible:
+      text: "${PROFILE_NAME}"
+    timeout: 15000
+- tapOn:
+    text: "Chỉnh sửa hồ sơ"
+    below: "${PROFILE_NAME}"
+- extendedWaitUntil:
+    visible:
+      text: "Hồ sơ học tập"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "Lớp học"
+    timeout: 15000

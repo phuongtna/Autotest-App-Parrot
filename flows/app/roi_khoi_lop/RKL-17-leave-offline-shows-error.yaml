@@ -1,0 +1,52 @@
+# Testcase: TC_17 - Bật chế độ máy bay/tắt mạng > bấm "Rời khỏi lớp" > "Đồng ý" -> hiển thị lỗi
+# mất kết nối rõ ràng, dữ liệu Lớp học của profile KHÔNG bị mất/thay đổi.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 5, bước 5.1.
+#
+# Maestro KHÔNG có lệnh bật/tắt mạng built-in - file này CHỈ làm phần thao tác trong app (bấm
+# "Đồng ý" trong lúc máy đã ở trạng thái mất mạng). Việc tắt/bật mạng nằm ở
+# `scripts/run_rkl17_offline_case.sh` (chạy `adb shell svc wifi/data` trước/sau khi gọi
+# `maestro test` file này) - KHÔNG tự chạy `maestro test` trực tiếp file này một mình mà không qua
+# script đó, nếu không case sẽ chạy với mạng bình thường và luôn FAIL sai (không match được lỗi
+# mất kết nối vì request thành công thật).
+#
+# Do KHÔNG mutate dữ liệu thật khi app hoạt động đúng (Rời lớp phải THẤT BẠI vì mất mạng), case
+# này an toàn hơn RKL-06/18/20 - nhưng vẫn tag `writes`-adjacent vì nếu app xử lý SAI (rời lớp
+# "thành công" kể cả khi mất mạng, do optimistic update không rollback) thì đây chính là dữ liệu
+# thật bị mất - đây LÀ mục đích kiểm của case, không phải tác dụng phụ ngoài ý muốn.
+#
+# Chạy (bắt buộc qua script, không chạy trực tiếp):
+#   ./scripts/run_rkl17_offline_case.sh <PROFILE_WITH_CLASS>
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+
+- assertVisible: "Rời khỏi lớp"
+- takeScreenshot: rkl17_before_offline_attempt
+
+- tapOn: "Rời khỏi lớp"
+- extendedWaitUntil:
+    visible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+- tapOn: "Đồng ý"
+
+# Expected: banner lỗi mất kết nối rõ ràng (text đúng tuỳ app - assert theo cụm từ chung, không
+# cố định 1 câu vì spec không cho biết chính xác wording).
+- extendedWaitUntil:
+    visible: ".*(mất kết nối|không có kết nối|lỗi mạng|kiểm tra kết nối|Network|internet).*"
+    timeout: 15000
+- takeScreenshot: rkl17_offline_error_banner
+
+# Expected: dữ liệu Lớp học không đổi - vẫn còn "Rời khỏi lớp" (chưa thật sự rời), Trường/Khối/Lớp
+# giữ nguyên.
+- assertVisible: "Rời khỏi lớp"
+- takeScreenshot: rkl17_after_offline_attempt_data_unchanged

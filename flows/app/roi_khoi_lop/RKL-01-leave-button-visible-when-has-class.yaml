@@ -1,0 +1,28 @@
+# Testcase: TC_01 - Nút "Rời khỏi lớp" hiển thị đúng vị trí khi profile ĐANG có lớp.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 1, bước 1.1.
+#
+# Data cần chuẩn bị: 1 profile con ĐANG thuộc 1 lớp (mặc định staging: "Hang" - 5D, Trường Tiểu
+# học QA - xem README.md mục Data). Đổi PROFILE_WITH_CLASS nếu tài khoản test khác.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-01-leave-button-visible-when-has-class.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 -e PROFILE_WITH_CLASS=Hang
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+
+# Expected: mục "Lớp học" có link "Rời khỏi lớp" ngay cạnh, Trường/Khối đã điền sẵn (không phải
+# placeholder "Chọn trường"/"Chọn khối").
+- assertVisible: "Lớp học"
+- assertVisible: "Rời khỏi lớp"
+- assertNotVisible: "Chọn trường"
+- assertNotVisible: "Chọn khối"
+- takeScreenshot: rkl01_leave_button_visible

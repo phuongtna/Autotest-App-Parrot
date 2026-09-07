@@ -9,3 +9,4 @@ flows:
   - "flows/homework/*.yaml"
   - "flows/app/exercise/*.yaml"
   - "flows/app/report/*.yaml"
+  - "flows/app/roi_khoi_lop/*.yaml"

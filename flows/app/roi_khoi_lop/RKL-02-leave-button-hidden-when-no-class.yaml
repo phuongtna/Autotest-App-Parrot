@@ -1,0 +1,60 @@
+# Testcase: TC_02 - KHÔNG có nút "Rời khỏi lớp" khi profile CHƯA có lớp.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 1, bước 1.2.
+#
+# Data: KHÔNG dùng profile con có sẵn trong tài khoản (vd "Duy") - đã xác nhận thật (2026-09-07)
+# là trạng thái "chưa có lớp" của profile có sẵn dễ bị "tiêu mất" bởi chính các case khác trong bộ
+# này (RKL-11 chọn lớp cho nó xong là nó chuyển sang "Đang chờ duyệt", không còn thoả precondition
+# của case này nữa - không có nút "Huỷ yêu cầu" nào để đưa nó về lại "chưa có lớp"). Case này TỰ
+# TẠO 1 profile con dùng-1-lần (giống cơ chế `test_data/create_child_profile_data.js` /
+# `flows/app/profile/create_child_profile_success.yaml`) và CỐ TÌNH bỏ qua bước chọn Trường/Khối/
+# Lớp lúc tạo - profile mới luôn ở trạng thái "chưa có lớp" ngay sau khi tạo, không phụ thuộc dữ
+# liệu có sẵn của tài khoản.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-02-leave-button-hidden-when-no-class.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runScript: ../../../test_data/create_child_profile_data.js
+
+- runFlow: ../helpers/open-thong-tin-cac-con.yaml
+- tapOn: "Thêm hồ sơ mới"
+- tapOn: "Đầy đủ họ tên con"
+- inputText: "${output.CHILD_NAME}"
+- hideKeyboard
+- tapOn: "Chọn năm sinh của con"
+- tapOn: "2016"
+- tapOn: "Xác nhận"
+# CỐ TÌNH KHÔNG chọn Trường/Khối/Lớp - submit ngay để có 1 profile "chưa có lớp" sạch.
+- tapOn: "Thêm hồ sơ mới"
+- extendedWaitUntil:
+    notVisible:
+      text: "Thông tin cơ bản"
+    timeout: 15000
+
+# Sau khi submit, app tự quay về thẳng "Thông tin các con" (KHÔNG phải 1 tab dashboard có tab bar
+# - xác nhận thật 2026-09-07, giống hành vi đã ghi trong
+# flows/app/profile/create_child_profile_success.yaml). Vì vậy KHÔNG gọi lại
+# helpers/goto-profile-edit.yaml (helper đó giả định đang đứng ở tab dashboard, sẽ FAIL vì không
+# tìm thấy tab "Báo cáo" ở màn này) - bấm thẳng "Chỉnh sửa hồ sơ" của hồ sơ vừa tạo.
+- assertVisible: "${output.CHILD_NAME}"
+- tapOn:
+    text: "Chỉnh sửa hồ sơ"
+    below: "${output.CHILD_NAME}"
+- extendedWaitUntil:
+    visible:
+      text: "Hồ sơ học tập"
+    timeout: 15000
+
+# Expected: mục "Lớp học" chỉ có Trường/Khối dạng placeholder "Chọn trường"/"Chọn khối",
+# KHÔNG có link "Rời khỏi lớp".
+- assertVisible: "Lớp học"
+- assertVisible: "Chọn trường"
+- assertVisible: "Chọn khối"
+- assertNotVisible: "Rời khỏi lớp"
+- takeScreenshot: rkl02_leave_button_hidden

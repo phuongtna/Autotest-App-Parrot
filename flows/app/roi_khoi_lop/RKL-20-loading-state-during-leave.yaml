@@ -1,0 +1,56 @@
+# !!! CASE GHI DỮ LIỆU THẬT - RỜI LỚP THẬT (không thể tự hoàn tác) !!!
+#
+# Testcase: TC_20 - Bấm "Đồng ý" và chụp/quay NGAY khoảnh khắc xử lý -> có trạng thái loading rõ
+# ràng (icon loading/spinner hoặc nút bị disable), không cho thao tác các phần tử khác trong lúc
+# xử lý.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 5, bước 5.3.
+#
+# GIỚI HẠN THẬT: kế hoạch test gốc gợi ý dùng DevTools throttle 3G để kéo dài cửa sổ loading cho dễ
+# bắt - kỹ thuật này áp dụng cho web, KHÔNG áp dụng được cho app native. Case này chỉ chụp
+# `takeScreenshot` NGAY sau `tapOn` mà KHÔNG có `extendedWaitUntil` xen giữa (nhanh nhất Maestro có
+# thể) - nếu request xử lý xong quá nhanh (mạng tốt, backend phản hồi dưới ~1 khung hình chụp), ảnh
+# chụp được CÓ THỂ đã là kết quả sau cùng thay vì đúng khoảnh khắc loading. Đối chiếu ảnh
+# `rkl20_loading_moment` bằng mắt để xác nhận có bắt được spinner/nút disable hay không - nếu
+# không, cần chạy tay + quay video theo đúng gợi ý gốc, hoặc lặp lại case này vài lần (mạng chậm
+# hơn ở 1 số lượt chạy có thể bắt được).
+#
+# Data cần chuẩn bị: 1 profile ĐANG có lớp, KHÁC với profile đã dùng ở RKL-06/RKL-18 (case này rời
+# lớp thật của profile truyền vào).
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-20-loading-state-during-leave.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 -e PROFILE_WITH_CLASS=Hang
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+
+- tapOn: "Rời khỏi lớp"
+- extendedWaitUntil:
+    visible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+- tapOn: "Đồng ý"
+- takeScreenshot: rkl20_loading_moment
+# Xem ghi chú GIỚI HẠN THẬT ở đầu file trước khi coi ảnh này là bằng chứng chốt.
+
+# Thử thao tác vào 1 phần tử khác NGAY trong lúc (kỳ vọng) đang xử lý - nếu app khoá đúng, tap này
+# không có tác dụng (không điều hướng đi đâu); nếu app KHÔNG khoá, có thể thấy điều hướng lạc chỗ
+# trong ảnh screenshot tiếp theo - đối chiếu thủ công.
+- tapOn:
+    text: "Ở lại"
+    optional: true
+- takeScreenshot: rkl20_attempt_other_interaction_during_processing
+
+- extendedWaitUntil:
+    notVisible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 15000
+- takeScreenshot: rkl20_after_processing_done

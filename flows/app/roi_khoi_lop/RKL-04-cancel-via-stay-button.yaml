@@ -1,0 +1,41 @@
+# Testcase: TC_04 - Từ popup xác nhận, bấm "Ở lại" -> popup đóng, dữ liệu Lớp học giữ nguyên.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 1, bước 1.4.
+#
+# Verify thật trên thiết bị 3201d866d40a1681 (2026-09-07): sau "Ở lại", Trường học/Khối học vẫn
+# giữ nguyên giá trị cũ (không bị reset về placeholder). Không tag `writes`.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-04-cancel-via-stay-button.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 -e PROFILE_WITH_CLASS=Hang
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+
+# Ghi lại bằng chứng Lớp học TRƯỚC khi mở popup (đối chiếu sau khi đóng).
+- assertVisible: "Rời khỏi lớp"
+- takeScreenshot: rkl04_before_open_popup
+
+- tapOn: "Rời khỏi lớp"
+- extendedWaitUntil:
+    visible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+- tapOn: "Ở lại"
+
+# Expected: popup đóng, mục Lớp học (Trường/Khối/Lớp, link "Rời khỏi lớp") giữ nguyên - không đổi.
+- extendedWaitUntil:
+    notVisible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+- assertVisible: "Lớp học"
+- assertVisible: "Rời khỏi lớp"
+- assertNotVisible: "Chọn trường"
+- takeScreenshot: rkl04_after_cancel_data_unchanged

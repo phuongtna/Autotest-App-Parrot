@@ -1,0 +1,45 @@
+# Testcase: TC_05 (nhánh 1/2) - Mở lại popup, tap vào vùng NGOÀI popup -> đóng, dữ liệu không đổi.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 1, bước 1.5.
+#
+# Verify thật trên thiết bị 3201d866d40a1681 (2026-09-07): tap vào vùng overlay mờ phía trên popup
+# (point cố định theo layout popup ở giữa màn hình) đóng popup, hành vi giống "Ở lại" - Lớp học
+# giữ nguyên. Xem RKL-05b-... cho nhánh còn lại (nút back thiết bị) - hành vi KHÁC, tách file riêng.
+#
+# Toạ độ "outside popup" dùng % màn hình (không phải px cố định) để đỡ phụ thuộc độ phân giải máy:
+# phần overlay phía trên khối popup, ngay dưới header - xác nhận thật nằm ngoài popup ở mọi máy có
+# tỉ lệ màn hình dọc tương tự.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-05-cancel-via-outside-tap.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 -e PROFILE_WITH_CLASS=Hang
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+
+- tapOn: "Rời khỏi lớp"
+- extendedWaitUntil:
+    visible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+
+# Tap vùng overlay mờ, phía trên khối popup (ngoài vùng "Xác nhận rời khỏi lớp" / 2 nút).
+- tapOn:
+    point: "50%,20%"
+
+# Expected: popup đóng, hành vi giống hệt "Ở lại" - dữ liệu không đổi.
+- extendedWaitUntil:
+    notVisible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+- assertVisible: "Lớp học"
+- assertVisible: "Rời khỏi lớp"
+- assertNotVisible: "Chọn trường"
+- takeScreenshot: rkl05_outside_tap_dismisses_popup

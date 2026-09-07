@@ -1,0 +1,43 @@
+# Testcase: TC_03 - Bấm "Rời khỏi lớp" hiện popup xác nhận đầy đủ nội dung cảnh báo + 2 nút.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 1, bước 1.3.
+#
+# Nội dung popup xác nhận THẬT trên thiết bị 3201d866d40a1681 (2026-09-07):
+#   Tiêu đề: "Xác nhận rời khỏi lớp"
+#   Nội dung: "Rời lớp sẽ xóa toàn bộ bài tập đã giao trong lớp này. Bạn có chắc chắn muốn tiếp tục?"
+#   2 nút: "Ở lại" (outline) / "Đồng ý" (đỏ, filled)
+# Case này CHỈ mở popup rồi đóng lại bằng "Ở lại" ở cuối (không rời lớp thật) - không tag
+# `writes`, an toàn chạy nhiều lần.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-03-confirm-popup-content.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 -e PROFILE_WITH_CLASS=Hang
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+
+- tapOn: "Rời khỏi lớp"
+- extendedWaitUntil:
+    visible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+
+- assertVisible: "Xác nhận rời khỏi lớp"
+- assertVisible: "Rời lớp sẽ xóa toàn bộ bài tập đã giao trong lớp này. Bạn có chắc chắn muốn tiếp tục?"
+- assertVisible: "Ở lại"
+- assertVisible: "Đồng ý"
+- takeScreenshot: rkl03_confirm_popup_content
+
+# Dọn dẹp: đóng popup bằng "Ở lại", KHÔNG bấm "Đồng ý" trong case này.
+- tapOn: "Ở lại"
+- extendedWaitUntil:
+    notVisible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000

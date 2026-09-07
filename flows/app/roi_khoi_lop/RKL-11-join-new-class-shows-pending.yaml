@@ -1,0 +1,152 @@
+# Testcase: TC_11 - Chọn Trường/Khối/Lớp (mới) cho profile đang trống Lớp học -> chuyển trạng thái
+# "Đang chờ duyệt vào lớp" kèm thông báo chờ giáo viên duyệt, KHÔNG vào lớp ngay lập tức.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 4, bước 4.1.
+#
+# ĐÃ XÁC NHẬN THẬT (2026-09-07, thiết bị 3201d866d40a1681): sau khi lưu, "Thông tin các con" hiện
+# đúng dòng trạng thái "Đang chờ duyệt vào lớp" thay cho tên lớp; màn "Hồ sơ học tập" khoá (disable)
+# toàn bộ Trường/Khối/Lớp và hiện banner xanh "Yêu cầu vào lớp đã được gửi, thầy cô sẽ duyệt trong
+# thời gian sớm nhất" - KHÔNG có nút huỷ yêu cầu nào trên UI này.
+#
+# !!! GHI DỮ LIỆU THẬT + KHÔNG THỂ TỰ HUỶ (tag `writes`) !!!: một khi đã Lưu, profile bị khoá ở
+# trạng thái "Đang chờ duyệt" cho tới khi ĐÚNG giáo viên phụ trách lớp đó duyệt hoặc từ chối (không
+# có thao tác nào trong app của phụ huynh để tự huỷ) - xem README.md mục "Giới hạn đã biết". Vì vậy
+# case này LUÔN tự tạo 1 profile con dùng-1-lần (không dùng profile đặt tên sẵn của tài khoản như
+# Duy/Hang/Bich diep) để không làm "hỏng" precondition của các case khác (đã xảy ra thật với "Duy"
+# trong phiên viết case này - profile đó vẫn đang kẹt "Đang chờ duyệt vào lớp" tính tới nay).
+#
+# GHI CHÚ QUAN TRỌNG khi chọn "Lớp" (xác nhận thật, 3 lượt thử khác nhau cùng 1 tổ hợp Trường+Khối):
+# danh sách lựa chọn "Lớp" có thể có NHIỀU class trùng/gần trùng tên hiển thị (vd "Lớp 3A",
+# "Lớp 3B", "3B" cho cùng "Trường Tiểu học QA" + "Lớp 3") - đây là các lớp THẬT KHÁC NHAU của
+# NHIỀU giáo viên khác nhau, tên hiển thị không phải bằng chứng cùng 1 lớp. Nếu cần verify chéo với
+# 1 tài khoản giáo viên cụ thể (vd cho case RKL-12/19), PHẢI xác nhận đúng lớp bằng cách kiểm tra
+# `student_request_count` qua API `/api/classes/teacher` của ĐÚNG tài khoản giáo viên đó sau khi
+# lưu (xem automation/quan_ly_lop_hoc/), không suy luận từ tên hiển thị trong app. Case này CHỈ
+# kiểm cơ chế hiển thị trạng thái "Đang chờ duyệt" (không cần biết chính xác lớp nào), nên tham số
+# CLASS_OPTION_TEXT chỉ cần TỒN TẠI trong danh sách, không cần khớp giáo viên cụ thể nào.
+#
+# Data cần chuẩn bị: SCHOOL_SEARCH_TEXT (mặc định "QA" - từ khoá tìm trường, staging đang có đúng 1
+# trường tên "Trường Tiểu học QA" khớp). Khối/Lớp muốn chọn HARDCODE thẳng trong file (biến GRADE_TEXT/
+# CLASS_OPTION_TEXT bên dưới phần commands, KHÔNG truyền qua `-e`) - xem lý do ở ghi chú "QUAN TRỌNG
+# VỀ ENCODING" bên dưới. Sửa trực tiếp 2 giá trị đó trong file nếu staging đổi dữ liệu lớp.
+#
+# QUAN TRỌNG VỀ ENCODING (xác nhận thật 2026-09-07, chạy trên Windows Git Bash): truyền text có dấu
+# tiếng Việt qua `-e VAR="Lớp 3"` trên command line BỊ HỎNG encoding trước khi tới Maestro (Maestro
+# nhận về 1 chuỗi khác byte-for-byte, luôn báo "not found" dù chữ đó hiển thị rõ trên màn hình) -
+# ĐÃ debug qua 4 lượt chạy thật, loại trừ hết các khả năng khác (animation timing, scroll, retry
+# tap) trước khi xác định đúng nguyên nhân là encoding của tham số CLI. Đây cũng là lý do TOÀN BỘ
+# text tiếng Việt trong các flow khác của repo (vd helpers/login.yaml, profile/switch_profile_success.yaml)
+# đều HARDCODE thẳng trong file thay vì truyền qua `-e` - chỉ PHONE/OTP (số, không dấu) mới an toàn
+# truyền qua `-e`. File này áp dụng đúng convention đó.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-11-join-new-class-shows-pending.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 \
+#   -e SCHOOL_SEARCH_TEXT=QA -e SCHOOL_RADIO_POINT=84,978
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runScript: ../../../test_data/create_child_profile_data.js
+
+# Tạo profile con dùng-1-lần, CHƯA chọn lớp (giống RKL-02) - đảm bảo đúng precondition "đang trống
+# Lớp học" của TC_11 mà không đụng tới profile có sẵn của tài khoản.
+- runFlow: ../helpers/open-thong-tin-cac-con.yaml
+- tapOn: "Thêm hồ sơ mới"
+- tapOn: "Đầy đủ họ tên con"
+- inputText: "${output.CHILD_NAME}"
+- hideKeyboard
+- tapOn: "Chọn năm sinh của con"
+- tapOn: "2016"
+- tapOn: "Xác nhận"
+- tapOn: "Thêm hồ sơ mới"
+- extendedWaitUntil:
+    notVisible:
+      text: "Thông tin cơ bản"
+    timeout: 15000
+
+# Sau khi submit, app tự quay về thẳng "Thông tin các con" (KHÔNG phải 1 tab dashboard có tab bar -
+# xác nhận thật 2026-09-07, xem ghi chú cùng vấn đề trong RKL-02). Bấm thẳng "Chỉnh sửa hồ sơ" của
+# hồ sơ vừa tạo, KHÔNG gọi lại helpers/goto-profile-edit.yaml ở bước này.
+- assertVisible: "${output.CHILD_NAME}"
+- tapOn:
+    text: "Chỉnh sửa hồ sơ"
+    below: "${output.CHILD_NAME}"
+- extendedWaitUntil:
+    visible:
+      text: "Hồ sơ học tập"
+    timeout: 15000
+- tapOn: "Chọn trường"
+- waitForAnimationToEnd
+- tapOn: "Tìm kiếm tên trường"
+- inputText: "${SCHOOL_SEARCH_TEXT}"
+- extendedWaitUntil:
+    visible: ".*(${SCHOOL_SEARCH_TEXT}).*"
+    timeout: 10000
+- waitForAnimationToEnd
+# Selector radio trường là icon SVG, không nhận tap theo text - dùng toạ độ đã xác nhận thật (xem
+# flows/app/profile/create_child_profile_success.yaml, cùng cơ chế). Lặp 2 lần để giảm flaky.
+- tapOn:
+    point: "${SCHOOL_RADIO_POINT}"
+- tapOn:
+    point: "${SCHOOL_RADIO_POINT}"
+- tapOn: "Xác nhận"
+- extendedWaitUntil:
+    notVisible:
+      text: "Tìm kiếm tên trường"
+    timeout: 10000
+
+# ===== SỬA 2 GIÁ TRỊ DƯỚI ĐÂY nếu staging đổi dữ liệu Khối/Lớp (xem "QUAN TRỌNG VỀ ENCODING" ở
+# đầu file - lý do KHÔNG tham số hoá qua ${...}/`-e` cho 2 giá trị có dấu tiếng Việt này) =====
+#   Khối muốn chọn:  Lớp 3
+#   1 trong các Lớp hợp lệ hiện ra cho Khối đó: Lớp 3A
+- tapOn: "Chọn khối"
+- extendedWaitUntil:
+    visible: "Khối học"
+    timeout: 5000
+# Khối học là 1 sheet cố định ~5 dòng, cần cuộn để tới khối mong muốn (không phải lúc nào cũng nằm
+# sẵn trong 5 dòng đầu) - repeat.while tự dừng ngay khi đã thấy, không lặp thừa.
+- repeat:
+    while:
+      notVisible: "Lớp 3"
+    times: 6
+    commands:
+      - swipe:
+          start: 50%,80%
+          end: 50%,45%
+          duration: 400
+# Tap lặp lại 2 lần liên tiếp (cùng convention với radio SVG "Chọn trường" ở
+# flows/app/profile/create_child_profile_success.yaml) - tap lại vào 1 lựa chọn ĐÃ chọn không làm
+# mất lựa chọn, nên lặp thừa vô hại; giúp tăng độ tin cậy nếu lần tap đầu rơi đúng lúc list re-render.
+- tapOn:
+    text: "Lớp 3"
+    optional: true
+- tapOn:
+    text: "Lớp 3"
+    optional: true
+- tapOn: "Xác nhận"
+
+- scrollUntilVisible:
+    element:
+      text: "Lớp 3A"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "Lớp 3A"
+- tapOn: "Lưu thay đổi"
+
+# Expected: chuyển "Đang chờ duyệt vào lớp", KHÔNG vào lớp ngay lập tức.
+- extendedWaitUntil:
+    visible:
+      text: "Đang chờ duyệt vào lớp"
+    timeout: 15000
+- takeScreenshot: rkl11_join_request_pending
+
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${output.CHILD_NAME}
+- assertVisible: "Yêu cầu vào lớp đã được gửi, thầy cô sẽ duyệt trong thời gian sớm nhất"
+- assertNotVisible: "Rời khỏi lớp"
+- takeScreenshot: rkl11_pending_banner_and_locked_fields

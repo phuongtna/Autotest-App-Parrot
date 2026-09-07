@@ -1,0 +1,105 @@
+# !!! CASE GHI DỮ LIỆU THẬT - RỜI LỚP THẬT, KHÔNG THỂ TỰ HOÀN TÁC (cần giáo viên duyệt lại mới
+# vào lại lớp) - KHÔNG chạy trên tài khoản/profile thật của người dùng, và KHÔNG chạy tự động
+# trong CI cùng các case khác mà không xác nhận trước với người phụ trách dữ liệu test. !!!
+#
+# Gộp Giai đoạn 2 (bước 2.1-2.4) của kế hoạch test "Rời khỏi lớp": TC_06 (xử lý thành công),
+# TC_07/08/09 (trạng thái + Lớp học trống + bài tập bị xoá), TC_13 (profile khác không ảnh hưởng),
+# TC_21 (thông báo cũ không bị xoá). Gộp vào 1 file vì đây là 1 chuỗi hành động PHẢI chạy liền
+# mạch ngay sau khi rời lớp thật (không tách được thành nhiều lần chạy độc lập mà vẫn đối chiếu
+# đúng before/after).
+#
+# Data cần chuẩn bị (xem README.md mục Data):
+#   PROFILE_WITH_CLASS   - profile ĐANG có lớp, sẽ bị rời lớp THẬT khi case này chạy xong
+#   PROFILE_OTHER        - 1 profile khác trong CÙNG tài khoản, KHÔNG rời lớp (TC_13 đối chiếu)
+# Mặc định staging: PROFILE_WITH_CLASS=Hang, PROFILE_OTHER=Bich diep (hoặc Duy - profile khác đang
+# tồn tại, không đang có lớp cũng không sao vì TC_13 chỉ kiểm "không đổi", không kiểm nó có lớp).
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-06-leave-class-real-full-verify.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 \
+#   -e PROFILE_WITH_CLASS=Hang -e PROFILE_OTHER=Bich diep
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# ----- 2.1: chụp bằng chứng BEFORE -----
+- runFlow: ../helpers/open-thong-tin-cac-con.yaml
+- takeScreenshot: rkl06_before_profile_list
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+- assertVisible: "Rời khỏi lớp"
+- takeScreenshot: rkl06_before_lop_hoc_section
+
+# Chuyển đúng profile ĐANG có lớp thành active trước khi mở tab Bài tập, vì tab Bài tập hiển thị
+# theo profile đang active - KHÔNG phải profile đang xem trong "Chỉnh sửa hồ sơ".
+- runFlow:
+    file: ../helpers/ensure-profile-active.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      TARGET_PROFILE_NAME: ${PROFILE_WITH_CLASS}
+- runFlow: ../helpers/open-tab-homework.yaml
+- takeScreenshot: rkl06_before_bai_tap_tab
+
+# ----- 2.2: bấm Rời khỏi lớp > Đồng ý (RỜI LỚP THẬT) -----
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+- tapOn: "Rời khỏi lớp"
+- extendedWaitUntil:
+    visible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+- tapOn: "Đồng ý"
+
+# Expected TC_06: xử lý thành công, không lỗi (banner "Đã rời khỏi lớp" hoặc tương đương).
+- extendedWaitUntil:
+    notVisible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 15000
+- takeScreenshot: rkl06_after_leave_result
+
+# ----- 2.3: kiểm tra sau khi rời (TC_07, TC_08, TC_09) -----
+- runFlow: ../helpers/open-thong-tin-cac-con.yaml
+- assertVisible:
+    text: "Chưa tham gia lớp học"
+    below: "${PROFILE_WITH_CLASS}"
+- takeScreenshot: rkl06_tc07_status_changed
+
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+- assertVisible: "Chọn trường"
+- assertVisible: "Chọn khối"
+- assertNotVisible: "Rời khỏi lớp"
+- takeScreenshot: rkl06_tc08_lop_hoc_trong
+
+- runFlow:
+    file: ../helpers/ensure-profile-active.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      TARGET_PROFILE_NAME: ${PROFILE_WITH_CLASS}
+- runFlow: ../helpers/open-tab-homework.yaml
+- takeScreenshot: rkl06_tc09_bai_tap_sau_khi_roi
+# Đối chiếu thủ công ảnh rkl06_before_bai_tap_tab vs rkl06_tc09_bai_tap_sau_khi_roi: số bài của
+# lớp vừa rời phải biến mất/giảm đúng. Không assert cứng số lượng vì phụ thuộc dữ liệu bài tập
+# thật tại thời điểm chạy (xem TEST-CASES data-dependent convention ở flows/app/bai_tap).
+
+# ----- 2.4: profile khác không ảnh hưởng (TC_13) + thông báo cũ không mất (TC_21) -----
+- runFlow: ../helpers/open-thong-tin-cac-con.yaml
+- assertVisible: "${PROFILE_OTHER}"
+- takeScreenshot: rkl06_tc13_other_profile_unaffected
+
+- runFlow: ../helpers/open-notification.yaml
+- takeScreenshot: rkl06_tc21_notifications_preserved
+# Đối chiếu thủ công: danh sách thông báo cũ liên quan lớp vừa rời vẫn còn, không có lỗi hiển thị
+# (không có empty-state bất thường, không có toast lỗi).

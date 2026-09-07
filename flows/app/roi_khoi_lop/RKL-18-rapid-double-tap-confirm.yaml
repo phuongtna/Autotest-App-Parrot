@@ -1,0 +1,63 @@
+# !!! CASE GHI DỮ LIỆU THẬT - RỜI LỚP THẬT (không thể tự hoàn tác) !!!
+#
+# Testcase: TC_18 - Đang ở popup xác nhận, bấm thật nhanh liên tiếp nhiều lần vào "Đồng ý" -> chỉ
+# xử lý 1 lần duy nhất, không lỗi, không gọi trùng lặp, không crash app.
+# Nguồn: Kế hoạch chạy test "Rời khỏi lớp" - Giai đoạn 5, bước 5.2.
+#
+# Data cần chuẩn bị: 1 profile ĐANG có lớp - case này SẼ rời lớp thật của profile đó (không có
+# cách nào test "bấm trùng" mà không thật sự trigger hành động rời lớp ít nhất 1 lần). CHẠY CÔ LẬP
+# (không chạy chung 1 lượt với RKL-06/RKL-20 trên CÙNG 1 profile - profile đó sau case này đã rời
+# lớp thật, không còn "Rời khỏi lớp" để case sau bấm nữa).
+#
+# Maestro không có lệnh "bấm N lần trong X ms" built-in với độ chính xác dưới giây - dùng nhiều
+# `tapOn` liên tiếp KHÔNG có `extendedWaitUntil` xen giữa (chạy nhanh nhất Maestro có thể) để mô
+# phỏng bấm dồn dập. Đây là xấp xỉ tốt nhất bằng Maestro thuần, không đảm bảo tốc độ y hệt ngón
+# tay người thật - nếu app xử lý bằng debounce theo thời gian rất ngắn (dưới ~50ms) mà Maestro
+# không đạt tới, case có thể không phản ánh đúng worst-case. Khuyến khích đối chiếu thêm bằng quay
+# video thao tác tay thật theo đúng gợi ý của kế hoạch test gốc nếu case này không phát hiện được
+# lỗi trùng lặp.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-18-rapid-double-tap-confirm.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 -e PROFILE_WITH_CLASS=Hang
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/goto-profile-edit.yaml
+    env:
+      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+
+- tapOn: "Rời khỏi lớp"
+- extendedWaitUntil:
+    visible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 10000
+
+# Bấm dồn dập vào "Đồng ý" - không chờ giữa các lần bấm.
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          text: "Đồng ý"
+          optional: true
+
+# Expected: xử lý xong bình thường (không kẹt ở popup, không crash - app vẫn phản hồi được).
+- extendedWaitUntil:
+    notVisible:
+      text: "Xác nhận rời khỏi lớp"
+    timeout: 15000
+- takeScreenshot: rkl18_after_rapid_taps_no_crash
+
+# Expected: chỉ xử lý 1 lần - Lớp học trống đúng 1 lần (không có lỗi hiển thị kiểu "rời 2 lần"),
+# app vẫn điều hướng được bình thường (chốt app không bị treo bằng cách mở lại "Thông tin các con"
+# thành công).
+- runFlow: ../helpers/open-thong-tin-cac-con.yaml
+- assertVisible:
+    text: "Chưa tham gia lớp học"
+    below: "${PROFILE_WITH_CLASS}"
+- takeScreenshot: rkl18_single_leave_confirmed

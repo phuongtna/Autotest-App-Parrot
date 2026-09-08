@@ -1,0 +1,88 @@
+# TB-07 — Thông báo "HS đã hoàn thành bài tập" (nhóm 3, báo phụ huynh - xem
+# flows/app/thong_bao/TEST-CASES.md mục "QUY TẮC NỘI DUNG THÔNG BÁO CHÍNH THỨC" Nhóm 3) xuất hiện
+# trên **Android notification shade THẬT (OS-level)** khi user KHÔNG ở trong app, tap → app
+# foreground + điều hướng đúng.
+#
+# BỔ SUNG (không thay thế) TB-05 (case đó CHỈ verify thông báo BÊN TRONG app qua icon chuông) - case
+# này verify NỬA OS-level, cùng tinh thần TB-06 (nhóm 1 "Giao bài").
+#
+# KIẾN TRÚC BẮT BUỘC 2 THIẾT BỊ (ĐÃ SỬA sau phản hồi thật của user 2026-09-08 - bản đầu tiên của
+# file này TỰ hoàn thành bài NGAY TRÊN thiết bị đang test rồi mới bấm Home, SAI về bản chất: tại
+# đúng thời điểm server tạo/đẩy notification, thiết bị đó VẪN đang ở foreground trong app - không
+# chứng minh được "notification tới đúng khi user NGOÀI app" như mục tiêu case, chỉ chứng minh
+# "app tự thoát ra sau đó vẫn thấy lại được thông báo" - KHÁC HẲN ý nghĩa cần kiểm chứng):
+#   - Thiết bị A (thiết bị chạy file `.yaml` này, "observer") - CHỈ đứng ngoài app từ đầu tới cuối,
+#     KHÔNG bao giờ tự mở/launch app (file này CỐ Ý KHÔNG gọi `launch-keep-session.yaml`/`login.yaml`
+#     - khác MỌI case khác trong repo) - đúng vai trò "user không ở trong app" mà case yêu cầu.
+#   - Thiết bị B (KHÁC thiết bị A, CÙNG tài khoản/profile với thiết bị A) - HS tự hoàn thành 1 bài
+#     tập THẬT trên thiết bị B (không tự động hoá được bởi file này - phải làm TRƯỚC khi chạy case,
+#     bằng tay hoặc bằng 1 flow "hoàn thành bài" riêng chạy nhắm vào thiết bị B qua `--device <UDID
+#     thiết bị B>`, xem flows/app/helpers/open-exercise.yaml + answer-current-exercise-generic.yaml
+#     nếu muốn tự động hoá phía thiết bị B).
+#
+# ĐÃ XÁC NHẬN THẬT (2026-09-08, thiết bị A = `3201d866d40a1681`, ad-hoc qua MaestroMcpSession trước
+# khi viết file này) đúng kiến trúc 2 thiết bị ở trên: HS hoàn thành 1 bài trên 1 điện thoại KHÁC ->
+# thiết bị A (đang backgroun sẵn, KHÔNG hề mở app) nhận được `dumpsys notification` khớp NGAY (nội
+# dung đúng rule Nhóm 3/TH2 #1) -> mở shade thật thấy đúng item -> tap -> app A lên foreground THẬT
+# -> điều hướng đúng màn "Xem chi tiết bài làm" (`exercise_show_answer_title`, "Đúng 5/10", khớp
+# đúng "5 điểm" trong notification) - xem flows/app/thong_bao/TEST-CASES.md mục "TB-07" để đọc đầy
+# đủ evidence (ảnh chụp thật + JSON report).
+#
+# KHẢ THI HOÁ CƠ CHẾ SHADE BẰNG MAESTRO THUẦN (verify riêng, cùng ngày, TRƯỚC khi viết file này):
+#   - `pressKey: Home` (lệnh Maestro CHÍNH THỨC) đưa app ra NGOÀI foreground THẬT.
+#   - `swipe: {start: 50%,0% ; end: 50%,75%}` mở được Android notification shade THẬT - hierarchy
+#     đọc lại sau đó CHỨA node `com.android.systemui:id/notification_panel` (view của HỆ THỐNG,
+#     không phải của app `com.inet.parrotedu`) - Maestro (dùng chung UiAutomation service với
+#     `uiautomator dump`) THẤY và TAP được vào system UI ngoài app.
+#
+# PRECONDITION bắt buộc trước khi chạy file này: thiết bị A (chạy file này) hiện KHÔNG có session gì
+# đang mở/không quan trọng trạng thái app cũ (file không đụng vào), và đã có ĐÚNG 1 lượt hoàn thành
+# bài tập THẬT vừa xảy ra trên thiết bị B (cùng account) trong vài phút gần đây - notification có
+# thể mất vài giây tới vài chục giây để tới, `extendedWaitUntil` bên dưới đã canh timeout rộng
+# (90s) để bù độ trễ push, nhưng KHÔNG chờ vô hạn - nếu hoàn thành bài quá lâu trước khi chạy file
+# này, notification có thể đã bị đẩy ra khỏi phần hiển thị đầu shade (nhiều thông báo mới hơn xen
+# giữa) và scrollUntilVisible/extendedWaitUntil có thể FAILED dù thông báo VẪN tồn tại (thiếu dữ
+# liệu mới/không phải lỗi app - cùng lưu ý đã ghi ở TB-05).
+#
+# Chạy (thiết bị A - QUAN TRỌNG: KHÔNG launchApp/login, chạy được kể cả khi app A hiện KHÔNG chạy):
+#   maestro test flows/app/thong_bao/TB-07-thong-bao-hoan-thanh-bai-tap-os-shade.yaml \
+#     -e APP_ID=com.inet.parrotedu --device <UDID thiết bị A>
+appId: ${APP_ID}
+tags:
+  - regression
+name: TB-07 - Thong bao hoan thanh bai tap tren Android notification shade (OS-level, 2 thiet bi)
+---
+# Đảm bảo/duy trì trạng thái NGOÀI app - KHÔNG launchApp, KHÔNG login (khác MỌI case khác trong
+# repo, chủ đích: thiết bị này không được chạm vào app trong suốt case).
+- pressKey: Home
+
+# --- Mở THẬT Android notification shade + chờ notification "hoàn thành bài tập" ---
+# Chờ NGAY TRÊN shade đang mở (KHÔNG đóng/mở lại): khác icon chuông nội bộ app (TB-01/02 phải
+# đóng/mở lại để buộc app fetch lại danh sách) - Android notification shade tự chèn thêm item MỚI
+# theo thời gian thực vào đúng shade ĐANG MỞ, không cần thao tác gì thêm để "refresh".
+- swipe:
+    start: 50%, 0%
+    end: 50%, 75%
+- extendedWaitUntil:
+    visible:
+      text: ".*(đã hoàn thành|đã làm xong|đã xuất sắc hoàn thành).*(bài tập).*(điểm).*"
+    timeout: 90000
+- takeScreenshot: TB-07-android-notification-shade
+
+# --- Tap vào notification trong shade THẬT ---
+- tapOn:
+    text: ".*(đã hoàn thành|đã làm xong|đã xuất sắc hoàn thành).*(bài tập).*(điểm).*"
+    index: 0
+
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+# --- Xác nhận app foreground + điều hướng ĐÚNG: màn "Xem chi tiết bài làm" (khớp baseline TB-05) ---
+- extendedWaitUntil:
+    visible:
+      id: "exercise_show_answer_title"
+    timeout: 30000
+- takeScreenshot: TB-07-after-tap-destination

@@ -6,40 +6,38 @@
 #
 # PHẠM VI (đã thống nhất 2026-08-22): case này CHỈ verify hành vi CTA/điều hướng của nút bấm - KHÔNG
 # verify "Tiếp theo" có đưa đúng vào bài hạn nộp gần nhất hay không (verify identity đó cần biết
-# nội dung câu hỏi từng bài, đã thử bằng .mjs riêng nhưng bị đánh giá phức tạp không cần thiết cho
-# mục tiêu case này - xem lịch sử trong automation/bai_tap/setup-ktra_ket_qua_tiep_theo_hoan_thanh.mjs
-# nếu cần bản có verify identity).
+# nội dung câu hỏi từng bài - xem bản có verify identity + điểm số thật trong
+# automation/bai_tap/setup-ktra_ket_qua_tiep_theo_hoan_thanh.mjs).
 #
-# "làm bài" (mở + trả lời "current") TÁI SỬ DỤNG NGUYÊN VẸN cùng cách
-# flows/app/bai_tap/ktra_fullluong_lambai.yaml đang dùng: helpers/open-exercise.yaml (mở đúng card
-# theo title+hạn nộp) + helpers/answer-current-exercise-generic.yaml (dispatcher chung, không biết
-# đúng/sai). "near"/"far" KHÔNG cần mở lại từ danh sách - "Tiếp theo" tự đưa thẳng vào màn Doing của
-# bài đó, chỉ cần gọi answer-current-exercise-generic.yaml ngay tại đó.
+# SỬA (2026-09-08, yêu cầu rõ của user): bản CŨ giả định CỨNG "đúng 3 bài" (2 khối "Tiếp theo" cố
+# định, current/near/far đặt tên riêng) - đây KHÔNG phải điều kiện thật của hành vi đang test (CTA
+# chỉ phụ thuộc CÒN/HẾT bài chưa hoàn thành, không phụ thuộc số lượng cụ thể). Đã đổi sang
+# `repeat.while` (CÙNG idiom "dừng khi hết điều kiện" đã dùng thật trong
+# helpers/answer-current-exercise-generic.yaml) - lặp lại "Tiếp theo" -> trả lời -> đợi màn Kết quả
+# CHO TỚI KHI CTA không còn "Tiếp theo" nữa, rồi mới assert nhánh "Hoàn thành". Tự chạy được với BẤT
+# KỲ số bài chưa hoàn thành nào (1, 2, 5...) đang có sẵn trên profile, KHÔNG cần biết trước số lượng,
+# KHÔNG cần đặt tên riêng cho "near"/"far" (dispatcher chung không cần biết tên bài để trả lời).
 #
-# KHÔNG TỰ CHẠY ĐỘC LẬP flow này nếu chưa có đủ dữ liệu: cần ĐÚNG 3 bài tập MỚI, CHƯA hoàn thành,
-# trên tài khoản/profile "Hoàng Lan" (PHONE=0911122231, lớp "2A" - cố tình giữ ít bài, xem memory
-# feedback_tieptheo_hoanthanh_test_account). Dùng
-# `automation/bai_tap/setup-ktra_ket_qua_tiep_theo_hoan_thanh.mjs` để tự giao 3 bài này qua Web GV
-# rồi tự truyền đủ tham số bên dưới vào flow này.
+# CẦN GÌ ĐỂ CHẠY: chỉ cần ÍT NHẤT 1 bài tập ĐANG CÓ SẴN (KHÔNG cần mới/không cần giao thêm) chưa
+# hoàn thành trên profile đang active - dùng làm điểm vào ("current", mở từ danh sách qua
+# title+hạn nộp). Nếu profile đang active còn NHIỀU hơn 1 bài chưa hoàn thành, "Tiếp theo" sẽ tự
+# đưa qua các bài còn lại - flow lặp cho tới khi CTA đổi thành "Hoàn thành".
 #
-# Tham số bắt buộc (script .mjs ở trên tự truyền, không tự đoán nếu chạy tay):
-#   PHONE, OTP                                    - tài khoản "Hoàng Lan"
-#   PROFILE_NAME                                  - tên hồ sơ cần active, mặc định "Hoàng Lan"
-#   EXERCISE_NAME_CURRENT / EXERCISE_DUE_DATE_DM_CURRENT  - bài mở TỪ DANH SÁCH (title+hạn nộp)
-#   EXERCISE_NAME_NEAR                            - bài "Tiếp theo" (lần 1) tự đưa vào - chỉ dùng để
-#                                                    làm giàu report BLOCKED của dispatcher chung
-#   EXERCISE_NAME_FAR                             - bài "Tiếp theo" (lần 2) tự đưa vào - bài CUỐI
+# Tham số bắt buộc:
+#   PHONE, OTP, PROFILE_NAME                      - tài khoản/hồ sơ cần active
+#   EXERCISE_NAME_CURRENT / EXERCISE_DUE_DATE_DM_CURRENT  - bài mở TỪ DANH SÁCH (title+hạn nộp) -
+#                                                    bất kỳ bài chưa hoàn thành nào ĐANG CÓ SẴN
 #
-# Nếu câu hỏi của bất kỳ bài nào trong 3 bài là SPEAK/SORT/SENTENCE_BUILDER: flow FAIL CÓ CHỦ ĐÍCH
-# với "BLOCKED_MISSING_EXERCISE_HANDLER" (xem answer-current-exercise-generic.yaml) - script .mjs
-# phải chọn lại candidate khác khi giao bài, không phải lỗi của chính flow này.
+# Nếu câu hỏi của bất kỳ bài nào trong chuỗi là SPEAK/SORT/SENTENCE_BUILDER: flow FAIL CÓ CHỦ ĐÍCH
+# với "BLOCKED_MISSING_EXERCISE_HANDLER" (xem answer-current-exercise-generic.yaml) - không phải
+# lỗi của chính flow này.
 appId: ${APP_ID}
 tags:
   - writes
   - regression
 name: HW-29 Ket qua bai tap - CTA Tiep theo va Hoan thanh
 ---
-# --- Đăng nhập + đảm bảo ĐÚNG hồ sơ "Hoàng Lan" đang active (tái sử dụng nguyên vẹn) ---
+# --- Đăng nhập + đảm bảo ĐÚNG hồ sơ ${PROFILE_NAME} đang active (tái sử dụng nguyên vẹn) ---
 - runFlow:
     file: ../helpers/ensure-profile-active.yaml
     env:
@@ -66,57 +64,34 @@ name: HW-29 Ket qua bai tap - CTA Tiep theo va Hoan thanh
     timeout: 60000
 - takeScreenshot: HW-29-result-after-current
 
-# ===================== NHÁNH 1: CTA "Tiếp theo" (lần 1, còn "near"+"far" chưa hoàn thành) =====================
-- assertVisible:
-    text: ".*(Tiếp theo).*"
-- assertNotVisible:
-    text: ".*(Hoàn thành).*"
-
-# Bấm THẬT "Tiếp theo" - KHÔNG dùng workaround tap "exercise_result_close_button" (X).
-- tapOn:
-    text: ".*(Tiếp theo).*"
-- extendedWaitUntil:
-    visible:
-      id: "exercise_close_button"
-    timeout: 30000
-- takeScreenshot: HW-29-landed-after-tieptheo-1
-
-# ===================== Trả lời "near" (đang đứng sẵn ở màn Doing, "Tiếp theo" đã tự đưa vào) =====================
-- runFlow:
-    file: ../helpers/answer-current-exercise-generic.yaml
-    env:
-      EXERCISE_NAME: ${EXERCISE_NAME_NEAR}
-- extendedWaitUntil:
-    visible:
-      id: "exercise_result_screen"
-    timeout: 60000
-- takeScreenshot: HW-29-result-after-near
-
-# ===================== NHÁNH 1: CTA "Tiếp theo" (lần 2, còn "far" chưa hoàn thành) =====================
-- assertVisible:
-    text: ".*(Tiếp theo).*"
-- assertNotVisible:
-    text: ".*(Hoàn thành).*"
-
-# Bấm THẬT "Tiếp theo" LẦN 2 - liên tục, không thoát ra danh sách giữa chừng.
-- tapOn:
-    text: ".*(Tiếp theo).*"
-- extendedWaitUntil:
-    visible:
-      id: "exercise_close_button"
-    timeout: 30000
-- takeScreenshot: HW-29-landed-after-tieptheo-2
-
-# ===================== Trả lời "far" - bài CUỐI CÙNG còn lại =====================
-- runFlow:
-    file: ../helpers/answer-current-exercise-generic.yaml
-    env:
-      EXERCISE_NAME: ${EXERCISE_NAME_FAR}
-- extendedWaitUntil:
-    visible:
-      id: "exercise_result_screen"
-    timeout: 60000
-- takeScreenshot: HW-29-result-after-far
+# ===================== NHÁNH 1: CTA "Tiếp theo", lặp ĐỘNG cho tới khi hết bài chưa hoàn thành =====================
+# KHÔNG giả định số lượng cố định (xem SỬA 2026-09-08 ở docblock đầu file) - lặp lại chuỗi
+# "bấm Tiếp theo -> đợi màn Doing -> trả lời (dispatcher chung, không cần biết tên bài) -> đợi màn
+# Kết quả" CHO TỚI KHI CTA không còn "Tiếp theo" nữa. "times: 25" chỉ là TRẦN an toàn (CÙNG idiom
+# đã dùng trong helpers/answer-current-exercise-generic.yaml), không phải số lần thật sự cần chạy.
+- repeat:
+    while:
+      visible:
+        text: ".*(Tiếp theo).*"
+    times: 25
+    commands:
+      - assertNotVisible:
+          text: ".*(Hoàn thành).*"
+      # Bấm THẬT "Tiếp theo" - KHÔNG dùng workaround tap "exercise_result_close_button" (X).
+      - tapOn:
+          text: ".*(Tiếp theo).*"
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_close_button"
+          timeout: 30000
+      - takeScreenshot: HW-29-landed-after-tieptheo
+      - runFlow:
+          file: ../helpers/answer-current-exercise-generic.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_result_screen"
+          timeout: 60000
+      - takeScreenshot: HW-29-result-after-tieptheo
 
 # ===================== NHÁNH 2: CTA "Hoàn thành" (hết bài chưa hoàn thành) =====================
 - assertVisible:

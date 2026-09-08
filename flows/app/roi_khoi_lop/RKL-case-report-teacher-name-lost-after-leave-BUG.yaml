@@ -1,0 +1,76 @@
+# Case bổ sung (không có số TC_NN gốc, do QA cung cấp riêng bằng ảnh chụp) - kiểm tra dữ liệu
+# "Báo cáo học tập" (tab Báo cáo, phía app phụ huynh) của profile KHÔNG bị mất sau khi rời lớp
+# thật. Khác Case 9 (CMS "Quản lý học sinh" > "TÊN TRƯỜNG") - case này thuần phía app, không đụng
+# CMS/web GV.
+#
+# TIỀN ĐỀ BẮT BUỘC (lý do không tự dựng được bằng profile dùng-1-lần): "Báo cáo học tập" hiển thị
+# theo TUẦN TRƯỚC (xem dropdown "Tuần trước" trong màn chi tiết) - PHẢI có 1 profile đã học/có
+# hoạt động thật từ tuần trước, một profile mới tạo trong ngày KHÔNG có dữ liệu này. Vì vậy case
+# này dùng PROFILE_NAME=Gia Linh (tài khoản PHONE=0915775115) - profile ĐANG THẬT có báo cáo tuần
+# 53 (Tháng 09/2026) với nhận xét từ GV "Phương" (lớp 3B).
+#
+# !!! GHI DỮ LIỆU THẬT KHÔNG THỂ TỰ HOÀN TÁC !!!: case này BẮT BUỘC Gia Linh phải ĐÃ rời lớp 3B
+# thật trước đó (đã làm thật 2026-09-08, xác nhận qua người dùng - xem
+# project_roi_khoi_lop_module_status memory) - cần giáo viên phụ trách 3B duyệt lại yêu cầu vào
+# lớp mới đưa Gia Linh về lại 3B. KHÔNG chạy lại bước "Rời khỏi lớp" trong file này (không cần -
+# Gia Linh đã ở trạng thái "hết lớp" sẵn, chỉ cần verify báo cáo hiện tại).
+#
+# PHÁT HIỆN THẬT (2026-09-08, thiết bị 3201d866d40a1681): so sánh ảnh chụp TRƯỚC (khi Gia Linh còn
+# ở lớp 3B) và SAU (đã rời lớp thật) của CÙNG 1 báo cáo "Báo cáo học tập tuần 53 - Tháng 09/2026":
+#   - Toàn bộ nội dung nhận xét (câu chữ), "Kết quả học tập" ("Chưa có dữ liệu"), "Chuyên cần"
+#     (Bài tập về nhà 0/0, Bài đã học 0, Nỗ lực làm lại 0 lượt, Thời gian học 1 phút) - GIỮ NGUYÊN,
+#     không đổi.
+#   - CHỈ RIÊNG tên giáo viên "Phương" trong lời chào ("Cô Phương chào bố...") VÀ chữ ký cuối
+#     ("Cô Phương") bị XÓA MẤT - còn lại "Cô  chào bố..." / "Cô " (khoảng trắng thừa nơi tên từng
+#     đứng). Nghi ngờ màn hình lấy tên GV qua liên kết lớp-học HIỆN TẠI (đã null sau khi rời) thay
+#     vì lưu cứng tên GV tại thời điểm tạo báo cáo tuần đó.
+#
+# Case này viết ĐÚNG theo kỳ vọng gốc (tên GV trong báo cáo TUẦN TRƯỚC phải giữ nguyên bất kể trạng
+# thái lớp hiện tại) - SẼ FAIL cho tới khi app xử lý đúng (lưu cứng tên GV vào báo cáo đã tạo thay
+# vì tra cứu động qua lớp hiện tại). KHÔNG sửa assert cho qua - dùng để chốt/theo dõi bug.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-case-report-teacher-name-lost-after-leave-BUG.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/ensure-profile-active.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      TARGET_PROFILE_NAME: "Gia Linh"
+- runFlow: ../helpers/open-tab-report.yaml
+
+# Cuộn qua card "Nâng cấp tài khoản" (tài khoản BASIC) để tới card "Báo cáo học tập" - card này
+# VẪN hiển thị bình thường cho tài khoản BASIC (chỉ giới hạn xem báo cáo TUẦN, không phải bị chặn
+# hoàn toàn như lầm tưởng ban đầu - đã xác nhận thật 2026-09-08).
+#
+# SỬA (2026-09-08): 2 lượt thử trước đó (`tapOn: "Báo cáo học tập"` bằng text VÀ bằng toạ độ %)
+# đều SAI - vì "Báo cáo học tập" chỉ là HEADING của card, KHÔNG PHẢI phần tử bấm được. Phần tử
+# thật để mở chi tiết là link text riêng **"Xem chi tiết"** nằm NGAY DƯỚI đoạn tóm tắt trong card
+# (xác nhận thật qua screenshot debug) - dùng `scrollUntilVisible` + `tapOn` đúng text này.
+- scrollUntilVisible:
+    element:
+      text: "Xem chi tiết"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Xem chi tiết"
+
+- extendedWaitUntil:
+    visible:
+      text: "Tuần trước"
+    timeout: 15000
+- assertVisible: ".*(Báo cáo học tập tuần).*"
+- takeScreenshot: rkl_case_report_teacher_name_current_state
+
+# Expected: tên giáo viên "Phương" phải còn nguyên trong lời chào (không phải "Cô  chào bố" với
+# khoảng trắng thừa). THỰC TẾ (2026-09-08): FAIL - tên đã bị xóa mất sau khi rời lớp thật.
+- assertVisible:
+    text: ".*(Cô Phương chào bố).*"
+    label: "LOI APP: tên giáo viên 'Phương' trong Báo cáo học tập tuần trước bị xóa mất sau khi profile rời lớp thật - xem ghi chú đầu file"

@@ -71,4 +71,43 @@ export const teacherClassPageObjects = {
     confirmButton: "Xác nhận",
     cancelButton: "Hủy",
   },
+
+  // Nút mở dialog "Yêu cầu chờ duyệt" trên "Chi tiết lớp" - label thật có badge số đếm dính liền
+  // ("Yêu cầu chờ duyệt1"), dùng regex thay vì exact text để không phụ thuộc số đếm hiện tại.
+  //
+  // ĐÃ XÁC NHẬN THẬT (2026-09-08, staging, lớp "5X-RKLRejoin2" - id
+  // db7ae7b7-ead9-4fd0-841d-7c1c13c5d57a, tài khoản GV "Phương"): dialog "Duyệt học sinh vào lớp"
+  // có 1 bảng, mỗi hàng = 1 yêu cầu, cột "Học sinh" chứa CHÍNH XÁC tên hồ sơ con (không phải tên
+  // phụ huynh) - dùng để định vị đúng hàng cần duyệt. Mỗi hàng có 2 nút riêng "Từ chối"/"Duyệt"
+  // (không phải checkbox), ngoài ra có 1 nút "Duyệt tất cả (N)" ở header dialog duyệt toàn bộ cùng
+  // lúc - KHÔNG dùng nút này khi cần duyệt đúng 1 học sinh cụ thể (có thể có nhiều yêu cầu khác
+  // đang chờ không liên quan tới case đang chạy).
+  //
+  // QUAN TRỌNG - CẢ 2 dialog dưới đây (danh sách + xác nhận) đều có role="dialog" và tên
+  // accessible (từ heading h2) CHỒNG LẤN NHAU: h2 của dialog danh sách chứa CẢ nút "Duyệt tất cả
+  // (N)" bên trong (DOM thật: `<h2><p>Duyệt học sinh vào lớp</p><button>Duyệt tất cả (N)</button>
+  // </h2>`), nên accessible name thật của nó là "Duyệt học sinh vào lớp Duyệt tất cả (N)" - vừa
+  // KHÔNG khớp `exact:true` với string "Duyệt học sinh vào lớp" (thừa hậu tố), vừa VÔ TÌNH chứa
+  // "Duyệt học sinh" (tên dialog xác nhận) làm substring. Kết quả: `getByRole("dialog", {name:...})`
+  // dù dùng `exact:true` hay không đều có thể khớp NHẦM cả 2 dialog cùng lúc tuỳ chuỗi tìm - đã
+  // gặp thật (2026-09-08, sửa qua lại vẫn sai). FIX: dùng `page.locator('[role="dialog"]',
+  // {hasText: ...})` với 1 cụm CHỈ xuất hiện ở ĐÚNG 1 trong 2 dialog (không dùng chung tiền tố
+  // "Duyệt học sinh") - xem cách dùng trong approveStudentRequestFlow.js.
+  pendingRequestsButton: /Yêu cầu chờ duyệt/,
+  pendingRequestsDialog: {
+    // Cụm CHỈ có ở dialog danh sách (không xuất hiện trong dialog xác nhận).
+    uniqueText: "Duyệt tất cả",
+    approveAllButtonPattern: /Duyệt tất cả/,
+    rowApproveButton: "Duyệt",
+    rowRejectButton: "Từ chối",
+  },
+  // Bấm "Duyệt" trên 1 hàng mở TIẾP 1 dialog xác nhận lồng bên trên (KHÔNG duyệt ngay) - xác nhận
+  // thật 2026-09-08: heading "Duyệt học sinh", nội dung nhắc lại CHÍNH XÁC tên học sinh, 2 nút
+  // "Hủy"/"Xác nhận". Phải bấm "Xác nhận" ở dialog NÀY thì request duyệt thật mới được gửi.
+  confirmApproveDialog: {
+    // Cụm CHỈ có ở dialog xác nhận (không xuất hiện trong dialog danh sách).
+    uniqueText: "Bạn có chắc chắn muốn duyệt học sinh",
+    confirmButton: "Xác nhận",
+    cancelButton: "Hủy",
+  },
 };

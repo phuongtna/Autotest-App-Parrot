@@ -36,13 +36,26 @@ set +a
 : "${TEACHER_USERNAME:?Thiếu TEACHER_USERNAME trong $ENV_FILE}"
 : "${TEACHER_PASSWORD:?Thiếu TEACHER_PASSWORD trong $ENV_FILE}"
 
-echo "Đang đăng nhập giáo viên (username=$TEACHER_USERNAME)..."
+# SỬA (2026-09-08, sau sự cố thật: automation/src/config.js gọi API bằng token lấy TỪ SCRIPT NÀY
+# nhưng script này luôn hardcode production trong khi TEACHER_PORTAL_ENV đã đổi sang staging -
+# token production bị 401 khi backend thật là staging, 2 hệ thống tách biệt hoàn toàn). Chọn host
+# theo ĐÚNG cơ chế TEACHER_PORTAL_ENV/TEACHER_PORTAL_BASE_URL_STAGING/_PRODUCTION trong .env (xem
+# automation/src/config.js#resolveTeacherPortalBaseUrl) thay vì hardcode 1 host cố định.
+TEACHER_PORTAL_ENV="${TEACHER_PORTAL_ENV:-staging}"
+case "$TEACHER_PORTAL_ENV" in
+  staging) TEACHER_HOST="${TEACHER_PORTAL_BASE_URL_STAGING:?Thiếu TEACHER_PORTAL_BASE_URL_STAGING trong $ENV_FILE}" ;;
+  production) TEACHER_HOST="${TEACHER_PORTAL_BASE_URL_PRODUCTION:?Thiếu TEACHER_PORTAL_BASE_URL_PRODUCTION trong $ENV_FILE}" ;;
+  dev) TEACHER_HOST="${TEACHER_PORTAL_BASE_URL_DEV:?Thiếu TEACHER_PORTAL_BASE_URL_DEV trong $ENV_FILE}" ;;
+  *) echo "TEACHER_PORTAL_ENV=\"$TEACHER_PORTAL_ENV\" không hợp lệ - chỉ chấp nhận: dev | staging | production." >&2; exit 1 ;;
+esac
+
+echo "Đang đăng nhập giáo viên (username=$TEACHER_USERNAME, môi trường=$TEACHER_PORTAL_ENV, host=$TEACHER_HOST)..."
 LOGIN_BODY="$(jq -nc --arg u "$TEACHER_USERNAME" --arg p "$TEACHER_PASSWORD" '{username:$u,password:$p,role:"teacher"}')"
-LOGIN_RESP="$(curl -sS --fail-with-body 'https://parrotedu.vn/api/auth/login' \
+LOGIN_RESP="$(curl -sS --fail-with-body "$TEACHER_HOST/api/auth/login" \
   -H 'accept: */*' \
   -H 'content-type: application/json' \
-  -H 'origin: https://parrotedu.vn' \
-  -H 'referer: https://parrotedu.vn/teacher/login' \
+  -H "origin: $TEACHER_HOST" \
+  -H "referer: $TEACHER_HOST/teacher/login" \
   --data-raw "$LOGIN_BODY")" || {
   echo "Đăng nhập giáo viên thất bại: $LOGIN_RESP" >&2
   exit 1

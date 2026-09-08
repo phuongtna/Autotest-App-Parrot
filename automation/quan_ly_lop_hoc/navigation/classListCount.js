@@ -47,3 +47,30 @@ export async function readStableClassListCount(
   }
   return prev;
 }
+
+/**
+ * Đọc "Sĩ số: N" CỦA ĐÚNG 1 lớp cụ thể trên màn "Lớp phụ trách" (khác `readClassListCount` ở trên -
+ * hàm đó đếm SỐ LƯỢNG lớp trong toàn danh sách, không đọc sĩ số của 1 lớp). Dùng cho TC_15 (kế
+ * hoạch test "Rời khỏi lớp" - sĩ số giảm đúng 1 sau khi học sinh rời lớp).
+ *
+ * ĐÃ XÁC NHẬN THẬT (2026-09-08, staging, lớp "5X-RKLRejoin2"): mỗi card có cấu trúc DOM cố định -
+ * `<div class="...flex-col..."><h3>{tên lớp}</h3><div class="space-y-3">...<span>Sĩ số:
+ * <span>{n}</span></span>...</div></div>` - heading `<h3>` và khối "Sĩ số" là 2 CON TRỰC TIẾP của
+ * CÙNG 1 div cha (không lồng sâu). Ban đầu thử `page.locator("div", {has: heading})` (không dùng
+ * xpath) - SAI THẬT (2026-09-08): locator này khớp CẢ những div bao ngoài cùng (toàn bộ layout
+ * trang, gồm sidebar + mọi card khác), vì bất kỳ div tổ tiên nào cũng "has" heading lẫn text "Sĩ
+ * số" (text bubble lên mọi cấp cha) - đọc nhầm sĩ số của card ĐẦU TIÊN trong danh sách thay vì card
+ * đang tìm. FIX: dùng `xpath=./parent::*` lấy ĐÚNG 1 phần tử cha trực tiếp của heading (khớp cấu
+ * trúc DOM thật đã xác nhận), không dò theo "div chứa cả 2 thứ" nữa.
+ */
+export async function readClassCardSiSo(page, className) {
+  const heading = page.locator("main").getByRole("heading", { name: className, exact: true });
+  await heading.waitFor({ state: "visible", timeout: 15000 });
+  const card = heading.locator("xpath=./parent::*");
+  const text = await card.innerText();
+  const match = /Sĩ số:\s*(\d+)/.exec(text);
+  if (!match) {
+    throw new Error(`Không đọc được "Sĩ số:" trong card của lớp "${className}" (nội dung: "${text}").`);
+  }
+  return Number(match[1]);
+}

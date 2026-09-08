@@ -44,10 +44,18 @@ export const config = {
   // Dùng cho discovery/homeworks.js (GET /api/user/exams/room.json) - hệ thống KHÁC hẳn CMS
   // (host/path/auth khác nhau, xem automation/README.md mục "Bài tập"). Token + cookie hiện chỉ
   // xác nhận hoạt động với tài khoản vai trò "teacher" - CHƯA xác nhận token học sinh thật.
-  teacherPortalBaseUrl: (readVar("TEACHER_PORTAL_BASE_URL") || "https://parrotedu.vn").replace(
-    /\/+$/,
-    "",
-  ),
+  //
+  // Môi trường chọn qua TEACHER_PORTAL_ENV (mặc định "staging") - xem resolveTeacherPortalBaseUrl().
+  // SỰ CỐ THẬT (2026-09-08): trước khi có cơ chế này, biến phẳng TEACHER_PORTAL_BASE_URL (không có
+  // khái niệm môi trường) khiến `npm run add-class` chạy nhầm lên production dù ý định thật là
+  // staging - tạo nhầm 1 lớp thật trên production (đã xoá tay ngay sau đó). KHÔNG đọc lại biến
+  // phẳng TEACHER_PORTAL_BASE_URL nữa dù .env còn sót giá trị cũ.
+  teacherPortalEnv: (readVar("TEACHER_PORTAL_ENV") || "staging").trim().toLowerCase(),
+  teacherPortalUrlsByEnv: {
+    dev: readVar("TEACHER_PORTAL_BASE_URL_DEV").replace(/\/+$/, ""),
+    staging: readVar("TEACHER_PORTAL_BASE_URL_STAGING").replace(/\/+$/, ""),
+    production: readVar("TEACHER_PORTAL_BASE_URL_PRODUCTION").replace(/\/+$/, ""),
+  },
   teacherAccessToken: readVar("TEACHER_ACCESS_TOKEN"),
   // Cookie header nguyên văn - ĐÃ XÁC NHẬN THẬT (2026-08-07) KHÔNG bắt buộc: gọi GET
   // /api/user/exams/room.json thành công chỉ với header Authorization (TEACHER_ACCESS_TOKEN lấy
@@ -106,6 +114,40 @@ export function resolveCmsAdminBaseUrl(envOverride) {
   }
   return url;
 }
+
+/**
+ * Trả về base URL của Teacher Portal (web GV) ứng với TEACHER_PORTAL_ENV hiện tại (mặc định
+ * "staging"). Truyền `envOverride` để ép chạy 1 môi trường cụ thể bất kể .env. Cùng cơ chế
+ * resolveCmsAdminBaseUrl() ở trên - xem ghi chú SỰ CỐ THẬT 2026-09-08 tại field
+ * config.teacherPortalEnv để biết lý do hàm này tồn tại (biến phẳng TEACHER_PORTAL_BASE_URL cũ
+ * không có khái niệm môi trường, đã gây chạy nhầm production 1 lần thật).
+ *
+ * Throw lỗi rõ ràng nếu môi trường chưa cấu hình URL, thay vì âm thầm test nhầm môi trường khác.
+ */
+export function resolveTeacherPortalBaseUrl(envOverride) {
+  const env = (envOverride || config.teacherPortalEnv || "staging").trim().toLowerCase();
+  const known = Object.keys(config.teacherPortalUrlsByEnv);
+  if (!known.includes(env)) {
+    throw new Error(
+      `TEACHER_PORTAL_ENV="${env}" không hợp lệ - chỉ chấp nhận: ${known.join(" | ")}.`,
+    );
+  }
+  const url = config.teacherPortalUrlsByEnv[env];
+  if (!url) {
+    const envVarName = `TEACHER_PORTAL_BASE_URL_${env.toUpperCase()}`;
+    throw new Error(
+      `Thiếu ${envVarName} trong .env (môi trường "${env}" chưa có URL). ` +
+        `Điền giá trị vào ${envVarName} rồi thử lại.`,
+    );
+  }
+  return url;
+}
+
+// Tính sẵn 1 lần lúc load module - các file gọi thẳng `config.teacherPortalBaseUrl` (vd
+// teacherPortalSession.js, deleteClassFlow.js) không cần đổi gì, tự động theo đúng
+// TEACHER_PORTAL_ENV. Throw ngay lúc import nếu môi trường mặc định chưa có URL - lỗi lộ ra sớm
+// thay vì âm thầm gọi tới chuỗi rỗng.
+config.teacherPortalBaseUrl = resolveTeacherPortalBaseUrl();
 
 export function requireCmsConfig() {
   const missing = [];

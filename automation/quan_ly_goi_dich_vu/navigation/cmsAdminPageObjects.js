@@ -410,6 +410,14 @@ export function studentRow(page, phoneDigits, profileName) {
   return profileName ? base.filter({ hasText: profileName }) : base;
 }
 
+/** Cột "TÊN TRƯỜNG" trên `/students` - ĐÃ XÁC NHẬN THẬT (2026-09-08, staging, profile
+ * "QA Auto Child 20260908_131217" đang KHÔNG có lớp): giá trị rỗng hiển thị CHÍNH XÁC là ký tự
+ * "—" (em dash), không phải chuỗi rỗng "". Dùng cho case 9 (kế hoạch test "Rời khỏi lớp" - phần
+ * đối chiếu CMS): rời lớp / đang chờ duyệt -> "—", đã duyệt/đang có lớp -> tên trường thật. */
+export async function readStudentSchoolName(page, phoneDigits, profileName) {
+  return studentRow(page, phoneDigits, profileName).locator("td").nth(4).innerText();
+}
+
 export async function readStudentAccountType(page, phoneDigits, profileName) {
   return studentRow(page, phoneDigits, profileName).locator("td").nth(5).innerText();
 }

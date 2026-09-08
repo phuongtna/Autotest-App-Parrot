@@ -83,6 +83,35 @@ function resolveViewport(tree) {
 }
 
 /**
+ * PHASE A ONLY - viewport "nội dung" đã CẮT bỏ vùng bị "exercise_check_button" che khuất - KHÁC
+ * `resolveViewport()` ở trên (dùng nguyên cho PHASE B, nơi CHÍNH control đó là mục tiêu cần cuộn
+ * tới, không được cắt bớt chính nó).
+ *
+ * XÁC NHẬN THẬT (2026-09-08, live device 3201d866d40a1681, câu TEXT_CHOICE 4 đáp án
+ * "G8-U3-Reading-Bài tập nâng cao" câu 4/5, `maestro hierarchy` dump lúc treo thật):
+ *   exercise_doing_screen = [0,0][1080,2301]
+ *   exercise_answer_3     = [42,2130][1038,2301]   <- "fully in [0,2301]" theo check RAW cũ (PASS)
+ *   exercise_check_button = [42,2110][1038,2250]   <- FOOTER CỐ ĐỊNH, đè lên y=2110..2250
+ * `exercise_answer_3` bị footer che phần TRÊN (2130..2250) dù bounds của nó "nằm trong" doing_screen
+ * theo phép so sánh toạ độ thuần tuý - `ensureAllAnswersVisible()` (dùng viewport RAW cũ) coi như đã
+ * đủ, KHÔNG cuộn thêm, rồi tap vào đáp án đó KHÔNG đăng ký chọn (bị footer chặn) -> CTA đứng yên mãi
+ * ("màn hình không đổi sau khi bấm CTA", answer-set vẫn khớp đúng, KHÔNG phải bug matching). CÙNG
+ * hiện tượng "exercise_check_button là FOOTER CỐ ĐỊNH, luôn nằm trong khung nhìn bất kể đã cuộn" đã
+ * ghi nhận trước đó cho DRAG_DROP (xem flows/app/helpers/answer-current-exercise-generic.yaml) -
+ * giờ áp dụng CHUNG cho mọi nội dung PHASE A (TEXT_CHOICE/FILL_WORD/CONNECT): 1 phần tử chỉ THẬT SỰ
+ * visible nếu nằm HOÀN TOÀN phía TRÊN mép trên của footer, không chỉ trong bounds màn hình.
+ */
+export function resolveContentViewport(tree) {
+  const viewport = resolveViewport(tree);
+  if (!viewport) return viewport;
+  const footerBounds = findNodeBounds(tree, /^exercise_check_button$/);
+  if (footerBounds && footerBounds.y1 < viewport.y2) {
+    return { ...viewport, y2: footerBounds.y1 };
+  }
+  return viewport;
+}
+
+/**
  * Nguyên tắc CHUNG cho scroll-tới-khi-đủ: đọc hiện tại -> kiểm tra đủ chưa (`isDone`) -> nếu
  * chưa, cuộn 1 bước + đọc lại + gộp vào accumulator (`collect`, PHẢI idempotent/merge được qua
  * nhiều lần gọi) -> lặp lại tối đa `maxScrolls` lần HOẶC tới khi 2 lần cuộn liên tiếp không tiến

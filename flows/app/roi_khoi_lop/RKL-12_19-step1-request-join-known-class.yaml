@@ -1,0 +1,136 @@
+# Testcase: TC_12/TC_19 - bước 1/3 (phía app, phụ huynh). Tạo 1 profile con dùng-1-lần, chọn
+# ĐÚNG lớp đã biết chủ (giáo viên `TEACHER_USERNAME` trong .env) để bước 2 (giáo viên duyệt qua
+# Playwright) có thể xác định đúng lớp cần duyệt. Đây là bước đầu của
+# RKL-12_19-rejoin-after-teacher-approval.md - xem file đó để biết toàn bộ chuỗi 3 bước.
+#
+# Khác RKL-11 (chỉ kiểm cơ chế hiển thị "Đang chờ duyệt", lớp nào cũng được): case này BẮT BUỘC
+# chọn đúng lớp mà `TEACHER_USERNAME` phụ trách, để `approveStudentRequestFlow.js` (bước 2) đăng
+# nhập đúng tài khoản đó và thấy được request vừa tạo trong dialog "Yêu cầu chờ duyệt".
+#
+# Lớp dùng: CLASS_NAME (mặc định "5X-RKLRejoin2", tạo bằng
+# `cd automation && ADD_CLASS_KHOI="Khối 5" ADD_CLASS_TEN_LOP="5X-RKLRejoin2" npm run add-class`,
+# thuộc tài khoản GV TEACHER_USERNAME trong .env) - HARDCODE thẳng trong file (không truyền qua
+# `-e`), lý do xem "QUAN TRỌNG VỀ ENCODING" trong RKL-11-join-new-class-shows-pending.yaml (text
+# tiếng Việt/có dấu qua `-e` bị hỏng encoding, đã xác nhận thật). Sửa trực tiếp SCHOOL_SEARCH_TEXT/
+# GRADE_TEXT/CLASS_NAME bên dưới nếu đổi lớp test.
+#
+# GHI CHÚ ĐÃ GIẢI QUYẾT (2026-09-08): trước đây file này (và RKL-12_19-rejoin-after-teacher-
+# approval.md) từng ghi nhận "lớp mới tạo qua teacher web KHÔNG xuất hiện trong danh sách Lớp của
+# app" như 1 giới hạn/bug chưa rõ nguyên nhân (case "3QA-RKLTest"). NGUYÊN NHÂN THẬT: automation/
+# (npm run add-class) mặc định trỏ TEACHER_PORTAL_BASE_URL về PRODUCTION trong khi app + toàn bộ dữ
+# liệu module này (Hang/Duy/Bich diep, tài khoản 0915775115) nằm ở STAGING - lớp được tạo trên
+# PRODUCTION nên chắc chắn không thể xuất hiện trong danh sách Lớp mà app (staging) đọc, đây KHÔNG
+# phải app bug. Đã fix: automation/src/config.js giờ có TEACHER_PORTAL_ENV (mặc định "staging") +
+# resolveTeacherPortalBaseUrl(), xem .env/.env.example. Xác nhận lại thật (2026-09-08, lớp
+# "5X-RKLRejoin2" tạo ĐÚNG trên staging): case này chạy PASS trọn vẹn, lớp mới tạo XUẤT HIỆN bình
+# thường trong danh sách Lớp. Giữ nguyên `assertVisible` có `label: BLOCKED_...` bên dưới phòng khi
+# tái phát (vd ai đó lại chạy `add-class` nhắm nhầm môi trường) - nếu case FAIL lại, KIỂM TRA MÔI
+# TRƯỜNG (TEACHER_PORTAL_ENV) TRƯỚC khi nghi ngờ app.
+#
+# Chạy: maestro test flows/app/roi_khoi_lop/RKL-12_19-step1-request-join-known-class.yaml \
+#   -e APP_ID=com.inet.parrotedu -e PHONE=0915775115 -e OTP=888888 \
+#   -e SCHOOL_SEARCH_TEXT=QA -e SCHOOL_RADIO_POINT=84,978
+appId: ${APP_ID}
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runScript: ../../../test_data/create_child_profile_data.js
+
+- runFlow: ../helpers/open-thong-tin-cac-con.yaml
+- tapOn: "Thêm hồ sơ mới"
+- tapOn: "Đầy đủ họ tên con"
+- inputText: "${output.CHILD_NAME}"
+- hideKeyboard
+- tapOn: "Chọn năm sinh của con"
+- tapOn: "2016"
+- tapOn: "Xác nhận"
+- tapOn: "Thêm hồ sơ mới"
+- extendedWaitUntil:
+    notVisible:
+      text: "Thông tin cơ bản"
+    timeout: 15000
+
+- assertVisible: "${output.CHILD_NAME}"
+- tapOn:
+    text: "Chỉnh sửa hồ sơ"
+    below: "${output.CHILD_NAME}"
+- extendedWaitUntil:
+    visible:
+      text: "Hồ sơ học tập"
+    timeout: 15000
+- tapOn: "Chọn trường"
+- waitForAnimationToEnd
+- tapOn: "Tìm kiếm tên trường"
+- inputText: "${SCHOOL_SEARCH_TEXT}"
+- extendedWaitUntil:
+    visible: ".*(${SCHOOL_SEARCH_TEXT}).*"
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn:
+    point: "${SCHOOL_RADIO_POINT}"
+- tapOn:
+    point: "${SCHOOL_RADIO_POINT}"
+- tapOn: "Xác nhận"
+- extendedWaitUntil:
+    notVisible:
+      text: "Tìm kiếm tên trường"
+    timeout: 10000
+
+# ===== SỬA 2 GIÁ TRỊ DƯỚI ĐÂY nếu đổi lớp test (không tham số hoá qua ${...} - xem lý do encoding
+# ở đầu file) =====
+#   Khối: Lớp 5
+#   Lớp cần khớp: 5X-RKLRejoin2 (lớp mới tạo bằng npm run add-class, xem ghi chú đầu file)
+- tapOn: "Chọn khối"
+- extendedWaitUntil:
+    visible: "Khối học"
+    timeout: 5000
+- repeat:
+    while:
+      notVisible: "Lớp 5"
+    times: 6
+    commands:
+      - swipe:
+          start: 50%,80%
+          end: 50%,45%
+          duration: 400
+- tapOn:
+    text: "Lớp 5"
+    optional: true
+- tapOn:
+    text: "Lớp 5"
+    optional: true
+- tapOn: "Xác nhận"
+
+- takeScreenshot: rkl12_19_step1_class_list
+- repeat:
+    while:
+      notVisible: "5X-RKLRejoin2"
+    times: 6
+    commands:
+      - swipe:
+          start: 50%,80%
+          end: 50%,45%
+          duration: 400
+
+# Nếu lớp KHÔNG xuất hiện, assert dưới đây FAIL - đây LÀ kết quả cần biết (xem ghi chú đầu file),
+# dừng lại tại đây, KHÔNG coi là lỗi automation cần sửa cho qua.
+- assertVisible:
+    text: "5X-RKLRejoin2"
+    label: "BLOCKED_CLASS_NOT_IN_PICKER: lớp mới tạo qua teacher web không xuất hiện trong danh sách Lớp của app - xem RKL-12_19-rejoin-after-teacher-approval.md"
+- tapOn: "5X-RKLRejoin2"
+- tapOn: "Lưu thay đổi"
+
+- extendedWaitUntil:
+    visible:
+      text: "Đang chờ duyệt vào lớp"
+    timeout: 15000
+# Tên file screenshot chứa CHILD_NAME - đây là cách DUY NHẤT để lấy lại tên profile vừa tạo sau
+# khi file .yaml này chạy xong (Maestro không có cơ chế truyền biến sang tiến trình Playwright
+# khác ở bước 2 - xem RKL-12_19-rejoin-after-teacher-approval.md). Đọc tên file trong
+# ~/.maestro/tests/<run>/ (hoặc thư mục artifacts đã cấu hình) để lấy đúng CHILD_NAME cho bước
+# `approveStudentRequestFlow.js`.
+- takeScreenshot: "rkl12_19_step1_pending__${output.CHILD_NAME}"

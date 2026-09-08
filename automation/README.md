@@ -780,6 +780,84 @@ load average >2) giá trị "before" đôi lúc vẫn đọc sai (renderer bị 
 của môi trường chạy test lúc đó, KHÔNG phải bug nghiệp vụ (đã đối chiếu qua API thật ở trên xác nhận
 hành vi xóa luôn đúng). Nên chạy lại khi máy đỡ tải nếu gặp lại lỗi tương tự.
 
+### Duyệt yêu cầu vào lớp - `approveStudentRequestCli.js`
+
+Entrypoint `npm run approve-student-request`, chạy `runtime/approveStudentRequestFlow.js`. Tự
+động hoá bước 2/3 của TC_12/TC_19 (`flows/app/roi_khoi_lop/RKL-12_19-rejoin-after-teacher-approval.md`)
+- duyệt 1 yêu cầu vào lớp cụ thể (theo tên học sinh) trên "Chi tiết lớp".
+
+Chạy (ví dụ):
+```
+cd automation
+APPROVE_CLASS_ID="db7ae7b7-ead9-4fd0-841d-7c1c13c5d57a" \
+APPROVE_STUDENT_NAME="QA Auto Child 20260908_112008" npm run approve-student-request
+```
+
+**ĐÃ XÁC NHẬN THẬT (2026-09-08)** end-to-end trên staging: app tạo yêu cầu vào lớp (Maestro) ->
+script này duyệt (Playwright) -> app phản ánh lại đúng lớp đã duyệt. Phát hiện quan trọng: bấm
+"Duyệt" trên 1 hàng KHÔNG duyệt ngay - mở tiếp 1 dialog xác nhận lồng bên trên ("Duyệt học sinh",
+2 nút "Hủy"/"Xác nhận"). Cả 2 dialog (danh sách + xác nhận) đều `role="dialog"` với tên accessible
+CHỒNG LẤN nhau (heading dialog danh sách chứa cả text nút "Duyệt tất cả (N)" trong cùng `<h2>`) -
+`getByRole("dialog", {name})` (kể cả `exact:true`) không phân biệt được, phải dùng
+`page.locator('[role="dialog"]', {hasText: <cụm CHỈ có ở 1 dialog>})` - xem
+`teacherClassPageObjects.js#pendingRequestsDialog/confirmApproveDialog`.
+
+### Snapshot roster lớp trước/sau khi rời lớp - `classRosterSnapshotCli.js` + `compareClassRosterCli.js`
+
+Entrypoint `npm run capture-class-roster` (chụp) + `npm run compare-class-roster` (so sánh) - tự
+động hoá TC_14/TC_15 (học sinh biến mất khỏi roster + sĩ số giảm đúng 1 sau khi rời lớp thật). Gọi
+`capture` 2 lần (trước và sau sự kiện rời lớp thật ở Maestro, khác `OUT_FILE`), rồi `compare`.
+
+```
+cd automation
+SNAPSHOT_CLASS_ID="..." SNAPSHOT_CLASS_NAME="5X-RKLRejoin2" \
+  SNAPSHOT_OUT_FILE=output/roster_before.json npm run capture-class-roster
+# ... chạy Maestro cho học sinh rời lớp thật ở giữa ...
+SNAPSHOT_CLASS_ID="..." SNAPSHOT_CLASS_NAME="5X-RKLRejoin2" \
+  SNAPSHOT_OUT_FILE=output/roster_after.json npm run capture-class-roster
+COMPARE_BEFORE_FILE=output/roster_before.json COMPARE_AFTER_FILE=output/roster_after.json \
+  COMPARE_STUDENT_NAME="..." npm run compare-class-roster
+```
+
+**ĐÃ XÁC NHẬN THẬT (2026-09-08)**, cả TC_14 và TC_15 PASS. 2 gotcha đã sửa khi viết
+`navigation/classListCount.js#readClassCardSiSo` + `navigation/classRosterList.js`:
+- Đọc "Sĩ số" của 1 lớp cụ thể: thử `page.locator("div", {has: heading})` trước - SAI (khớp cả các
+  div bao ngoài cùng chứa TOÀN BỘ trang/mọi lớp khác, vì text bubble lên mọi cấp cha). Fix:
+  `heading.locator("xpath=./parent::*")` lấy ĐÚNG 1 phần tử cha trực tiếp (khớp cấu trúc DOM thật).
+- Nút "Xem báo cáo học tập" trong mỗi hàng roster là `<button>`, KHÔNG phải `<a>` - lọc theo `<a>`
+  đọc ra 0 hàng dù roster có học sinh thật.
+
+### Snapshot bài tập trước/sau khi rời lớp (TC_16) - `classAssignmentSnapshotCli.js` + `compareAssignmentSnapshotCli.js`
+
+Entrypoint `npm run capture-assignment-snapshot` + `npm run compare-assignment-snapshot` - cùng
+mẫu snapshot before/after như roster ở trên, nhưng đọc 1 dòng trên "Danh sách bài tập đã giao"
+(tổng số HS đã làm + "ĐIỂM TB", cùng 2 giá trị `verifyAverageScoreFlow.js` đã đọc).
+
+**ĐÃ XÁC NHẬN THẬT (2026-09-08)** phần "tổng số HS": giao 1 bài cho lớp test (`5X-RKLRejoin2`,
+`npm run assign-homework` gọi trực tiếp qua `assignHomeworkFlow()` - CLI wrapper
+`giao_bai_tap/cli.js` bắt `ASSIGN_OTHER_GROUP_CLASS` là bắt buộc dù hàm flow coi là optional, nên
+gọi thẳng hàm thay vì qua CLI khi không có lớp khối khác để so sánh), tự làm bài đó qua app (1 HS
+duy nhất trong lớp) rồi cho rời lớp thật - tổng số HS đã làm giảm ĐÚNG 1 -> 0. Phần "điểm TB"
+**SKIP, không kết luận được**: lớp chỉ có 1 HS nên sau khi rời còn 0 HS - "điểm TB" của tập rỗng
+không còn ý nghĩa toán học (giá trị hiển thị đứng yên ở "0.0" cả trước/sau chỉ vì HS duy nhất đó
+điểm 0, không phải bằng chứng tính sai). Cần setup lại với ≥2 HS (1 người rời, còn lại có điểm để
+tính trung bình mới) mới verify được công thức tính lại thật - xem `compareAssignmentSnapshotCli.js`.
+
+**Phát hiện phụ (2026-09-08, KHÔNG liên quan automation/, nằm ở `flows/app/helpers/`)**: khi tự
+làm bài loại "connect" (nghe-nối, `exercise_connect_left_N`/`right_N`) qua
+`flows/app/bai_tap/ktra_fullluong_lambai.yaml` để tạo dữ liệu test cho case này, phát hiện 2 gap
+thật trong `answer-current-exercise-generic.yaml`:
+- Cặp đầu tiên (index 0) không được tap thành công trong 1 lượt scroll-và-tap (WARNED, optional
+  không tìm thấy) trong khi các cặp 1..N phía dưới tap bình thường - nghi do cặp 0 nằm phía TRÊN
+  cùng danh sách (cần cuộn NGƯỢC LÊN, không phải xuống) trong khi
+  `ensure-exercise-controls-visible.yaml` chỉ cuộn XUỐNG để tìm control.
+- Sau khi ghép hết các cặp, nút submit thật là **"Tiếp theo"** (text, xuất hiện SAU KHI ghép xong
+  toàn bộ) - KHÔNG phải `exercise_check_button` (id) mà handler generic đang tap - khiến vòng lặp
+  `repeat while exercise_result_screen not visible` chạy hết 25 lượt vô ích rồi FAIL dù bài đã ghép
+  đúng gần hết. Phải hoàn thành cặp còn thiếu + bấm "Tiếp theo" bằng tay mới qua được màn kết quả.
+  CHƯA sửa vào handler chung (ngoài phạm vi phiên này) - ghi lại để phiên sau xử lý nếu cần tự
+  động hoá lại loại bài "connect" trên route Bài tập.
+
 ## Quản lý gói dịch vụ (CMS Admin, web) - Playwright (`quan_ly_goi_dich_vu/`)
 
 Testcase đầy đủ (40 case, nhóm "Gói mặc định" + "Gán gói dùng thử khi tạo đơn thủ công"): xem
@@ -911,6 +989,37 @@ Dùng `test.describe.serial()` + 1 `page` DÙNG CHUNG cho cả file (tạo ở `
 popup/gói vừa tạo ở test trước, các case này phụ thuộc trạng thái lẫn nhau theo đúng thứ tự nghiệp
 vụ y hệt `packageCasesFlow.js`). Nhớ chạy `npm run cleanup-goi-dich-vu` sau khi test xong (spec tự
 tạo gói riêng tiền tố `AUTO-`, không tự dọn).
+
+### Case 9 (kế hoạch test "Rời khỏi lớp") - đối chiếu "Quản lý học sinh" > "TÊN TRƯỜNG" - `readStudentSchoolNameCli.js` + `compareSchoolNameSequenceCli.js`
+
+Case bổ sung (không thuộc số TC_01..21 gốc, do QA cung cấp riêng): khi profile rời lớp thành công
+HOẶC đang ở trạng thái "Đang chờ duyệt vào lớp", cột "TÊN TRƯỜNG" trên CMS Quản lý > "/students"
+phải để trống; chỉ hiện đúng tên trường sau khi giáo viên duyệt. User đã tự tay verify case này
+PASS trên staging trước đó - phiên 2026-09-08 viết lại thành automation + chạy lại xác nhận.
+
+```
+cd automation
+# Đọc 1 snapshot tại 1 thời điểm - gọi lại nhiều lần quanh chuỗi thao tác đổi trạng thái lớp thật
+SCHOOL_PHONE_DIGITS="84915775115" SCHOOL_PROFILE_NAME="QA Auto Child 20260908_131217" \
+  SCHOOL_OUT_FILE=output/school_state_pending.json npm run read-student-school-name
+
+# So 3 snapshot (pending/approved/after-leave), kết luận PASS/FAIL
+SCHOOL_PENDING_FILE=output/school_state_pending.json \
+  SCHOOL_APPROVED_FILE=output/school_state_approved.json \
+  SCHOOL_AFTER_LEAVE_FILE=output/school_state_after_leave.json \
+  SCHOOL_EXPECTED_NAME="Trường Tiểu học QA" npm run compare-school-name-sequence
+```
+
+**ĐÃ XÁC NHẬN THẬT (2026-09-08)** cả 3 trạng thái, TÁI SỬ DỤNG profile/lớp đã có sẵn từ TC_12/19/
+14/15/16 (không tạo thêm dữ liệu mới) - cho profile đã hết lớp request-join lại chính lớp đó
+(`5X-RKLRejoin2`), rồi lặp lại chuỗi duyệt → rời lớp:
+- Đang chờ duyệt: `"—"` (em dash - giá trị rỗng thật, không phải chuỗi rỗng `""`) - PASS.
+- Đã duyệt: `"Trường Tiểu học QA"` - PASS.
+- Sau khi rời lớp: `"—"` - PASS.
+
+Cột "TÊN TRƯỜNG" là index 4 (0-based) trên bảng `/students` (thứ tự cột thật: ` `, STT, SỐ ĐIỆN
+THOẠI, TÊN PROFILE, TÊN TRƯỜNG, LOẠI TÀI KHOẢN, GÓI DỊCH VỤ, NGÀY TẠO, HÀNH ĐỘNG) - xem
+`navigation/cmsAdminPageObjects.js#readStudentSchoolName`.
 
 ### Case KHÔNG có trong bộ chạy tự động
 

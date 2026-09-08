@@ -47,6 +47,7 @@ import {
   collectByScrollingIfNeeded,
   ensureIdVisible,
   ensureTextVisible,
+  resolveContentViewport,
 } from "../../bridge/scrollUntilVisible.js";
 
 const AI_POPUP_TRIGGER = "AI hỗ trợ học tập";
@@ -264,7 +265,11 @@ async function ensureAllConnectPairsVisible(bridge, initialTree, correctPairs) {
 async function ensureAllAnswersVisible(bridge, initialTree, questionModel) {
   const wanted = (questionModel?.answers ?? []).filter((a) => a && a.trim());
   if (wanted.length === 0) return { tree: initialTree, scrollCount: 0 };
-  const viewport = findNodeBounds(initialTree, /^exercise_doing_screen$/);
+  // resolveContentViewport() (KHÔNG PHẢI raw exercise_doing_screen bounds) - loại trừ vùng bị
+  // "exercise_check_button" (footer CTA cố định) che khuất, xem bug/fix 2026-09-08 ở
+  // bridge/scrollUntilVisible.js#resolveContentViewport(): 1 đáp án có thể "nằm trong màn hình"
+  // theo toạ độ thuần tuý nhưng vẫn bị footer đè lên phần trên, khiến tap không đăng ký chọn.
+  let viewport = resolveContentViewport(initialTree);
 
   const collectVisibleAnswers = (tree, acc) => {
     const next = new Set(acc);

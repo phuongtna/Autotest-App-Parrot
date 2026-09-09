@@ -1,0 +1,58 @@
+# Helper: đăng ký tài khoản mới (SĐT + OTP) qua màn "Đăng ký học cho con".
+#
+# Xác nhận trực tiếp trên device (2026-09-09, screenshot, không submit số thật):
+#   - Màn welcome ("Chào mừng bạn đến với ParrotEdu!") có link "Đăng ký" bên cạnh
+#     "Chưa có tài khoản?" -> mở màn "Đăng ký học cho con".
+#   - Màn đăng ký chỉ có 1 field "Số điện thoại" + nút "Đăng ký" (disabled tới khi nhập
+#     hợp lệ) + link "Đã có tài khoản? Đăng nhập" quay lại màn login.
+#   - Sau khi nhập SĐT + tap "Đăng ký", CHƯA xác nhận được UI thật (không submit số thật
+#     để tránh tạo tài khoản ngoài ý muốn) — các bước OTP bên dưới copy nguyên UI pattern
+#     từ helpers/login.yaml (cùng field ẩn 6 số, cùng nút "Xác nhận") vì đây là component
+#     dùng chung điển hình giữa 2 luồng login/OTP của app này, NHƯNG CHƯA LIVE-VERIFIED
+#     cho riêng luồng đăng ký. Nếu OTP screen khác đi, sửa lại đoạn "Xác thực OTP" bên dưới.
+#
+# CHƯA CÓ: bước tạo hồ sơ con (tên, ngày sinh, khối/lớp) sau khi OTP xác nhận thành công —
+# chưa quan sát được vì flow này chỉ nên chạy 1 lần với SĐT thật để không tạo trùng tài
+# khoản. Chạy thử flow này với SĐT thật xong thì chụp lại màn hình bước kế tiếp và bổ
+# sung vào file này (hoặc file mới flows/app/register/register_new_account.yaml).
+#
+# Tham số: PHONE (SĐT CHƯA đăng ký), OTP (mã OTP thật gửi về SĐT này — KHÔNG có OTP cố
+# định như tài khoản test cũ, vì đây là SĐT mới chưa được backend provision sẵn)
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      visible: ".*(Chào mừng bạn đến với ParrotEdu!|Nhập số điện thoại).*"
+    commands:
+      - tapOn:
+          text: "Đăng ký"
+
+      - assertVisible: "Đăng ký học cho con"
+      - tapOn:
+          text: "Nhập số điện thoại"
+      - inputText: "${PHONE}"
+      - hideKeyboard
+
+      - tapOn:
+          text: "Đăng ký"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Xác thực OTP).*"
+          timeout: 30000
+
+      # OTPField: xem ghi chú CHƯA LIVE-VERIFIED ở trên.
+      - tapOn:
+          below: "Đổi số điện thoại"
+          above: "Xác nhận"
+      - inputText: "${OTP}"
+      - hideKeyboard
+
+      - runFlow:
+          when:
+            visible: ".*(Xác nhận).*"
+          commands:
+            - tapOn:
+                text: ".*(Xác nhận).*"
+
+      # Sau bước này CHƯA rõ UI kế tiếp (khả năng là form tạo hồ sơ con) - dừng lại ở đây,
+      # không đoán selector. Bổ sung khi có screenshot thật của bước kế.

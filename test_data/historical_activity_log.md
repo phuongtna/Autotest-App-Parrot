@@ -1,0 +1,440 @@
+# Historical activity log — REPORT_TEST_PROFILE
+
+Log thủ công, append-only, theo protocol STRICT PROFILE ISOLATION do user cung cấp
+2026-09-09 (xem memory `feedback_report_test_profile_isolation`). Chỉ ghi hoạt động của
+`REPORT_TEST_PROFILE` (profile "QA Report Test", tài khoản 84912252152). KHÔNG xoá/ghi đè
+entry cũ, KHÔNG reset giữa các ngày — luôn append.
+
+Đây là log THAY THẾ pipeline tự động `scripts/session-logger/` (dùng cho tài khoản
+0915151519/"Trần Duy Anh", xem `test_data/activity_log_tranduyanh.md`) — quyết định
+2026-09-09, xem memory `project_historical_activity_log_format`. Hai log này độc lập,
+không dùng chung.
+
+Format mỗi entry theo đúng yêu cầu Part 11 của protocol:
+```
+Activity
+- Timestamp: YYYY-MM-DD HH:mm:ss
+- Profile ID: PROFILE_ID
+- Session ID: SESSION_ID
+- Activity Type: ACTIVITY_TYPE
+- Activity Detail: DESCRIPTION
+- Result: success/failure
+- Test Case: TEST_CASE_ID
+```
+
+## 2026-09-09
+
+Activity
+- Timestamp: 2026-09-09 (thời điểm chính xác không quan sát được — user tự đăng ký
+  bằng SMS OTP thật, agent không tham gia bước này theo policy tạo tài khoản)
+- Profile ID: (chưa có — tài khoản 84912252152 vừa đăng ký, chưa resolve profile ID
+  qua API)
+- Session ID: SESS-20260909-QA-REPORT-SETUP
+- Activity Type: account_registration
+- Activity Detail: User tự hoàn tất đăng ký tài khoản mới 84912252152 qua màn "Đăng ký
+  học cho con" của app (agent không thực hiện bước OTP/tạo tài khoản, chỉ viết
+  flows/app/helpers/register.yaml và xác nhận UI đăng ký tồn tại)
+- Result: success
+- Test Case: N/A (thiết lập REPORT_TEST_ACCOUNT, xem project_report_test_account_migration)
+
+Activity
+- Timestamp: 2026-09-09 09:42:xx +0700 (tap "Hoàn thành" xác nhận lúc đồng hồ máy hiển thị
+  09:42; giây chính xác không chụp lại được, lần check adb date gần nhất ngay sau đó là
+  09:43:26 +0700 — dùng mốc này làm cận trên nếu cần độ chính xác giây)
+- Profile ID: (chưa có — chưa resolve qua API, xem ghi chú trên)
+- Session ID: SESS-20260909-QA-REPORT-SETUP
+- Activity Type: profile_created
+- Activity Detail: Agent tạo hồ sơ con mới theo yêu cầu user, tái sử dụng kỹ thuật tap
+  từ flows/app/profile/create_child_profile_success.yaml (radio SVG chỉ nhận tap đúng
+  icon, không nhận tap theo text). Họ tên "QA Report Test", Năm sinh 2017, Trường
+  "Trường Tiểu học QA" (243 Cầu Giấy, Phường Cầu Giấy, Hà Nội), Khối "Lớp 7", Lớp
+  "7QA-Test-20260909_085649" (chọn theo tên lớp user chỉ định). Bấm "Hoàn thành" ->
+  vào thẳng màn dashboard chính (Vui học/Bài tập/Trò chuyện/Báo cáo) -> xác nhận hồ sơ
+  đã được tạo và đang active.
+- Result: success
+- Test Case: N/A (thiết lập REPORT_TEST_PROFILE ban đầu)
+
+**PROFILE_CREATED_AT (mốc cho Weekly Report period, xem Part 9 protocol): 2026-09-09
+~09:42 +0700** (dùng mốc "profile_created" activity ở trên). Chưa xác nhận profile ID
+thật qua API — cần bổ sung khi có cách resolve (vd bearer token của tài khoản
+84912252152 qua API tương tự get_tokens.sh nhưng cho app student, chưa có script này
+trong repo).
+
+Activity
+- Timestamp: 2026-09-09 ~09:58 +0700 (GV giao bài qua Web GV, xác nhận qua API room.json)
+- Profile ID: (chưa resolve — xem ghi chú trên); Room/assignment_id=48819f9f-c58b-4e81-849c-167531f663f4
+- Session ID: SESS-20260909-QA-REPORT-TARGET5
+- Activity Type: homework_assigned
+- Activity Detail: GV (tài khoản 0912312312, cùng GV quản lý các lớp 2A/3B/7QA-* khác
+  trong repo) giao bài "Choose the word whose underlined part is pronounced differently
+  from the others." (Unit 3: Community service, 10 câu) tới lớp "7QA-Test-20260909_085649"
+  (school_id 5dadbd5d-..., class_id 4d423639-8c35-4194-9c10-8e76bb092f08, đúng lớp duy
+  nhất của REPORT_TEST_PROFILE, student_count=1). Hạn nộp 16/09/2026. Thực hiện qua tái
+  sử dụng flows/web/giao_bai_tap/e2e-teacher-assign-full-scored-target5.mjs (Playwright +
+  Maestro MCP), KHÔNG viết code mới, theo yêu cầu tái sử dụng của user. Môi trường
+  TEACHER_PORTAL_ENV=production (user xác nhận đúng trước khi chạy).
+- Result: success
+- Test Case: N/A (sinh dữ liệu thật cho weekly report đối chiếu)
+
+Activity
+- Timestamp: 2026-09-09 ~10:08 +0700 (kết thúc script, xem duration bên dưới)
+- Profile ID: (chưa resolve); Room/assignment_id=48819f9f-c58b-4e81-849c-167531f663f4
+- Session ID: SESS-20260909-QA-REPORT-TARGET5
+- Activity Type: homework_completed
+- Activity Detail: Trên app (profile "QA Report Test" active, xác nhận qua screenshot
+  live giữa lúc chạy), mở đúng bài vừa giao, thoát giữa chừng (0 câu đã trả lời) rồi
+  resume lại (đúng lifecycle audit của flows/bai_tap/ktra_fullluong_lambai.yaml — xem
+  ghi chú app_exit bên dưới), trả lời đủ 10/10 câu bằng đáp án CMS thật (không phải tap
+  mù), điểm số THẬT đọc từ màn Kết quả = 5/10, đúng targetScore=5 (random runtime trong
+  [4.5, 5.5], không hardcode). Overall progress "Bài tập" tổng: 0/1 -> 1/1 (đúng 1 bài
+  vừa giao, đúng 1 bài đã hoàn thành). Duration đo được: tổng 638.1s, riêng phần làm bài
+  223.0s (trong đó trả lời 10 câu mất 122.5s).
+- Result: success
+- Test Case: N/A (sinh dữ liệu thật cho weekly report đối chiếu)
+
+**app_exit trong lúc chạy (theo yêu cầu user "thoát app thời điểm nào cũng ghi nhận"):**
+đúng 1 lần thoát MÀN LÀM BÀI (tapOn exercise_close_button) TRONG lúc chạy script trên,
+xảy ra SAU khi mở bài nhưng TRƯỚC KHI trả lời bất kỳ câu nào (0/10 câu tại thời điểm
+thoát) — đây là bước CHỦ Ý của kịch bản test (audit lifecycle "thoát giữa chừng ->
+refresh -> tìm lại card -> resume"), KHÔNG phải app bị crash/đóng ngoài ý muốn. Đã
+resume thành công ngay sau đó (RESUME passed=true), không có app_restart/force-stop/
+logout nào trong suốt phiên (xem [APP_RESTART] trong report JSON: stopApp=false,
+terminateApp=false, forceStop=false, unexpected_restart=false; [SAFETY] logout=false).
+
+**LƯU Ý QUAN TRỌNG — verdict PASS/FAIL của chính script vs thực tế:**
+Script tự báo `KẾT QUẢ: FAIL (phase=SCORE_VERIFY)`, NHƯNG đây là false-negative của
+chính bộ đếm nội bộ script, KHÔNG phải lỗi thật của app/report: script yêu cầu
+"overall progress TRƯỚC KHI giao bài" phải là 1 con số hợp lệ (>= 0) để tính được
+"tổng số bài Y có tăng không", nhưng vì đây là hồ sơ HOÀN TOÀN MỚI (0 bài tập từng
+được giao trước đó), màn "Bài tập" KHÔNG hiển thị dòng progress tổng nào cả trước khi
+có bài đầu tiên (`overallProgressBeforeAssign = null`) -> phép so sánh tự fail dù thực
+tế 0 -> 1 CHÍNH LÀ tăng đúng. TẤT CẢ các check còn lại đều PASS thật (điểm khớp target,
+đủ 10/10 câu, card verify đúng, progress tổng 0->1 tăng đúng qua check khác biệt
+`overallProgressOk`). Xem code tại flows/web/giao_bai_tap/e2e-teacher-assign-full-scored-target5.mjs
+dòng ~1465-1473 (biến `assignIncreasedTotal`). Đối chiếu report tuần: dùng 2 activity
+`homework_assigned`/`homework_completed` ở trên làm dữ liệu thật, KHÔNG dùng nhãn FAIL
+của script làm căn cứ "chưa hoàn thành bài".
+
+Activity
+- Timestamp: 2026-09-09 10:11:xx +0700 (thời điểm chụp màn hình xác nhận; adb date check
+  gần nhất ngay sau đó là 10:13:40 +0700)
+- Profile ID: (chưa resolve — cả 2 hồ sơ trùng tên đều chưa có profile ID thật, xem ghi
+  chú duplicate bên dưới)
+- Session ID: SESS-20260909-QA-REPORT-TARGET5
+- Activity Type: profile_switch (session_end cho REPORT_TEST_PROFILE)
+- Activity Detail: Agent tap "Chuyển profile" (định điều tra hồ sơ trùng tên "QA Report
+  Test" thứ 2 theo phát hiện của user) - vì tài khoản 84912252152 hiện chỉ có đúng 2 hồ
+  sơ, tap này chuyển THẲNG sang hồ sơ còn lại (không qua màn chọn), rời khỏi
+  REPORT_TEST_PROFILE (lớp 7QA-Test-20260909_085649, vừa hoàn thành bài Điểm 5) sang hồ
+  sơ trùng tên KHÔNG có lớp (0/0 bài tập, "Bạn không có bài tập nào đang chờ" - xác nhận
+  đây là hồ sơ orphan/thừa, khả năng cao là do agent lỡ bấm back giữa lúc tạo hồ sơ ban
+  đầu). Theo yêu cầu user: thời điểm CHUYỂN PROFILE này được tính là session_end của
+  REPORT_TEST_PROFILE cho mục đích đối chiếu report tuần - không có hoạt động nào của
+  REPORT_TEST_PROFILE sau mốc này cho tới khi chuyển lại.
+- Result: success (chuyển đúng, xác nhận qua header mất subtitle lớp + "0/0")
+- Test Case: N/A (session boundary tracking)
+
+**Hồ sơ trùng tên "QA Report Test" — user đã xác nhận sẽ tự xóa hồ sơ orphan (không có
+lớp) chứ không cần agent thực hiện.** Agent DỪNG thao tác trên profile switcher từ đây,
+không tự ý xóa/sửa hồ sơ nào nữa cho tới khi có chỉ định tiếp theo. Khi user xoá xong,
+cần 1 activity `profile_deleted` bổ sung (ai xoá, lúc nào, hồ sơ nào) để log này đầy đủ.
+
+Activity
+- Timestamp: 2026-09-09 ~10:14 +0700 (user báo "tôi xóa profile thừa rồi"; adb date check
+  ngay sau đó = 10:15:14 +0700)
+- Profile ID: (hồ sơ orphan đã bị xoá, chưa từng resolve profile ID thật)
+- Session ID: SESS-20260909-QA-REPORT-SETUP
+- Activity Type: profile_deleted
+- Activity Detail: User TỰ xoá hồ sơ "QA Report Test" orphan (không có lớp, 0/0 bài tập
+  — bản duplicate tạo ra do agent lỡ bấm back giữa lúc tạo hồ sơ ban đầu, xem
+  project_report_test_account_migration). Agent xác nhận lại (read-only, màn "Thông tin
+  các con") sau khi user báo: tài khoản 84912252152 giờ chỉ còn ĐÚNG 1 hồ sơ "QA Report
+  Test" - "7QA-Test-20260909_085649 - Trường Tiểu học QA", không còn trùng tên nữa.
+- Result: success
+- Test Case: N/A (dọn dẹp dữ liệu test, khôi phục name-only match an toàn trở lại)
+
+**RESOLVED**: từ mốc này, hồ sơ trùng tên KHÔNG còn tồn tại — name-only match (kể cả
+"Chuyển profile" hay regex `PROFILE_PRO_NAME` trong các script tái sử dụng) an toàn trở
+lại cho tài khoản này. Vẫn CHƯA rõ profile hiện tại đang active là hồ sơ đúng hay app tự
+chuyển sang hồ sơ còn lại sau khi xoá cái kia — cần verify subtitle lớp trước khi chạy
+tiếp bất kỳ automation nào.
+
+Activity
+- Timestamp: 2026-09-09 ~10:16-10:23 +0700 (script chạy xong lúc adb date check = 10:24:18 +0700)
+- Profile ID: (chưa resolve); Room/assignment_id=2bb7600b-790b-412e-885a-bc9e822399d0
+- Session ID: SESS-20260909-QA-REPORT-LAMLAI
+- Activity Type: homework_assigned
+- Activity Detail: GV (0912312312) giao bài "Choose the correct article (A, B, C or D)
+  to complete each sentence." (Review 4/GRAMMAR, 10 câu) tới lớp
+  "7QA-Test-20260909_085649" theo yêu cầu user "chạy case làm lại" (user xác nhận
+  profile đã lên PRO). Hạn nộp 16/09/2026. Tái sử dụng
+  flows/web/giao_bai_tap/e2e-giaobai-profilehientai-diem3-lamlai-diem8.mjs, KHÔNG viết
+  code mới. Target score lần đầu=4, lần làm lại=9 (chọn khác mặc định 3/8 của file, theo
+  standing rule không hardcode điểm).
+- Result: success
+- Test Case: N/A (sinh dữ liệu thật cho weekly report đối chiếu)
+
+Activity
+- Timestamp: 2026-09-09 ~10:20 +0700
+- Profile ID: (chưa resolve); Room/assignment_id=2bb7600b-790b-412e-885a-bc9e822399d0
+- Session ID: SESS-20260909-QA-REPORT-LAMLAI
+- Activity Type: homework_completed (lần làm đầu tiên)
+- Activity Detail: Trả lời 10/10 câu bằng đáp án CMS thật (không tap mù), điểm THẬT đọc
+  từ màn Kết quả = 4/10, đúng target=4 (achieved qua planning, không hardcode). Xác nhận
+  hồ sơ "QA Report Test" active trước khi làm (không switch).
+- Result: success
+- Test Case: N/A (sinh dữ liệu thật cho weekly report đối chiếu)
+
+Activity
+- Timestamp: 2026-09-09 ~10:24 +0700
+- Profile ID: (chưa resolve); Room/assignment_id=2bb7600b-790b-412e-885a-bc9e822399d0
+- Session ID: SESS-20260909-QA-REPORT-LAMLAI
+- Activity Type: lamlai_blocked (KHÔNG phải retry thật của user trong app)
+- Activity Detail: Script cố tìm lại đúng card vừa hoàn thành (cta="Làm lại") để bấm redo
+  làm lần 2 (target=9) nhưng KHÔNG tìm thấy - cuộn lạc vào section "Kiến thức trong bài"
+  (Review 4/Unit 3 Community Service) sau đúng 4 lần cuộn rồi báo END_OF_LIST. Đây là BUG
+  TỰ ĐỘNG HOÁ đã biết trước, tái hiện lần 3 (xem
+  project_lamlai_relocate_fix_and_scroll_inconsistency), KHÔNG phải lỗi PRO/paywall thật
+  (đã xác nhận badge "Pro" hiển thị đúng trên header profile qua screenshot) và KHÔNG
+  phải lỗi report/app thật. Chưa thực hiện lượt "Làm lại" thứ 2 nào trong app - đây là
+  activity CHƯA XẢY RA, không tính vào dữ liệu report.
+- Result: failure (tự động hoá, không phải hành vi app)
+- Test Case: N/A (đối chiếu report tuần: chỉ dùng activity homework_completed lần ĐẦU ở
+  trên, KHÔNG có lượt làm lại thứ 2 nào để đối chiếu cho tới khi có hướng xử lý tiếp)
+
+Activity
+- Timestamp: 2026-09-09 ~10:28-10:33 +0700 (script kết thúc lúc adb date check = 10:32:59 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b (RESOLVED lần đầu ở entry này - đọc
+  từ answers[].user_id của room_details.json cho room 2bb7600b-...); Room/assignment_id=
+  2bb7600b-790b-412e-885a-bc9e822399d0
+- Session ID: SESS-20260909-QA-REPORT-LAMLAI2
+- Activity Type: homework_redone (lượt "Làm lại" thứ 2, đúng bài đã hoàn thành lần đầu)
+- Activity Detail: Theo chỉ định user ("Tái sử dụng code đi, làm lại với bài vừa hoàn
+  thành xong ấy"), tái sử dụng automation/bai_tap/pro_lamlai_target_score.mjs (engine
+  làm-lại độc lập, KHÔNG phải script assign+first-attempt+redo đã fail ở trên) với
+  TARGET_TITLE + TARGET_CLASS_ID + TARGET_STUDENT_ID (profile ID vừa resolve) pin CHÍNH
+  XÁC vào room đã hoàn thành, REDO_TARGET_SCORE=9. KHÔNG giao bài mới
+  (new_assignments_created=0), dùng lại đúng room cũ. Bấm "Làm lại" thành công, trả lời
+  9/10 câu đúng bằng subset-sum trên đáp án CMS thật (không random đoán), điểm THẬT đọc
+  từ màn Kết quả = 9, đúng target=9. Điểm cũ trên card (4) chỉ để log, không phải điều
+  kiện pass/fail. Duration 252.1s.
+- Result: success
+- Test Case: N/A (sinh dữ liệu thật cho weekly report đối chiếu - homework này giờ có 2
+  lượt làm: lần đầu 4/10, làm lại 9/10)
+
+Activity
+- Timestamp: 2026-09-09 ~10:41:xx +0700 (adb date check ngay sau khi xác nhận màn hình
+  đăng nhập = 10:41:40 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260909-QA-REPORT-LAMLAI2
+- Activity Type: logout
+- Activity Detail: Theo yêu cầu user "giờ logout tài khoản này đi". Điều hướng tab "Báo
+  cáo" (đã active sẵn) -> scroll xuống mục "Đăng xuất" -> tap -> dialog "Bạn có thật sự
+  muốn đăng xuất khỏi ứng dụng?" -> tap ĐÚNG nút "OK" (không dùng regex rộng, tránh bug
+  đã biết tap trúng message dialog thay vì nút, xem flows/app/logout/logout_success.yaml).
+  Xác nhận qua screenshot: quay về màn "Chào mừng bạn đến với ParrotEdu!" (chưa đăng
+  nhập). Không có hoạt động nào khác giữa lúc "Làm lại" thành công (10:32:59) và logout
+  này ngoại trừ thời gian đứng yên trong app (KHÔNG thao tác nhưng vẫn tính là active
+  session, theo yêu cầu user) - không tách session.
+- Result: success
+- Test Case: N/A (đóng phiên Report Testing theo Part 5 protocol)
+
+**REPORT_TEST_PROFILE state: RELEASED** (Part 18 protocol) — không tự động login lại,
+không tự động chọn lại profile này cho automation tiếp theo, cho tới khi có chỉ định
+Report Testing mới.
+
+**Ghi chú kỹ thuật cho lamlai_blocked ở trên**: script `pro_lamlai_target_score.mjs` này
+CŨNG dùng `scrollToTop()`/`findAssignment()` (cùng cơ chế canonical bị nghi ngờ trong
+project_lamlai_relocate_fix_and_scroll_inconsistency) nhưng lần này KHÔNG gặp bug
+(scroll_iterations_used=0, tìm thấy ngay). Khác biệt so với lượt fail: (1) chạy như 1
+INVOCATION MỚI HOÀN TOÀN (mở app/xác nhận profile lại từ đầu) thay vì relocate NGAY SAU
+KHI vừa đóng màn Kết quả trong CÙNG session script, (2) TARGET_TITLE pin sẵn thay vì tự
+quét. Chưa đủ bằng chứng kết luận nguyên nhân, chỉ ghi nhận: tách thành 2 lần chạy riêng
+(assign+làm lần 1, RỒI làm-lại ở 1 lần chạy MỚI) là 1 WORKAROUND THỰC TẾ hoạt động, dù
+chưa fix được root cause.
+
+## Report Testing session #2 — kích hoạt lại (2026-09-09)
+
+Trước khi login lại: phát hiện device đang ở 1 session KHÁC HẲN, không liên quan
+(profile "Hạnh vy", tài khoản 0915775115, lớp 8D, đang giữa màn kết quả Unit 6:
+Lifestyles chưa dismiss - rõ ràng là hoạt động thật xảy ra giữa lúc 2 lượt chat, không
+phải leftover của agent). User xác nhận bỏ qua nội dung đó, cho phép logout để chuyển
+sang Report Testing. KHÔNG ghi hoạt động của "Hạnh vy"/0915775115 vào log này (ngoài
+phạm vi REPORT_TEST_PROFILE) - chỉ ghi lại đây làm bối cảnh.
+
+Activity
+- Timestamp: 2026-09-09 13:47:59 +0700 (thời điểm bấm "Xác nhận" OTP, verified qua adb date)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b (re-xác nhận đúng qua subtitle lớp
+  "7QA-Test-20260909_085649" + trạng thái bài tập khớp y hệt lúc logout trước: 2/2,
+  "Choose the correct article..." Điểm 9, 9/10)
+- Session ID: SESS-20260909-QA-REPORT-ACTIVATE
+- Activity Type: login
+- Activity Detail: Kích hoạt lại REPORT_TESTING theo yêu cầu user (protocol PART 4/7).
+  Logout profile "Hạnh vy" (0915775115) trước (khác account, không liên quan) -> login
+  84912252152 (SĐT + OTP cố định 888888) -> verify đúng "QA Report Test" qua subtitle
+  lớp trước khi làm bất kỳ activity nào.
+- Result: success
+- Test Case: (chưa xác định - user chưa nêu Test Case ID cụ thể)
+- Report type: (chưa xác định)
+
+**REPORT_PROFILE_STATE = REPORT_TESTING_ACTIVE** (từ 2026-09-09 13:47:59 +0700, theo
+Part 18 protocol). Chưa có activity học tập nào được thực hiện kể từ khi kích hoạt lại -
+chờ chỉ định tiếp theo.
+
+Activity
+- Timestamp: 2026-09-09 ~13:54 +0700 (GV giao bài qua Web GV, xác nhận qua API room.json)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=d6ec3edd-057a-455c-85f4-acdb87e9c39c
+- Session ID: SESS-20260909-QA-REPORT-TARGET5-2
+- Activity Type: homework_assigned
+- Activity Detail: Theo yêu cầu user "chạy case giao bài tập -> làm bài tập", tái sử
+  dụng flows/web/giao_bai_tap/e2e-teacher-assign-full-scored-target5.mjs (không viết
+  code mới). GV (0912312312) giao bài "Unit 12: English-speaking countries/Reading"
+  (5 câu) tới lớp "7QA-Test-20260909_085649". Target score range đổi thành [6.5, 8.5]
+  (khác lượt trước [4.5,5.5] mặc định của file, để tránh lặp cùng 1 khoảng điểm - theo
+  standing rule không hardcode). Overall progress tổng: 2/2 -> 2/3 (tăng đúng, không
+  còn false-negative như lần đầu vì profile đã có lịch sử).
+- Result: success
+- Test Case: (chưa xác định)
+
+Activity
+- Timestamp: 2026-09-09 ~14:04 +0700 (script kết thúc lúc adb date check = 14:03:59 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=d6ec3edd-057a-455c-85f4-acdb87e9c39c
+- Session ID: SESS-20260909-QA-REPORT-TARGET5-2
+- Activity Type: homework_completed
+- Activity Detail: Trả lời 5/5 câu bằng đáp án CMS thật, điểm THẬT đọc từ màn Kết quả
+  = 8/10 tương đương (achievable_scores=[0,2,4,6,8,10] do bài chỉ có 5 câu, mỗi câu 2
+  điểm), đúng target=8 (random runtime trong [6.5,8.5], không hardcode). Thoát giữa
+  chừng (0 câu) rồi resume đúng lifecycle audit, không gặp lại bug relocate/scrollToTop
+  nào. Overall progress tổng 2/3 -> (không đổi mẫu số, chỉ tăng tử số hoàn thành).
+  Script tự báo OVERALL=PASS (không có false-negative lần này). Duration 599.4s.
+- Result: success
+- Test Case: (chưa xác định)
+
+**LƯU Ý ĐỐI CHIẾU WEEKLY REPORT (xác nhận với user 2026-09-09, xem
+project_weekly_report_btvn_duedate_rule):** dòng "Bài tập về nhà" (X/Y) của Weekly Report
+tính theo bài có HẠN NỘP rơi trong tuần đó, KHÔNG theo ngày giao/ngày hoàn thành. CẢ 3
+room tạo hôm nay (5/9-9 QA, 5/9-9 QA lamlai, 12/9-9-2 QA) đều có hạn nộp 16/09/2026
+(tuần SAU), nên KHÔNG bài nào trong 3 bài này được tính vào X/Y của Weekly Report tuần
+này (period ~09/09-11/09). User xác nhận: giữ nguyên, không tạo lại bài có hạn nộp trong
+tuần - kỳ vọng ĐÚNG khi kiểm tra report thật là dòng BTVN hiển thị 0/0 (hoặc không hiện)
+cho profile này tuần này, KHÔNG coi đó là bug.
+
+**CẬP NHẬT (cùng ngày, ngay sau đó): user đổi ý** - yêu cầu "giao bài tập mới có hạn
+trong khoảng tuần này để chạy được báo cáo" - xem 2 activity mới ngay dưới đây.
+
+Activity
+- Timestamp: 2026-09-09 ~14:28 +0700 (GV giao bài qua Web GV, xác nhận qua API room.json)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=90a94466-bdcf-40c6-b86f-f21b144ac3f0
+- Session ID: SESS-20260909-QA-REPORT-TARGET5-3
+- Activity Type: homework_assigned
+- Activity Detail: Theo yêu cầu user, tái sử dụng lại
+  flows/web/giao_bai_tap/e2e-teacher-assign-full-scored-target5.mjs, lần này ép
+  ASSIGN_DUE_DATE="11/09/2026" (Thứ Sáu, nằm TRONG tuần report hiện tại, khác mặc định
+  +7 ngày của file) để bài này ĐƯỢC tính vào Weekly Report tuần này (xem
+  project_weekly_report_btvn_duedate_rule). GV (0912312312) giao bài "Rearrange the
+  words to make a correct sentence. Choose the correct order." tới lớp
+  "7QA-Test-20260909_085649", hạn nộp xác nhận qua API = 11/09/2026 đúng như ép.
+- Result: success
+- Test Case: (chưa xác định)
+
+Activity
+- Timestamp: 2026-09-09 ~14:34 +0700 (script kết thúc lúc adb date check = 14:37:54 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=90a94466-bdcf-40c6-b86f-f21b144ac3f0
+- Session ID: SESS-20260909-QA-REPORT-TARGET5-3
+- Activity Type: homework_completed
+- Activity Detail: Trả lời đủ câu bằng đáp án CMS thật, điểm THẬT đọc từ màn Kết quả = 2,
+  đúng target=2 (random runtime trong [1.5, 2.5], khác 2 lần trước [4.5,5.5]/[6.5,8.5] -
+  không lặp cùng khoảng điểm). Script tự báo OVERALL=PASS.
+- Result: success
+- Test Case: (chưa xác định)
+
+**Room này (hạn nộp 11/09/2026, TRONG tuần report hiện tại) LÀ dữ liệu thật dùng để
+đối chiếu dòng "Bài tập về nhà" X/Y của Weekly Report tuần này - khác 3 room trước (hạn
+16/09, không tính).**
+
+Activity
+- Timestamp: 2026-09-09 ~15:03-15:11 +0700 (script kết thúc lúc adb date check = 15:11:33 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=90a94466-bdcf-40c6-b86f-f21b144ac3f0
+- Session ID: SESS-20260909-QA-REPORT-LAMLAI-FULL
+- Activity Type: homework_redone (làm lại, điểm full)
+- Activity Detail: Theo yêu cầu user "bấm làm lại 1 bài tập bất kỳ với điểm full", tái
+  sử dụng automation/bai_tap/pro_lamlai_target_score.mjs KHÔNG pin TARGET_TITLE (để
+  script tự chọn "bất kỳ" candidate đầu tiên thoả điều kiện qua
+  collectDistinctCompletedCandidates() - cùng cơ chế scroll đã dùng thành công trước
+  đó, không viết code mới). REDO_SCORE_MODE=target REDO_TARGET_SCORE=10 (điểm full tối
+  đa trên thang 10). Script tự chọn room 90a94466 ("Rearrange the words to make a
+  correct sentence. Choose the correct order." - CHÍNH bài vừa giao/làm lúc ~14:28-14:34
+  cùng ngày, điểm cũ=2). Trả lời ĐÚNG cả 10/10 câu bằng subset-sum trên đáp án CMS thật,
+  điểm THẬT đọc từ màn Kết quả = 10, đúng target=10.
+- Result: success
+- Test Case: (chưa xác định)
+
+**LẦN CHẠY ĐẦU BỊ LỖI (không phải bug mới)**: lượt chạy trước đó (~14:52-14:57, cùng
+lệnh) FAIL với ROOT_CAUSE=`GET .../room.json?...period=MONTH trả về status 401` (token
+TEACHER_ACCESS_TOKEN hết hạn giữa các lượt chạy trong session - đã quên refresh trước
+lượt đó). Cuộn 32 lần, kẹt ở "nodes=4" liên tục vì API cross-check 401 liên tục, KHÔNG
+phải bug scrollToTop/carousel đã biết trước đó (project_lamlai_relocate_fix_and_scroll_inconsistency)
+- 2 lỗi khác nhau, dễ nhầm vì triệu chứng bề ngoài giống nhau (kẹt lâu, nodes thấp).
+Fix: chạy lại get_tokens.sh + get_teacher_token.sh rồi retry y nguyên lệnh -> PASS ngay.
+Bài học: refresh token TRƯỚC MỖI lượt chạy automation/ trong session dài, không chỉ lượt
+đầu tiên (xem feedback_get_tokens_script).
+
+## Bổ sung: CMS Kỹ năng (Skill) của 4 bài đã giao (2026-09-09 ~15:20 +0700)
+
+User hỏi có log field "Kỹ năng" (CMS, quyết định ring nào trong "Kết quả học tập" tăng -
+xem project_cms_skill_to_report_mapping) của các bài đã giao chưa - CHƯA có, chỉ log
+tên Unit/Lesson (nhãn nội dung, không đảm bảo trùng field "Kỹ năng" CMS thật). Bổ sung
+ngay bằng cách gọi API `GET /api/cms/lesson-items/:id` (CMS_TOKEN, không phải
+TEACHER_ACCESS_TOKEN) cho từng lesson_item_id đã biết:
+
+| Room | Title | lesson_item_id | CMS `skills[]` |
+|---|---|---|---|
+| 48819f9f | Choose the word whose underlined part... | 8f59c73a-ca53-48ae-affa-2ec3b633821e | PRONUNCIATION |
+| 2bb7600b | Choose the correct article... | f5673470-a311-4027-8bfa-2b21e7469c43 | GRAMMAR |
+| d6ec3edd | Unit 12/Reading | 94bc26d4-51eb-4295-9e52-e966bf6f9cdc | READING |
+| 90a94466 | Rearrange the words... | 79c89caf-ce40-4a17-b676-9da3019bd1fe | WRITING |
+
+Cả 4 đều trùng khớp tên Lesson hiển thị trong app (không phải luôn luôn đúng theo memory
+gốc - chỉ là trùng hợp ở 4 case này, KHÔNG suy ra quy luật chung). Kỳ vọng 4 ring khác
+nhau trong "Kết quả học tập" sẽ được cập nhật: Phát âm, Ngữ pháp, Kỹ năng đọc, Kỹ năng
+viết - chưa verify thật trên UI report, chỉ mới xác nhận qua CMS metadata.
+
+**Ghi chú kỹ thuật (fix tạm cho known gap trong feedback_get_tokens_script):**
+`CMS_ACCESS_TOKEN` (dùng bởi automation/discovery/cmsClient.js) KHÔNG được get_tokens.sh
+refresh (chỉ refresh CMS_TOKEN/EXAM_COOKIE) - gặp 401 khi gọi lessonItemDetail. Workaround
+dùng ngay: copy giá trị CMS_TOKEN vừa refresh vào CMS_ACCESS_TOKEN trong .env (cùng
+endpoint /api/cms/login, có vẻ là cùng loại token, 2 dòng .env lịch sử tách rời nhau) -
+hoạt động ngay. Chưa viết script chính thức cho việc này.
+
+Activity
+- Timestamp: 2026-09-09 15:41:08 +0700 (verified qua adb date, xác nhận qua screenshot
+  màn "Chào mừng bạn đến với ParrotEdu!")
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260909-QA-REPORT-ACTIVATE
+- Activity Type: logout
+- Activity Detail: User gõ đúng trigger phrase "Logout tài khoản report." (Part 5
+  protocol). Verify lại đúng profile "QA Report Test"/lớp "7QA-Test-20260909_085649"
+  trước khi logout (4/4 bài tập, Điểm 10 khớp lần cuối). Điều hướng tab "Báo cáo" ->
+  "Đăng xuất" -> tap ĐÚNG nút "OK" (không dùng regex rộng) -> xác nhận quay về màn
+  "Chào mừng bạn đến với ParrotEdu!".
+- Result: success
+- Test Case: (chưa xác định)
+
+**REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-09 15:41:08 +0700, theo
+đúng chỉ định của user cho trigger phrase này - đi thẳng từ REPORT_TESTING_ACTIVE sang
+PROTECTED/DO_NOT_USE, không dừng ở RELEASED). KHÔNG tự động login lại profile này,
+KHÔNG tự động chọn profile này cho automation tiếp theo, cho tới khi có chỉ định Report
+Testing mới (theo đúng activation sequence: kích hoạt REPORT_TESTING -> login -> verify
+profile -> mới thực hiện activity).
+
+## Tổng kết Report Testing session #2 (2026-09-09, 13:47:59 -> 15:41:08 +0700)
+
+3 room mới được giao + hoàn thành trong session này (bổ sung 4 room từ session #1):
+- d6ec3edd (Unit 12/Reading, hạn 16/09 - NGOÀI tuần report): điểm 8/10
+- 90a94466 (Rearrange the words/Writing, hạn 11/09 - TRONG tuần report): điểm 2/10 ->
+  làm lại điểm 10/10 (full)
+- Cả 4 room (2 session gộp lại) đã resolve CMS Kỹ năng: PRONUNCIATION, GRAMMAR, READING,
+  WRITING - phủ 4 ring khác nhau trong "Kết quả học tập", chưa verify qua UI report thật.
+- Chỉ room 90a94466 (hạn 11/09) sẽ được tính vào dòng "Bài tập về nhà" X/Y của Weekly
+  Report tuần này; 3 room còn lại (hạn 16/09) sẽ KHÔNG được tính tuần này (đúng theo
+  business rule, không phải bug).

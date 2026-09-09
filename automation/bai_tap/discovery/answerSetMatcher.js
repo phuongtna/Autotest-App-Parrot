@@ -221,7 +221,8 @@ function buildPartialMatchForensics(pool, normalizedVisibleSet) {
 function classify(answerable, questionType, contentMatch) {
   if (!answerable) {
     // UNKNOWN (không detector nào nổ - "chưa đủ bằng chứng") KHÁC hẳn 1 type ĐÃ nhận diện được
-    // nhưng pipeline chưa hỗ trợ answer (DRAG_DROP/SPEAK) - không được gộp chung, đúng PHASE 3B §H.
+    // nhưng pipeline chưa hỗ trợ answer (SPEAK/SORT_OR_SENTENCE_BUILDER - DRAG_DROP đã hỗ trợ từ
+    // 2026-09-09, xem questionTypeDetector.js) - không được gộp chung, đúng PHASE 3B §H.
     if (questionType === "UNKNOWN") return "IDENTITY_UNVERIFIABLE";
     if (questionType === "SORT_OR_SENTENCE_BUILDER") return "AMBIGUOUS_QUESTION_TYPE";
     return "UNSUPPORTED_QUESTION_TYPE";

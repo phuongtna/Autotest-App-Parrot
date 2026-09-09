@@ -187,6 +187,42 @@ export function resolveFillWordValues(questionModel) {
   return values;
 }
 
+/** DRAG_DROP ("Nam is [Drop here] football with Ben." + word bank "to play"/"playing"/"play") -
+ * XÁC NHẬN THẬT 2026-09-09 qua `maestro hierarchy` sống trên chính room "Bài tập" (không phải Vui
+ * học), PORT cơ chế từ flows/app/exercise/EX-17-drag-drop-any-build.yaml (đã ghi "CHẠY ĐƯỢC TRÊN
+ * BẢN BUILD STORE" - không cần build E2E riêng): mỗi ô trống là 1 node "exercise_dragdrop_zone_{i}"
+ * (RỖNG) chứa placeholder "Drop here" - tap 1 chip trong "exercise_dragdrop_options" (con của
+ * "exercise_dragdrop_option_{j}", TEXT chip nằm ở node con, render qua `text` THƯỜNG - KHÁC CONNECT
+ * cần đọc accessibilityText) tự động điền vào Ô TRỐNG ĐẦU TIÊN còn rỗng (DragDropAnswer2 ->
+ * selectAnswerAuto -> fillGap), đổi id ô đó thành "exercise_dragdrop_zone_{i}_filled" - xác nhận
+ * qua probe tap thật (tap "playing" -> "exercise_dragdrop_zone_0_filled" xuất hiện,
+ * "exercise_check_button" enabled false -> true). Vì tap là ĐIỀN-VÀO-Ô-TRỐNG-ĐẦU-TIÊN (không phải
+ * điền theo index chip), CHỈ CẦN tap các từ đúng theo ĐÚNG THỨ TỰ ô trống (0,1,2...) là kiểm soát
+ * được từng ô riêng biệt - không cần biết resource-id "_option_N" nào ứng với từ nào, tap THẲNG theo
+ * TEXT (giống TEXT_CHOICE) là đủ. */
+export function collectDragDropZoneIndices(tree) {
+  const indices = new Set();
+  function walk(node) {
+    const id = node?.attributes?.["resource-id"] || "";
+    const match = id.match(/^exercise_dragdrop_zone_(\d+)$/); // "$" neo cuối - KHÔNG khớp hậu tố "_filled"
+    if (match) indices.add(Number(match[1]));
+    for (const child of node?.children ?? []) walk(child);
+  }
+  walk(tree);
+  return indices;
+}
+
+/** Đáp án đúng THEO THỨ TỰ ô trống - lấy thẳng `metadata.raw.correct` (mảng string thuần khớp trực
+ * tiếp giá trị answers[], xem questionModel.js#extractCorrectAnswer - KHÔNG bọc ngoặc vuông như
+ * FILL_WORD nên không cần strip `[`/`]`). */
+export function resolveDragDropCorrectValues(questionModel) {
+  const raw = questionModel?.metadata?.raw?.correct;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const values = raw.map((v) => stripHtml(String(v)));
+  if (values.some((v) => !v)) return null;
+  return values;
+}
+
 /**
  * PERF audit 2026-08-20 (yeu cau "toi uu kha nang xu ly UI cho TAT CA dang cau hoi"): truoc day
  * moi nhanh (TEXT_CHOICE/CONNECT/FILL_WORD) chi doc DUNG 1 lan hierarchy() dang co (tu snapshot)
@@ -219,6 +255,21 @@ async function ensureAllBlanksVisible(bridge, initialTree, expectedCount) {
     collect: (tree, acc) => {
       const next = new Set(acc);
       for (const idx of collectBlankIndices(tree)) next.add(idx);
+      return next;
+    },
+    isDone: (acc) => acc.size >= expectedCount,
+    sizeOf: (acc) => acc.size,
+    initialAcc: new Set(),
+  });
+}
+
+/** DRAG_DROP: cuon (neu can) toi khi doc du SO Ô TRỐNG mong doi (theo CMS) - CUNG ky thuat
+ * ensureAllBlanksVisible() cua FILL_WORD, chi khac id pattern (zone thay vi blank). */
+async function ensureAllDragDropZonesVisible(bridge, initialTree, expectedCount) {
+  return collectByScrollingIfNeeded(bridge, initialTree, {
+    collect: (tree, acc) => {
+      const next = new Set(acc);
+      for (const idx of collectDragDropZoneIndices(tree)) next.add(idx);
       return next;
     },
     isDone: (acc) => acc.size >= expectedCount,
@@ -858,6 +909,119 @@ export class HomeworkExamEngine {
       }
 
       return { supported: true, type: "CONNECT", isTargetCorrect, finalTree: treeAfter, scrollCount: connectVisibleResult.scrollCount };
+    }
+
+    // DRAG_DROP ("Nam is [Drop here] football with Ben." + word bank) - CUNG nguyen tac GOP nhu
+    // FILL_WORD/CONNECT o tren (1 runSteps() DUY NHAT cho toan bo tap, 1 hierarchy() DUY NHAT sau
+    // cung). Xem docblock resolveDragDropCorrectValues()/collectDragDropZoneIndices() phia tren cho
+    // bang chung co che "tap chip -> tu dien o trong DAU TIEN con rong" (PORT tu EX-17-drag-drop-
+    // any-build.yaml, xac nhan lai qua maestro hierarchy song 2026-09-09).
+    if (hasResourceId(tree, /^exercise_dragdrop_zone_0$/)) {
+      const correctValues = resolveDragDropCorrectValues(questionModel);
+      if (!correctValues) {
+        return {
+          supported: false,
+          reason: "DRAG_DROP: không resolve được đáp án đúng từ metadata.raw.correct.",
+          texts: textsBefore,
+        };
+      }
+      // Cuon (CHI khi can) toi khi doc du SO O TRONG mong doi TRUOC khi ket luan "khong khop" -
+      // cung ly do FILL_WORD can ensureAllBlanksVisible() (cau dai hon 1 man hinh).
+      const zonesResult = await ensureAllDragDropZonesVisible(this.bridge, tree, correctValues.length);
+      if (zonesResult.scrollCount > 0) {
+        tree = zonesResult.tree;
+        textsBefore = collectTexts(tree);
+      }
+      const zoneIndices = [...zonesResult.acc].sort((a, b) => a - b);
+      if (zoneIndices.length !== correctValues.length) {
+        return {
+          supported: false,
+          reason: `DRAG_DROP: số ô trống trên màn (${zoneIndices.length}) không khớp số đáp án CMS (${correctValues.length}).`,
+          texts: textsBefore,
+        };
+      }
+
+      // wantCorrect=false: KHÁC CONNECT (n===1 ở đó thật sự không có cách nào sai vì chỉ 1 cặp khả
+      // dĩ duy nhất) - DRAG_DROP dù chỉ 1 ô trống VẪN thường có distractor thật trong word bank (vd
+      // "Nam is ___ football" có answers=["to play","playing","play"], correct=["playing"] - 2
+      // distractor cho 1 ô). XÁC NHẬN THẬT 2026-09-09 qua live probe: dùng rotate như CONNECT cho
+      // n===1 sẽ tự rotate về CHÍNH NÓ (correctValues[(0+1)%1]===correctValues[0]) -> LUÔN báo
+      // isTargetCorrect=true SAI dù wantCorrect=false (bug xác nhận qua 3/3 câu DRAG_DROP đơn-ô
+      // test live đều báo isTargetCorrect=true bất kể wantCorrect). SỬA: n>=2 vẫn rotate (CÙNG kỹ
+      // thuật CONNECT, không cần biết word bank), n===1 tìm 1 từ THẬT trong word bank
+      // (questionModel.answers) khác correctValues[0] - chỉ khi KHÔNG có distractor nào (word bank
+      // chỉ đúng 1 từ) mới đành chấp nhận không thể sai (isTargetCorrect=true).
+      const n = correctValues.length;
+      let isTargetCorrect;
+      let wordsToTap;
+      if (wantCorrect) {
+        isTargetCorrect = true;
+        wordsToTap = correctValues;
+      } else if (n >= 2) {
+        isTargetCorrect = false;
+        wordsToTap = correctValues.map((_, i) => correctValues[(i + 1) % n]);
+      } else {
+        const wordBank = (questionModel?.answers ?? []).filter((a) => typeof a === "string" && a.trim());
+        const distractor = wordBank.find((w) => w !== correctValues[0]);
+        isTargetCorrect = !distractor;
+        wordsToTap = distractor ? [distractor] : correctValues;
+      }
+
+      // Cuon (CHI khi can - xem ensureAllAnswersVisible) toi khi CAC TU se tap (nam trong
+      // questionModel.answers - DRAG_DROP answers[] CHINH LA word bank) da hien thi day du - tai su
+      // dung NGUYEN VAN ham dung chung cho TEXT_CHOICE, khong viet co che cuon rieng thu 2.
+      const answersVisibleResult = await ensureAllAnswersVisible(this.bridge, tree, questionModel);
+      if (answersVisibleResult.scrollCount > 0) {
+        tree = answersVisibleResult.tree;
+        textsBefore = collectTexts(tree);
+      }
+
+      // Tap CAC TU theo DUNG THU TU o trong (moi lan tap tu dien o trong DAU TIEN con rong) - tap
+      // THEO TEXT (giong TEXT_CHOICE), KHONG can biet resource-id "_option_N" nao ung voi tu nao vi
+      // chip render text THUONG (khac CONNECT can accessibilityText).
+      const tapSteps = wordsToTap.map((word) => ({ tapOn: word }));
+      tapSteps.push({ waitForAnimationToEnd: { timeout: 1500 } });
+      tapSteps.push({ takeScreenshot: "before_submit" });
+
+      const tapStepsResult = await this.bridge.runSteps(tapSteps);
+      if (!tapStepsResult.success) {
+        throw new Error(`DRAG_DROP: chuỗi thao tác thất bại: ${tapStepsResult.error}`);
+      }
+
+      // PHASE B (control): DOC LAP voi Phase A (dien o trong) o tren - cuon bounded truoc khi tap,
+      // tranh tapOn "optional: true" ben duoi AM THAM bo qua control ngoai khung hinh.
+      const ctaAnchorTree = await this.bridge.hierarchy();
+      await ensureIdVisible(this.bridge, ctaAnchorTree, /^exercise_check_button$/);
+
+      const ctaSteps = [
+        { tapOn: { id: "exercise_check_button", optional: true } },
+        { waitForAnimationToEnd: { timeout: 1500 } },
+        { tapOn: { id: "exercise_check_button", optional: true } },
+        { tapOn: { text: NEXT_OR_SUBMIT_CTA_REGEX, optional: true } },
+        { waitForAnimationToEnd: { timeout: 1000 } },
+      ];
+      if (resultLabel) ctaSteps.push({ takeScreenshot: resultLabel });
+
+      const ctaStepsResult = await this.bridge.runSteps(ctaSteps);
+      if (!ctaStepsResult.success) {
+        throw new Error(`DRAG_DROP: chuỗi thao tác thất bại: ${ctaStepsResult.error}`);
+      }
+
+      const treeAfter = await this.bridge.hierarchy();
+      const textsAfter = collectTexts(treeAfter);
+      if (!this.isResultScreen(treeAfter)) {
+        if (JSON.stringify(textsAfter) === JSON.stringify(textsBefore)) {
+          throw new Error("DRAG_DROP: không chuyển được câu tiếp theo - màn hình không đổi sau khi bấm CTA.");
+        }
+      }
+
+      return {
+        supported: true,
+        type: "DRAG_DROP",
+        isTargetCorrect,
+        finalTree: treeAfter,
+        scrollCount: zonesResult.scrollCount + answersVisibleResult.scrollCount,
+      };
     }
 
     // Cuon (CHI khi can - xem ensureAllAnswersVisible) toi khi TOAN BO answers[] tu CMS da hien thi

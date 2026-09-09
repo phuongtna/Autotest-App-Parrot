@@ -99,7 +99,15 @@ export function detectQuestionType(tree, texts, pool) {
     {
       type: "DRAG_DROP",
       confidence: "HIGH",
-      answerable: false,
+      // SỬA (2026-09-09): answerable đổi false -> true - đã xác nhận THẬT trên thiết bị + implement
+      // handler trong homeworkExamEngine.js#answerCurrentQuestionOneShot() (xem docblock ở đó): chip
+      // word-bank ("exercise_dragdrop_option_N") render TEXT thường (không phải accessibilityText
+      // như CONNECT) và tap 1 lần tự điền ô trống ĐẦU TIÊN còn rỗng ("exercise_dragdrop_zone_i" ->
+      // "exercise_dragdrop_zone_i_filled") - cơ chế PORT từ flows/app/exercise/EX-17-drag-drop-any-
+      // build.yaml (đã xác nhận "CHẠY ĐƯỢC TRÊN BẢN BUILD STORE"), verify lại lần nữa qua
+      // `maestro hierarchy` sống trên chính room "Bài tập" thật (không phải Vui học) trước khi đổi cờ
+      // này - KHÔNG còn là "chưa verify" như trước.
+      answerable: true,
       citation: "hasResourceId(/^exercise_dragdrop_zone_0$/) - ported from flows/app/helpers/answer-current-exercise-generic.yaml:178-181",
       ok: hasResourceId(tree, DRAG_DROP_ZONE_ID_PATTERN),
     },

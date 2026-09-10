@@ -5,6 +5,7 @@ import {
   saveOrderPopup,
   fillOrderPhone,
   selectFirstOrderProfileOption,
+  selectOrderProfileByName,
   selectTrialPackageOption,
   readTrialPackageOptionTexts,
   readSelectedTrialPackage,
@@ -52,7 +53,7 @@ const SKIP_IDS_NO_STUDENT = [
  * GRANT-09 (Blocked - không đạt được điều kiện tiên quyết) và GRANT-10/11 (Exploratory - chưa có
  * rule chính thức) không thuộc phạm vi "case đã Pass" nên KHÔNG đưa vào flow này.
  */
-export async function runGrantCasesFlow(page, baseUrl, { defaultPackageName, ownPackages, studentPhone }) {
+export async function runGrantCasesFlow(page, baseUrl, { defaultPackageName, ownPackages, studentPhone, profileName }) {
   const results = [];
   const record = (id, description, pass, detail = "") => {
     results.push({ id, description, pass, detail });
@@ -110,7 +111,14 @@ export async function runGrantCasesFlow(page, baseUrl, { defaultPackageName, own
   // blur, đổi thứ tự ngược lại khiến dòng lỗi hiện SAU field trial-select và che mất dropdown
   // profile phía dưới (ĐÃ GẶP THẬT 2026-09-07: Playwright báo "element intercepts pointer events").
   await fillOrderPhone(page, studentPhone);
-  const selectedProfileName = await selectFirstOrderProfileOption(page);
+  let selectedProfileName;
+  if (profileName) {
+    // Số điện thoại có thể có nhiều profile con - chọn ĐÍCH DANH profile được chỉ định thay vì
+    // profile đầu tiên trong dropdown (an toàn hơn khi test trên môi trường có dữ liệu thật).
+    selectedProfileName = await selectOrderProfileByName(page, profileName);
+  } else {
+    selectedProfileName = await selectFirstOrderProfileOption(page);
+  }
 
   // ---- GRANT-02 + GRANT-08: chọn "Không áp dụng" -> field vẫn có giá trị (không rỗng), Lưu bị chặn ----
   await selectTrialPackageOption(page, po.orders.trialPackageNotApplicableOption);

@@ -86,6 +86,9 @@ export const config = {
   // sinh khác nhau, KHÔNG dùng chung số điện thoại giữa dev/staging/production được. Để trống thì
   // nhóm case đó tự SKIP (không giả định Pass/Fail).
   cmsAdminTestStudentPhone: readVar("CMS_ADMIN_TEST_STUDENT_PHONE"),
+  // Tên profile con CỤ THỂ cần chọn khi 1 số điện thoại có nhiều profile con - để trống thì
+  // grantCasesFlow.js tự chọn profile ĐẦU TIÊN trong dropdown (selectFirstOrderProfileOption).
+  cmsAdminTestStudentProfileName: readVar("CMS_ADMIN_TEST_STUDENT_PROFILE_NAME"),
 };
 
 /**

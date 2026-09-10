@@ -129,7 +129,10 @@ export function collectConnectSlots(tree) {
 
 /** Tìm ĐÚNG 1 ô khớp text - throw nếu 0 hoặc ≥2 khớp (không đoán lấy phần tử đầu) - COPY từ
  * matchingHandler.js#resolveSlotIndex(). */
-function resolveConnectSlotIndex(slots, side, text, questionId) {
+// export (2026-09-10, thêm cho automation/vui_hoc/vuiHocExamEngine.js tái sử dụng CHO CONNECT -
+// thuần tuý thêm từ khoá `export`, KHÔNG đổi 1 dòng logic nào, KHÔNG ảnh hưởng caller nội bộ hiện
+// có trong chính file này).
+export function resolveConnectSlotIndex(slots, side, text, questionId) {
   const matches = slots[side].filter((s) => s.text === text);
   if (matches.length === 0) {
     throw new Error(

@@ -287,6 +287,39 @@ export async function selectOrderProfile(page, profileName) {
   await selectNaiveOption(page, po.orders.profileFieldLabel, profileName);
 }
 
+/** Chọn profile ĐÍCH DANH theo tên khi 1 số điện thoại có nhiều profile con - cùng cơ chế poll
+ * mở lại dropdown như `selectFirstOrderProfileOption` (field hết disabled không đồng nghĩa danh
+ * sách đã load xong). Trả về TÊN profile hiển thị đầy đủ (để tái sử dụng cho `studentRow` sau đó).
+ * Báo lỗi kèm danh sách profile THẬT sự có trong dropdown nếu không khớp - phân biệt rõ "chưa load
+ * xong" (danh sách rỗng) với "tên không khớp" (danh sách có nhưng không chứa tên yêu cầu). */
+export async function selectOrderProfileByName(page, profileName) {
+  const trigger = formItem(page, po.orders.profileFieldLabel).locator(".n-base-selection");
+  const optionLocator = page.locator(".n-base-select-option:visible");
+  let lastSeenTexts = [];
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await trigger.click();
+    await page.waitForTimeout(300);
+    const count = await optionLocator.count();
+    if (count > 0) {
+      const texts = await optionLocator.allInnerTexts();
+      lastSeenTexts = texts;
+      const matchIdx = texts.findIndex((t) => t.includes(profileName));
+      if (matchIdx >= 0) {
+        const matched = texts[matchIdx].trim();
+        await optionLocator.nth(matchIdx).click();
+        return matched;
+      }
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
+  }
+  throw new Error(
+    `selectOrderProfileByName: không tìm thấy profile khớp "${profileName}" sau nhiều lần thử. ` +
+      `Danh sách profile thật đọc được cho số điện thoại này: ${JSON.stringify(lastSeenTexts)}.`,
+  );
+}
+
 /** Chọn profile ĐẦU TIÊN trong dropdown "Tên Profile học sinh" sau khi đã điền số điện thoại -
  * dùng khi không cần quan tâm profile cụ thể tên gì. Trả về TÊN profile vừa chọn (string) - PHẢI
  * dùng lại tên này khi tra cứu `/students` sau đó (xem `studentRow`): 1 số điện thoại có thể có

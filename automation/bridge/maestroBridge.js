@@ -44,6 +44,12 @@ export class MaestroBridge {
     // (`_dumpHierarchy()`/`isVisible()`/`hierarchy()`) - lệnh đó rẻ, không khởi động session.
     // Dùng để báo cáo hiệu năng testcase (vd runtime/homeworkRandomScoringE2EOneSession.js).
     this.testInvocationCount = 0;
+    // Đếm số lượt `maestro hierarchy` THẬT đã spawn (2026-09-10, thêm cho benchmark
+    // automation/vui_hoc/runVuiHocExercise.mjs - đo THẬT cho thấy lệnh này KHÔNG hề rẻ như comment
+    // cũ ở trên giả định, cùng bậc chi phí khởi động với `maestro test`, xem PERF audit trong
+    // automation/bai_tap/navigation/homeworkExamEngine.js) - THUẦN TUÝ thêm 1 counter, không đổi
+    // hành vi/kết quả trả về của bất kỳ method nào.
+    this.hierarchyInvocationCount = 0;
   }
 
   _deviceArgs() {
@@ -73,6 +79,7 @@ export class MaestroBridge {
   }
 
   _dumpHierarchy() {
+    this.hierarchyInvocationCount++;
     const args = [...this._deviceArgs(), "hierarchy"];
     const raw = execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
     return JSON.parse(raw);

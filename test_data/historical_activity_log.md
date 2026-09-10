@@ -438,3 +438,195 @@ profile -> mới thực hiện activity).
 - Chỉ room 90a94466 (hạn 11/09) sẽ được tính vào dòng "Bài tập về nhà" X/Y của Weekly
   Report tuần này; 3 room còn lại (hạn 16/09) sẽ KHÔNG được tính tuần này (đúng theo
   business rule, không phải bug).
+
+## 2026-09-10
+
+## Report Testing session #3 — kích hoạt lại (2026-09-10, LƯU Ý: sang ngày mới)
+
+Trước khi login: phát hiện lại 1 session KHÁC không liên quan (profile "Hạnh vy", tài
+khoản 0915775115, Khối 8, tab Vui học "Review 4" Language 2/2 Skills 0/2) - logout trước
+theo đúng quy trình, không ghi vào log này.
+
+Activity
+- Timestamp: 2026-09-10 ~13:15:xx +0700 (verified qua adb date ngay sau khi confirm OTP
+  = 13:15:18 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b (re-xác nhận qua tên "QA Report Test"
+  + badge Pro; subtitle lớp không hiện trên tab Vui học - sẽ verify lại qua tab Bài tập
+  trước khi làm activity liên quan bài tập)
+- Session ID: SESS-20260910-QA-REPORT-ACTIVATE
+- Activity Type: login
+- Activity Detail: Kích hoạt lại REPORT_TESTING theo yêu cầu user ("Activate Report
+  Testing. Tiếp tục chạy Weekly Report từ historical activity hiện có và thực hiện các
+  activity còn thiếu cho đến hết thứ 6."). Logout "Hạnh vy" (0915775115) trước -> login
+  84912252152 (SĐT + OTP 888888).
+- Result: success
+- Test Case: (chưa xác định)
+- Report type: Weekly Report (tuần hiện tại, period ~09/09-11/09/2026)
+
+**REPORT_PROFILE_STATE = REPORT_TESTING_ACTIVE** (từ 2026-09-10 13:15:18 +0700).
+
+**Kế hoạch "activity còn thiếu" (dựa trên đối chiếu với methodology cũ
+test_data/weekly_report/baocaotuan_2026-08-15.xlsx - ledger đầy đủ cho 1 Weekly Report
+test trước đó, tài khoản KHÁC 0915151519/"Tran Duy Anh"/lớp 7QA-Test, KHÔNG phải
+REPORT_TEST_PROFILE hiện tại, chỉ dùng để tham khảo methodology):**
+Ledger đó có 6 sheet: Session Log, Homework Log, Self-learning Log (Vui học/Trò chuyện),
+Assignment Summary, Expected Report (tổng hợp: Homework X/Y, Kết quả học tập theo Skill,
+Retry, Self-learning completed activities, Thời gian học). Đối chiếu với dữ liệu hiện có
+của REPORT_TEST_PROFILE tuần này:
+- Homework: CÓ (4 room, 1 trong tuần + làm lại) - xem log phía trên.
+- Retry: CÓ (1 làm lại, room 90a94466).
+- Self-learning (Vui học + Trò chuyện/AI Role Play): CHƯA CÓ HOẠT ĐỘNG NÀO - đây là gap
+  chính cần bổ sung trước hết Thứ Sáu 11/09 23:59:59.
+- Thời gian học: có thể tính được từ các mốc login/logout đã ghi, nhưng CHƯA có 1 phiên
+  "Vui học" thật nào đóng góp thời gian học riêng biệt.
+
+**Vui học tạm hoãn (theo yêu cầu user "chưa chạy học bài vui học nhé")**: agent đã mở
+thử "Trạm khởi hành 1" (Khối 4/Unit 1: My friends/Lesson 1) nhưng THOÁT NGAY qua nút X
+TRƯỚC KHI trả lời bất kỳ câu nào - xác nhận qua screenshot vẫn 0/6, KHÔNG tính là
+activity. User chuyển hướng sang case "giao bài -> làm bài -> làm lại" trước.
+
+Activity
+- Timestamp: 2026-09-10 ~13:22-13:32 +0700 (GV giao bài qua Web GV, xác nhận qua API room.json)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=ea84dfc3-6179-4a41-90fb-d9cead9b1421
+- Session ID: SESS-20260910-QA-REPORT-TARGET5
+- Activity Type: homework_assigned + homework_attempt_incomplete
+- Activity Detail: Tái sử dụng flows/web/giao_bai_tap/e2e-teacher-assign-full-scored-target5.mjs,
+  ASSIGN_DUE_DATE="11/09/2026" (trong tuần report), TARGET_SCORE range [3,4]. GV giao
+  bài "Read the passage and decide whether each statement is True (T) or False (F)."
+  (lớp 7QA-Test-20260909_085649, hạn 11/09) - GIAO THÀNH CÔNG (overall Y: 4->5). Nhưng
+  BƯỚC RESUME (sau khi thoát X giữa chừng, 0 câu đã trả lời) FAIL với
+  CONTENT_MISMATCH rồi NOT_FOUND khi tìm lại card - ĐÂY LÀ BUG SẢN PHẨM/NỘI DUNG ĐÃ
+  BIẾT TRƯỚC (xem project_truefalse_answer_engine_score_mismatch: title này là template
+  chung, nhiều room khác nhau dùng chung title nhưng nội dung thật khác nhau), KHÔNG
+  phải lỗi tự động hoá mới. Kết quả: room này hiện ĐANG Ở TRẠNG THÁI 0 câu đã làm (giao
+  rồi nhưng chưa hoàn thành) - vẫn là hoạt động thật (Y tăng), chỉ KHÔNG có X (completed)
+  cho room này.
+- Result: partial (assign=success, complete=failure do bug sản phẩm đã biết)
+- Test Case: (chưa xác định)
+
+Activity
+- Timestamp: 2026-09-10 ~13:37-13:47 +0700 (giao bài + làm bài lần đầu)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=c74983d5-a5a1-4304-9a45-891d67aeb539
+- Session ID: SESS-20260910-QA-REPORT-TARGET5-2
+- Activity Type: homework_assigned + homework_completed
+- Activity Detail: Retry ngay sau room lỗi ở trên (cùng lệnh, random picker chọn bài
+  KHÁC lần này - né được đúng title templated có bug). GV giao bài "Read the passage
+  and choose the best answer." tới lớp 7QA-Test-20260909_085649, hạn nộp 11/09/2026
+  (trong tuần report). Trả lời đủ 10/10 câu, điểm THẬT = 4, đúng target (random trong
+  [3,4]). Script tự báo OVERALL=PASS.
+- Result: success
+- Test Case: (chưa xác định)
+
+Activity
+- Timestamp: 2026-09-10 ~13:50-13:54 +0700 (script kết thúc lúc adb date check = 13:54:31 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=c74983d5-a5a1-4304-9a45-891d67aeb539
+- Session ID: SESS-20260910-QA-REPORT-LAMLAI3
+- Activity Type: homework_redone
+- Activity Detail: Theo yêu cầu user "giao bài -> làm bài -> làm lại", tái sử dụng
+  automation/bai_tap/pro_lamlai_target_score.mjs (KHÔNG dùng lại script gộp đã biết lỗi
+  relocate - dùng combo 2 script riêng đã proven: target5.mjs cho giao+làm lần 1, rồi
+  pro_lamlai_target_score.mjs invocation MỚI cho làm lại, đúng workaround đã ghi trong
+  project_lamlai_relocate_fix_and_scroll_inconsistency). TARGET_TITLE pin đúng bài vừa
+  làm, REDO_SCORE_MODE=random (chọn 1 điểm khả thi bất kỳ, không hardcode). Điểm cũ=4 ->
+  làm lại điểm THẬT=5, đúng target random=5. Script tự báo OVERALL=PASS. KHÔNG gặp lại
+  bug scrollToTop/carousel hay lỗi content-mismatch nào.
+- Result: success
+- Test Case: (chưa xác định)
+
+**Tổng kết case "giao bài -> làm bài -> làm lại" (2026-09-10):** 1 room lỗi do bug sản
+phẩm đã biết (title templated, KHÔNG hoàn thành - vẫn tính Y, không tính X) + 1 room
+hoàn chỉnh (giao/làm/làm lại đều PASS, điểm 4 -> 5). Cả 2 room đều hạn nộp 11/09/2026 -
+TRONG tuần report hiện tại.
+
+Activity
+- Timestamp: 2026-09-10 ~14:15-14:28 +0700 (script kết thúc lúc adb date check = 14:28:20 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b; Room/assignment_id=ea84dfc3-6179-4a41-90fb-d9cead9b1421
+- Session ID: SESS-20260910-QA-REPORT-BYPASS
+- Activity Type: homework_completed (KHÔNG đạt điểm full theo yêu cầu - xem root cause)
+- Activity Detail: Theo yêu cầu user "làm nốt bài tập còn lại trong hệ thống với tổng
+  điểm full", hoàn thành room bị kẹt ở trên (ea84dfc3, title templated bug) bằng script
+  tự viết automation/_scratch_finish_stuck_room_fullscore.mjs - tái sử dụng
+  findAssignment()/HomeworkExamEngine/answerSetMatcher.js NGUYÊN VẸN (không viết engine
+  mới), chỉ bypass đúng 1 bước: dùng examId THẬT của room (16beddd8-..., lấy qua
+  fetchRoomDetails().room.exams[0].id) thay vì examId catalog bị nhầm (31867a28-...) mà
+  resolveHomeworkExamQuestionsForRoomId() (theo lessonItemId) trả về sai. Resume + trả
+  lời 10/10 câu THÀNH CÔNG kỹ thuật (không còn CONTENT_MISMATCH), isResultScreen=true.
+  NHƯNG điểm THẬT = 7/10, KHÔNG phải full - dù mọi câu đều gọi wantCorrect=true.
+- Result: partial (hoàn thành kỹ thuật, KHÔNG đạt điểm full theo yêu cầu)
+- Test Case: (chưa xác định)
+
+**ROOT CAUSE điểm không full (phát hiện MỚI, khác bug title-collision ở trên):** debug
+trực tiếp `parseQuestionsFromExamPage('16beddd8-...')` cho thấy raw question JSON của
+CHÍNH exam này (10 câu TRUE_FALSE) HOÀN TOÀN KHÔNG CÓ field "correct" (không phải null/
+rỗng - field không tồn tại trong response). `extractCorrectAnswer()`
+(automation/model/questionModel.js) coi `correct === undefined` -> trả về `null` đúng
+theo thiết kế -> `decideAnswerAction()` (homeworkExamEngine.js dòng ~440) nhận
+`correctAnswer=null` -> `isTargetCorrect: correct ? ... : null` luôn null, KHÔNG có cách
+nào biết đáp án đúng để nhắm - mọi lượt trả lời thực chất là KHÔNG KIỂM SOÁT (ngẫu nhiên
+theo thứ tự UI), điểm 7/10 là ngẫu nhiên may mắn, không phải lỗi code. Đây là GIỚI HẠN
+DỮ LIỆU THẬT của riêng exam 16beddd8-... (có thể do nội dung CMS chưa được thiết lập
+đáp án đúng cho phần TRUE_FALSE này), KHÔNG phải bug trong automation, và KHÔNG chắc là
+đại diện cho MỌI exam loại TRUE_FALSE khác (chưa kiểm tra các exam TRUE_FALSE khác có
+cùng thiếu sót hay không). Retry/"Làm lại" trên CHÍNH room này sẽ KHÔNG khắc phục được -
+vẫn thiếu dữ liệu đáp án đúng, điểm vẫn sẽ ngẫu nhiên.
+
+**Quyết định user (2026-09-10): giữ nguyên điểm 7/10.** "Làm nốt bài tập còn lại" coi
+như HOÀN THÀNH (không còn room nào dở dang trong hệ thống cho profile này) dù không đạt
+điểm full cho riêng room ea84dfc3 - chấp nhận do giới hạn dữ liệu thật (thiếu đáp án
+đúng), không tạo thêm room mới để bù.
+
+**Bổ sung quy tắc hiển thị (user, 2026-09-10): "báo cáo chỗ bài tập về nhà sẽ hiển thị
+ngày hôm sau hạn nộp".** Dòng "Bài tập về nhà" (X/Y) CHỈ phản ánh 1 bài từ NGÀY SAU hạn
+nộp trở đi, không phải ngay khi hạn nộp còn hiệu lực - khớp với quy tắc report chạy lúc
+Saturday 00:00 (xem project_weekly_report_btvn_duedate_rule). 3 room trong tuần
+(90a94466, ea84dfc3, c74983d5 - đều hạn 11/09/2026, Thứ Sáu) sẽ CHƯA phản ánh trong X/Y
+nếu kiểm tra report TRƯỚC 12/09/2026 (Thứ Bảy) - kiểm tra sớm thấy chưa lên số KHÔNG phải
+bug, phải đợi tới 12/09 trở đi mới verify đúng.
+
+**TỔNG QUÁT HOÁ (user, 2026-09-10): "trên web chỉ cho xem báo cáo của ngày hôm trước,
+ngày hôm nay sẽ cộng dồn và cập nhật vào báo cáo của ngày tiếp theo".** Đây là quy tắc
+CHUNG (report có độ trễ hiển thị 1 ngày), không riêng gì BTVN - áp dụng ít nhất cho
+"Thời gian học". Kiểm tra report vào ngày X chỉ thấy dữ liệu tính tới HẾT ngày X-1; hoạt
+động của ngày X đang diễn ra sẽ CỘNG DỒN nhưng chỉ hiện ra khi kiểm tra report vào ngày
+X+1. Áp dụng cho ước tính "Thời gian học" đã báo cáo trước đó: nếu kiểm tra report vào
+10/09, "Thời gian học" CHỈ nên hiện dữ liệu của 09/09 (~169 phút/2h49'), KHÔNG phải tổng
+gộp cả 09/09+10/09 (~242 phút) như đã trình bày ban đầu - phần 10/09 (~73+ phút, phiên
+CHƯA đóng) sẽ chỉ lên báo cáo nếu kiểm tra vào 11/09 trở đi.
+
+Activity
+- Timestamp: 2026-09-10 14:56:11 +0700 (verified qua adb date, xác nhận qua screenshot
+  màn "Chào mừng bạn đến với ParrotEdu!")
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260910-QA-REPORT-ACTIVATE
+- Activity Type: logout
+- Activity Detail: User gõ đúng trigger phrase "Logout tài khoản report." (Part 5
+  protocol). Trước khi logout: dismiss màn Kết quả còn sót lại (room ea84dfc3, Điểm 7,
+  bấm "Hoàn thành") - đây là màn hình của chính agent để lại từ script bypass, không
+  phải hoạt động ngoài ý muốn. Verify đúng profile "QA Report Test"/lớp
+  "7QA-Test-20260909_085649" (6/6 bài tập) trước khi logout. Điều hướng tab "Báo cáo" ->
+  "Đăng xuất" -> tap ĐÚNG nút "OK" -> xác nhận quay về màn "Chào mừng bạn đến với
+  ParrotEdu!".
+- Result: success
+- Test Case: (chưa xác định)
+
+**REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-10 14:56:11 +0700, đi
+thẳng từ REPORT_TESTING_ACTIVE, không dừng ở RELEASED - đúng chỉ định user cho trigger
+phrase "Logout tài khoản report."). KHÔNG tự động login lại, KHÔNG tự động chọn profile
+này cho automation tiếp theo cho tới khi có chỉ định Report Testing mới.
+
+## Tổng kết Report Testing session #3 (2026-09-10, 13:15:18 -> 14:56:11 +0700)
+
+3 room mới trong session này (tổng cộng 7 room qua 2 ngày):
+- ea84dfc3 (Read the passage.../T-F, Unit 7 Traffic, hạn 11/09 - TRONG tuần report):
+  điểm 7/10 - KHÔNG kiểm soát được do exam thiếu field "correct" trong CMS (giới hạn dữ
+  liệu thật, xem project_truefalse_missing_correct_answer_field), không phải bug
+  automation. Chỉ 1 lượt làm (không làm lại vì retry không khắc phục được vấn đề).
+- c74983d5 (Read the passage.../choose best answer, hạn 11/09 - TRONG tuần report):
+  điểm 4/10 -> làm lại điểm 5/10.
+- Cả 3 room trong tuần (90a94466, ea84dfc3, c74983d5) đều hạn 11/09/2026 - nhưng CHƯA
+  phản ánh trong X/Y của report nếu kiểm tra trước 12/09 (xem quy tắc hiển thị trễ 1
+  ngày ở trên).
+- Vui học/Trò chuyện: vẫn CHƯA có hoạt động nào (tạm hoãn theo yêu cầu user).
+- Thời gian học ngày 10/09: login 13:15:18 -> logout 14:56:11 = ~101 phút, phiên ĐÃ
+  ĐÓNG (khác lần ước tính trước lúc phiên còn mở) - đây là số liệu ngày 10/09 CUỐI CÙNG,
+  sẽ phản ánh trong báo cáo kiểm tra từ 11/09 trở đi.

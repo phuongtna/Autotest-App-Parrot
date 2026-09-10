@@ -68,6 +68,7 @@ async function main() {
       defaultPackageName: packageOutcome.defaultPackageName,
       ownPackages: packageOutcome.ownPackages,
       studentPhone: config.cmsAdminTestStudentPhone,
+      profileName: config.cmsAdminTestStudentProfileName,
     });
     allResults = allResults.concat(grantOutcome.results);
   } finally {

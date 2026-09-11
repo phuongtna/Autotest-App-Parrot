@@ -38,7 +38,7 @@ export async function sendOtpViaLogin(bridge, phone) {
   if (blockedLine) {
     return { outcome: "BLOCKED", blockedMessage: blockedLine, texts: texts1 };
   }
-  if (texts1.some((t) => /Xác thực OTP/.test(t)) && texts1.some((t) => t === phone)) {
+  if (texts1.some((t) => /Xác thực OTP/.test(t)) && texts1.some((t) => t.includes(phone))) {
     return { outcome: "SUCCESS", blockedMessage: null, texts: texts1 };
   }
   return { outcome: "UNKNOWN", blockedMessage: null, texts: texts1 };

@@ -728,3 +728,163 @@ này cho automation tiếp theo cho tới khi có chỉ định Report Testing m
 - Cả 2 room đều hạn 18/09/2026 - cần kiểm tra rule hiển thị báo cáo theo tuần khi tới
   gần ngày đó.
 - Thời gian phiên: login 15:43:30 -> logout 16:40:17 = ~57 phút, phiên ĐÃ ĐÓNG.
+
+## Report Testing session #5 - activation (2026-09-13)
+
+### Session Started
+- Timestamp: 2026-09-13 09:27:xx +0700 (verify qua adb date [09:28:22] + screenshot màn
+  "Bài tập" đúng profile ngay sau xác nhận OTP; giây chính xác lúc xác nhận không capture
+  được)
+- Account: REPORT_TEST_ACCOUNT = 84912252152 (SĐT 0912252152 + OTP cố định 888888)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b (REPORT_TEST_PROFILE, profile "QA
+  Report Test")
+- Session ID: SESS-20260913-QA-REPORT-ACTIVATE
+- Test Type: Report Testing
+- Report Type: chưa xác định (user chưa chỉ định Weekly/Monthly/Mid-term/Final cho
+  session này ở bước activate - sẽ bổ sung khi có test scenario cụ thể)
+- Action: Login
+- Result: success
+
+Activity
+- Timestamp: 2026-09-13 09:21:xx -> 09:27:xx +0700 (adb date đầu phiên = 09:21:43 +0700)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260913-QA-REPORT-ACTIVATE
+- Activity Type: profile_switch + login
+- Activity Detail: User gõ trigger phrase "Activate Report Testing." (protocol
+  [[feedback_report_test_profile_isolation]]). Mở app: device đang login sẵn ở profile
+  khác ("Hạnh vy", account 84915775115, lớp 8D - không liên quan report, không thao tác
+  gì thêm trên profile này ngoài logout). Điều hướng tab "Báo cáo" (bounds thật lấy qua
+  `uiautomator dump`, tab_report) -> cuộn xuống "Đăng xuất" -> dialog "Bạn có thật sự
+  muốn đăng xuất khỏi ứng dụng?" -> tap "OK" -> quay về màn "Chào mừng bạn đến với
+  ParrotEdu!". Login lại bằng SĐT 0912252152 + OTP 888888 (test_data/accounts.env không
+  còn có REPORT_PHONE/REPORT_OTP - dùng trực tiếp giá trị đã biết từ log các session
+  trước; xem discrepancy bên dưới). App tự động vào thẳng profile "QA Report Test" (Pro)
+  - tài khoản này chỉ có đúng 1 hồ sơ, không cần bước "Chuyển profile" thủ công. Verify
+  qua tab "Bài tập": subtitle lớp "7QA-Test-20260909_085649" khớp CHÍNH XÁC, tiến độ
+  "Bài tập 7/8" khớp CHÍNH XÁC trạng thái cuối session #4 (2026-09-11) - xác nhận KHÔNG
+  có hoạt động/thay đổi ngoài ý muốn nào xảy ra trên profile này trong lúc ở trạng thái
+  PROTECTED/DO_NOT_USE.
+- Result: success
+- Test Case: N/A (thiết lập session Report Testing mới, phiên #5)
+
+**Discrepancy phát hiện (KHÔNG tự sửa, chỉ ghi nhận theo protocol mục 14):**
+`test_data/accounts.env` hiện tại (2026-09-13) CHỈ có `PHONE_NUMBER`/`OTP_CODE`/`PHONE`/
+`OTP`/`UNREGISTERED_PHONE_NUMBER` (account 0915775115) - KHÔNG có `REPORT_PHONE`/
+`REPORT_OTP` như log session #4 (dòng 647) đã dẫn chiếu. `scripts/run_tests.sh` (dòng
+44-48) có logic fallback `REPORT_PHONE="${REPORT_PHONE:-$PHONE}"` cho target có chứa
+"report" - nếu chạy Maestro suite `flows/app/report/` lúc này mà không set thủ công
+`REPORT_PHONE=0912252152 REPORT_OTP=888888` qua `-e`, script sẽ SAI dùng nhầm account
+0915775115 (BASIC, không phải REPORT_TEST_ACCOUNT) cho case cần tab Báo cáo. Root cause
+chưa xác định (file có thể đã bị chỉnh sửa/reset ở phiên nào đó ngoài phạm vi log này -
+`accounts.env` nằm trong `.gitignore` nên không có lịch sử git để đối chiếu). Chưa sửa
+file - chờ chỉ định user hoặc xác nhận lại giá trị đúng trước khi ghi thêm dòng
+REPORT_PHONE/REPORT_OTP vào file.
+
+**REPORT_PROFILE_STATE = REPORT_TESTING_ACTIVE** (từ 2026-09-13 09:27:xx +0700, đi từ
+PROTECTED/DO_NOT_USE sau chỉ định "Activate Report Testing." - lần kích hoạt thứ 5).
+Profile "QA Report Test" nay đang active và sẵn sàng cho report test cases tiếp theo
+trong session này.
+
+Activity
+- Timestamp: 2026-09-13 09:30:59 -> 09:33:22 +0700 (adb date đầu/cuối thao tác)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260913-QA-REPORT-ACTIVATE
+- Activity Type: report_check (đối chiếu số liệu, theo yêu cầu user "Mở tab báo cáo để
+  đối chiếu số liệu đi")
+- Activity Detail: Mở tab "Báo cáo" -> "Báo cáo học tập" -> "Tuần này": hiện "Báo cáo
+  học tập tuần 01 - Tháng 09/2026", Kết quả học tập = "Chưa có dữ liệu", Chuyên cần =
+  Bài tập về nhà 0/0, Bài đã học 0, Nỗ lực làm lại 0 lượt, Thời gian học 3 giờ 28 phút
+  (tất cả ghi "Không thay đổi so với tuần trước"). Đổi bộ lọc sang "Tuần trước": hiện
+  "Báo cáo học tập tuần 53 - Tháng 09/2026" nhưng ở trạng thái RỖNG HOÀN TOÀN ("Chưa có
+  báo cáo mới" + "Báo cáo học tập thường được cập nhật vào thứ bảy hàng tuần..."),
+  KHÔNG có card Chuyên cần nào - khớp đúng logic đã tài liệu hoá ở
+  `flows/app/report/RP-02-weekly-card-empty.yaml` (period_type=LAST_WEEK cho thứ 2-6,
+  weeklyReport=null khi general_comment rỗng). User xác nhận trực tiếp: bộ lọc hiển thị
+  ĐÚNG, vì đang vào ĐẦU KỲ MỚI nên dữ liệu rơi vào "Tuần này" (tuần 01) thay vì cộng dồn
+  vào tuần trước (tuần 53, thuộc kỳ/năm học cũ) - KHÔNG phải bug, KHÔNG cần điều tra
+  thêm việc "Tuần trước" rỗng dù có hoạt động thật ngày 09-11/09 (hoạt động đó thuộc kỳ
+  học trước, ranh giới kỳ mới cắt tại đây).
+- Result: success (đối chiếu khớp kỳ vọng, user xác nhận đúng)
+- Test Case: N/A (đối chiếu filter tuần này/tuần trước theo yêu cầu ad-hoc)
+
+**Discrepancy phát hiện — "Thời gian học" của "Tuần này" KHÔNG khớp tổng thời gian đã
+ghi log (KHÔNG tự sửa, chỉ ghi nhận theo protocol mục 14, cần điều tra thêm):**
+Theo yêu cầu user "bộ lọc tuần này dữ liệu thời gian học đã đúng với thời điểm ghi nhận
+log activity trong tuần chưa?" - đối chiếu số phút hiển thị "3 giờ 28 phút" (208 phút,
+trung bình "1 giờ 44 phút/buổi" => backend tính ĐÚNG 2 buổi học, vì 208/104=2.0) với
+tổng thời lượng login->logout đã ghi trong log cho 4 phiên tính tới nay (đều rơi trong
+tuần hiện tại Thứ 2 07/09 - CN 13/09 theo lịch, không phân biệt kỳ học cũ/mới):
+- Phiên 1 (09/09, ~09:42 -> 10:41:40): ~59.67 phút
+- Phiên 2 (09/09 kích hoạt lại, 13:47:59 -> 15:41:08): ~113.15 phút
+- Phiên 3 (09/10, 13:15:18 -> 14:56:11): ~100.88 phút
+- Phiên 4 (09/11, 15:43:30 -> 16:40:17): ~56.78 phút
+- Tổng cả 4 phiên: ~330.48 phút (~5g30) - KHÔNG khớp 208 phút hiển thị.
+- Cặp gần nhất: Phiên 2 + Phiên 3 = ~214.03 phút - lệch ~6 phút so với 208 (gần nhất
+  trong các tổ hợp 2 phiên, nhưng vẫn KHÔNG khớp chính xác, và không có căn cứ để loại
+  Phiên 1/Phiên 4 khỏi phép tính).
+- KHÔNG tìm được tổ hợp phiên nào (log đã có) khớp CHÍNH XÁC 208 phút / đúng 2 buổi.
+Activity
+- Timestamp: 2026-09-13 09:43:45 +0700 (verify qua adb date, xác nhận qua screenshot màn
+  "Chào mừng bạn đến với ParrotEdu!")
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260913-QA-REPORT-ACTIVATE
+- Activity Type: logout
+- Activity Detail: User gõ đúng trigger phrase "Logout tài khoản report." (protocol
+  mục 15). Verify đúng profile "QA Report Test" (Pro)/lớp "7QA-Test-20260909_085649" +
+  account 84912252152 trước khi logout (screenshot tab Báo cáo). Điều hướng tab
+  "Báo cáo" (đã active sẵn) -> "Đăng xuất" -> dialog "Bạn có thật sự muốn đăng xuất khỏi
+  ứng dụng?" -> tap "OK" -> xác nhận quay về màn "Chào mừng bạn đến với ParrotEdu!",
+  không còn "Quản lý tài khoản"/số điện thoại nào hiển thị.
+- Result: success
+- Test Case: N/A (đóng session Report Testing theo Part 5/15 protocol)
+
+**REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-13 09:43:45 +0700, đi
+thẳng từ REPORT_TESTING_ACTIVE, không dừng ở RELEASED - đúng chỉ định user cho trigger
+phrase "Logout tài khoản report."). KHÔNG tự động login lại, KHÔNG tự động chọn profile
+này cho automation tiếp theo cho tới khi có chỉ định Report Testing mới.
+
+## Tổng kết Report Testing session #5 (2026-09-13, 09:27:xx -> 09:43:45 +0700)
+
+Không có room/homework mới nào được giao hoặc làm trong session này - chỉ có hoạt động
+đối chiếu số liệu report (report_check) theo yêu cầu user:
+- Xác nhận "Tuần này" (tuần 01, theo rule Thứ 7 tuần trước -> hết Thứ 6 tuần này =
+  05/09-11/09) hiển thị Bài tập về nhà 0/0, Bài đã học 0, Nỗ lực làm lại 0 lượt, Thời
+  gian học 3g28 (208 phút).
+- "Tuần trước" (tuần 53 = 29/08-04/09, trước khi profile tồn tại) hiển thị rỗng hoàn
+  toàn - ĐÚNG vì chưa có profile trong khoảng này.
+- **Discrepancy CHƯA GIẢI QUYẾT** (xem chi tiết ở trên): "Tuần này" (05/09-11/09) đúng
+  là khoảng chứa cả 4 phiên thật (~330.48 phút tổng theo log) nhưng chỉ hiển thị 208
+  phút - thiếu ~122 phút, chưa xác định root cause. Cần điều tra thêm ở session sau
+  (có thể cần API `GET /api/scores` hoặc tương đương phía Web GV/backend để xem cách
+  tính "Thời gian học" chi tiết theo từng ngày/phiên, thay vì chỉ xem được tổng theo
+  tuần qua UI app).
+- Thời gian phiên: login ~09:27:xx -> logout 09:43:45 = ~16-17 phút, phiên ĐÃ ĐÓNG.
+
+Chưa xác định được root cause: có thể do (a) "Thời gian học" backend tính theo cơ chế
+khác thời lượng login->logout thô (vd chỉ tính thời gian tương tác thật trong bài học,
+loại trừ thời gian đứng ở màn Kết quả/menu), (b) ranh giới "tuần này" theo backend không
+đúng Thứ 2-CN như log giả định, hoặc (c) có hoạt động/phiên KHÁC ngoài 4 phiên đã ghi mà
+log này chưa capture được. Cần điều tra thêm trước khi kết luận đây là bug hay hành vi
+đúng - CHƯA đủ căn cứ để xác nhận "khớp" như user hỏi.
+
+**ĐÍNH CHÍNH ranh giới tuần (user bổ sung quy tắc chính thức, 2026-09-13): "báo cáo là
+ghi nhận log trong 1 tuần từ thứ 7 tuần trước đến hết thứ 6 tuần này"** - tức 1 kỳ báo
+cáo tuần = [Thứ 7, Thứ 7+6 ngày=Thứ 6]. Áp dụng lại với hôm nay = CN 13/09/2026:
+- Kỳ tuần vừa generate (Thứ 7 12/09 00:00, theo rule cadence đã biết) = **Thứ 7 05/09 ->
+  Thứ 6 11/09** - đây MỚI LÀ khoảng chứa CẢ 4 phiên thật đã ghi (09/09, 09/09, 09/10,
+  09/11 đều nằm trong 05/09-11/09) => đây chính là **"Tuần này" (tuần 01)** đang hiển thị
+  208 phút, KHÔNG phải do "đầu kỳ mới" như agent kết luận nhầm ở entry đối chiếu filter
+  phía trên (bản ghi đó CẦN SỬA LẠI cách giải thích, xem dưới).
+- **"Tuần trước" (tuần 53)** theo rule này = **Thứ 7 29/08 -> Thứ 6 04/09** - khoảng thời
+  gian TRƯỚC KHI profile "QA Report Test" được tạo (PROFILE_CREATED_AT ~09/09) => rỗng
+  là ĐÚNG, đơn giản vì chưa tồn tại profile trong khoảng này, KHÔNG liên quan gì đến "kỳ
+  học mới" - giải thích "đầu kỳ mới" trước đó của agent (và cách user diễn giải nhanh lúc
+  đó) là suy luận SAI, tuy kết luận cuối "tuần trước rỗng là đúng" vẫn ĐÚNG (đúng kết quả,
+  sai lý do).
+- **Discrepancy CHÍNH vẫn còn nguyên và giờ RÕ HƠN**: "Tuần này" (05/09-11/09, chứa cả 4
+  phiên thật, tổng ~330.48 phút theo log) hiển thị CHỈ 208 phút - thiếu ~122 phút so với
+  tổng log. Đây KHÔNG còn là câu hỏi "đúng tuần chưa" (đã xác nhận đúng tuần) mà là câu
+  hỏi "vì sao số phút KHÔNG khớp tổng log" - vẫn CHƯA có root cause, cần điều tra thêm
+  (xem giả thuyết (a)/(b)/(c) ở trên - giả thuyết (b) nay có thể loại bỏ vì ranh giới tuần
+  đã xác nhận đúng qua rule user cung cấp; còn lại (a) tính riêng thời gian tương tác thật
+  và (c) phiên/hoạt động thiếu sót trong log là 2 hướng khả dĩ nhất).

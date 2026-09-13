@@ -68,6 +68,14 @@ export const config = {
   teacherUsername: readVar("TEACHER_USERNAME"),
   teacherPassword: readVar("TEACHER_PASSWORD"),
 
+  // Tài khoản GV RIÊNG cho automation/bao_cao_speaking/ (báo cáo bài Speaking, lớp 11A2/bài
+  // "Vocab") - tách khỏi teacherUsername/teacherPassword ở trên (đang dùng cho GV "Phương" +
+  // giao_bai_tap) để 2 bộ test không đụng dữ liệu của nhau.
+  teacherUsernameSpeakingReport: readVar("TEACHER_USERNAME_SPEAKING_REPORT"),
+  teacherPasswordSpeakingReport: readVar("TEACHER_PASSWORD_SPEAKING_REPORT"),
+  teacherPortalClassSpeakingReport: readVar("TEACHER_PORTAL_CLASS_SPEAKING_REPORT"),
+  teacherPortalExerciseSpeakingReport: readVar("TEACHER_PORTAL_EXERCISE_SPEAKING_REPORT"),
+
   // CMS Quản lý (web admin: /packages, /orders, /students) - KHÁC cmsBaseUrl ở trên (đó là API
   // nội dung bài học/Exam). CMS_ADMIN_ENV chọn 1 trong 3 URL bên dưới - xem resolveCmsAdminBaseUrl().
   // Đăng nhập dùng chung cmsUsername/cmsPassword (CMS_USERNAME/CMS_PASSWORD) - cùng 1 tài khoản

@@ -11,10 +11,17 @@ export class TeacherPortalAuthError extends Error {}
  * (parrotedu.vn/teacher) đọc token đó từ đâu để coi là "đã đăng nhập". Đăng nhập qua form là
  * cách DUY NHẤT đã biết chắc chắn đúng - đúng thao tác tay ở bước 1, TC1.
  */
-export async function loginTeacherPortal({ headless = true } = {}) {
-  if (!config.teacherUsername || !config.teacherPassword) {
+export async function loginTeacherPortal({
+  headless = true,
+  baseUrl = config.teacherPortalBaseUrl,
+  username = config.teacherUsername,
+  password = config.teacherPassword,
+} = {}) {
+  if (!username || !password) {
     throw new TeacherPortalAuthError(
-      "Thiếu TEACHER_USERNAME/TEACHER_PASSWORD trong .env (xem automation/README.md).",
+      "Thiếu username/password đăng nhập teacher-portal (mặc định đọc TEACHER_USERNAME/" +
+        "TEACHER_PASSWORD trong .env - truyền {username, password} để dùng tài khoản khác, xem " +
+        "automation/README.md).",
     );
   }
 
@@ -23,13 +30,13 @@ export async function loginTeacherPortal({ headless = true } = {}) {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    await page.goto(`${config.teacherPortalBaseUrl}${po.login.path}`, {
+    await page.goto(`${baseUrl}${po.login.path}`, {
       waitUntil: "networkidle",
       timeout: 30000,
     });
 
-    await page.locator(po.login.usernameInput).first().fill(config.teacherUsername);
-    await page.locator(po.login.passwordInput).first().fill(config.teacherPassword);
+    await page.locator(po.login.usernameInput).first().fill(username);
+    await page.locator(po.login.passwordInput).first().fill(password);
     await page.getByRole("button", { name: po.login.submitButton }).click();
 
     const stillOnLoginPage = await page

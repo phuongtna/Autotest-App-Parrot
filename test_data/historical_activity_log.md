@@ -630,3 +630,101 @@ này cho automation tiếp theo cho tới khi có chỉ định Report Testing m
 - Thời gian học ngày 10/09: login 13:15:18 -> logout 14:56:11 = ~101 phút, phiên ĐÃ
   ĐÓNG (khác lần ước tính trước lúc phiên còn mở) - đây là số liệu ngày 10/09 CUỐI CÙNG,
   sẽ phản ánh trong báo cáo kiểm tra từ 11/09 trở đi.
+
+## Report Testing session #4 - activation (2026-09-11)
+
+Activity
+- Timestamp: 2026-09-11 15:43:30 +0700 (verify qua adb date + screenshot dashboard,
+  giây chính xác không capture được)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260911-QA-REPORT-ACTIVATE
+- Activity Type: login
+- Activity Detail: User gõ trigger phrase "Activate Report Testing." (protocol
+  [[feedback_report_test_profile_isolation]]). Device đang login sẵn ở profile khác
+  ("Hạnh vy", account 0915775115, lớp 8D - không liên quan report) do phiên automation
+  trước đó chưa logout. Thực hiện: mở tab "Báo cáo" -> cuộn xuống "Đăng xuất" -> xác
+  nhận dialog "OK" -> quay về màn "Nhập số điện thoại" -> login lại bằng
+  REPORT_PHONE=84912252152/REPORT_OTP=888888 (test_data/accounts.env). Verify đúng
+  profile "QA Report Test" (Pro) qua tab "Bài tập": hiển thị lớp
+  "7QA-Test-20260909_085649" đúng REPORT_TEST_PROFILE. LƯU Ý: có một session Claude Code
+  KHÁC (scratchpad khác, không phải session này) đang chạy Maestro đồng thời trên cùng
+  thiết bị vật lý trong lúc thực hiện - gây 3 lần đầu retry
+  DeviceServerDiedException/UNAVAILABLE trước khi thiết bị rảnh để chạy được; đã dừng
+  chờ (không ép chạy chồng lên phiên kia) trước khi retry thành công.
+- Result: success
+- Test Case: (chưa xác định)
+
+**REPORT_PROFILE_STATE = REPORT_TESTING_ACTIVE** (từ 2026-09-11 15:43:30 +0700, đi từ
+PROTECTED/DO_NOT_USE sau chỉ định "Activate Report Testing." - lần kích hoạt thứ 4).
+Profile "QA Report Test" nay đang active và sẵn sàng cho report test cases tiếp theo
+trong session này.
+
+## Test case: giao bài tập -> làm bài (2-5đ) -> làm lại (>8đ) (2026-09-11)
+
+Case theo yêu cầu user: "giao bài tập -> làm bài được >2 và <5 -> làm lại được >8".
+Chạy qua script tái sử dụng `flows/web/giao_bai_tap/e2e-giaobai-range34-lamlai-range67.mjs`
+(env FIRST_SCORE_MIN=2.1/MAX=4.9, REDO_SCORE_MIN=8.1/MAX=10 để đảm bảo bất đẳng thức
+NGHIÊM NGẶT >2/<5 và >8, TEACHER_PORTAL_ENV=production - đã hỏi và được user xác nhận
+"Production (as currently set)" trước khi chạy).
+
+Activity
+- Timestamp: 2026-09-11 16:09:xx +0700 (bắt đầu lần chạy 1, giờ chính xác không capture)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260911-QA-REPORT-ACTIVATE
+- Activity Type: assign+attempt
+- Activity Detail: Giao bài "G7U3-Looking back skills- BTCB" (Unit 3: Community service,
+  lesson Looking back: Skills), room_id=47e67474-85d9-4d09-a747-1fc75b703c5a, hạn nộp
+  18/09/2026. Nhắm điểm 4/10 (range [2.1,4.9]). Trả lời tới câu 5/10 (câu đọc đoạn văn
+  "Read the passage and choose the best answer", nội dung ẩn sau nút "Xem thêm") thì
+  NO_MATCH/PARTIAL_CONTENT_MATCH - matcher không khớp đủ answer-set vì passage chưa mở
+  rộng (giới hạn đã biết, xem feedback_xemthem_passage_case_selection - chưa implement
+  trong shared engine, KHÔNG phải bug mới). Đóng bài qua nút X, quay lại danh sách Bài
+  tập - card này còn lại 4/10 "Tiếp tục" (test debris, không dọn).
+- Result: failure (BLOCKED_CONTENT_MATCH, không phải lỗi automation)
+- Test Case: giao-bai-lambai-lamlai-range (lần 1, FAIL)
+
+Activity
+- Timestamp: 2026-09-11 16:22:41 +0700 (kết thúc lần chạy 2, PASS - xem
+  automation/output/e2e_giaobai_range34_lamlai_range67_report.json)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260911-QA-REPORT-ACTIVATE
+- Activity Type: assign+attempt+retry
+- Activity Detail: Giao bài "G7-U1- Vocabulary - Practice 2" (Unit 1: Hobbies, lesson
+  Vocabulary), room_id=8510bfea-6683-4f58-885e-82be3d3b5465, hạn nộp 18/09/2026 (10
+  scored items). Lần làm đầu: nhắm 4/10 -> điểm thật 4/10 (139.67s, từ lúc vào Doing đến
+  màn Kết quả). Bấm "Làm lại": nhắm 9/10 -> điểm thật 9/10 (123.66s). Cả 2 lần điểm thật
+  KHỚP CHÍNH XÁC target. Bấm CTA thật "Tiếp theo" sau màn Kết quả cuối, điều hướng đúng.
+  Tổng thời gian toàn bộ (assign + 2 lượt làm): 487.5s (~8.1 phút).
+- Result: success
+- Test Case: giao-bai-lambai-lamlai-range (lần 2, PASS)
+
+Activity
+- Timestamp: 2026-09-11 16:40:17 +0700 (verify qua adb date, xác nhận qua screenshot
+  màn hình sau đăng xuất)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260911-QA-REPORT-ACTIVATE
+- Activity Type: logout
+- Activity Detail: User gõ đúng trigger phrase "Logout tài khoản report." (Part 5
+  protocol). Verify đúng profile "QA Report Test"/lớp "7QA-Test-20260909_085649"
+  (7/8 bài tập) trước khi logout. Điều hướng tab "Báo cáo" -> cuộn xuống "Đăng xuất" ->
+  tap -> dialog "Bạn có thật sự muốn đăng xuất khỏi ứng dụng?" -> tap ĐÚNG nút "OK" ->
+  xác nhận quay về màn hình đăng nhập, không còn thấy "Quản lý tài khoản".
+- Result: success
+- Test Case: (chưa xác định)
+
+**REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-11 16:40:17 +0700, đi
+thẳng từ REPORT_TESTING_ACTIVE, không dừng ở RELEASED - đúng chỉ định user cho trigger
+phrase "Logout tài khoản report."). KHÔNG tự động login lại, KHÔNG tự động chọn profile
+này cho automation tiếp theo cho tới khi có chỉ định Report Testing mới.
+
+## Tổng kết Report Testing session #4 (2026-09-11, 15:43:30 -> 16:40:17 +0700)
+
+2 room mới trong session này (tổng cộng 9 room qua 4 session):
+- 47e67474 (G7U3-Looking back skills- BTCB, hạn 18/09): BLOCKED ở câu 5/10 do passage
+  ẩn sau "Xem thêm" (giới hạn đã biết, không phải bug mới) - còn lại 4/10 "Tiếp tục",
+  test debris chưa dọn.
+- 8510bfea (G7-U1- Vocabulary - Practice 2, hạn 18/09): PASS hoàn chỉnh - lần đầu 4/10
+  (139.67s), Làm lại 9/10 (123.66s), cả 2 khớp target chính xác.
+- Cả 2 room đều hạn 18/09/2026 - cần kiểm tra rule hiển thị báo cáo theo tuần khi tới
+  gần ngày đó.
+- Thời gian phiên: login 15:43:30 -> logout 16:40:17 = ~57 phút, phiên ĐÃ ĐÓNG.

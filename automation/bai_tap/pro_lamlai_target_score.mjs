@@ -1125,8 +1125,11 @@ async function main() {
         profiling.phaseE.durationMs = now() - phaseEStart;
         const errorMessage =
           matchResult.status === "AMBIGUOUS"
-            ? `AMBIGUOUS_MATCH ở câu ${questionIndex}: ${matchResult.diagnostic.candidates.length} candidate CMS cùng khớp ĐỦ toàn bộ answer-set đang hiển thị ` +
-              `(ids=${matchResult.diagnostic.candidates.map((c) => c.id).join(", ")}) - KHÔNG tự chọn candidate đầu tiên, xem log [MATCH][AMBIGUOUS] phía trên.`
+            // FIX (2026-09-14, audit theo yêu cầu review): `diagnostic.candidates` không tồn tại - shape
+            // thật là `diagnostic.contentEvidence.candidates` (xem answerSetMatcher.js) - trước đây nếu
+            // path AMBIGUOUS thật chạm tới đây sẽ crash thay vì FAIL rõ ràng.
+            ? `AMBIGUOUS_MATCH ở câu ${questionIndex}: ${matchResult.diagnostic.contentEvidence?.candidates?.length ?? "?"} candidate CMS cùng khớp ĐỦ toàn bộ answer-set đang hiển thị ` +
+              `(ids=${(matchResult.diagnostic.contentEvidence?.candidates ?? []).map((c) => c.id).join(", ")}) - KHÔNG tự chọn candidate đầu tiên, xem log [MATCH][AMBIGUOUS] phía trên.`
             : `NO_MATCH ở câu ${questionIndex} (còn ${pool.length} câu): không có candidate CMS nào có ĐỦ TOÀN BỘ đáp án đang hiển thị trên UI - nội dung hiển thị trên màn ` +
               `hình KHÔNG khớp answers[] đầy đủ của bất kỳ câu nào trong ${pool.length} câu CMS đã resolve (có thể đề thật của lượt "Làm lại" này khác nội dung catalog ` +
               `Teacher Materials - xem GIỚI HẠN CÒN LẠI đầu file).`;

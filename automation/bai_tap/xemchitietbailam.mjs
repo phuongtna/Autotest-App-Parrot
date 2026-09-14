@@ -148,6 +148,400 @@ function collectAllTexts(node, acc = []) {
   return acc;
 }
 
+// ===== readAttemptHistory() (Track A - Báo cáo Speaking, thêm 2026-09-14) =====
+//
+// MỤC TIÊU: bản [HISTORY_LIST] ở trên (hasPoint/hasCorrect/hasSubmitTime/hasRedo) chỉ CHECK TỒN
+// TẠI nhãn trên màn "Lịch sử làm bài" - không tách được N "Lần" khác nhau khi HS đã làm lại (redo)
+// nhiều lần. readAttemptHistory() enumerate ĐẦY ĐỦ mọi "Lần N" thành mảng {attemptNumber, score,
+// timestamp} để automation/bao_cao_speaking/selectBestAttempt.js chọn attempt điểm cao nhất/gần
+// nhất - dùng làm expected value đối chiếu với Web Báo cáo Speaking (Track A, xem group-d-
+// recording-attempt-selection.spec.js).
+//
+// CONFIRMED LIVE (2026-09-14, device 3201d866d40a1681, profile "Phuong", lớp 11A2, room "Vocab"):
+// mỗi "Lần N" là 1 card với resource-id THẬT dạng
+// exercise_history_attempt_{N}_{title|score|correct|submitted_at|detail} (N bắt đầu từ 0, tăng dần
+// theo thứ tự card).
+//
+// SỬA (2026-09-14, PHÁT HIỆN THẬT qua verify sống - bản đầu tiên dùng "collectAllTexts(node) ngay
+// tại subtree của chính node mang resource-id" bị FAIL THẬT với lỗi "score='' submitted_at=''"):
+// bridge.hierarchy() (MaestroMcpBridge, qua `maestro mcp`) trả `children: []` cho MỌI node
+// exercise_history_attempt_0* - khác hẳn giả định ban đầu (ViewGroup "_score" bọc icon+TextView
+// con). Dump lại bằng adb uiautomator TRỰC TIẾP (không qua Maestro) mới thấy rõ: "_score"/
+// "_correct"/"_submitted_at" là ViewGroup rỗng text đứng NGANG HÀNG (sibling, KHÔNG PHẢI ancestor)
+// với 1 SvgView (icon, rỗng text) rồi tới 1 TextView mang giá trị thật ("Điểm 3.5"...) - TextView đó
+// KHÔNG có resource-id riêng. Chỉ riêng "_title" là NGOẠI LỆ: resource-id nằm TRỰC TIẾP trên chính
+// TextView mang text ("Lần 1"). Do Maestro tự flatten hierarchy (không giữ children lồng nhau như
+// uiautomator dump thô), cách đọc đúng là duyệt phẳng theo ĐÚNG THỨ TỰ document, khi gặp resource-id
+// marker mà chính node đó CHƯA có text -> lấy text KHÔNG RỖNG gần nhất NGAY SAU trong cùng thứ tự,
+// dừng lại nếu gặp 1 marker exercise_history_attempt_* khác trước khi tìm thấy (không lấn sang
+// field/attempt kế tiếp). Đã verify lại sống bằng bản sửa này (xem báo cáo chạy) - đọc đúng
+// score/submitted_at thật thay vì rỗng.
+const ATTEMPT_FIELD_ID_PATTERN = /^exercise_history_attempt_(\d+)_(title|score|correct|submitted_at)$/;
+const ATTEMPT_NUMBER_PATTERN = /Lần\s*(\d+)/;
+const ATTEMPT_SCORE_PATTERN = /Điểm\s*([0-9]+(?:[.,][0-9]+)?)/;
+const ATTEMPT_SUBMIT_TIME_PATTERN = /Thời gian nộp\s*(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/;
+
+/** Duyệt cây theo ĐÚNG thứ tự document (pre-order, giống collectAllTexts) nhưng giữ CẢ resource-id
+ * lẫn text của từng node - cần thiết để áp dụng luật "field marker rỗng text -> lấy text không rỗng
+ * gần nhất NGAY SAU nó" (xem docblock ở trên). Giữ thêm `bounds` (không dùng bởi
+ * groupAttemptFieldTexts() nhưng cần cho openAttemptDetailScreen() bên dưới - dùng CHUNG 1 lượt
+ * duyệt tree thay vì viết thêm 1 hàm walk gần như y hệt). */
+function collectOrderedResourceIdAndText(node, acc = []) {
+  const resourceId = typeof node?.attributes?.["resource-id"] === "string" ? node.attributes["resource-id"] : "";
+  const rawText = node?.attributes?.text;
+  const text = typeof rawText === "string" ? rawText.trim() : "";
+  const bounds = node?.attributes?.bounds ?? null;
+  acc.push({ resourceId, text, bounds });
+  for (const c of node?.children ?? []) collectOrderedResourceIdAndText(c, acc);
+  return acc;
+}
+
+/** Từ danh sách node phẳng (đúng thứ tự document), gom {attemptIndex -> {title, score, correct,
+ * submitted_at}} theo luật đã xác nhận thật ở docblock trên. Không giả định số lượng attempt. */
+function groupAttemptFieldTexts(orderedNodes) {
+  const byIndex = new Map();
+  for (let i = 0; i < orderedNodes.length; i++) {
+    const match = ATTEMPT_FIELD_ID_PATTERN.exec(orderedNodes[i].resourceId);
+    if (!match) continue;
+    const [, indexStr, field] = match;
+
+    let value = orderedNodes[i].text;
+    if (!value) {
+      for (let j = i + 1; j < orderedNodes.length; j++) {
+        if (ATTEMPT_FIELD_ID_PATTERN.test(orderedNodes[j].resourceId)) break;
+        if (orderedNodes[j].text) {
+          value = orderedNodes[j].text;
+          break;
+        }
+      }
+    }
+
+    const attemptIndex = Number(indexStr);
+    if (!byIndex.has(attemptIndex)) byIndex.set(attemptIndex, {});
+    byIndex.get(attemptIndex)[field] = value || "";
+  }
+  return byIndex;
+}
+
+/**
+ * Parse "Thời gian nộp DD/MM" thành {iso, timestamp, yearInferred}.
+ *
+ * GIỚI HẠN ĐÃ XÁC NHẬN THẬT (2026-09-14, cùng device/room trên): màn "Lịch sử làm bài" chỉ hiển thị
+ * DD/MM - KHÔNG có năm, KHÔNG có giờ:phút (khác giả định ban đầu "10:05 12/09/2026"). Năm phải suy
+ * luận (mặc định năm hệ thống hiện tại qua `referenceYear`) - đây LÀ GIẢ ĐỊNH, không phải giá trị
+ * đọc được thật, phản ánh qua `yearInferred: true`. Hệ quả: nếu 2 attempt cùng điểm cao nhất rơi
+ * vào CÙNG 1 NGÀY, timestamp parse ra sẽ GIỐNG HỆT NHAU (00:00:00 cùng ngày) - selectBestAttempt()
+ * (xem automation/bao_cao_speaking/selectBestAttempt.js) sẽ fallback giữ attempt đầu tiên gặp
+ * (deterministic, không throw) - đây là giới hạn granularity của NGUỒN DỮ LIỆU App, không phải bug
+ * của hàm chọn hay của hàm parse này.
+ *
+ * KHÔNG silently trả Invalid Date - throw rõ ràng kèm raw text nếu không parse được.
+ */
+export function parseAppSubmitTimestamp(rawText, { referenceYear = new Date().getFullYear() } = {}) {
+  const m = ATTEMPT_SUBMIT_TIME_PATTERN.exec(rawText ?? "");
+  if (!m) {
+    throw new Error(`parseAppSubmitTimestamp: không parse được timestamp App - raw="${rawText}"`);
+  }
+  const [, ddStr, mmStr, yyyyStr] = m;
+  const day = Number(ddStr);
+  const month = Number(mmStr);
+  const year = yyyyStr ? Number(yyyyStr) : referenceYear;
+  const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00`;
+  const timestamp = new Date(iso);
+  if (Number.isNaN(timestamp.getTime())) {
+    throw new Error(`parseAppSubmitTimestamp: ngày/tháng không hợp lệ - raw="${rawText}" -> iso="${iso}"`);
+  }
+  return { iso, timestamp, yearInferred: !yyyyStr };
+}
+
+/** Từ 1 group {title, score, correct, submitted_at} đã gom được, trả về attempt đã parse HOẶC
+ * `null` nếu group còn thiếu field (CHƯA chắc là lỗi - xem SỬA THÊM bên dưới, danh sách bị cắt dở
+ * do virtualization là bình thường giữa chừng cuộn). Chỉ throw khi ĐỦ CẢ 3 raw text nhưng regex
+ * không khớp được (lúc đó mới là parse lỗi thật, không phải thiếu do chưa render). */
+function parseAttemptFieldsOrNull(fields) {
+  if (!fields.title || !fields.score || !fields.submitted_at) return null;
+  const attemptNumberMatch = ATTEMPT_NUMBER_PATTERN.exec(fields.title);
+  if (!attemptNumberMatch) {
+    throw new Error(`readAttemptHistory: không parse được số lần từ title="${fields.title}"`);
+  }
+  const scoreMatch = ATTEMPT_SCORE_PATTERN.exec(fields.score);
+  if (!scoreMatch) {
+    throw new Error(`readAttemptHistory: không parse được điểm từ text="${fields.score}"`);
+  }
+  const { iso } = parseAppSubmitTimestamp(fields.submitted_at);
+  return {
+    attemptNumber: Number(attemptNumberMatch[1]),
+    score: Number(scoreMatch[1].replace(",", ".")),
+    timestamp: iso,
+    correctText: fields.correct ?? null,
+  };
+}
+
+const HISTORY_LIST_MAX_SCROLLS = 15; // dư ra so với số "Lần" tối đa gặp thật (5, xem SỬA THÊM).
+const HISTORY_LIST_SWIPE = { start: "50%,80%", end: "50%,30%", duration: 400 };
+
+/**
+ * Đọc TOÀN BỘ lịch sử làm bài (mọi "Lần N") trên màn "Lịch sử làm bài" HIỆN TẠI - gọi SAU KHI đã
+ * tap "Xem bài đã làm" và xác nhận onHistoryScreen=true (xem luồng trong main() ở trên), hàm này
+ * KHÔNG tự điều hướng/launchApp/login. KHÔNG hard-code số lượng attempt, KHÔNG giả định thứ tự N
+ * tăng dần trong mảng trả về - automation/bao_cao_speaking/selectBestAttempt.js chịu trách nhiệm
+ * chọn attempt tốt nhất, không phụ thuộc thứ tự input.
+ *
+ * SỬA THÊM (2026-09-14, PHÁT HIỆN THẬT qua verify sống trên room có 5 lượt làm "Lần 5/4/3/2/1"):
+ * danh sách "Lịch sử làm bài" là VIRTUALIZED (kiểu FlatList/RecyclerView) - attempt đang hiển thị 1
+ * PHẦN ở rìa dưới màn hình (chưa cuộn tới) THIẾU HẲN node _submitted_at/_detail trong hierarchy
+ * (không phải rỗng text - node đó CHƯA TỒN TẠI), tái hiện thật với "Lần 3" (Điểm 0, đứng cuối 1
+ * lượt đọc, ngay trước nút "Làm lại" cố định ở đáy màn). Đọc 1 lần DUY NHẤT (không cuộn) sẽ throw
+ * oan cho những attempt CHƯA render đầy đủ dù dữ liệu App hoàn toàn hợp lệ. SỬA: cuộn dần + gộp kết
+ * quả theo `attemptNumber` (KHÔNG theo resource-id index N - index đó là vị trí trong danh sách,
+ * "Lần N" mới là danh tính thật ổn định xuyên suốt các lượt cuộn) - dừng khi 2 lượt cuộn liên tiếp
+ * không thêm được attempt ĐÃ ĐỦ FIELD nào mới (hội tụ, đã chạm đáy danh sách) hoặc hết ngân sách.
+ *
+ * @param {import("../bridge/maestroMcpBridge.js").MaestroMcpBridge} bridge
+ * @param {{ maxScrolls?: number }} [options]
+ * @returns {Promise<Array<{attemptNumber: number, score: number, timestamp: string, correctText: string|null}>>}
+ */
+export async function readAttemptHistory(bridge, { maxScrolls = HISTORY_LIST_MAX_SCROLLS } = {}) {
+  const collected = new Map(); // attemptNumber -> attempt đã parse đầy đủ
+
+  const readOnce = async () => {
+    const tree = await bridge.hierarchy();
+    const orderedNodes = collectOrderedResourceIdAndText(tree);
+    const byIndex = groupAttemptFieldTexts(orderedNodes);
+    for (const fields of byIndex.values()) {
+      const parsed = parseAttemptFieldsOrNull(fields);
+      if (parsed) collected.set(parsed.attemptNumber, parsed);
+    }
+    return byIndex.size > 0;
+  };
+
+  const sawAnyOnFirstRead = await readOnce();
+  if (!sawAnyOnFirstRead) {
+    throw new Error(
+      "readAttemptHistory: không tìm thấy node nào có resource-id exercise_history_attempt_N_* " +
+        "- có đang đứng đúng màn 'Lịch sử làm bài' không?",
+    );
+  }
+
+  let stableRounds = 0;
+  for (let i = 0; i < maxScrolls && stableRounds < 2; i++) {
+    const sizeBefore = collected.size;
+    const swipeResult = await bridge.runSteps([
+      { swipe: HISTORY_LIST_SWIPE },
+      { waitForAnimationToEnd: { timeout: 800 } },
+    ]);
+    if (!swipeResult.success) break; // không cuộn được nữa (đã chạm đáy) - dừng, không phải lỗi.
+    await readOnce();
+    stableRounds = collected.size === sizeBefore ? stableRounds + 1 : 0;
+  }
+
+  return Array.from(collected.values());
+}
+// ===== hết readAttemptHistory() =====
+
+// ===== openAttemptDetailScreen() + readAttemptQuestionFingerprint() (Track A - fingerprint theo
+// từng câu, thêm 2026-09-14) =====
+//
+// MỤC TIÊU: readAttemptHistory() chỉ cho biết ĐIỂM TỔNG từng lượt - không đủ phân biệt 2 lượt hòa
+// điểm (đã xác nhận thật: room Vocab 11A2, Lần 5 và Lần 1 cùng "Điểm 3"/"Đúng 3/10" nhưng khác
+// nhau ở Q4/Q5). 2 hàm dưới đây mở ĐÚNG 1 lượt cụ thể (theo attemptNumber, không phải "lượt đầu
+// tiên tìm thấy") và đọc "fingerprint" đúng/sai + % TỪNG CÂU của lượt đó, dùng làm expected value
+// đối chiếu với automation/bao_cao_speaking/attemptFingerprint.js.
+//
+// CONFIRMED LIVE (2026-09-14, cùng device/room trên): màn "Xem chi tiết" (mở từ nút cùng tên trên
+// mỗi card "Lần N" ở màn Lịch sử làm bài) có:
+//   - `exercise_show_answer_title` = "Vocab (Đúng 3/10)" - vế "/10" là TỔNG SỐ CÂU, đọc được ngay,
+//     không cần biết trước.
+//   - Dải tab "Câu N" dùng resource-id `exercise_show_answer_question_{N-1}_{correct|incorrect}`
+//     (N-1 vì bắt đầu từ 0) - ĐÚNG/SAI của câu đó lộ ngay trong resource-id, không cần đọc màu.
+//   - `exercise_speak_accuracy` (vd "40%") - % của CÂU ĐANG CHỌN - chỉ đọc được cho câu hiện tại,
+//     phải bấm "Tiếp theo" qua từng câu để đọc hết (ĐÃ verify sống: đi tuần tự qua "Tiếp theo" vẫn
+//     đọc được ĐÚNG marker correct/incorrect của câu đang đứng, không cần cuộn ngang dải tab riêng -
+//     tab đang chọn luôn tự cuộn vào khung nhìn theo highlight).
+
+const ATTEMPT_DETAIL_TITLE_PATTERN = /\((?:Đúng|Sai)\s*\d+\s*\/\s*(\d+)\)/;
+const ATTEMPT_DETAIL_QUESTION_MARKER_PATTERN = /^exercise_show_answer_question_(\d+)_(correct|incorrect)$/;
+const ATTEMPT_DETAIL_PERCENT_PATTERN = /^(\d+)%$/;
+const ATTEMPT_DETAIL_TITLE_RESOURCE_ID = "exercise_show_answer_title";
+
+/** Tìm bounds của nút "Xem chi tiết" thuộc ĐÚNG card có title "Lần {attemptNumber}" trong 1 lượt
+ * đọc hierarchy (không cuộn) - trả `null` nếu chưa thấy (có thể do chưa cuộn tới). Dùng CHUNG
+ * collectOrderedResourceIdAndText() với readAttemptHistory() (đã sửa để giữ thêm bounds). */
+function findAttemptDetailButtonBounds(tree, attemptNumber) {
+  const ordered = collectOrderedResourceIdAndText(tree);
+  const byIndex = new Map();
+  for (const { resourceId, text, bounds } of ordered) {
+    const titleMatch = /^exercise_history_attempt_(\d+)_title$/.exec(resourceId);
+    if (titleMatch) {
+      const idx = Number(titleMatch[1]);
+      if (!byIndex.has(idx)) byIndex.set(idx, {});
+      byIndex.get(idx).title = text;
+    }
+    const detailMatch = /^exercise_history_attempt_(\d+)_detail$/.exec(resourceId);
+    if (detailMatch) {
+      const idx = Number(detailMatch[1]);
+      if (!byIndex.has(idx)) byIndex.set(idx, {});
+      byIndex.get(idx).detailBounds = bounds;
+    }
+  }
+  for (const { title, detailBounds } of byIndex.values()) {
+    if (!title || !detailBounds) continue;
+    const m = ATTEMPT_NUMBER_PATTERN.exec(title);
+    if (m && Number(m[1]) === attemptNumber) return detailBounds;
+  }
+  return null;
+}
+
+const HISTORY_LIST_SWIPE_REVERSE = { start: "50%,30%", end: "50%,80%", duration: 400 };
+
+/** Tập attemptIndex (theo resource-id `_title`) ĐANG hiển thị trên màn - dùng để phát hiện "cuộn
+ * không còn tiến triển" (đã chạm đỉnh/đáy) mà không cần so sánh toàn bộ tree. */
+function visibleAttemptIndexSet(tree) {
+  const ordered = collectOrderedResourceIdAndText(tree);
+  const indices = new Set();
+  for (const { resourceId } of ordered) {
+    const m = /^exercise_history_attempt_(\d+)_title$/.exec(resourceId);
+    if (m) indices.add(Number(m[1]));
+  }
+  return indices;
+}
+
+/**
+ * Cuộn NGƯỢC LÊN ĐỈNH danh sách "Lịch sử làm bài" - dừng khi 2 lượt cuộn liên tiếp không đổi tập
+ * attempt đang hiển thị (đã chạm đỉnh) hoặc hết ngân sách.
+ *
+ * SỬA (2026-09-14, BUG THẬT xác nhận qua chạy live TC_029b - openAttemptDetailScreen() gọi NGAY
+ * SAU readAttemptHistory() bị FAIL "không tìm thấy Lần 5 sau 15 lượt cuộn" dù Lần 5 là CARD ĐẦU
+ * TIÊN/TRÊN CÙNG danh sách): readAttemptHistory() luôn cuộn tới ĐÁY để đọc hết toàn bộ lịch sử
+ * (xem docblock hàm đó), để lại màn hình đang đứng Ở ĐÁY - openAttemptDetailScreen() (bản đầu) chỉ
+ * biết cuộn XUỐNG nên không bao giờ tìm lại được attempt nằm GẦN ĐỈNH nữa. Gọi hàm này TRƯỚC khi
+ * tìm - an toàn dù màn đang ở bất kỳ vị trí cuộn nào (kể cả đã ở đỉnh sẵn, chỉ tốn vài lượt cuộn dư
+ * để xác nhận hội tụ, không lỗi).
+ */
+async function scrollHistoryListToTop(bridge, { maxScrolls = HISTORY_LIST_MAX_SCROLLS } = {}) {
+  let previous = visibleAttemptIndexSet(await bridge.hierarchy());
+  let stableRounds = 0;
+  for (let i = 0; i < maxScrolls && stableRounds < 2; i++) {
+    const swipeResult = await bridge.runSteps([
+      { swipe: HISTORY_LIST_SWIPE_REVERSE },
+      { waitForAnimationToEnd: { timeout: 800 } },
+    ]);
+    if (!swipeResult.success) break;
+    const current = visibleAttemptIndexSet(await bridge.hierarchy());
+    const unchanged = current.size === previous.size && [...current].every((v) => previous.has(v));
+    stableRounds = unchanged ? stableRounds + 1 : 0;
+    previous = current;
+  }
+}
+
+/**
+ * Mở màn "Xem chi tiết" của ĐÚNG "Lần {attemptNumber}" - gọi khi đang đứng ở màn "Lịch sử làm bài"
+ * (cùng tiền điều kiện với readAttemptHistory() - KHÔNG tự login/tìm room), BẤT KỂ đang cuộn ở vị
+ * trí nào (tự cuộn về đỉnh trước - xem scrollHistoryListToTop()). Cuộn dần xuống (cùng
+ * HISTORY_LIST_SWIPE với readAttemptHistory()) tới khi thấy card đó - KHÔNG hard-code attempt đó ở
+ * vị trí nào trong danh sách.
+ *
+ * @param {import("../bridge/maestroMcpBridge.js").MaestroMcpBridge} bridge
+ * @param {number} attemptNumber
+ * @param {{ maxScrolls?: number }} [options]
+ */
+export async function openAttemptDetailScreen(bridge, attemptNumber, { maxScrolls = HISTORY_LIST_MAX_SCROLLS } = {}) {
+  await scrollHistoryListToTop(bridge, { maxScrolls });
+  let bounds = findAttemptDetailButtonBounds(await bridge.hierarchy(), attemptNumber);
+  let scrollsUsed = 0;
+  while (!bounds && scrollsUsed < maxScrolls) {
+    const swipeResult = await bridge.runSteps([
+      { swipe: HISTORY_LIST_SWIPE },
+      { waitForAnimationToEnd: { timeout: 800 } },
+    ]);
+    if (!swipeResult.success) break;
+    scrollsUsed++;
+    bounds = findAttemptDetailButtonBounds(await bridge.hierarchy(), attemptNumber);
+  }
+  if (!bounds) {
+    throw new Error(
+      `openAttemptDetailScreen: không tìm thấy "Lần ${attemptNumber}" sau ${scrollsUsed} lượt cuộn ` +
+        "- có đang đứng đúng màn 'Lịch sử làm bài' không?",
+    );
+  }
+  const point = centerPoint(parseBounds(bounds));
+  const tapResult = await bridge.runSteps([
+    { tapOn: { point: `${point.x},${point.y}` } },
+    { waitForAnimationToEnd: { timeout: 1500 } },
+  ]);
+  if (!tapResult.success) {
+    throw new Error(`openAttemptDetailScreen: tap "Xem chi tiết" của Lần ${attemptNumber} thất bại: ${tapResult.error}`);
+  }
+}
+
+/** Gom {index -> status} từ resource-id ATTEMPT_DETAIL_QUESTION_MARKER_PATTERN (đúng/sai từng câu -
+ * xem docblock đầu khối). */
+function collectQuestionCorrectnessMarkers(tree) {
+  const ordered = collectOrderedResourceIdAndText(tree);
+  const markers = new Map();
+  for (const { resourceId } of ordered) {
+    const m = ATTEMPT_DETAIL_QUESTION_MARKER_PATTERN.exec(resourceId);
+    if (m) markers.set(Number(m[1]), m[2]);
+  }
+  return markers;
+}
+
+/**
+ * Đọc fingerprint TỪNG CÂU (đúng/sai + %) của lượt ĐANG MỞ trên màn "Xem chi tiết" - gọi NGAY SAU
+ * `openAttemptDetailScreen()` (màn luôn mở ở Câu 1 - đã xác nhận thật qua mọi lần tap "Xem chi
+ * tiết"). KHÔNG hard-code tổng số câu - đọc từ title (vd "Vocab (Đúng 3/10)" -> 10 câu). Đi tuần tự
+ * qua "Tiếp theo" tới hết, KHÔNG dùng "Xem xong" (khác luồng HW-17 ở main() - ở đây chỉ cần đọc dữ
+ * liệu, không cần thoát màn).
+ *
+ * @param {import("../bridge/maestroMcpBridge.js").MaestroMcpBridge} bridge
+ * @returns {Promise<Array<{questionNumber: number, correct: boolean, percent: number}>>}
+ */
+export async function readAttemptQuestionFingerprint(bridge) {
+  let tree = await bridge.hierarchy();
+  const orderedNodes = collectOrderedResourceIdAndText(tree);
+  const titleNode = orderedNodes.find((n) => n.resourceId === ATTEMPT_DETAIL_TITLE_RESOURCE_ID);
+  const totalMatch = titleNode ? ATTEMPT_DETAIL_TITLE_PATTERN.exec(titleNode.text) : null;
+  if (!totalMatch) {
+    throw new Error(
+      `readAttemptQuestionFingerprint: không đọc được tổng số câu từ title="${titleNode?.text ?? "-"}" ` +
+        "- có đang đứng đúng màn 'Xem chi tiết' không?",
+    );
+  }
+  const totalQuestions = Number(totalMatch[1]);
+
+  const results = [];
+  for (let q = 1; q <= totalQuestions; q++) {
+    if (q > 1) tree = await bridge.hierarchy();
+    const texts = collectAllTexts(tree);
+    const percentText = texts.find((t) => ATTEMPT_DETAIL_PERCENT_PATTERN.test(t));
+    if (!percentText) {
+      throw new Error(`readAttemptQuestionFingerprint: không tìm thấy % hiển thị cho Câu ${q}.`);
+    }
+    const markers = collectQuestionCorrectnessMarkers(tree);
+    const status = markers.get(q - 1);
+    if (!status) {
+      throw new Error(`readAttemptQuestionFingerprint: không tìm thấy marker đúng/sai cho Câu ${q}.`);
+    }
+    results.push({
+      questionNumber: q,
+      correct: status === "correct",
+      percent: Number(ATTEMPT_DETAIL_PERCENT_PATTERN.exec(percentText)[1]),
+    });
+
+    if (q < totalQuestions) {
+      const tapNext = await bridge.runSteps([
+        { tapOn: { text: "Tiếp theo" } },
+        { waitForAnimationToEnd: { timeout: 1200 } },
+      ]);
+      if (!tapNext.success) {
+        throw new Error(`readAttemptQuestionFingerprint: tap "Tiếp theo" thất bại ở Câu ${q}: ${tapNext.error}`);
+      }
+    }
+  }
+  return results;
+}
+// ===== hết openAttemptDetailScreen()/readAttemptQuestionFingerprint() =====
+
 /**
  * BIẾN THỂ GIỮ BOUNDS của collectTextNodesInsideScrollableList() (automation/bai_tap/discovery/
  * homeworkUiList.js) - CÙNG điều kiện lọc "scrollable === 'true'" hệt bản gốc (dùng cờ scrollable,
@@ -627,12 +1021,21 @@ async function main() {
   }
 }
 
-main()
-  .then((result) => {
-    printReport(result);
-    process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 3 : 1);
-  })
-  .catch((err) => {
-    console.error("[xemchitietbailam] Dừng lại vì lỗi ngoài dự kiến:\n", err);
-    process.exit(2);
-  });
+// SỬA (2026-09-14, cần thiết để export readAttemptHistory() dùng được từ nơi khác - xem Track A
+// trong group-d-recording-attempt-selection.spec.js): trước đây main() chạy VÔ ĐIỀU KIỆN ở top
+// level, nghĩa là BẤT KỲ import nào từ file này (kể cả chỉ để lấy readAttemptHistory/
+// parseAppSubmitTimestamp) cũng kích hoạt toàn bộ luồng CLI (login/điều hướng/report) như một side
+// effect ngoài ý muốn. Guard bằng import.meta.url so với entrypoint thật - khi chạy trực tiếp
+// `node automation/bai_tap/xemchitietbailam.mjs` hành vi CŨ giữ nguyên y hệt (main() vẫn tự chạy);
+// chỉ khi bị import làm module thì main() không tự kích hoạt nữa.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main()
+    .then((result) => {
+      printReport(result);
+      process.exit(result.status === "PASS" ? 0 : result.status === "BLOCKED" ? 3 : 1);
+    })
+    .catch((err) => {
+      console.error("[xemchitietbailam] Dừng lại vì lỗi ngoài dự kiến:\n", err);
+      process.exit(2);
+    });
+}

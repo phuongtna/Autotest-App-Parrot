@@ -118,9 +118,40 @@ function parseBounds(str) {
  * Android System UI (`com.android.systemui`) đang render trong notification shade - bằng chứng
  * OS-level thật (không phải nội dung nội bộ app).
  */
-export function dumpUiHierarchy(deviceId) {
+function sleepSync(ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    // no-op busy wait - execCliSync là API đồng bộ nên hàm gọi dumpUiHierarchy() cũng phải đồng bộ.
+  }
+}
+
+/**
+ * Server on-device của Maestro (package `dev.mobile.maestro`) giữ kết nối UiAutomation SỐNG trên
+ * chính thiết bị kể cả sau khi phía host đã `session.stop()` (điều đó chỉ đóng kết nối/tiến trình
+ * host, KHÔNG kill server này) - đây mới là nguyên nhân THẬT khiến `uiautomator dump` bị kill
+ * (exit 137) ngay khi khởi động, ĐÃ XÁC NHẬN THẬT 2026-09-14 (force-stop package này xong thì dump
+ * chạy được ngay, lặp lại nhiều lần). `force-stop` trên package không chạy là no-op, gọi vô điều
+ * kiện trước mỗi lần dump cho an toàn.
+ */
+export function forceStopMaestroServer(deviceId) {
+  adbShell(deviceId, ["am", "force-stop", "dev.mobile.maestro"]);
+}
+
+export function dumpUiHierarchy(deviceId, retries = 3, retryDelayMs = 1500) {
   const remotePath = "/sdcard/_tb06_shade_dump.xml";
-  adbShell(deviceId, ["uiautomator", "dump", remotePath]);
+  let lastErr = null;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      forceStopMaestroServer(deviceId);
+      adbShell(deviceId, ["uiautomator", "dump", remotePath]);
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) sleepSync(retryDelayMs);
+    }
+  }
+  if (lastErr) throw lastErr;
   const localDir = mkdtempSync(join(tmpdir(), "tb06-shade-"));
   const localPath = join(localDir, "dump.xml");
   adbRaw(deviceId, ["pull", remotePath, localPath]);

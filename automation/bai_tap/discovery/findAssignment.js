@@ -63,12 +63,22 @@ const NORMAL_SWIPE = { start: "50%,80%", end: "50%,25%", duration: 400 };
 const RECOVERY_SWIPE = { start: "50%,90%", end: "50%,10%", duration: 700 };
 const DEFAULT_MAX_SCROLLS = 40;
 
+/** "Hôm nay" - THẬT xác nhận 2026-09-14: card hạn nộp đúng ngày hiện tại render "Hạn nộp Hôm nay"
+ * (không có DD/MM) - quy đổi về DD/MM hôm nay để so khớp được với dueDateDM caller truyền vào
+ * (caller luôn tính dueDateDM bằng DD/MM cụ thể, kể cả khi hạn nộp = hôm nay). */
+function todayDdMm() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+}
+
 function normalizeDueDateDM(dueDateText) {
   if (!dueDateText) return null;
-  return dueDateText
+  const stripped = dueDateText
     .replace(/^Hạn nộp\s*/, "")
     .replace(/\s*\(QUÁ HẠN\)\s*$/, "")
     .trim();
+  return stripped === "Hôm nay" ? todayDdMm() : stripped;
 }
 
 function matchesTarget(card, target) {

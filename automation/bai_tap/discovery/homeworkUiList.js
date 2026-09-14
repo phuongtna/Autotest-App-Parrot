@@ -64,7 +64,12 @@ const PROGRESS_PATTERN = /^\d+\s*\/\s*\d+$/;
 // thật qua hierarchy dump 2026-08-18 (thiết bị 3201d866d40a1681): card "Chinh phục" có cấu trúc
 // title -> "Hạn nộp DD/MM" hoặc "Hạn nộp DD/MM (QUÁ HẠN)" -> CTA, không có N/M xen giữa. Dùng thêm
 // mẫu này làm anchor thay thế để không bỏ sót nhóm card này (PROGRESS_PATTERN một mình không đủ).
-const DUE_DATE_PATTERN = /^Hạn nộp \d{2}\/\d{2}(\s*\(QUÁ HẠN\))?$/;
+// FIX (2026-09-14, NOT_FOUND thật xác nhận qua findAssignment() cho 2 room hạn nộp = HÔM NAY):
+// bản gốc chỉ khớp "Hạn nộp DD/MM" - card có hạn nộp đúng NGÀY HIỆN TẠI render "Hạn nộp Hôm nay"
+// (không có DD/MM) nên KHÔNG được nhận diện là dòng "Hạn nộp", khiến `dueDate` của card đó luôn là
+// null -> findAssignment() so `null !== "DD/MM"` -> loại card dù title khớp hệt. Thêm nhánh "Hôm
+// nay" vào pattern (normalize giá trị thật thành DD/MM ở findAssignment.js#normalizeDueDateDM()).
+const DUE_DATE_PATTERN = /^Hạn nộp (?:\d{2}\/\d{2}|Hôm nay)(\s*\(QUÁ HẠN\))?$/;
 // Card ĐÃ HOÀN THÀNH (có điểm) - xác nhận thật qua hierarchy dump 2026-08-21 (nhiều card mẫu: "Điểm
 // 3", "Điểm 10", "Điểm 5"): KHÔNG còn render "N / M" lẫn "Hạn nộp ..." nữa, chỉ còn dòng "Điểm N"
 // ngay sau title (rồi "Xem bài đã làm" -> CTA "Làm lại"). THIẾU anchor này khiến

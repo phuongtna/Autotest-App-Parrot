@@ -100,10 +100,18 @@ const MIN_MARGIN_OVER_RUNNER_UP = 0.25;
  * (không neo 1 dòng cụ thể - đoạn văn dài có thể trải nhiều text node). Winner phải đạt
  * `coverage >= MIN_MATCH_COVERAGE` VÀ bỏ xa candidate đứng thứ 2 (runner-up) ít nhất
  * `MIN_MARGIN_OVER_RUNNER_UP` - không đủ 1 trong 2 điều kiện => AMBIGUOUS, không đoán.
+ *
+ * (2026-09-14, yêu cầu review): mỗi entry trong `scores` giờ CÓ THÊM `tier` ("EXACT" khi coverage=1,
+ * "PARTIAL" khi 0<coverage<1, "NONE" khi coverage=0 hoặc dưới MIN_CONTENT_TOKENS) và kết quả AMBIGUOUS
+ * CÓ THÊM `reasonCode` phân biệt rõ 2 nguyên nhân khác hẳn nhau ("NO_CANDIDATE_MEETS_THRESHOLD" - không
+ * candidate nào đủ coverage tối thiểu, KHÁC hẳn "INSUFFICIENT_MARGIN_OVER_RUNNER_UP" - có winner đạt
+ * ngưỡng nhưng không bỏ xa đối thủ đủ margin) cùng `winnerScore`/`runnerUpScore` tường minh - CHỈ để
+ * debug/report rõ hơn (đúng field đã có sẵn, KHÔNG đổi ngưỡng/công thức/quyết định MATCHED/AMBIGUOUS
+ * hiện tại - xem answerSetMatcher.fixtureTest.mjs case [B]/[C]/[F] vẫn phải PASS y hệt).
  * @param {Array<{id:string, question:string}>} candidates - fullMatches (đã qua findFullAnswerSetMatches)
  * @param {string[]} visibleTexts - toàn bộ text đang hiển thị (collectAllTexts(tree))
- * @returns {{status:"MATCHED", winner:object, scores:Array<{question:object, coverage:number, tokenCount:number}>}
- *         | {status:"AMBIGUOUS", scores:Array<{question:object, coverage:number, tokenCount:number}>}}
+ * @returns {{status:"MATCHED", winner:object, scores:Array<{question:object, coverage:number, tokenCount:number, tier:string}>}
+ *         | {status:"AMBIGUOUS", scores:Array<{question:object, coverage:number, tokenCount:number, tier:string}>, reasonCode:string, winnerScore:number, runnerUpScore:?number}}
  */
 function scoreAgainstTexts(candidates, sourceTexts) {
   const visibleTokenSet = new Set();
@@ -113,10 +121,11 @@ function scoreAgainstTexts(candidates, sourceTexts) {
   const scored = candidates.map((question) => {
     const tokens = [...new Set(normalizeQuestionTokens(question.question))];
     if (tokens.length < MIN_CONTENT_TOKENS) {
-      return { question, coverage: 0, tokenCount: tokens.length };
+      return { question, coverage: 0, tokenCount: tokens.length, tier: "NONE" };
     }
     const hit = tokens.filter((tok) => visibleTokenSet.has(tok)).length;
-    return { question, coverage: hit / tokens.length, tokenCount: tokens.length };
+    const coverage = hit / tokens.length;
+    return { question, coverage, tokenCount: tokens.length, tier: coverage === 0 ? "NONE" : coverage === 1 ? "EXACT" : "PARTIAL" };
   });
   const ranked = [...scored].sort((a, b) => b.coverage - a.coverage);
   const [top, runnerUp] = ranked;
@@ -124,7 +133,8 @@ function scoreAgainstTexts(candidates, sourceTexts) {
   if (top.tokenCount >= MIN_CONTENT_TOKENS && top.coverage >= MIN_MATCH_COVERAGE && marginOk) {
     return { status: "MATCHED", winner: top.question, scores: ranked };
   }
-  return { status: "AMBIGUOUS", scores: ranked };
+  const reasonCode = top.coverage < MIN_MATCH_COVERAGE ? "NO_CANDIDATE_MEETS_THRESHOLD" : "INSUFFICIENT_MARGIN_OVER_RUNNER_UP";
+  return { status: "AMBIGUOUS", scores: ranked, reasonCode, winnerScore: top.coverage, runnerUpScore: runnerUp ? runnerUp.coverage : null };
 }
 
 export function disambiguateByQuestionText(candidates, visibleTexts) {
@@ -389,20 +399,50 @@ export function diagnoseCurrentQuestion(tree, expectedPool, { questionIndex, exa
         "UNVERIFIED",
       );
     }
-    return finalize(
-      "AMBIGUOUS",
-      {
-        contentEvidence: {
-          fullMatchIds: fullMatches.map((m) => m.id),
-          partialMatches: [],
-          normalizedVisibleAnswers: [...normalizedVisibleSet],
-          candidates: fullMatches.map((m) => ({ id: m.id, answers: m.answers, question: m.question })),
-          questionTextScores: disambig.scores.map((s) => ({ id: s.question.id, coverage: s.coverage, tokenCount: s.tokenCount })),
+    {
+      // (2026-09-14, yêu cầu review): reasonCode/winnerScore/runnerUpScore lấy THẲNG từ
+      // scoreAgainstTexts() (qua disambiguateByQuestionText()) - KHÔNG tính lại, KHÔNG suy đoán field
+      // mới. 2 nguyên nhân AMBIGUOUS hoàn toàn khác nhau về bản chất, tách message rõ để debug:
+      //   - NO_CANDIDATE_MEETS_THRESHOLD: không candidate nào đủ coverage tối thiểu (thường vì màn
+      //     hình không hiển thị đoạn dẫn đề nào phân biệt được, hoặc mọi candidate dùng chung ĐÚNG 1
+      //     câu dẫn đề y hệt - xem case thật room bd376b39-... 2026-09-14, 10 câu single-choice dùng
+      //     chung 1 câu dẫn đề "Choose the word that has a different stress pattern from the others."
+      //     - answer-set + question-text ĐỀU giống hệt nhau giữa 2 candidate, không có tín hiệu nào
+      //     trong CMS data lẫn UI để phân biệt - AMBIGUOUS ở đây là ĐÚNG, không phải bug matcher).
+      //   - INSUFFICIENT_MARGIN_OVER_RUNNER_UP: có candidate đạt ngưỡng coverage nhưng KHÔNG bỏ xa
+      //     candidate đứng thứ 2 đủ margin - rủi ro chọn nhầm nếu ép match.
+      const scoreDetail =
+        disambig.reasonCode === "INSUFFICIENT_MARGIN_OVER_RUNNER_UP"
+          ? ` (winnerScore=${disambig.winnerScore.toFixed(2)}, runnerUpScore=${disambig.runnerUpScore.toFixed(2)}, cách nhau chưa đủ ${MIN_MARGIN_OVER_RUNNER_UP} - không đủ tin cậy để chọn).`
+          : ` (mọi candidate đều dưới ngưỡng coverage tối thiểu ${MIN_MATCH_COVERAGE} - không đủ nội dung phân biệt được hiển thị trên màn hình).`;
+      return finalize(
+        "AMBIGUOUS",
+        {
+          contentEvidence: {
+            fullMatchIds: fullMatches.map((m) => m.id),
+            partialMatches: [],
+            normalizedVisibleAnswers: [...normalizedVisibleSet],
+            reasonCode: disambig.reasonCode,
+            winnerScore: disambig.winnerScore,
+            runnerUpScore: disambig.runnerUpScore,
+            candidates: fullMatches.map((m) => {
+              const s = disambig.scores.find((entry) => entry.question.id === m.id);
+              return {
+                id: m.id,
+                answers: m.answers,
+                question: m.question,
+                answerSetMatch: true,
+                questionTextCoverage: s?.coverage ?? null,
+                tier: s?.tier ?? null,
+              };
+            }),
+            questionTextScores: disambig.scores.map((s) => ({ id: s.question.id, coverage: s.coverage, tokenCount: s.tokenCount, tier: s.tier })),
+          },
         },
-      },
-      `${fullMatches.length} candidate cùng khớp ĐỦ answer-set đang hiển thị, nội dung câu hỏi KHÔNG đủ phân biệt.`,
-      "MISMATCH_SUSPECTED",
-    );
+        `${fullMatches.length} candidate cùng khớp ĐỦ answer-set đang hiển thị, nội dung câu hỏi KHÔNG đủ phân biệt (${disambig.reasonCode}).${scoreDetail}`,
+        "MISMATCH_SUSPECTED",
+      );
+    }
   }
 
   if (anyPartialTextVisible) {

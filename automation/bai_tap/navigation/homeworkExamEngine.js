@@ -751,7 +751,13 @@ export class HomeworkExamEngine {
    *   cùng 1 trạng thái màn hình vừa đọc xong ở đây.
    */
   async answerCurrentQuestionOneShot(questionModel = null, { wantCorrect = true, resultLabel = null, snapshot = null } = {}) {
-    let tree = snapshot?.tree ?? this.bridge.hierarchy();
+    // FIX (2026-09-14, phát hiện khi gọi hàm này TRỰC TIẾP không qua findMatchingQuestion(), tức
+    // không có snapshot sẵn): thiếu `await` khiến `tree` là 1 Promise chưa resolve - MỌI check
+    // hasResourceId()/detectImageChoiceGrid() phía dưới lặng lẽ trả về false/null (Promise không có
+    // `.attributes`/`.children`), rơi thẳng xuống thông báo lỗi chung "Không khớp chiến lược..." dù
+    // UI THẬT SỰ có đúng dạng (vd exercise_fillword_blank_0 tồn tại thật trên màn). Bug KHÔNG lộ ra
+    // qua các flow hiện có vì answerAllQuestions()/findMatchingQuestion() LUÔN truyền `snapshot`.
+    let tree = snapshot?.tree ?? (await this.bridge.hierarchy());
     let textsBefore = snapshot?.texts ?? collectTexts(tree);
     // isVisible tra cứu trong `textsBefore` (bien co the duoc CAP NHAT boi buoc ensure*Visible ben
     // duoi neu phai cuon doc them noi dung - closure doc gia tri MOI NHAT tai thoi diem goi, khong
@@ -793,6 +799,15 @@ export class HomeworkExamEngine {
       blankIndices.forEach((idx, i) => {
         fillSteps.push({ tapOn: { id: `exercise_fillword_blank_${idx}` } });
         fillSteps.push({ inputText: valuesToType[i] });
+        // FIX (2026-09-14, phát hiện thật qua room f5864c3a-...: câu 3 ô trống, isTargetCorrect
+        // yêu cầu SAI): thiếu "hideKeyboard" giữa các ô khiến ô sau KHÔNG nhận focus - toàn bộ 3
+        // giá trị bị gõ dồn hết vào ĐÚNG 1 ô đầu tiên (blank_0 hiển thị "zzzsaizzz" lặp lại 3 lần,
+        // blank_1/2 rỗng), khiến exercise_check_button treo "enabled=false" vĩnh viễn (không đủ dữ
+        // liệu để nộp). Đóng bàn phím SAU MỖI ô buộc app "chốt" giá trị đang gõ trước khi tap ô kế
+        // tiếp - CÙNG kỹ thuật hideKeyboard cuối hàm vốn đã có, chỉ lặp lại cho từng ô thay vì 1 lần
+        // cuối cùng. Chỉ ảnh hưởng câu có >=2 ô trống - câu 1 ô (đa số FILL_WORD trong dự án) không
+        // đổi hành vi vì vòng lặp chỉ chạy 1 lần.
+        if (i < blankIndices.length - 1) fillSteps.push("hideKeyboard");
       });
       // Bare string, KHONG phai { hideKeyboard: null } - da xac nhan cu phap that qua
       // flows/app/exercise/EX-07-fillword-wrong.yaml dong 40 ("- hideKeyboard", khong co ":").

@@ -16,6 +16,16 @@
  *      TRƯỚC 2 nút True/False - coverage-toàn-trang cũ cho mọi candidate điểm cao gần bằng nhau (vì
  *      đoạn văn chung chứa từ vựng của tất cả) nên luôn AMBIGUOUS dù dòng phát biểu riêng thừa sức
  *      phân biệt - xem disambiguateByQuestionText() (cửa sổ dòng ngay trước block đáp án).
+ *   G. regression THẬT 2026-09-14 (room bd376b39-87a7-4082-8742-d639548b495c, lớp 8D, "Choose the
+ *      word that has a different stress pattern from the others.") - 2/10 câu single-choice trùng
+ *      CẢ answer-set LẪN question text (bài "odd one out" mọi câu con dùng chung ĐÚNG 1 câu dẫn đề)
+ *      -> AMBIGUOUS ĐÚNG (reasonCode=NO_CANDIDATE_MEETS_THRESHOLD), không có tín hiệu nào (CMS lẫn
+ *      UI) để phân biệt 2 câu này - xem answerSetMatcher.js AMBIGUOUS branch (comment 2026-09-14).
+ *   H. tied score tường minh - winner đạt ngưỡng MIN_MATCH_COVERAGE nhưng KHÔNG bỏ xa runner-up đủ
+ *      MIN_MARGIN_OVER_RUNNER_UP -> AMBIGUOUS (reasonCode=INSUFFICIENT_MARGIN_OVER_RUNNER_UP, khác
+ *      hẳn case G/C là NO_CANDIDATE_MEETS_THRESHOLD - phân biệt 2 nguyên nhân AMBIGUOUS khác nhau).
+ *   I. normalization differences (hoa/thường, khoảng trắng thừa giữa text UI thật và CMS) - vẫn phải
+ *      MATCH đúng, không được tụt xuống AMBIGUOUS/NO_MATCH oan chỉ vì khác cách trình bày.
  *
  * Chạy: node automation/bai_tap/discovery/answerSetMatcher.fixtureTest.mjs
  */
@@ -211,6 +221,69 @@ async function main() {
 
     const r = await findMatchingQuestion(staticBridge(texts), pool, undefined, 1, null);
     report("[F3] findMatchingQuestion() end-to-end chọn đúng f1", r.status === "MATCHED" && r.question.id === "f1", JSON.stringify(r.status));
+  }
+
+  console.log("=== [G] regression THẬT 2026-09-14 (room bd376b39-..., lớp 8D, \"Choose the word that has a different stress pattern from the others.\") - 2 candidate trùng CẢ answer-set LẪN question text, không có tín hiệu nào phân biệt được ===");
+  {
+    const stem = "Choose the word that has a different stress pattern from the others.";
+    // Dữ liệu THẬT lấy từ CMS room bd376b39-87a7-4082-8742-d639548b495c (2 trong 10 câu, id rút gọn).
+    const g1 = q("g1_043d6cd2", { answers: ["important", "energy", "natural", "popular"], correctAnswer: "important", question: stem });
+    const g2 = q("g2_bcbfa089", { answers: ["important", "popular", "natural", "energy"], correctAnswer: "important", question: stem });
+    // Câu thứ 3 CÙNG stem nhưng answer-set KHÁC (unique) - xác nhận nó không bị lẫn vào candidate pool.
+    const g3 = q("g3_1acf2a3c", { answers: ["attraction", "renewable", "energy", "important"], correctAnswer: "energy", question: stem });
+    const texts = [stem, "energy", "important", "natural", "popular"];
+    const r = await findMatchingQuestion(staticBridge(texts), [g1, g2, g3], undefined, 1, null);
+    // g1/g2 có question text GIỐNG HỆT nhau (cùng stem) nên cả 2 đều đạt coverage=1.0 (EXACT) - đây là
+    // tình huống "tied score ở mức tối đa" (winnerScore=runnerUpScore=1.0), đúng bản chất
+    // INSUFFICIENT_MARGIN_OVER_RUNNER_UP (KHÔNG PHẢI NO_CANDIDATE_MEETS_THRESHOLD - cả 2 đều VƯỢT
+    // ngưỡng dễ dàng, chỉ là không ai bỏ xa ai) - xác nhận matcher phân loại ĐÚNG bản chất bug, không
+    // chỉ đơn thuần "không đủ nội dung".
+    report(
+      "[G1] AMBIGUOUS giữa g1/g2 (trùng cả answer-set lẫn question text, cả 2 đều coverage=1.0 tuyệt đối) - reasonCode=INSUFFICIENT_MARGIN_OVER_RUNNER_UP, KHÔNG đoán bừa",
+      r.status === "AMBIGUOUS" &&
+        r.diagnostic?.contentEvidence?.reasonCode === "INSUFFICIENT_MARGIN_OVER_RUNNER_UP" &&
+        r.diagnostic?.contentEvidence?.winnerScore === 1 &&
+        r.diagnostic?.contentEvidence?.runnerUpScore === 1,
+      JSON.stringify({ status: r.status, reasonCode: r.diagnostic?.contentEvidence?.reasonCode, winnerScore: r.diagnostic?.contentEvidence?.winnerScore, runnerUpScore: r.diagnostic?.contentEvidence?.runnerUpScore }),
+    );
+    report(
+      "[G2] contentEvidence.candidates CHỈ gồm đúng g1/g2 (answer-set trùng) - g3 (answer-set khác, dù chung stem) KHÔNG bị lẫn vào",
+      r.diagnostic?.contentEvidence?.candidates?.length === 2 &&
+        r.diagnostic.contentEvidence.candidates.every((c) => c.id === "g1_043d6cd2" || c.id === "g2_bcbfa089"),
+      JSON.stringify(r.diagnostic?.contentEvidence?.candidates?.map((c) => c.id)),
+    );
+  }
+
+  console.log("=== [H] tied score tường minh (winner đạt ngưỡng nhưng KHÔNG bỏ xa runner-up đủ margin) -> AMBIGUOUS/INSUFFICIENT_MARGIN_OVER_RUNNER_UP ===");
+  {
+    const h1 = q("h1", { answers: ["A", "B"], correctAnswer: "A", question: "Alpha bravo charlie delta echo foxtrot golf." });
+    const h2 = q("h2", { answers: ["A", "B"], correctAnswer: "B", question: "Alpha bravo charlie delta echo hotel." });
+    const texts = ["Alpha", "bravo", "charlie", "delta", "echo", "A", "B"];
+    const r = await findMatchingQuestion(staticBridge(texts), [h1, h2], undefined, 1, null);
+    report(
+      "[H1] AMBIGUOUS khi winner/runner-up quá gần nhau (thiếu margin) dù winner đạt ngưỡng coverage",
+      r.status === "AMBIGUOUS" && r.diagnostic?.contentEvidence?.reasonCode === "INSUFFICIENT_MARGIN_OVER_RUNNER_UP",
+      JSON.stringify({ winnerScore: r.diagnostic?.contentEvidence?.winnerScore, runnerUpScore: r.diagnostic?.contentEvidence?.runnerUpScore }),
+    );
+  }
+
+  console.log("=== [I] normalization differences (hoa/thường, khoảng trắng thừa giữa UI thật và CMS) vẫn khớp đúng ở tầng answer-set matching ===");
+  {
+    // Test Ở ĐÚNG TẦNG đang sửa (answer-set matching/disambiguation, findFullAnswerSetMatches +
+    // disambiguateByQuestionText trong answerSetMatcher.js) - KHÔNG qua findMatchingQuestion() end-to-
+    // end (decideAnswerAction() cần cấu trúc tappable element thật, ngoài phạm vi fixture thuần-text
+    // này, và ngoài phạm vi sửa lần này - xem questionTypeDetector.js/homeworkExamEngine.js riêng).
+    const i1 = q("i1", { answers: ["Ha Noi", "Ho Chi Minh"], correctAnswer: "Ha Noi", question: "What is the capital city of Vietnam?" });
+    const i2 = q("i2", { answers: ["Paris", "London"], correctAnswer: "Paris", question: "What is the capital city of France?" });
+    // UI thật thường lệch hoa/thường + khoảng trắng so với CMS (rendering khác nhau) - KHÔNG được vì
+    // vậy mà tụt xuống "không khớp" oan.
+    const visibleSet = buildNormalizedVisibleSet(["ha noi", "HO CHI MINH", "  Paris  "]);
+    const { matches } = findFullAnswerSetMatches([i1, i2], visibleSet);
+    report(
+      "[I1] findFullAnswerSetMatches khớp đúng i1 dù UI khác hoa/thường + khoảng trắng thừa so với CMS, KHÔNG khớp i2 (thiếu \"London\")",
+      matches.length === 1 && matches[0].id === "i1",
+      JSON.stringify(matches.map((m) => m.id)),
+    );
   }
 
   console.log("=== helper unit tests (normalize/tokenize) ===");

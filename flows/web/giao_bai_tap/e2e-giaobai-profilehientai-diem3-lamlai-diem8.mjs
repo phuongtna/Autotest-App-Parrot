@@ -399,7 +399,11 @@ async function answerAllQuestions(bridge, exam, questions, correctIndices) {
         ok: false,
         reason:
           matchResult.status === "AMBIGUOUS"
-            ? `AMBIGUOUS_MATCH ở câu ${questionIndex}: ${matchResult.diagnostic.candidates.length} candidate CMS cùng khớp đủ answer-set - không tự chọn.`
+            // FIX (2026-09-14, audit theo yêu cầu review): `diagnostic.candidates` không tồn tại - shape
+            // thật là `diagnostic.contentEvidence.candidates` (xem answerSetMatcher.js, cùng bug đã sửa
+            // trước đó trong e2e-giaobai-range34-lamlai-range67.mjs 2026-09-03 - fixture cũ không bắt
+            // được vì chưa từng test path AMBIGUOUS thật ở file này).
+            ? `AMBIGUOUS_MATCH ở câu ${questionIndex}: ${matchResult.diagnostic.contentEvidence?.candidates?.length ?? "?"} candidate CMS cùng khớp đủ answer-set - không tự chọn. (${matchResult.diagnostic.diagnosticReason ?? ""})`
             : `NO_MATCH ở câu ${questionIndex} (còn ${pool.length} câu): không có candidate CMS nào khớp đủ đáp án đang hiển thị.`,
         outcomeLabel,
         answerLog,

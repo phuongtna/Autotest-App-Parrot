@@ -123,19 +123,22 @@ console.log("\n=== [3] findMatchingQuestion - integration với decideAnswerActi
   const qb2 = q("qb2", ["Yes", "No"], "No");
   const treeB = treeFromTexts(["Yes", "No"]);
   const r3b = await findMatchingQuestion(staticBridge, [qb1, qb2], treeB, 2, null);
-  report("[3b] AMBIGUOUS khi 2 candidate cùng khớp full answer-set", r3b.status === "AMBIGUOUS" && r3b.diagnostic.candidates.length === 2, JSON.stringify({ status: r3b.status }));
+  // FIX (2026-09-14, audit theo yêu cầu review): `diagnostic.candidates` không tồn tại - shape thật là
+  // `diagnostic.contentEvidence.candidates` (xem answerSetMatcher.js) - test này crash "Cannot read
+  // properties of undefined" từ trước khi có thay đổi nào ở answerSetMatcher.js (confirm qua git stash).
+  report("[3b] AMBIGUOUS khi 2 candidate cùng khớp full answer-set", r3b.status === "AMBIGUOUS" && r3b.diagnostic.contentEvidence?.candidates?.length === 2, JSON.stringify({ status: r3b.status }));
 
   // [3c] NO_MATCH: chỉ lộ 1 phần đáp án (partial-only, KHÔNG rơi xuống fallback first-fit).
   const qc = q("qc", ["Táo", "Chuối", "Cam"], "Táo");
   const treeC = treeFromTexts(["Táo", "Chuối"]); // thiếu "Cam"
   const r3c = await findMatchingQuestion(staticBridge, [qc], treeC, 3, null);
-  report("[3c] NO_MATCH khi chỉ lộ 2/3 đáp án (partial-only)", r3c.status === "NO_MATCH" && r3c.diagnostic.reason.includes("partial-only"), JSON.stringify({ status: r3c.status, reason: r3c.diagnostic?.reason }));
+  report("[3c] NO_MATCH khi chỉ lộ 2/3 đáp án (partial-only)", r3c.status === "NO_MATCH" && r3c.diagnostic.diagnosticReason.includes("partial-only"), JSON.stringify({ status: r3c.status, reason: r3c.diagnostic?.diagnosticReason }));
 
   // [3d] NO_MATCH: không lộ đáp án dạng text nào + không có image-grid nào trên tree -> fallback first-fit cũng thất bại.
   const qd = q("qd", ["Foo", "Bar"], "Foo");
   const treeD = treeFromTexts(["Hoàn thành", "Tiếp theo"]);
   const r3d = await findMatchingQuestion(staticBridge, [qd], treeD, 4, null);
-  report("[3d] NO_MATCH khi không có text nào khớp và cũng không có image-grid", r3d.status === "NO_MATCH", JSON.stringify({ status: r3d.status, reason: r3d.diagnostic?.reason }));
+  report("[3d] NO_MATCH khi không có text nào khớp và cũng không có image-grid", r3d.status === "NO_MATCH", JSON.stringify({ status: r3d.status, reason: r3d.diagnostic?.diagnosticReason }));
 
   // [3e] examIdContext chỉ ảnh hưởng log, KHÔNG ảnh hưởng status/question trả về.
   const r3e = await findMatchingQuestion(staticBridge, [qa], treeA, 5, { roomExamId: "real-1", candidateExamId: "catalog-1" });

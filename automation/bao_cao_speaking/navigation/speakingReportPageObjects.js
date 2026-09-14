@@ -167,6 +167,86 @@ export function studentScoreBadge(page, studentName) {
   return studentAnswerCard(page, studentName).getByText(/^\d+%$/);
 }
 
+/**
+ * Track A (fingerprint theo từng câu, thêm 2026-09-14) - đọc đúng/sai + % của 1 học sinh cho TỪNG
+ * CÂU (C1..totalQuestions) trong khối "Phân tích lỗi sai" - dùng để đối chiếu với
+ * automation/bai_tap/xemchitietbailam.mjs#readAttemptQuestionFingerprint() (App) khi cần xác nhận
+ * Web đang hiển thị ĐÚNG lượt nào (so overall score không đủ phân biệt 2 lượt hòa điểm - xem
+ * automation/bao_cao_speaking/attemptFingerprint.js).
+ *
+ * ĐÃ XÁC NHẬN THẬT (2026-09-14, room Vocab 11A2, HS "Phuong", 10 câu): với mỗi câu, học sinh CHỈ
+ * xuất hiện ở ĐÚNG 1 trong 2 tab Sai/Đúng - kiểm tra tab Sai trước, nếu không thấy mới kiểm tra tab
+ * Đúng (tránh phải bấm cả 2 tab khi không cần). KHÔNG hard-code totalQuestions - caller truyền vào
+ * (App lấy được số này từ title màn "Xem chi tiết", xem readAttemptQuestionFingerprint()).
+ *
+ * @param {import("@playwright/test").Page} page
+ * @param {string} studentName
+ * @param {number} totalQuestions
+ * @returns {Promise<Array<{questionNumber: number, correct: boolean, percent: number}>>}
+ */
+export async function readStudentQuestionFingerprint(page, studentName, totalQuestions) {
+  const wrongTab = page.getByRole("button", { name: po.wrongTabAny });
+  const correctTab = page.getByRole("button", { name: po.correctTabAny });
+
+  const readTabCount = async (tabLocator) => {
+    const text = await tabLocator.textContent().catch(() => null);
+    const m = text ? /\((\d+)\)/.exec(text) : null;
+    return m ? Number(m[1]) : 0;
+  };
+
+  const results = [];
+  for (let n = 1; n <= totalQuestions; n++) {
+    await questionCell(page, n).click();
+    // SỬA (2026-09-14, FAIL THẬT xác nhận qua chạy live full suite - lần chạy riêng lẻ trước đó
+    // "may mắn" đủ 500ms nhưng chạy trong bộ đầy đủ thì KHÔNG: bắt được cả 2 tab đang hiện "Sai (0)"/
+    // "Đúng (0)" dù room có 3 HS thật đã nộp bài - CÙNG LỚP SỰ CỐ với getScoreDistributionSum() phía
+    // trên, "Sai (N)"/"Đúng (N)" là placeholder TRƯỚC KHI gọi lại question-detail-analytic cho câu
+    // MỚI trả về xong, không phải chờ cố định là đủ). SỬA: poll tới khi TỔNG 2 tab > 0 (đã xác nhận
+    // thật mọi câu trong room này đều có ≥1 HS ở 1 trong 2 tab - "Đã hoàn thành (3)" > 0) thay vì
+    // đoán 1 khoảng chờ cố định.
+    const deadline = Date.now() + 10000;
+    let totalCount = 0;
+    while (Date.now() < deadline) {
+      totalCount = (await readTabCount(wrongTab)) + (await readTabCount(correctTab));
+      if (totalCount > 0) break;
+      await page.waitForTimeout(200);
+    }
+    if (totalCount === 0) {
+      throw new Error(
+        `readStudentQuestionFingerprint: cả 2 tab Sai/Đúng vẫn = 0 sau 10s cho Câu ${n} - ` +
+          "dữ liệu câu hỏi có thể chưa tải xong, hoặc không có HS nào cho câu này.",
+      );
+    }
+
+    // Chuyển tab Sai/Đúng chỉ đổi UI STATE từ dữ liệu ĐÃ tải xong ở bước poll trên (correct_answer_
+    // groups/incorrect_answer_groups cùng về 1 lượt gọi API) - KHÔNG gọi lại network, chỉ cần 1
+    // nhịp ngắn cho React re-render (khác hẳn bước poll ở trên - đó là chờ NETWORK, đây là chờ RENDER).
+    await wrongTab.click();
+    await page.waitForTimeout(150);
+    let correct = null;
+    let percentText = null;
+    if ((await studentAnswerCard(page, studentName).count()) > 0) {
+      correct = false;
+      percentText = await studentScoreBadge(page, studentName).textContent();
+    } else {
+      await correctTab.click();
+      await page.waitForTimeout(150);
+      if ((await studentAnswerCard(page, studentName).count()) > 0) {
+        correct = true;
+        percentText = await studentScoreBadge(page, studentName).textContent();
+      }
+    }
+    if (correct === null || !percentText) {
+      throw new Error(
+        `readStudentQuestionFingerprint: không tìm thấy học sinh "${studentName}" ở CẢ 2 tab ` +
+          `Sai/Đúng cho Câu ${n} - HS có thực sự thuộc room này không?`,
+      );
+    }
+    results.push({ questionNumber: n, correct, percent: Number(percentText.replace("%", "")) });
+  }
+  return results;
+}
+
 /** Trả về true nếu thẻ học sinh (đã lấy qua studentAnswerCard) đang ở trạng thái mở rộng - dựa
  * vào việc khối "Học sinh phát âm là:" có đang hiển thị NGAY SAU thẻ hay không (không dùng CSS
  * class - toàn bộ class trên trang là utility Tailwind tự sinh, không ổn định để bám vào). */

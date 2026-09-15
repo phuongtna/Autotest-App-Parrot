@@ -27,12 +27,28 @@ appId: ${APP_ID}
       OTP: ${OTP}
 
 # ----- 2.1: chụp bằng chứng BEFORE -----
+# LƯU Ý: không dùng runFlow: ../helpers/goto-profile-edit.yaml ở đây - helper đó tự gọi lại
+# open-thong-tin-cac-con.yaml (tap tab "Báo cáo") ngay từ đầu, nhưng ta đã đứng sẵn trên màn
+# "Thông tin các con" (không có tab bar) sau bước ngay trên -> gọi lại sẽ FAILED vì "Báo cáo"
+# không hiển thị ở màn này (xác nhận thật 2026-09-15 khi chạy case này lần đầu). Nên làm tiếp
+# tay các bước còn lại của goto-profile-edit.yaml (bỏ qua bước mở lại "Thông tin các con").
 - runFlow: ../helpers/open-thong-tin-cac-con.yaml
 - takeScreenshot: rkl06_before_profile_list
-- runFlow:
-    file: ../helpers/goto-profile-edit.yaml
-    env:
-      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+- extendedWaitUntil:
+    visible:
+      text: "${PROFILE_WITH_CLASS}"
+    timeout: 15000
+- tapOn:
+    text: "Chỉnh sửa hồ sơ"
+    below: "${PROFILE_WITH_CLASS}"
+- extendedWaitUntil:
+    visible:
+      text: "Hồ sơ học tập"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      text: "Lớp học"
+    timeout: 15000
 - assertVisible: "Rời khỏi lớp"
 - takeScreenshot: rkl06_before_lop_hoc_section
 
@@ -45,7 +61,18 @@ appId: ${APP_ID}
       OTP: ${OTP}
       TARGET_PROFILE_NAME: ${PROFILE_WITH_CLASS}
 - runFlow: ../helpers/open-tab-homework.yaml
-- takeScreenshot: rkl06_before_bai_tap_tab
+- takeScreenshot: rkl06_before_bai_tap_tab_2tuan
+
+# Chụp thêm bộ lọc "1 tháng gần nhất" - cần cho TC_19 (rejoin) đối chiếu đúng bài quá hạn/chưa quá
+# hạn có hiện lại đúng không sau khi vào lại lớp. Chỉ chụp mặc định "2 tuần gần nhất" là không đủ
+# vì cửa sổ đó trôi theo thời gian thực giữa lúc rời và lúc rejoin (xác nhận thật 2026-09-15).
+- tapOn:
+    text: ".*gần nhất.*"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+- runFlow: ../helpers/homework-select-month-filter.yaml
+- takeScreenshot: rkl06_before_bai_tap_tab_1thang
 
 # ----- 2.2: bấm Rời khỏi lớp > Đồng ý (RỜI LỚP THẬT) -----
 - runFlow:
@@ -67,16 +94,28 @@ appId: ${APP_ID}
 - takeScreenshot: rkl06_after_leave_result
 
 # ----- 2.3: kiểm tra sau khi rời (TC_07, TC_08, TC_09) -----
+# Sau khi tap "Đồng ý", app vẫn đứng trên màn "Hồ sơ học tập" (không tự điều hướng đi đâu) - cần
+# launch-keep-session.yaml để về lại tab bar trước khi mở "Thông tin các con" (cùng lý do đã ghi
+# ở khối 2.1 phía trên: open-thong-tin-cac-con.yaml cần đứng trên tab bar mới tap được "Báo cáo").
+- runFlow: ../helpers/launch-keep-session.yaml
 - runFlow: ../helpers/open-thong-tin-cac-con.yaml
 - assertVisible:
     text: "Chưa tham gia lớp học"
     below: "${PROFILE_WITH_CLASS}"
 - takeScreenshot: rkl06_tc07_status_changed
 
-- runFlow:
-    file: ../helpers/goto-profile-edit.yaml
-    env:
-      PROFILE_NAME: ${PROFILE_WITH_CLASS}
+# Không dùng goto-profile-edit.yaml (lý do giống khối 2.1) - đã đứng sẵn trên "Thông tin các con".
+- extendedWaitUntil:
+    visible:
+      text: "${PROFILE_WITH_CLASS}"
+    timeout: 15000
+- tapOn:
+    text: "Chỉnh sửa hồ sơ"
+    below: "${PROFILE_WITH_CLASS}"
+- extendedWaitUntil:
+    visible:
+      text: "Hồ sơ học tập"
+    timeout: 15000
 - assertVisible: "Chọn trường"
 - assertVisible: "Chọn khối"
 - assertNotVisible: "Rời khỏi lớp"
@@ -89,8 +128,16 @@ appId: ${APP_ID}
       OTP: ${OTP}
       TARGET_PROFILE_NAME: ${PROFILE_WITH_CLASS}
 - runFlow: ../helpers/open-tab-homework.yaml
-- takeScreenshot: rkl06_tc09_bai_tap_sau_khi_roi
-# Đối chiếu thủ công ảnh rkl06_before_bai_tap_tab vs rkl06_tc09_bai_tap_sau_khi_roi: số bài của
+- takeScreenshot: rkl06_tc09_bai_tap_sau_khi_roi_2tuan
+
+- tapOn:
+    text: ".*gần nhất.*"
+- extendedWaitUntil:
+    visible: ".*(Xem bài tập theo).*"
+    timeout: 10000
+- runFlow: ../helpers/homework-select-month-filter.yaml
+- takeScreenshot: rkl06_tc09_bai_tap_sau_khi_roi_1thang
+# Đối chiếu thủ công ảnh rkl06_before_bai_tap_tab_2tuan/_1thang vs rkl06_tc09_bai_tap_sau_khi_roi_2tuan/_1thang: số bài của
 # lớp vừa rời phải biến mất/giảm đúng. Không assert cứng số lượng vì phụ thuộc dữ liệu bài tập
 # thật tại thời điểm chạy (xem TEST-CASES data-dependent convention ở flows/app/bai_tap).
 
@@ -99,6 +146,8 @@ appId: ${APP_ID}
 - assertVisible: "${PROFILE_OTHER}"
 - takeScreenshot: rkl06_tc13_other_profile_unaffected
 
+# Về lại tab bar trước khi mở Thông báo (đang đứng trên "Thông tin các con" từ khối 2.4 trên).
+- runFlow: ../helpers/launch-keep-session.yaml
 - runFlow: ../helpers/open-notification.yaml
 - takeScreenshot: rkl06_tc21_notifications_preserved
 # Đối chiếu thủ công: danh sách thông báo cũ liên quan lớp vừa rời vẫn còn, không có lỗi hiển thị

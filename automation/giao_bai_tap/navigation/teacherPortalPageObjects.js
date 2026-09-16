@@ -80,4 +80,9 @@ export const teacherPortalPageObjects = {
     confirmButton: "Xóa",
     cancelButton: "Hủy",
   },
+
+  // Field "Nguồn bài tập" ("Bộ sách Kết nối tri thức" / "Kho bài tập cá nhân") - selector riêng
+  // cho phần "Kho bài tập cá nhân" nằm ở module con
+  // automation/giao_bai_tap/kho_bai_tap_ca_nhan/navigation/sourcePageObjects.js (không đặt ở đây
+  // để tách biệt code của tính năng mới, không lẫn vào page object dùng chung của "Giao bài tập").
 };

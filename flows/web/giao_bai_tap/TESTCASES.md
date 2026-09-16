@@ -230,6 +230,23 @@ xong. Đã chạy live 2 lần liên tiếp (2026-08-27), cả 2 đều FAIL đ�
 
 ---
 
+---
+
+## TC7: Field "Nguồn bài tập" mới - "Bộ sách Kết nối tri thức" / "Kho bài tập cá nhân"
+
+Tính năng "Kho bài tập cá nhân" là 1 tính năng riêng, đủ lớn (nguồn:
+`TestCase_GiaoBaiTap_KhoBaiTapCaNhan.xlsx`, 30 test case) nên tách thành module con của
+`giao_bai_tap` thay vì gộp vào các file dùng chung ở đây:
+
+- Code: `automation/giao_bai_tap/kho_bai_tap_ca_nhan/navigation/sourcePageObjects.js` (selector) +
+  `flows/web/giao_bai_tap/kho_bai_tap_ca_nhan/source-selector.spec.js` (Playwright Test runner
+  thật - KHÁC quy ước CLI/`node` của các flow khác trong `giao_bai_tap`, xem lý do trong TESTCASES
+  của module con).
+- Config riêng: `automation/playwright.kho-bai-tap-ca-nhan.config.js`
+  (`npm run test-kho-bai-tap-ca-nhan-pw` trong `automation/`).
+- Test case chi tiết + kết quả ĐÃ XÁC NHẬN THẬT: xem
+  `flows/web/giao_bai_tap/kho_bai_tap_ca_nhan/TESTCASES.md`.
+
 <!--
 Copy khối "## TCx" bên trên để thêm case mới.
 Có thể ghi thêm dữ liệu test cần dùng (tài khoản GV, lớp, Unit/Lesson...) ngay trong case -

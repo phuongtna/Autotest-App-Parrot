@@ -16,6 +16,7 @@
     "assign-list-filter-class": "node ../flows/web/giao_bai_tap/e2e-assigned-list-filter-by-class.mjs",
     "open-student-result": "node ../flows/web/giao_bai_tap/e2e-open-student-result.mjs",
     "verify-average-score": "node ../flows/web/giao_bai_tap/e2e-verify-average-score.mjs",
+    "test-kho-bai-tap-ca-nhan-pw": "playwright test --config=playwright.kho-bai-tap-ca-nhan.config.js",
     "verify-assigned-homework-scored-cross-check": "node bai_tap/verifyAssignedHomeworkScoredCrossCheck.mjs",
     "capture-assignment-snapshot": "node giao_bai_tap/classAssignmentSnapshotCli.js",
     "compare-assignment-snapshot": "node giao_bai_tap/compareAssignmentSnapshotCli.js",

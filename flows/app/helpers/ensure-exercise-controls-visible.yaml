@@ -46,8 +46,33 @@
 # man hinh, khong the vua ca dau tren lan dau duoi cung lat (gioi han vat ly cua thiet bi/UI,
 # khong phai loi cua co che scroll nay) - chi CANH BAO bang screenshot, KHONG chan flow (buoc
 # tapOn ke tiep van co the thanh cong tren control da visible).
+#
+# PHASE A - cuon het NOI DUNG (doan van/dap an), doc lap voi viec tim CONTROL (them 2026-09-17,
+# theo yeu cau "noi dung khong hien het thi cho phep scroll de hien thi" - dung tinh than Phase A/
+# Phase B cua spec 20-diem da lam trong homeworkExamEngine.js/runtime handlers, ban YAML dispatcher
+# nay TRUOC DAY chi co Phase B (neo theo CONTROL_ID, xem block duoi) nen cau hoi/doan van dai co the
+# chi "luot qua" trong luc cuon toi control chu khong chac chan da hien du). KHONG dung runScript o
+# day (xem feedback_maestro_test_single_file_runscript_env_bug - `maestro test` 1 file bi loi voi
+# BAT KY buoc runScript nao trong session nay) nen KHONG the so sanh 2 lan doc hierarchy de tu biet
+# "het noi dung chua cuon duoc nua" - dung so lan lap CO DINH, du de vuot qua noi dung dai nhat da
+# gap (doan van + 3+ cho trong + dap an), cac lan cuon du sau khi thuc su het noi dung se la no-op
+# (UI tu bounce/dung o day cuoi danh sach, khong loi) nen an toan ca voi cau hoi ngan. Chi 2
+# screenshot truoc/sau (khong chup MOI buoc lap - takeScreenshot cung 1 ten tinh lap 6 lan se
+# ghi de nhau, khong co gia tri, chua ke chua kiem chung Maestro co cho ghi de ten trung hay khong).
 appId: ${APP_ID}
 ---
+- takeScreenshot: PHASE_A_before_content_reveal
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: 50%, 80%
+          end: 50%, 30%
+          duration: 400
+- takeScreenshot: PHASE_A_after_content_reveal
+# PHASE B - dam bao CONTROL_ID (control cuoi cung) hien thi truoc khi tapOn (giu nguyen logic goc -
+# sau Phase A o tren, container thuong da o day/gan day cuoi that su nen vong lap nay thuong 0 lan
+# lap; van giu lai lam luoi an toan cho truong hop Phase A chua toi dung vi tri vi ly do UI khac).
 - repeat:
     while:
       notVisible:

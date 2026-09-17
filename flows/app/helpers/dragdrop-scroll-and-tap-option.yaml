@@ -1,0 +1,21 @@
+# Helper dung chung boi answer-drag-drop-question.yaml: cuon dua 1 option DRAG_DROP cu the
+# (theo OPTION_INDEX) vao khung hinh TRUOC khi tap, thay vi tapOn thang (co the FAIL neu app da
+# tu cuon lai ve dau doan van sau lan dien truoc - xem docblock answer-drag-drop-question.yaml).
+#
+# THAM SO (bat buoc, do caller truyen qua runFlow.env): OPTION_INDEX - so nguyen 0-5.
+#
+# optional:true tren ca 2 buoc: option co the KHONG TON TAI (it cho trong hon 6) hoac DA DUNG
+# (id da doi thanh "..._used", khong con khop id goc nua) - ca 2 truong hop deu la BINH THUONG,
+# khong phai loi, nen bo qua em thay vi chan flow.
+appId: ${APP_ID}
+---
+- scrollUntilVisible:
+    element:
+      id: "exercise_dragdrop_option_${OPTION_INDEX}"
+    direction: DOWN
+    timeout: 8000
+    speed: 60
+    optional: true
+- tapOn:
+    id: "exercise_dragdrop_option_${OPTION_INDEX}"
+    optional: true

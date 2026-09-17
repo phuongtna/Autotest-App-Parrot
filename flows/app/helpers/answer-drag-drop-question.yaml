@@ -25,33 +25,51 @@
 # Day la ly do cac handler cu (automation/bridge|runtime/handlers/dragDropHandler.js) tung throw
 # "can swipe, chua verify" - gia dinh do SAI, it nhat voi bien the UI nay.
 #
-# GIOI HAN CHUA VERIFY (khong bia them): fixture dung de test chi co DUY NHAT 1 cho trong (1
-# zone). Truong hop nhieu cho trong cung luc (vd exam khac tung thay: "What ___ you ___ to do
-# ___ summer?" 3 cho trong, 5 lua chon) CHUA duoc verify thu tu dien - handler duoi day GIA DINH
-# tap lan luot cac option theo index se dien lan luot vao tung zone theo dung thu tu xuat hien
-# (cung logic voi vong lap CHOICE/CONNECT da co trong dispatcher) - neu sau nay phat hien gia
-# dinh nay sai (vd dien sai zone), sua LAI CHINH file nay voi bang chung moi, KHONG doan tiep.
+# GIOI HAN CHUA VERIFY (2026-08-12) - DA VERIFY THAT VOI BANG CHUNG MOI (2026-09-17, xem duoi):
+# fixture dung de test ban dau chi co DUY NHAT 1 cho trong (1 zone). Truong hop nhieu cho trong
+# cung luc DA duoc kiem chung that (fixture "G8U1_Looking back 2_BTNC", 4 cho trong (1)-(4), 4
+# lua chon cau) qua maestro hierarchy + adb input tap + screenshot truc tiep (khong doan):
+#   - Tap dung 1 option (vd exercise_dragdrop_option_0) DIEN DUNG cau vao dung 1 cho trong tuong
+#     ung (xac nhan qua screenshot: cau duoc highlight xanh dung vi tri (1)) - gia dinh "tap theo
+#     index se dien dung thu tu" la DUNG cho tung lan tap rieng le.
+#   - PHAT HIEN MOI QUAN TRONG: sau MOI lan dien dung, app TU DONG cuon lai VE GAN DAU doan van
+#     (UX "cho xem vua dien gi") - khien exercise_dragdrop_options (nam cuoi doan van, gan nut
+#     Kiem tra/Tiep theo) bi day ra NGOAI khung hinh. Tap ke tiep vao option_{i} tiep theo (van
+#     con id do trong cay, KHONG bi xoa/danh so lai - xac nhan qua hierarchy: option da dung doi
+#     ten thanh "_used", option chua dung GIU NGUYEN index goc, khong re-index ve 0) se FAIL/
+#     WARNED neu no dang ngoai khung hinh - day chinh la nguyen nhan lam ban ghi log 2026-09-04
+#     dung o giua chung (option_0 COMPLETED, cac option con lai WARNED lien tuc, vong lap ngoai
+#     "times: 25" chay het ma khong bao gio dien xong).
+#   - SUA: moi lan tap 1 option, scrollUntilVisible option do TRUOC (optional, timeout ngan - neu
+#     option khong ton tai [it cho trong hon 6], se bo qua êm, khong chan flow) thay vi tapOn
+#     thang khi khong chac chan dang trong khung hinh.
 #
 # Khong verify dung/sai (khong biet dap an nao dung tu testID) - dung tinh than "generic
-# lifecycle" giong CHOICE/CONNECT: chi can dien HET cac cho trong de nut Kiem tra bat sang va
-# di duoc sang cau tiep theo, khong quan tam co dung hay khong.
+# lifecycle" giong CHOICE/CONNECT: chi can dien HET cac cho trong de nut Kiem tra/Tiep theo bat
+# sang va di duoc sang cau tiep theo, khong quan tam co dung hay khong.
 appId: ${APP_ID}
 ---
-- tapOn:
-    id: "exercise_dragdrop_option_0"
-    optional: true
-- tapOn:
-    id: "exercise_dragdrop_option_1"
-    optional: true
-- tapOn:
-    id: "exercise_dragdrop_option_2"
-    optional: true
-- tapOn:
-    id: "exercise_dragdrop_option_3"
-    optional: true
-- tapOn:
-    id: "exercise_dragdrop_option_4"
-    optional: true
-- tapOn:
-    id: "exercise_dragdrop_option_5"
-    optional: true
+- runFlow:
+    file: dragdrop-scroll-and-tap-option.yaml
+    env:
+      OPTION_INDEX: "0"
+- runFlow:
+    file: dragdrop-scroll-and-tap-option.yaml
+    env:
+      OPTION_INDEX: "1"
+- runFlow:
+    file: dragdrop-scroll-and-tap-option.yaml
+    env:
+      OPTION_INDEX: "2"
+- runFlow:
+    file: dragdrop-scroll-and-tap-option.yaml
+    env:
+      OPTION_INDEX: "3"
+- runFlow:
+    file: dragdrop-scroll-and-tap-option.yaml
+    env:
+      OPTION_INDEX: "4"
+- runFlow:
+    file: dragdrop-scroll-and-tap-option.yaml
+    env:
+      OPTION_INDEX: "5"

@@ -416,6 +416,64 @@ hardcode tên Unit/Lesson cụ thể - dữ liệu dev có thể đổi), tick 2
 "Chỉnh sửa giao bài tập" (pattern giống hệt TC034) để không cộng dồn rác mỗi lần chạy regression.
 Xác nhận LIVE PASS 2026-09-16 (tài khoản Phương, lớp 11A2).
 
+## TH1/TH2 (bổ sung 2026-09-17, KHÔNG có trong xlsx gốc): sửa tên đề trong Kho bài tập cá nhân
+
+Yêu cầu bổ sung của user: kiểm tra tiêu đề hiển thị ở "Bài tập đã giao" (web + app) khi sửa TÊN ĐỀ
+của 1 item trong Kho bài tập cá nhân, tuỳ theo THỜI ĐIỂM sửa so với thời điểm giao bài:
+- **TH1**: đã giao bài (tiêu đề CŨ) -> sửa tên đề -> "Bài tập đã giao" VẪN hiển thị tiêu đề CŨ.
+- **TH2**: sửa tên đề TRƯỚC -> giao bài -> "Bài tập đã giao" hiển thị tiêu đề MỚI.
+
+Tự động hoá bằng Playwright Test (PHÍA WEB) -
+`flows/web/giao_bai_tap/kho_bai_tap_ca_nhan/source-title-edit-propagation.spec.js`, cùng config
+`playwright.kho-bai-tap-ca-nhan.config.js` (KHÔNG destructive - sửa tên đề CÓ THỂ phục hồi, mỗi test
+tự phục hồi `SOURCE_ITEM_TITLE` gốc trong khối `finally` + tự xoá bản ghi "Bài tập đã giao" vừa tạo
+qua đúng flow TC034, nên nằm chung config với các spec an toàn khác, không cần config destructive
+riêng như TC033).
+
+**ĐÃ XÁC NHẬN THẬT 2 LẦN (2026-09-17)** - lần 1 thao tác tay qua browser (trước khi viết spec, để
+biết chắc UI + endpoint thật), lần 2 chạy chính spec tự động hoá (PASS 2/2, ~61s), tài khoản GV
+Phương `0915315315`, lớp 11A2, item `3fea1b0a-8d30-49c4-87ff-dfe41d26d541` ("Choose the word whose
+underlined part is pronounced differently from the others.", Khối 11 > UNIT 2: OUTDOOR ACTIVITY >
+Other/PRONUNCIATION - item DÙNG CHUNG với nhiều spec khác trong module, an toàn vì luôn phục hồi
+tên gốc ngay sau mỗi test):
+- **TH1 ĐÚNG như kỳ vọng (không phải bug)**: giao bài xong (room `710759fa-...`, tiêu đề gốc) rồi
+  sửa tên đề thành `...[TH1-EDITED]` -> "Bài tập đã giao" VẪN hiển thị tiêu đề GỐC, không đổi theo -
+  xác nhận NGAY LẬP TỨC (không có độ trễ cache như bug TC033 cũ).
+- **TH2 ĐÚNG như kỳ vọng**: sửa tên đề thành `...[TH1-EDITED]` TRƯỚC, rồi giao bài MỚI (room
+  `53eb53f7-...`) -> "Bài tập đã giao" hiển thị ĐÚNG tiêu đề MỚI đó.
+- Kết luận: "Bài tập đã giao" đọc "tên bài" như 1 **SNAPSHOT tại thời điểm giao** (không link sống
+  tới tên đề gốc trong Kho bài tập cá nhân) - sửa tên đề chỉ ảnh hưởng các lượt giao MỚI SAU thời
+  điểm sửa, không ảnh hưởng ngược lại các bản ghi đã giao trước đó.
+
+**Phát hiện kiến trúc (khảo sát Network lúc thao tác tay)**: lưu "Tên đề" ở
+`/teacher/quiz/{id}/edit` gọi `PATCH .../api/user/exams/update_room.json` - cùng họ endpoint
+"exams"/"room" với "Bài tập đã giao" (`GET .../api/user/exams/room.json`, xem
+`automation/bai_tap/discovery/homeworks.js`), và còn kéo theo `PUT
+.../api/user/materials/lesson-items/{lessonItemId}` - xác nhận thêm chuỗi id 3 tầng cho CÙNG 1 item:
+`quiz id` (URL "Sửa nội dung đề") -> `room id` nội bộ -> `lesson-item id` (= id checkbox
+`lesson-item-{id}` ở form "Giao bài tập") - cùng loại kiến trúc "1 nội dung, nhiều id theo màn hình"
+đã ghi nhận ở TC011/TC033.
+
+**GIỚI HẠN - CHƯA verify phía APP**: user xác nhận thiết bị test đang dùng cho môi trường
+production tại thời điểm viết (2026-09-17), nên KHÔNG chuyển profile/tài khoản trên thiết bị để
+kiểm tra - để lại làm sau, cùng loại gap với TC023 (cần 1 flow Maestro riêng, tái dùng
+`collectVisibleHomeworkCards()`/`automation/bai_tap/discovery/homeworkUiList.js` để đọc tiêu đề card
+thật hiển thị trên app học sinh "Hoang Gia Minh"/`0987652170`/11A2, đối chiếu game/due-date để định
+vị đúng room).
+
+Chạy:
+```
+cd automation
+SOURCE_BASE_URL="https://parrotedu.codeinet.com" SOURCE_USERNAME="0915315315" \
+SOURCE_PASSWORD="123456789" SOURCE_PERSONAL_BANK_CLASS="11A2" \
+SOURCE_ITEM_ID_FOR_TITLE_EDIT="3fea1b0a-8d30-49c4-87ff-dfe41d26d541" \
+SOURCE_ITEM_TITLE="Choose the word whose underlined part is pronounced differently from the others." \
+SOURCE_ITEM_UNIT="UNIT 2: OUTDOOR ACTIVITY" SOURCE_ITEM_ASSIGN_LESSON="Other" \
+npx playwright test --config=playwright.kho-bai-tap-ca-nhan.config.js source-title-edit-propagation
+```
+
+---
+
 ## TC010/023/026/027 (chưa tự động hoá)
 
 Xem plan gốc (`plan_KHOBAITAP.md`) mục 1 nhóm 3/6/7 để biết phân loại/độ ưu tiên.

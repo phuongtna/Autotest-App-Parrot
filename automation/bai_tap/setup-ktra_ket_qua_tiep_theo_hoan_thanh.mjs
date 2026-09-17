@@ -181,9 +181,25 @@ function computeScoringPlanInRange(questions, range) {
       totalPointsRaw,
     };
   }
-  const targetScore = range.min === range.max ? range.min : inRange[Math.floor(Math.random() * inRange.length)];
-  const scaledSum = scaledSumForScore(plan.scaledTotal, targetScore);
-  if (scaledSum === null) {
+  // FIX (2026-09-17, live-confirmed thật trên 1 bài 9 scored items): trước đây round-trip qua
+  // `scaledSumForScore(plan.scaledTotal, targetScore)` dùng LẠI targetScore đã bị làm tròn 6 chữ số
+  // của achievableScoresList() (vd 6.666667 cho bài 9 câu) - phép nhân ngược `(score*scaledTotal)/10`
+  // KHÔNG khớp lại đúng số nguyên scaledSum gốc trong sai số 1e-6, nên bài NÀO có tổng số item không
+  // chia hết 10 (9, 7, 3...) gần như LUÔN bị BLOCKED giả ở target không phải 2 đầu mút - không phải
+  // lỗi hiếm, mà lỗi CHẮC XẢY RA cho mọi target lẻ của các bài này. Sửa: giữ NGUYÊN `achievableScaledSums`
+  // (số nguyên, không mất chính xác) làm nguồn chọn target, chỉ dùng bản làm tròn để HIỂN THỊ - không
+  // đổi DP subset-sum/achievableScoresList()/scaledSumForScore() (vẫn dùng scaledSumForScore() khi
+  // range.min===range.max, cùng hành vi cũ).
+  let targetScore, scaledSum;
+  if (range.min === range.max) {
+    targetScore = range.min;
+    scaledSum = scaledSumForScore(plan.scaledTotal, targetScore);
+  } else {
+    const inRangeScaledSums = plan.achievableScaledSums.filter((s) => scoreInRange(Math.round(((s / plan.scaledTotal) * 10) * 1e6) / 1e6, range));
+    scaledSum = inRangeScaledSums[Math.floor(Math.random() * inRangeScaledSums.length)];
+    targetScore = Math.round(((scaledSum / plan.scaledTotal) * 10) * 1e6) / 1e6;
+  }
+  if (scaledSum === null || scaledSum === undefined) {
     return {
       achievable: false,
       reason: `Target ${targetScore} không rơi đúng vào mốc điểm nguyên nào theo scale nội bộ (bất thường - đã lọc từ achievableScores).`,
@@ -475,9 +491,25 @@ async function scanExistingIncompleteCards(bridge, { maxScrolls = 20, maxStallRe
 
 /** Resolve room_id cho 1 card ĐÃ TỒN TẠI SẴN (khác bài mới giao - không có itemId biết trước) bằng
  * identity (title, hạn nộp DD/MM) - CÙNG identity `flows/app/helpers/open-exercise.yaml` đã dùng.
- * >1 match cùng identity - KHÔNG đoán, trả về để caller tự bỏ qua candidate đó (log rõ lý do). */
-function resolveExistingRoomForCard(title, dueDm, allHomeworks) {
-  const matches = allHomeworks.filter((h) => h.title === title && isoToDueDateDM(h.deadline.endTime) === dueDm);
+ *
+ * FIX (2026-09-17, live-confirmed qua room_details thật - class 8D có nhiều room title+hạn nộp
+ * TRÙNG NHAU thật, không phải lỗi API): title+hạn nộp trùng không luôn nghĩa là KHÔNG thể phân biệt
+ * - CTA thật của card ("Làm bài" và không có dòng progress = chưa ai trong lượt chạy này từng đụng
+ * room đó; "Tiếp tục"/progress N>0 = đang có 1 attempt "doing" thật) đã tự mã hoá đúng room nào khớp:
+ *   - Card KHÔNG resume (scoreControlled=true, CTA "Làm bài"/"Chinh phục" mới): loại các match đã có
+ *     bất kỳ attempt "done" nào (room đó với card này sẽ hiện "Làm lại", không phải "Làm bài") - còn
+ *     lại ĐÚNG 1 match (room chưa ai hoàn thành) thì dùng, không phải đoán.
+ *   - Card resume (scoreControlled=false, có progress N>0): loại các match KHÔNG có attempt "doing"
+ *     nào (room đó chưa từng mở thì không thể là room đang "Tiếp tục").
+ * Nếu sau khi lọc vẫn còn >1 (hoặc còn 0) - THẬT SỰ ambiguous, vẫn KHÔNG đoán, trả về nguyên như cũ. */
+function resolveExistingRoomForCard(title, dueDm, allHomeworks, { scoreControlled } = {}) {
+  let matches = allHomeworks.filter((h) => h.title === title && isoToDueDateDM(h.deadline.endTime) === dueDm);
+  if (matches.length > 1 && scoreControlled !== undefined) {
+    const hasDoneAttempt = (h) => Array.isArray(h.attempts) && h.attempts.some((a) => a.status === "done");
+    const hasDoingAttempt = (h) => Array.isArray(h.attempts) && h.attempts.some((a) => a.status === "doing");
+    const filtered = scoreControlled ? matches.filter((h) => !hasDoneAttempt(h)) : matches.filter((h) => hasDoingAttempt(h));
+    if (filtered.length >= 1 && filtered.length < matches.length) matches = filtered;
+  }
   return { matches, unique: matches.length === 1, room: matches.length === 1 ? matches[0] : null };
 }
 
@@ -717,13 +749,46 @@ async function main() {
 
     const allHomeworks = await getHomeworks({ period: "MONTH" });
     const queue = [];
+    // Đếm số lần ĐÃ dùng fallback "nội dung giống hệt" cho CÙNG 1 (title, hạn nộp) - nếu candidateCards
+    // có N card trùng identity đó (N phiên bản vật lý riêng biệt trên UI, xem docblock fallback bên
+    // dưới), PHẢI gán cho MỖI card 1 room_id KHÁC nhau trong số các match (xoay vòng theo index) -
+    // nếu gán CÙNG room_id cho cả N card, `remaining` (Map khoá theo roomId, xem vòng lặp [4/4] bên
+    // dưới) sẽ tự sụp 2 entry queue thành 1, làm mất dấu vết N-1 bài vật lý còn lại - CONFIRMED thật
+    // 2026-09-17: "G8U1_Pronunciation_BTCB" có 2 room "doing" song song nội dung giống hệt, dùng
+    // room[0] cho CẢ 2 candidate khiến remaining chỉ còn 1 entry - app tự "Tiếp theo" sang room thứ 2
+    // (roomId KHÁC) thì content-match với hàng đợi (đã cạn) báo CONTENT_MISMATCH oan.
+    const sameContentPickIndex = new Map();
     for (const card of candidateCards) {
       const dueDm = card.dueDate.replace(/^Hạn nộp /, "").replace(/\s*\(QUÁ HẠN\)$/, "");
       queueSummary.push({ title: card.title, dueDate: card.dueDate, cta: card.cta, progress: card.progress, scoreControlled: card.scoreControlled });
-      const { matches, unique, room } = resolveExistingRoomForCard(card.title, dueDm, allHomeworks);
+      const { matches, unique, room: uniqueRoom } = resolveExistingRoomForCard(card.title, dueDm, allHomeworks, { scoreControlled: card.scoreControlled });
+      let room = uniqueRoom;
       if (!unique) {
-        log(`  [SKIP] "${card.title}" (hạn nộp ${dueDm}) - room_id không unique (${matches.length} match) - bỏ qua, không đoán.`);
-        continue;
+        // FIX (2026-09-17, live-confirmed thật): >1 match vẫn có thể AN TOÀN dùng ĐƯỢC nếu CHÍNH
+        // NỘI DUNG (câu hỏi + đáp án CMS) của TỪNG match giống HỆT nhau - lúc đó dùng room nào trong
+        // số đó cũng cho đúng answer-key giống nhau, KHÔNG phải đoán "room nào là room THẬT trên
+        // màn hình" vì kết quả trả lời không phụ thuộc việc chọn room nào. Case gặp thật: 1 lesson
+        // item bị giao/mở trùng 2 room song song (cùng exam), cả 2 đều "doing" bởi cùng học sinh.
+        const resolvedAll = [];
+        for (const m of matches) {
+          const r = await resolveHomeworkExamQuestionsForRoomIdCachedWithRetry(m.id);
+          resolvedAll.push(r.status === "RESOLVED" ? r.questions : null);
+        }
+        const allSameContent =
+          resolvedAll.every((qs) => Array.isArray(qs)) &&
+          resolvedAll.every((qs) => JSON.stringify(qs.map((q) => [q.question, q.answers, q.correctAnswer])) === JSON.stringify(resolvedAll[0].map((q) => [q.question, q.answers, q.correctAnswer])));
+        if (allSameContent) {
+          const key = `${card.title}|${dueDm}`;
+          const pickIndex = sameContentPickIndex.get(key) ?? 0;
+          sameContentPickIndex.set(key, pickIndex + 1);
+          room = matches[pickIndex % matches.length];
+          log(
+            `  [OK] "${card.title}" (hạn nộp ${dueDm}) - ${matches.length} room match nhưng NỘI DUNG CMS giống hệt nhau - dùng room[${pickIndex % matches.length}]=${room.id} (không ảnh hưởng answer-key, xoay vòng để KHÔNG trùng room_id với card cùng identity khác trong hàng đợi).`,
+          );
+        } else {
+          log(`  [SKIP] "${card.title}" (hạn nộp ${dueDm}) - room_id không unique (${matches.length} match, nội dung KHÁC nhau) - bỏ qua, không đoán.`);
+          continue;
+        }
       }
       const resolved = await resolveHomeworkExamQuestionsForRoomIdCachedWithRetry(room.id);
       if (resolved.status !== "RESOLVED") {
@@ -769,7 +834,7 @@ async function main() {
     }
     if (queue.length === 0) {
       throw new Error(
-        `BLOCKED_NO_USABLE_EXISTING_EXERCISE: ${freshCards.length} candidate ứng viên nhưng KHÔNG cái nào qua được resolve room/CMS/scoring - xem log [SKIP] phía trên.`,
+        `BLOCKED_NO_USABLE_EXISTING_EXERCISE: ${candidateCards.length} candidate ứng viên nhưng KHÔNG cái nào qua được resolve room/CMS/scoring - xem log [SKIP] phía trên.`,
       );
     }
 

@@ -178,15 +178,35 @@ test.describe.serial("Kho bài tập cá nhân > Xóa bài đã từng giao (TC0
 
     // FIX (2026-09-16, FAIL thật - xpath ancestor:: qua getByText locator hang tới hết test
     // timeout, không rõ nguyên nhân chính xác): dùng lại NGUYÊN kỹ thuật đã kiểm chứng thật bằng
-    // tay qua javascript_tool (tìm leaf node chứa đúng tiêu đề, leo lên 2 cấp, lọc đúng button có
-    // icon lucide-trash2) thay vì dựng lại bằng Playwright locator/xpath.
+    // tay qua javascript_tool (tìm leaf node chứa đúng tiêu đề, leo lên tìm button có icon
+    // lucide-trash2) thay vì dựng lại bằng Playwright locator/xpath.
+    //
+    // FIX (2026-09-17, FAIL thật xác nhận trên staging, tài khoản 0912312312/lớp 5D, Lesson
+    // "PRONUNCIATION" có 2 item): `titleEl.closest("div")?.parentElement` LUÔN leo đúng 1 cấp cố
+    // định - khi 2 item nằm cạnh nhau trong cùng Lesson, cấp cố định đó có thể là 1 container BAO
+    // CẢ 2 item (không riêng item đang match title), khiến `row.querySelectorAll("button").find()`
+    // luôn trả về nút xóa của item ĐẦU TIÊN trong danh sách bất kể ITEM_TITLE nào được truyền vào -
+    // đã bắt được nhờ chính bước đối chiếu tiêu đề trong dialog xác nhận ngay sau đó (không xóa
+    // nhầm dữ liệu thật). SỬA: leo dần từng cấp từ titleEl, dừng lại ở ancestor GẦN NHẤT chứa ĐÚNG
+    // 1 nút có icon lucide-trash2 - đảm bảo phạm vi "row" luôn ứng với riêng item đang match, không
+    // phụ thuộc số cấp cố định.
     const clicked = await page.evaluate((title) => {
       const titleEl = Array.from(document.querySelectorAll("*")).find(
         (el) => el.children.length === 0 && el.textContent.trim().includes(title),
       );
       if (!titleEl) return false;
-      const row = titleEl.closest("div")?.parentElement;
-      const trashBtn = row && Array.from(row.querySelectorAll("button")).find((b) => b.querySelector("svg.lucide-trash2"));
+      let node = titleEl;
+      let trashBtn = null;
+      for (let i = 0; i < 8 && node; i++) {
+        const trashButtons = Array.from(node.querySelectorAll("button")).filter((b) =>
+          b.querySelector("svg.lucide-trash2"),
+        );
+        if (trashButtons.length === 1) {
+          trashBtn = trashButtons[0];
+          break;
+        }
+        node = node.parentElement;
+      }
       if (!trashBtn) return false;
       trashBtn.click();
       return true;

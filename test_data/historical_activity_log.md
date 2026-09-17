@@ -888,3 +888,17 @@ cáo tuần = [Thứ 7, Thứ 7+6 ngày=Thứ 6]. Áp dụng lại với hôm na
   (xem giả thuyết (a)/(b)/(c) ở trên - giả thuyết (b) nay có thể loại bỏ vì ranh giới tuần
   đã xác nhận đúng qua rule user cung cấp; còn lại (a) tính riêng thời gian tương tác thật
   và (c) phiên/hoạt động thiếu sót trong log là 2 hướng khả dĩ nhất).
+
+## ĐÍNH CHÍNH — lỗi đếm cộng dồn số room (phát hiện qua user hỏi lại, 2026-09-17)
+
+Các dòng "tổng kết session" ở trên bị SAI ở bước cộng dồn: tổng kết session #3
+(dòng ~617-628) ghi "3 room mới trong session này (tổng cộng 7 room qua 2 ngày)" nhưng
+session #3 (09/10) thực tế chỉ có **2 room mới** (ea84dfc3, c74983d5) — room 90a94466
+được liệt kê cùng nhóm "3 room trong tuần" nhưng đó là room ĐÃ giao từ session #2
+(09/09), không phải room mới của session #3. Lỗi cộng dồn 4→7 (đáng lẽ 4→6) kéo theo
+tổng kết session #4 cũng sai theo ("tổng cộng 9 room qua 4 session", đáng lẽ 8).
+
+**Số room thật, đếm lại theo từng room_id duy nhất (05/09-11/09/2026):**
+48819f9f, 2bb7600b, d6ec3edd, 90a94466, ea84dfc3, c74983d5, 47e67474, 8510bfea =
+**8 room**, không phải 9. Không có room ẩn nào ngoài 8 room đã liệt kê chi tiết ở các
+activity phía trên — chỉ là lỗi số học ở dòng tổng kết, dữ liệu activity gốc vẫn đúng.

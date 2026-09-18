@@ -5,12 +5,20 @@ import { resolveAndSelectUnit, resolveAndSelectLesson } from "../../../../automa
 import { setDueDateViaPopover } from "../../../../automation/giao_bai_tap/navigation/dueDatePopover.js";
 
 /**
- * TC033 - REGRESSION, ĐÃ FIX + xác nhận PASS live 2026-09-16 (xem TESTCASES.md cùng thư mục để
- * biết đầy đủ bằng chứng). Xóa 1 bài trong "Kho bài tập cá nhân" SAU KHI đã giao bài đó ->
- * acceptance criteria gốc: bản ghi "Bài tập đã giao" phải VẪN CÒN hiển thị ở web/app. Lượt xác
- * nhận đầu (thao tác tay, 2026-09-16): bản ghi biến mất khỏi CẢ 2 nơi - bug thật, backend đã sửa
- * (lượt chạy tự động hoá đầu tiên end-to-end, cùng ngày, xác nhận bản ghi VẪN CÒN ngay lập tức sau
- * khi xóa item nguồn - không còn độ trễ cache ~2 phút như trước).
+ * TC033 - RULE ĐÃ ĐỔI (theo xác nhận trực tiếp của user, 2026-09-18): xóa 1 bài trong "Kho bài tập
+ * cá nhân" SAU KHI đã giao bài đó -> acceptance criteria MỚI: bản ghi "Bài tập đã giao" PHẢI BIẾN
+ * MẤT ở CẢ web ("Bài tập đã giao") LẪN app - ngược lại hoàn toàn với acceptance criteria GỐC trong
+ * xlsx (yêu cầu bản ghi phải VẪN CÒN). Lịch sử xác nhận (xem TESTCASES.md cùng thư mục để biết đầy
+ * đủ bằng chứng theo từng mốc thời gian):
+ * 1. 2026-09-16, thao tác tay trên dev: bản ghi biến mất khỏi CẢ 2 nơi - lúc đó bị coi là BUG (vì
+ *    xlsx gốc yêu cầu phải còn), backend "đã sửa" để bản ghi ở LẠI.
+ * 2. 2026-09-16, chạy tự động hoá lần đầu trên dev sau "fix": xác nhận bản ghi VẪN CÒN ngay lập
+ *    tức - lúc đó coi là ĐÃ FIX ĐÚNG, khoá spec lại theo hướng "phải còn".
+ * 3. 2026-09-17 + 2026-09-18, chạy lại trên staging (2 lần, KHÔNG chủ ý thay đổi behavior): bản ghi
+ *    LẠI biến mất - lúc đó bị coi là "fix ở dev chưa deploy sang staging".
+ * 4. 2026-09-18: user xác nhận RULE THẬT ĐÃ ĐỔI - hành vi "biến mất" (mục 1 và 3) mới là ĐÚNG,
+ *    hành vi "vẫn còn" (mục 2) là theo rule CŨ đã lỗi thời. Spec dưới đây đã đảo ngược assertion để
+ *    khớp rule MỚI - KHÔNG được hiểu nhầm 2 lần FAIL ở mục 3 là bug môi trường staging nữa.
  *
  * *** CẢNH BÁO - TEST NÀY PHÁ HUỶ THẬT: xóa vĩnh viễn 1 item trong Kho bài tập cá nhân
  * (`SOURCE_ITEM_ID_TO_DELETE`), "Hành động này không thể hoàn tác" (nguyên văn dialog xác nhận).
@@ -237,10 +245,13 @@ test.describe.serial("Kho bài tập cá nhân > Xóa bài đã từng giao (TC0
     await page.getByText("Xóa bài thành công").waitFor({ timeout: 15000 });
   });
 
-  test("TC033: bản ghi Bài tập đã giao vẫn còn hiển thị sau khi xóa item nguồn (đã fix, khoá lại tránh regress)", async () => {
-    // ĐÃ FIX (xác nhận live 2026-09-16): lượt chạy tự động hoá đầu tiên end-to-end cho thấy bản ghi
-    // VẪN CÒN ngay lập tức (không còn độ trễ cache ~2 phút như bug cũ) - giữ poll (thay vì assert
-    // ngay 1 lần) chỉ để phòng hờ regress kiểu cache-lag quay lại, KHÔNG còn kỳ vọng test này FAIL.
+  test("TC033: bản ghi Bài tập đã giao BIẾN MẤT sau khi xóa item nguồn (RULE MỚI 2026-09-18, khoá lại tránh regress)", async () => {
+    // RULE MỚI (xác nhận trực tiếp bởi user, 2026-09-18): xóa bài trong Kho bài tập cá nhân PHẢI
+    // làm bản ghi "Bài tập đã giao" tương ứng biến mất khỏi web - đảo ngược hoàn toàn so với
+    // acceptance criteria gốc trong xlsx (yêu cầu phải còn) - xem docblock đầu file để biết đầy đủ
+    // lịch sử đảo chiều rule. Giữ poll (không assert ngay 1 lần) vì đã từng quan sát thật có độ trễ
+    // cache ~2 phút ở lần phát hiện đầu tiên (2026-09-16) trước khi biến mất hẳn - dù các lần gần
+    // đây (staging, 2026-09-17/18) biến mất gần như ngay lập tức.
     await expect
       .poll(
         async () => {
@@ -248,12 +259,12 @@ test.describe.serial("Kho bài tập cá nhân > Xóa bài đã từng giao (TC0
           return page.evaluate((id) => document.body.innerHTML.includes(id), assignedExerciseId);
         },
         {
-          message: `Bản ghi "${assignedExerciseId}" phải vẫn còn trong "Danh sách bài tập đã giao" ` +
-            `sau khi xóa item nguồn - đây chính là acceptance criteria gốc.`,
+          message: `Bản ghi "${assignedExerciseId}" phải BIẾN MẤT khỏi "Danh sách bài tập đã giao" ` +
+            `sau khi xóa item nguồn - đây là acceptance criteria MỚI (rule đã đổi 2026-09-18).`,
           timeout: 150_000,
           intervals: [15_000],
         },
       )
-      .toBe(true);
+      .toBe(false);
   });
 });

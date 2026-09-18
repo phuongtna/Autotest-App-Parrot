@@ -33,6 +33,27 @@ thao tác chọn lớp NGAY SAU khi chọn nguồn trong cùng 1 phiên, giống
 
 ---
 
+## ĐÃ RÚT LẠI (2026-09-18): "Tag kỹ năng Lesson luôn ra Other trên staging" KHÔNG phải bug hệ thống
+
+**Phát hiện ban đầu (nay đã rút lại)**: quan sát thấy MỌI Lesson trên staging (GV A `0912312312`,
+Khối 5 > Unit 1 và Unit 2, ≥8 lesson kiểm tra kể cả của GV B) đều hiển thị tag **"Other"**, trong
+khi trên dev (GV Ngân `0985285285`, Khối 11 > READING) tag hiển thị đúng "Reading" - ban đầu kết
+luận đây là bug backend tính tag sai trên staging.
+
+**Xác minh lại theo yêu cầu trực tiếp của user (2026-09-18)** - user tự thêm 1 Unit mới ("UNIT 3:
+FREE TIME", Khối 5, tài khoản GV A) với NHIỀU tag khác nhau để kiểm chứng: PRONUNCIATION→
+**Speaking**, VOCABULARY AND GRAMMAR→**Reading**, SPEAKING→Other, READING→Other, WRITING→
+**Skills 1**. Kiểm tra lại "Giao bài tập" cho đúng Unit này: hiển thị ĐÚNG 4 nút Lesson tách biệt
+"Speaking"/"Reading"/"Other"/"Skills 1" - khớp hoàn toàn với "Kho đề cá nhân".
+
+**KẾT LUẬN ĐÃ SỬA: KHÔNG phải bug hệ thống/backend** - hệ thống hiển thị ĐÚNG bất kỳ tag nào đã
+được gán, kể cả khi đa dạng. Việc TOÀN BỘ Lesson cũ trên staging (Unit 1/Unit 2, cả GV A lẫn GV B)
+đều ra "Other" chỉ là do DỮ LIỆU những Lesson đó tình cờ/thực sự được gán tag "Other" khi tạo (có
+thể do cách seed/import dữ liệu test trên staging), KHÔNG PHẢI do backend tính sai. Không cần báo
+dev/PM về mục này nữa.
+
+---
+
 ## TC001-008: Giao diện + Chọn/chuyển đổi nguồn bài tập
 
 Tự động hoá bằng **Playwright Test runner thật** (`test.describe`/`test`/`expect`, KHÔNG phải
@@ -106,7 +127,16 @@ dùng. Bản đầu tiên đã viết theo format CLI cũ, sau đó chuyển đ�
 
 ---
 
-## TC033 (REGRESSION - ĐÃ FIX, xác nhận PASS live 2026-09-16): xóa bài trong Kho bài tập cá nhân sau khi đã giao
+## TC033 (RULE ĐÃ ĐỔI 2026-09-18): xóa bài trong Kho bài tập cá nhân sau khi đã giao
+
+**⚠️ ACCEPTANCE CRITERIA MỚI (xác nhận trực tiếp bởi user, 2026-09-18) - ĐẢO NGƯỢC hoàn toàn so với
+xlsx gốc**: xóa 1 bài trong "Kho bài tập cá nhân" -> bản ghi "Bài tập đã giao" tương ứng **PHẢI
+BIẾN MẤT** ở CẢ web ("Bài tập đã giao") LẪN app. xlsx gốc (2026-09-16 trở về trước) yêu cầu NGƯỢC
+LẠI (bản ghi phải VẪN CÒN) - phần "ĐÃ XÁC NHẬN THẬT" bên dưới mô tả các lần chạy dưới rule CŨ, giữ
+nguyên làm lịch sử tham khảo, KHÔNG còn là acceptance criteria hiện hành. Hệ quả quan trọng: 2 lần
+FAIL trên staging (2026-09-17, 2026-09-18, xem bảng cuối mục này) **thực ra đã đúng theo rule MỚI
+ngay từ đầu** - kết luận trước đó "fix của dev chưa deploy sang staging" bị RÚT LẠI, không còn là
+bug. Spec `delete-source-regression.spec.js` đã được sửa để assert theo chiều MỚI (biến mất).
 
 Tự động hoá bằng Playwright Test - `flows/web/giao_bai_tap/kho_bai_tap_ca_nhan/delete-source-regression.spec.js`,
 cùng config `playwright.kho-bai-tap-ca-nhan.config.js`. **CẢNH BÁO: test này TỰ XÓA 1 bài thật
@@ -160,7 +190,8 @@ file CLI, nên không thể "gọi riêng" test bị ignore bằng cách truyề
 `SOURCE_ITEM_ID_TO_DELETE` là 1 item THẬT, KHÔNG PHẢI item cuối cùng còn lại của lớp dùng cho
 TC001-008 (xem cảnh báo trong file spec) - lệnh chạy đầy đủ xem cuối mục này.
 
-**TRẠNG THÁI: ĐÃ FIX, xác nhận PASS live end-to-end lần đầu 2026-09-16** (user báo dev đã sửa,
+**TRẠNG THÁI CŨ (theo rule GỐC, đã hết hiệu lực từ 2026-09-18 - xem cảnh báo đầu mục này): ĐÃ FIX,
+xác nhận PASS live end-to-end lần đầu 2026-09-16** (user báo dev đã sửa,
 `8a0f372c-c06a-4c83-a682-0429f50455b2` - "Choose the best answer (A, B, C or D) to complete each
 sentence.", Khối 11 > UNIT 2: OUTDOOR ACTIVITY > VOCABULARY AND GRAMMAR - dùng làm item disposable
 mới vì `3fea1b0a-...` vẫn đang giữ cho TC001-008/TC034). Kết quả: `test.fail()` báo
@@ -201,6 +232,59 @@ SOURCE_ITEM_UNIT="<Unit chứa item>" SOURCE_ITEM_ASSIGN_LESSON="<tag kỹ năng
 SOURCE_ITEM_MANAGEMENT_LESSON="<tên Lesson ở Kho đề cá nhân>" \
 npx playwright test --config=playwright.kho-bai-tap-ca-nhan-destructive.config.js
 ```
+
+**Lịch sử chạy trên staging (2026-09-17, 2026-09-18) - lúc đó bị hiểu NHẦM là "FAIL/bug môi
+trường", nay đọc lại theo RULE MỚI (xem cảnh báo đầu mục) thì đây chính là hành vi ĐÚNG**:
+
+Chạy y hệt kịch bản trên nhưng với `SOURCE_BASE_URL="https://parrotedu-staging.parrotedu.vn"`,
+`SOURCE_USERNAME="0912312312"`, `SOURCE_PERSONAL_BANK_CLASS="5D"` - cả 2 lần bản ghi "Bài tập đã
+giao" đều biến mất và không quay lại trong 150s poll, trang edit vẫn load nhưng rỗng hoàn toàn:
+
+| Lần | Item nguồn bị xóa | Room "Bài tập đã giao" | Kết quả quan sát | Đánh giá theo rule MỚI |
+|---|---|---|---|---|
+| 1 (2026-09-17) | `cd05ab0e-...` "Choose the best answer (A, B, C or D) to complete each sentence." | `8c80726e-...` | Biến mất, không quay lại | ĐÚNG |
+| 2 (2026-09-18) | `a7febe61-becb-4d4f-970d-a3388006fd89` "Read the passage above again and decide whether each statement is True (T) or False (F)." (Khối 5 > UNIT 2: OUTDOOR ACTIVITY > READING) | `1b8e51b3-abf5-4b88-8878-2781840aaf15` | Biến mất, không quay lại | ĐÚNG |
+
+**Kết luận đã CẬP NHẬT (2026-09-18)**: kết luận trước đây "staging thiếu fix của dev" bị **RÚT
+LẠI** - staging trong 2 lần chạy này thực ra đã đúng theo rule mới ngay từ đầu, không phải bug. Cả
+2 item nguồn dùng ở trên đã bị xóa vĩnh viễn thật (đã xin xác nhận user qua AskUserQuestion trước
+mỗi lần chạy) - dữ liệu mất là thật, nhưng không còn được tính là "bằng chứng bug môi trường" nữa.
+
+**Re-run trên DEV để xác nhận rule mới (2026-09-18) - PASS 3/3**: item disposable mới
+`50814bba-634c-47ea-90f1-67338e230c0d` ("Read the passage above again and decide whether each
+statement is True (T) or False (F).", Khối 11 > UNIT 2: OUTDOOR ACTIVITY > READING, lớp 11A2) -
+giao bài, xóa item nguồn, bản ghi "Bài tập đã giao" biến mất **gần như ngay lập tức** (assertion
+`.toBe(false)` pass ở lần poll đầu tiên, tổng bước cuối chỉ 3.9s) - **CÙNG hành vi với staging**,
+không còn khoảng lệch môi trường nào giữa dev/staging cho case này nữa. Item nguồn đã bị xóa vĩnh
+viễn thật (đã xin xác nhận user trước khi chạy).
+
+**Nhân tiện xác nhận lại tag kỹ năng trên dev vẫn đúng** (đối lập với bug "luôn Other" của staging,
+xem mục "⚠️ BUG THẬT PHÁT HIỆN TRÊN STAGING" đầu file): Khối 11 > UNIT 2 của tài khoản Phương có
+PRONUNCIATION→Language, VOCABULARY AND GRAMMAR→Other, SPEAKING→Speaking, READING→Reading,
+WRITING→Writing - đa dạng, tính đúng theo từng kỹ năng thật.
+
+**Xác nhận thêm chiều APP trên staging (2026-09-18, theo yêu cầu trực tiếp user "tôi cài app trên
+staging mà") - PASS 5/5**: script mới `e2e-personal-bank-delete-source-app-check.mjs` - GHÉP TỪ
+các khối có sẵn ([[feedback_reuse_first_workflow]]), quan trọng nhất là TÁI SỬ DỤNG ĐÚNG cơ chế
+scroll/tìm bài gốc của module "Bài tập" (`findAssignment()` + `scrollToTop()` từ
+`automation/bai_tap/discovery/findAssignment.js` - `scrollToTop()` BẮT BUỘC gọi ngay trước mỗi lần
+`findAssignment()`, nếu không có thể báo NOT_FOUND SAI vì `findAssignment()` chỉ cuộn 1 chiều
+xuống). GV A (`0912312312`)/lớp 5D giao item "Choose the sentence (A, B, C or D) that is closest in
+meaning to the given sentence." (id `cf9b28dc-9e64-4bed-bf2c-09067f0601b3`, Khối 5 > UNIT 2 >
+WRITING) tới HS "Gia Linh" (room_id `6cc6c714-2145-4fff-94cc-bdbf2f8206a0`) → App HS xác nhận THẤY
+đúng card trước khi xóa → xóa item nguồn thật → App HS xác nhận card BIẾN MẤT (status cuối
+NOT_FOUND) - khớp đúng rule mới ở CẢ web lẫn app.
+
+**Sự cố quy trình khi build script này (minh bạch lại, không phải bug sản phẩm)**: lượt chạy đầu
+tiên (item `e89bdb8c-...` "Choose the word whose underlined part is pronounced differently from
+the others.", PRONUNCIATION) bị dừng bằng tay (`TaskStop`) sau khi phát hiện script thiếu bước
+`scrollToTop()` - nhưng do output bị Node buffer khi redirect qua `| tail`, không có log nào kịp
+flush ra ngoài trước khi tiến trình bị dừng, nên KHÔNG thể xác nhận nó đã chạy tới đâu. Kiểm tra lại
+"Kho đề cá nhân" sau đó cho thấy item `e89bdb8c-...` đã bị xóa vĩnh viễn THẬT (nhiều khả năng lượt
+chạy đó thực ra đã hoàn tất tới bước xóa trước khi bị dừng) - không có bản ghi nào khớp tên này
+trong "Bài tập đã giao" (khớp đúng rule mới nếu quy trình đã chạy trọn). Từ lượt 2 trở đi, chạy
+KHÔNG qua `| tail` (redirect thẳng ra file) và không dừng giữa chừng nữa để tránh lặp lại tình huống
+này.
 
 ---
 
@@ -474,31 +558,177 @@ npx playwright test --config=playwright.kho-bai-tap-ca-nhan.config.js source-tit
 
 ---
 
-## TC010/023/026/027 (chưa tự động hoá)
+## TC023: Học sinh nhận đúng bài tập được giao từ kho cá nhân (`e2e-personal-bank-assign-student-open.mjs`)
 
-Xem plan gốc (`plan_KHOBAITAP.md`) mục 1 nhóm 3/6/7 để biết phân loại/độ ưu tiên.
+Tự động hoá bằng 1 script Node ghép nối (KHÔNG phải Playwright Test/Maestro yaml thuần) - GHÉP
+TỪ các khối đã có sẵn, không viết logic mới ([[feedback_reuse_first_workflow]]):
+- Web GV: `loginTeacherPortal()` + `selectPersonalBankClassStably()` + `setDueDateViaPopover()` +
+  bắt `create_room.json` - đúng pattern các spec khác trong module, chỉ đổi transport (chạy như CLI
+  độc lập thay vì Playwright Test fixture) để gọi được từ 1 script kết hợp cả web lẫn app.
+- App HS: `flows/app/helpers/ensure-profile-active.yaml` (xác nhận đúng hồ sơ, KHÔNG hard switch
+  mù) + `findAssignment()`/`MaestroMcpSession` (`automation/bai_tap/discovery/`, target-driven,
+  không phụ thuộc số lượng assignment) + `flows/app/helpers/open-exercise.yaml` (bấm "Làm bài" xác
+  nhận màn làm bài mở đúng).
 
-- **TC010** (GV chưa có bài tập nào trong kho cá nhân): xlsx đã có bằng chứng Pass thật bằng tài
-  khoản riêng "Phan Khánh Lan" (chỉ 1 lớp, kho cá nhân rỗng hoàn toàn) - tài khoản này KHÔNG có
-  trong `.env`/env vars hiện tại của module (chưa xin thêm). Về mặt hành vi, case này đã được phủ
-  GIÁN TIẾP bởi `class-selection.spec.js#TC015` (chọn lớp "3E" - lớp rỗng dữ liệu Kho cá nhân của
-  chính tài khoản "Phương" - cũng cho ra đúng empty state, không lỗi/crash) - khác ở chỗ TC015 dùng
-  1 lớp rỗng trong tài khoản CÓ dữ liệu ở lớp khác, còn TC010 gốc là tài khoản HOÀN TOÀN chưa có gì.
-  Nếu cần khớp 100% xlsx gốc, xin thêm mật khẩu tài khoản "Phan Khánh Lan".
-- **TC023** (học sinh nhận đúng bài tập được giao từ kho cá nhân): cross-check WEB (GV tạo/giao) +
-  APP (HS nhận) - ngoài phạm vi Playwright (không điều khiển được app Android), cần 1 flow Maestro
-  riêng chạy sau khi giao bài thành công từ Kho bài tập cá nhân. xlsx đã có bằng chứng Pass thật
-  (tài khoản Phương/11A2 + HS "Hoang Gia Minh"/0987652170 - LƯU Ý: đây là CẶP tài khoản GV-HS DUY
-  NHẤT hiện có, không có HS nào được cấp cho tài khoản GV Ngân/11E). Chưa viết flow Maestro riêng.
-- **TC026** (bài xóa khỏi kho cá nhân ngay sau khi đã tick chọn -> không giao được bài đã xóa):
-  xlsx đã có bằng chứng Pass thật (xóa xong quay lại màn Giao bài tập, danh sách rỗng đúng kỳ vọng)
-  nhưng CHƯA test đúng race 2-tab (tick ở tab A, xóa ở tab B, quay lại tab A bấm submit KHÔNG tải
-  lại trang) - đây là kịch bản khó tái hiện tự động (cần 2 BrowserContext song song + đồng bộ thời
-  điểm chính xác) VÀ **PHÁ HUỶ THẬT** (xóa vĩnh viễn 1 item, giống rủi ro của TC033) - cần duyệt lại
-  với user trước khi viết, chưa tự ý làm.
-- **TC027** (hiệu năng khi kho cá nhân có >100 bài tập): dữ liệu dev hiện tại không có Unit nào đủ
-  >100 item để test tải trực tiếp - xlsx tự nhận đây là suy luận của tester (cơ chế cuộn không phụ
-  thuộc số lượng), không phải đo thật. Không có giá trị tự động hoá cho tới khi có dữ liệu thật đủ
-  lớn.
+**ĐÃ XÁC NHẬN PASS live trên STAGING (2026-09-18)**: GV A (`0912312312`, lớp **5D**) giao bài
+"Read the passage and choose the best answer (A, B, C or D) for each question." (room_id
+`f78e7755-5845-4037-8a3a-6cef16f137e7`) -> HS "Gia Linh" (`0915775115`, cùng lớp 5D) - App tìm
+thấy ĐÚNG card (đúng tiêu đề + Hạn nộp 21/09) sau 1 lượt cuộn, không ambiguous - bấm "Làm bài" mở
+đúng màn làm bài thật (`exercise_close_button` visible).
+
+Chạy:
+```
+SOURCE_BASE_URL="https://parrotedu-staging.parrotedu.vn" SOURCE_USERNAME="0912312312" \
+SOURCE_PASSWORD="123456789" SOURCE_PERSONAL_BANK_CLASS="5D" \
+PHONE="0915775115" OTP="888888" PROFILE_NAME="Gia Linh" \
+node flows/web/giao_bai_tap/kho_bai_tap_ca_nhan/e2e-personal-bank-assign-student-open.mjs
+```
+
+**Trên DEV** (`https://parrotedu.codeinet.com`): cặp tài khoản GV-HS đã biết là Phương
+(`0915315315`)/11A2 + HS "Hoang Gia Minh" (`0987652170`) - chưa chạy lại script này trên dev, chỉ
+mới xác nhận PASS trên staging.
+
+**Re-run 2026-09-18 (kèm kiểm tra CẢ 2 bộ lọc theo yêu cầu user) - PASS, sau 1 lần báo động giả**:
+giao item mới (room `1310f968-...`, "Choose the word whose underlined part is pronounced
+differently from the others.", due 21/09) tới cùng cặp GV A/Gia Linh/5D - `findAssignment()` (đã có
+`scrollToTop()` đúng cách, `atTop:true`) báo NOT_FOUND/END_OF_LIST ở CẢ 2 bộ lọc NGAY SAU KHI giao -
+ban đầu nghi là bug "room vô hình" đã biết ([[project_new_room_invisible_in_homework_list_bug]]),
+nhưng user kiểm tra lại trực tiếp trên thiết bị ngay sau đó và xác nhận **card ĐÃ HIỂN THỊ đúng**
+(tiêu đề, Hạn nộp 21/09, 0/10, nút "Làm bài") - đã RÚT LẠI kết luận bug, nhiều khả năng chỉ là độ
+trễ đồng bộ ngắn giữa lúc tạo room và lúc app render (không đủ để tự tin gọi là bug "vĩnh viễn
+invisible" như lần 2026-09-03 - xem chi tiết trong memory). Bài học quy trình: automation nên đợi
+thêm rồi kiểm tra lại trước khi báo NOT_FOUND là bug thật, không kết luận ngay từ 1 lần đọc.
+
+**Xác nhận PASS đầy đủ bằng tay (bước 4/4 - mở bài)**: phát hiện thêm 1 chi tiết thật khi xác nhận
+tay - có 2 bản ghi TRÙNG TIÊU ĐỀ trong danh sách ("Choose the word whose underlined part is
+pronounced differently from the others.", 1 due 18/09 và 1 due 21/09 - do 2 lượt chạy khác nhau
+trong phiên này đều "tick checkbox đầu tiên" trùng đúng item PRONUNCIATION của Unit 3) - đây CHÍNH
+LÀ lý do `flows/app/helpers/open-exercise.yaml` (dùng `scrollUntilVisible` theo title + `Below` theo
+Hạn nộp, KHÔNG có logic target-driven như `findAssignment()`) báo assertion FAILED (khớp nhầm bản
+ghi 18/09). Xác nhận bằng tay: bấm đúng "Làm bài" ở thẻ 21/09 (phân biệt bằng vị trí + Hạn nộp) ->
+mở đúng nội dung thật (Q1/10: heavy/bread/meat/ready) - TC023 PASS đầy đủ cả 4 bước.
+
+---
+
+## TC010: GV thứ 3 hoàn toàn chưa có bài tập nào trong kho cá nhân (`empty-personal-bank-account.spec.js`)
+
+Tự động hoá bằng Playwright Test - CHỈ ĐỌC, an toàn chạy lặp lại. Tài khoản GV thứ 3 do user cung
+cấp trực tiếp (2026-09-18): `84936021880`/`123456789` - hiển thị tên **"GV-Nga"**, chỉ quản lý
+DUY NHẤT 1 lớp **"6C"**, xác nhận `.env` khớp bằng cách thử login cả 3 môi trường - **hoạt động
+trên staging và production, THẤT BẠI trên dev** (`parrotedu.codeinet.com`). Đã dùng bản staging.
+
+Xác nhận trực tiếp qua browser trước khi viết spec: chọn "Kho bài tập cá nhân" + lớp "6C" ->
+"Chọn Unit" mở dropdown nhưng KHÔNG có option nào (khác hẳn TC015 - lớp rỗng trong 1 tài khoản VẪN
+CÒN Unit ở lớp khác) - đây mới đúng 100% precondition gốc của TC010 ("GV hoàn toàn CHƯA CÓ bài tập
+nào trong kho cá nhân", không phải "1 lớp cụ thể rỗng").
+
+**ĐÃ XÁC NHẬN PASS (2026-09-18)**: chọn nguồn + lớp "6C" -> "Chọn Unit" hiển thị được (không kẹt ở
+placeholder "chọn lớp trước"), "Chọn Lesson" báo "Chưa có lesson nào", 0 checkbox bài tập, KHÔNG
+lỗi hệ thống/trắng trang, nút "Giao bài đã chọn" vẫn hiển thị bình thường.
+
+Chạy:
+```
+cd automation
+SOURCE_BASE_URL="https://parrotedu-staging.parrotedu.vn" SOURCE_USERNAME="84936021880" \
+SOURCE_PASSWORD="123456789" SOURCE_EMPTY_ACCOUNT_CLASS="6C" \
+npx playwright test --config=playwright.kho-bai-tap-ca-nhan.config.js empty-personal-bank-account
+```
+
+---
+
+## TC026: Xóa item nguồn ngay khi đang được tick ở tab khác (`delete-source-while-selected-race.spec.js`)
+
+Tự động hoá bằng Playwright Test, 2 `page` cùng 1 `browser.newContext()` (Tab A tick item, Tab B
+xóa item đó, quay lại Tab A không reload rồi submit) - RACE 2-TAB THẬT, khác hẳn bằng chứng gốc
+trong xlsx (chỉ test luồng tuần tự: xóa xong MỚI quay lại màn Giao bài tập, trang tự nhiên
+reload/re-fetch). **PHÁ HUỶ THẬT** - dùng chung config destructive với TC033
+(`playwright.kho-bai-tap-ca-nhan-destructive.config.js`).
+
+**ĐÃ XÁC NHẬN PASS (2026-09-18)** - thao tác tay trước (GV A `0912312312`, lớp 5D staging, item
+`e66648b7-...` "Choose the correct sentence..." WRITING), sau đó chạy lại qua script với item mới
+`e1d9adf9-...` "Choose the word that has a different stress pattern from the others." (UNIT 3: FREE
+TIME > PRONUNCIATION) - PASS 3/3 cả 2 lần: `POST create_room.json` trả **HTTP 500**
+`{"status":false,"message":"Failed to create rooms","error":"no assignable lesson items found for
+lesson_item_ids","error_code":"INTERNAL_ERROR"}`, UI hiện toast đỏ tiếng Anh thô, KHÔNG tạo bản ghi
+"Bài tập đã giao" nào (đếm tổng trước/sau không đổi), trang không crash. Kết luận: backend chặn
+đúng, không tạo dữ liệu hỏng - PASS theo đúng acceptance criteria gốc.
+
+**Finding phụ (UX/API-design, đã báo user, KHÔNG chặn PASS)**: nên trả lỗi 4xx thay vì 500 (đây là
+lỗi input hợp lệ - item không còn tồn tại - không phải lỗi hệ thống), và thông báo nên dịch tiếng
+Việt (vd "Không giao được bài tập, vui lòng tải lại trang và thử lại") thay vì "Failed to create
+rooms" nguyên văn tiếng Anh.
+
+Chạy:
+```
+cd automation
+SOURCE_BASE_URL="https://parrotedu-staging.parrotedu.vn" SOURCE_USERNAME="0912312312" \
+SOURCE_PASSWORD="123456789" SOURCE_PERSONAL_BANK_CLASS="5D" \
+SOURCE_ITEM_ID_TO_DELETE="<uuid item disposable>" SOURCE_ITEM_TITLE="<tiêu đề item>" \
+SOURCE_ITEM_UNIT="<Unit chứa item>" SOURCE_ITEM_ASSIGN_LESSON="<tag kỹ năng>" \
+SOURCE_ITEM_MANAGEMENT_LESSON="<tên Lesson ở Kho đề cá nhân>" \
+npx playwright test --config=playwright.kho-bai-tap-ca-nhan-destructive.config.js delete-source-while-selected-race
+```
+
+---
+
+## ⚠️ BUG THẬT NGHIÊM TRỌNG XÁC NHẬN (2026-09-18) - Học sinh MỚI join lớp SAU khi xóa item nguồn vẫn thấy bản ghi "ma"
+
+**Phát hiện gốc**: user quan sát trực tiếp trên app thật (profile "Long"/lớp 11A2, ảnh chụp màn
+hình) - 1 học sinh mới được duyệt vào lớp thấy 2 bản ghi "Bài tập" hiển thị **rỗng hoàn toàn** (0/0,
+không tiêu đề) với Hạn nộp "Hôm nay". Nghi vấn: đây là các bản ghi mà item nguồn trong Kho bài tập
+cá nhân ĐÃ BỊ XÓA - đáng lẽ theo rule TC033 (xem mục trên) phải BIẾN MẤT hoàn toàn, nhưng lại "rò
+rỉ" ra cho học sinh MỚI join lớp SAU thời điểm xóa (khác với học sinh ĐÃ ở trong lớp từ trước, vốn
+đã xác nhận đúng KHÔNG còn thấy).
+
+**Tái hiện thành công bằng script tự động hoá mới** -
+`e2e-new-joiner-sees-deleted-source-assignment.mjs` - GHÉP TỪ 3 khối module khác nhau, không viết
+logic mới ([[feedback_reuse_first_workflow]]):
+1. Giao 1 item Kho bài tập cá nhân tới lớp **"5X-RKLRejoin2"** (staging, id
+   `db7ae7b7-ead9-4fd0-841d-7c1c13c5d57a`, tài khoản GV `0912312312` - lớp test riêng của module
+   `roi_khoi_lop`, tách biệt lớp "5D" đang dùng cho các case khác), Hạn nộp XA (+30 ngày, chắc chắn
+   còn hạn) - Y HỆT pattern `delete-source-regression.spec.js`.
+2. Xóa item nguồn (PHÁ HUỶ THẬT) - Y HỆT pattern TC033.
+3. **SAU KHI đã xóa**, tạo 1 profile con mới (`RKL-12_19-step1-request-join-known-class.yaml`) gửi
+   yêu cầu vào ĐÚNG lớp đó, GV duyệt qua `approveStudentRequestFlow.js`
+   (`automation/quan_ly_lop_hoc/`) - thứ tự thời gian ĐÚNG với kịch bản user báo (item bị xóa TRƯỚC
+   khi học sinh mới vào, không phải ngược lại).
+4. Chuyển app sang profile mới (`ensure-profile-active.yaml`), mở tab "Bài tập".
+
+**KẾT QUẢ: BUG XÁC NHẬN THẬT (ảnh chụp màn hình thật)** - profile mới ("QA Auto Child
+20260918_132120") thấy **2 bản ghi "0/0", tiêu đề RỖNG**: 1 chính là room vừa tạo ở bước 1
+(`73a63895-...`, Hạn nộp 18/10 - khớp đúng +30 ngày từ hôm nay) VÀ 1 bản ghi cũ khác (Hạn nộp
+20/09, tồn đọng từ trước, KHÔNG thuộc lượt chạy này) - xác nhận đây là lỗi **lặp lại nhất quán**,
+không phải ngẫu nhiên 1 lần.
+
+**Kết luận**: hành vi "ẩn bản ghi khi xóa item nguồn" (rule TC033) chỉ áp dụng ĐÚNG cho học sinh ĐÃ
+ở trong lớp tại thời điểm xóa (query lúc đó loại bỏ đúng) - nhưng KHÔNG được áp dụng lại khi tính
+danh sách "Bài tập" cho 1 thành viên MỚI join lớp sau đó (rất có thể do cơ chế cache/snapshot theo
+lớp tại thời điểm join, không tính lại theo trạng thái item nguồn hiện tại) - dẫn tới lộ ra bản ghi
+rỗng/hỏng cho học sinh mới. Đây là bug PRODUCT thật, mức độ nghiêm trọng (hiển thị dữ liệu hỏng cho
+người dùng thật) - **CẦN báo dev/PM ngay**, chưa báo tại thời điểm viết.
+
+**Ghi chú kỹ thuật phụ**: `approveStudentRequestFlow.js` FAIL ở lần gọi đầu tiên (timeout mở dialog
+"Yêu cầu chờ duyệt", 10s) nhưng PASS ngay ở lần gọi lại thứ 2 với data giống hệt - có vẻ là flaky
+timing, chưa rõ nguyên nhân sâu, chưa sửa (không thuộc phạm vi sở hữu của module này).
+
+Chạy:
+```
+SOURCE_ITEM_ID_TO_DELETE="<uuid item disposable ở Khối 5>" SOURCE_ITEM_TITLE="<tiêu đề item>" \
+SOURCE_ITEM_UNIT="<Unit chứa item>" SOURCE_ITEM_ASSIGN_LESSON="<tag kỹ năng>" \
+SOURCE_ITEM_MANAGEMENT_LESSON="<tên Lesson ở Kho đề cá nhân>" \
+PHONE="0915775115" OTP="888888" \
+node flows/web/giao_bai_tap/kho_bai_tap_ca_nhan/e2e-new-joiner-sees-deleted-source-assignment.mjs
+```
+
+---
+
+## TC027 (chưa tự động hoá)
+
+Xem plan gốc (`plan_KHOBAITAP.md`) mục 1 nhóm 7 để biết phân loại/độ ưu tiên.
+
+- **TC027** (hiệu năng khi kho cá nhân có >100 bài tập): không môi trường nào (dev/staging) có Unit
+  nào đủ >100 item để test tải trực tiếp - xlsx tự nhận đây là suy luận của tester (cơ chế cuộn
+  không phụ thuộc số lượng), không phải đo thật. Không có giá trị tự động hoá cho tới khi có dữ
+  liệu thật đủ lớn.
 
 Thêm case mới vào đây theo mẫu "## TCxxx" ở trên khi tự động hoá.

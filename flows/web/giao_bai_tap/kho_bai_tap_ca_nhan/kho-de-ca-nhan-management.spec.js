@@ -121,11 +121,36 @@ test.describe.serial("Giao bài tập > Màn hình quản lý Kho đề cá nhâ
     await matchedUnitRow.click();
 
     // Lesson hiển thị dạng text VIẾT HOA TOÀN BỘ (vd "READING") - PHÂN BIỆT với tên Unit (có số +
-    // dấu ":") và với tag kỹ năng cạnh bên (Title Case, vd "Reading"). Lesson đầu tiên của Unit vừa
-    // mở - dữ liệu thật hiện có của tài khoản test chỉ có đúng 1 Lesson/Unit (xem TESTCASES.md).
-    const firstLessonRow = page.locator("main").getByText(/^[A-ZÀ-Ỹ]+(?: [A-ZÀ-Ỹ]+)*$/).first();
-    await expect(firstLessonRow).toBeVisible({ timeout: 10000 });
-    await firstLessonRow.click();
+    // dấu ":") và với tag kỹ năng cạnh bên (Title Case, vd "Reading").
+    //
+    // FIX (2026-09-18, FAIL thật xác nhận khi chạy trên môi trường staging - dữ liệu phong phú hơn
+    // dev): bản gốc chỉ mở Lesson ĐẦU TIÊN của Unit, đúng khi tài khoản test chỉ có 1 Lesson/Unit
+    // (trường hợp dev). Trên staging, 1 Unit có THỂ có NHIỀU Lesson CÙNG chung 1 tag kỹ năng (vd
+    // Unit 2 khối 5 có 5 Lesson: PRONUNCIATION/VOCABULARY AND GRAMMAR/SPEAKING/READING/WRITING đều
+    // tag "Other") - "Giao bài tập" gộp CHUNG item của mọi Lesson cùng tag vào 1 nút bấm ("Other"),
+    // nên phải mở HẾT các Lesson row của Unit (không chỉ cái đầu) rồi mới đối chiếu, nếu không sẽ
+    // báo "thiếu" oan cho các item thuộc Lesson thứ 2 trở đi - KHÔNG phải bug sản phẩm. Đã xác nhận
+    // thật: các Lesson row mở kiểu accordion CỘNG DỒN (mở Lesson sau KHÔNG đóng Lesson trước), nên
+    // click lần lượt hết rồi đọc 1 lần là đủ.
+    const lessonRows = page.locator("main").getByText(/^[A-ZÀ-Ỹ]+(?: [A-ZÀ-Ỹ]+)*$/);
+    await expect(lessonRows.first()).toBeVisible({ timeout: 10000 });
+
+    // FIX (2026-09-18, FAIL thật xác nhận qua debug live trên staging): click TUẦN TỰ từng Lesson
+    // qua Playwright locator (`.nth(i).click()`) chỉ mở được 1 phần số Lesson thật (ra thiếu item) -
+    // nguyên nhân chưa rõ chính xác (nghi accordion re-render giữa các lượt click trusted-event làm
+    // lệch trạng thái 1 vài row). Click TOÀN BỘ trong 1 lượt `page.evaluate()` (đã verify thật qua
+    // javascript_tool: forEach click() 1 lượt duy nhất mở đủ cả 5 Lesson, ra đủ 7/7 item) - cùng kỹ
+    // thuật "click trong page thay vì qua locator" đã dùng ở delete-source-regression.spec.js.
+    const lessonLabelsClicked = await page.evaluate(() => {
+      const re = /^[A-ZÀ-Ỹ]+(?: [A-ZÀ-Ỹ]+)*$/;
+      const main = document.querySelector("main");
+      const leaves = [...main.querySelectorAll("*")].filter(
+        (e) => e.children.length === 0 && re.test(e.textContent.trim()),
+      );
+      leaves.forEach((e) => e.click());
+      return leaves.map((e) => e.textContent.trim());
+    });
+    expect(lessonLabelsClicked.length, `Không tìm thấy Lesson nào để mở dưới Unit "${unitLabel}".`).toBeGreaterThan(0);
 
     // FIX (2026-09-16, FAIL thật xác nhận qua lượt chạy đầu): đọc DOM ngay sau click bắt được 0
     // item dù accessibility snapshot lúc fail cho thấy item ĐÃ render đầy đủ - race giữa click và

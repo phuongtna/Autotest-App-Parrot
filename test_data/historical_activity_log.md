@@ -902,3 +902,42 @@ tổng kết session #4 cũng sai theo ("tổng cộng 9 room qua 4 session", đ
 48819f9f, 2bb7600b, d6ec3edd, 90a94466, ea84dfc3, c74983d5, 47e67474, 8510bfea =
 **8 room**, không phải 9. Không có room ẩn nào ngoài 8 room đã liệt kê chi tiết ở các
 activity phía trên — chỉ là lỗi số học ở dòng tổng kết, dữ liệu activity gốc vẫn đúng.
+
+Activity
+- Timestamp: 2026-09-18 ~09:19 +0700 (đồng hồ hiển thị trên screenshot màn "Báo cáo học
+  tập" do user cung cấp)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: N/A (user tự chụp màn hình, agent không thao tác trên thiết bị cho activity
+  này - chỉ đối chiếu số liệu)
+- Activity Type: report_check (đối chiếu screenshot report thật với log, theo yêu cầu
+  user "báo cáo tuần vừa rồi")
+- Activity Detail: Screenshot Weekly Report (tuần 05/09-11/09/2026, giáo viên "Cô Phương")
+  hiển thị: Kỹ năng đọc=6, Kỹ năng viết=10, Bài tập về nhà 3/3, Bài đã học 0, Nỗ lực làm
+  lại 2 lượt, Thời gian học 3 giờ 28 phút (208'). Đối chiếu khớp CHÍNH XÁC với 3 room hạn
+  nộp trong tuần (90a94466/Writing, ea84dfc3/Reading, c74983d5/Reading):
+  - BTVN 3/3: cả 3 room đã hoàn thành = X=Y=3 ✓ (giờ đã "chốt" đúng theo rule trễ 1 ngày,
+    kiểm tra 09/13 trước đó còn thấy 0/0 vì chưa qua 12/09).
+  - Nỗ lực làm lại = 2: CHỈ tính retry của room hạn-trong-tuần (90a94466 + c74983d5), loại
+    trừ 2 retry khác trong log thuộc room hạn ngoài tuần (2bb7600b, 8510bfea) - phát hiện
+    MỚI, trước đây chưa rõ retry-counter có lọc theo due-date-in-week hay không.
+  - Kỹ năng viết = 10: khớp điểm CUỐI (sau làm lại) của 90a94466.
+  - Kỹ năng đọc = 6 = trung bình (7 + 5)/2 của ea84dfc3 (không retry, điểm=7) và c74983d5
+    (điểm CUỐI sau làm lại=5) - phát hiện MỚI: ring "Kết quả học tập" = TRUNG BÌNH điểm
+    CUỐI CÙNG (không phải lần đầu) của các room CÙNG skill, CHỈ tính room hạn-trong-tuần.
+    Đồng thời SUY RA (chưa verify qua CMS API) cả ea84dfc3 và c74983d5 đều mang skill
+    READING - khớp con số tuyệt đối, độ tin cậy cao dù chưa xác nhận trực tiếp.
+  - Thời gian học vẫn = 208 phút, KHÔNG đổi so với lần kiểm tra 09/13 (5 ngày trước) dù
+    tuần đã hoàn toàn kết thúc và "chốt sổ" - xác nhận đây là số liệu CUỐI CÙNG, không
+    phải do độ trễ hiển thị 1 ngày. Discrepancy ~122 phút so với tổng log thô (~330.5')
+    vẫn CHƯA có root cause, không tự giải thích thêm được từ dữ liệu này.
+- Result: success (đối chiếu khớp phần lớn, xác nhận được cơ chế tính report; 1
+  discrepancy về thời gian học vẫn treo)
+- Test Case: N/A (đối chiếu report thật ad-hoc theo yêu cầu user)
+
+**ĐÍNH CHÍNH thuật ngữ (user cung cấp bảng spec chính thức, ngay sau đó cùng ngày
+2026-09-18):** công thức đúng của ring "Kết quả học tập" là ĐTB (kỹ năng) = X/Y (làm tròn
+1 chữ số thập phân), trong đó X = tổng điểm của LẦN LÀM BÀI **CAO NHẤT** mỗi bài thuộc kỹ
+năng đó (không phải lần làm GẦN NHẤT/sau làm lại như agent suy luận ở activity trên) và
+Y = số bài đã làm thuộc kỹ năng đó. Tuần 05-11/09 không phân biệt được 2 cách hiểu vì mọi
+lượt làm lại đều đạt điểm cao hơn lần đầu (max = lần cuối trùng nhau). Xem chi tiết công
+thức đã sửa tại memory `project_cms_skill_to_report_mapping`.

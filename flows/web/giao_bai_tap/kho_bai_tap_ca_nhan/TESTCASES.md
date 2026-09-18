@@ -722,6 +722,56 @@ node flows/web/giao_bai_tap/kho_bai_tap_ca_nhan/e2e-new-joiner-sees-deleted-sour
 
 ---
 
+## Case bổ sung (2026-09-18, KHÔNG có trong xlsx gốc): xóa item nguồn dùng cho NHIỀU room cùng lúc
+
+Phát hiện khi rà soát khoảng trống test coverage của module (yêu cầu user "chạy thử xem còn thiếu
+case nào ... có thể phát sinh ra vấn đề lỗi không") - mọi lần test TC033 trước đây chỉ verify với
+ĐÚNG 1 room bị ảnh hưởng; nghi vấn cơ chế "ẩn khi xóa" có thể cascade KHÔNG ĐỒNG NHẤT khi 1 item bị
+nhiều room tham chiếu (liên quan tới bug ghost đã xác nhận ở mục trên).
+
+Tự động hoá bằng Playwright Test - `delete-source-multi-room-cascade.spec.js`, cùng config
+destructive với TC033/TC026 (**PHÁ HUỶ THẬT**). Giao CÙNG 1 item tới 2 lớp khác nhau (2 room riêng
+biệt), xóa item nguồn ĐÚNG 1 LẦN, kỳ vọng CẢ 2 room biến mất đồng thời.
+
+**Sự cố quy trình khi build (đã sửa, KHÔNG phải bug sản phẩm)**: lần chạy đầu tiên timeout ở bước
+giao lớp B - nguyên nhân là helper dùng pattern điều hướng CŨ (click text sidebar "Giao bài tập"
+rồi click nút, thay vì `page.goto(/teacher/exercise)` trực tiếp như `assign-submit.spec.js` đã xác
+nhận ổn định) - toast thành công còn hiển thị từ lượt giao lớp A trước đó che mất nút "Tạo mới" của
+lượt giao lớp B (2 lượt giao liên tiếp trong CÙNG 1 session, khác các spec khác chỉ giao 1 lần/test).
+Đã sửa bằng `page.goto` (tự loại bỏ toast cũ qua tải lại trang).
+
+**ĐÃ XÁC NHẬN PASS 4/4 (2026-09-18, staging, tài khoản `0912312312`)**: item
+`29fa5980-e200-4c15-843d-e1710c583d5f` ("Read the passage and choose the best word (A, B, C or D)
+for each blank.", Khối 5 > UNIT 3: FREE TIME > READING/Other) giao tới lớp "5D" VÀ lớp
+"5X-RKLRejoin2" (2 room riêng biệt) -> xóa item nguồn 1 lần -> **CẢ 2 room biến mất đồng thời chỉ
+sau 2.4s** (không cần poll nhiều lần như TC033 gốc có độ trễ cache) - **KHÔNG xác nhận thêm bug
+cascade không đồng nhất nào cả**. Kết luận: cơ chế "ẩn khi xóa" hoạt động đúng và nhất quán khi có
+NHIỀU room cùng tham chiếu 1 item, với điều kiện học sinh/lớp đã ở trạng thái ổn định TRƯỚC khi xóa
+(khác hẳn bug ghost đã xác nhận, vốn chỉ xảy ra khi có 1 THÀNH VIÊN MỚI join SAU thời điểm xóa) -
+**thu hẹp phạm vi nghi vấn**: root cause bug ghost gắn với thời điểm ĐÁNH GIÁ TƯ CÁCH THÀNH VIÊN của
+HỌC SINH (theo lớp, tại thời điểm join), KHÔNG liên quan gì tới số lượng room mà 1 item nguồn đang
+được tham chiếu.
+
+Chạy:
+```
+cd automation
+SOURCE_BASE_URL="https://parrotedu-staging.parrotedu.vn" SOURCE_USERNAME="0912312312" \
+SOURCE_PASSWORD="123456789" SOURCE_PERSONAL_BANK_CLASS="5D" SOURCE_PERSONAL_BANK_CLASS_2="5X-RKLRejoin2" \
+SOURCE_ITEM_ID_TO_DELETE="<uuid item disposable>" SOURCE_ITEM_TITLE="<tiêu đề item>" \
+SOURCE_ITEM_UNIT="<Unit chứa item>" SOURCE_ITEM_ASSIGN_LESSON="<tag kỹ năng>" \
+SOURCE_ITEM_MANAGEMENT_LESSON="<tên Lesson ở Kho đề cá nhân>" \
+npx playwright test --config=playwright.kho-bai-tap-ca-nhan-destructive.config.js delete-source-multi-room-cascade
+```
+
+**Các khoảng trống KHÁC đã xác định nhưng CHƯA build (ưu tiên thấp hơn, chưa được user chọn để chạy
+thử ngay)**: (1) sửa NỘI DUNG câu hỏi/đáp án của item nguồn sau khi đã giao (TH1/TH2 mới test đổi
+TÊN, chưa test đổi câu hỏi/đáp án - nguy cơ sai điểm giữa lúc học sinh đang làm); (2) giao trùng lặp
+cùng 1 item cho cùng 1 lớp 2 lần (đã từng vô tình xảy ra, gây UI confusing, chưa có case chủ đích);
+(3) học sinh ĐÃ HOÀN THÀNH bài (có điểm) rồi item nguồn mới bị xóa - chưa rõ điểm/báo cáo "Kết quả
+học tập" có bị ảnh hưởng theo không.
+
+---
+
 ## TC027 (chưa tự động hoá)
 
 Xem plan gốc (`plan_KHOBAITAP.md`) mục 1 nhóm 7 để biết phân loại/độ ưu tiên.

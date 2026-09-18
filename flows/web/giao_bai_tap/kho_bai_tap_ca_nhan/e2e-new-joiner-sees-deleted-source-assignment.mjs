@@ -20,9 +20,16 @@
  *      (`automation/bai_tap/discovery/`) - tìm theo TIÊU ĐỀ (không cần Hạn nộp, vì mục tiêu là
  *      biết bản ghi CÓ xuất hiện hay không, bất kể Hạn nộp hiển thị ra sao).
  *
- * LỚP DÙNG: "5X-RKLRejoin2" (staging, id `db7ae7b7-ead9-4fd0-841d-7c1c13c5d57a`, tài khoản GV
- * `0912312312`) - lớp test riêng của module `roi_khoi_lop`, KHÔNG đụng tới lớp "5D" đang dùng cho
- * các case khác của module này (tránh nhiễu dữ liệu giữa 2 module).
+ * LỚP DÙNG (cập nhật 2026-09-18, re-run xác nhận fix): "5X-GhostRetest-20260918" (staging, id
+ * `8a28a60b-4517-4695-ad99-1d6bed141aa0`, tài khoản GV `0912312312`) - lớp MỚI TẠO riêng cho lượt
+ * re-run này (`npm run add-class`, tái sử dụng `automation/quan_ly_lop_hoc/runtime/addClassFlow.js`
+ * có sẵn), thay cho "5X-RKLRejoin2" cũ (lớp gốc của module `roi_khoi_lop`, đã có sẵn ≥2 ghost card
+ * tồn đọng từ lượt phát hiện bug đầu tiên - dùng lớp mới hoàn toàn sạch để kết quả re-run này phản
+ * ánh đúng bản fix, không lẫn dữ liệu cũ). Yaml join-class dùng bản COPY riêng
+ * `_rkl-step1-request-join-ghost-retest-class.yaml` (KHÔNG sửa file gốc dùng chung của
+ * roi_khoi_lop) với tên lớp đã thay sẵn. Profile con luôn được tạo MỚI mỗi lần chạy (theo đúng
+ * thiết kế gốc của `RKL-12_19-step1-request-join-known-class.yaml`), không cần đổi gì thêm cho yêu
+ * cầu "profile mới".
  *
  * *** CẢNH BÁO - PHÁ HUỶ THẬT: xóa vĩnh viễn 1 item trong Kho bài tập cá nhân
  * (SOURCE_ITEM_ID_TO_DELETE) + tạo 1 profile con thật dưới tài khoản phụ huynh PHONE (throwaway,
@@ -64,15 +71,23 @@ const PROJECT_ROOT = join(SELF_DIR, "..", "..", "..", "..");
 const HELPERS_DIR = join(PROJECT_ROOT, "flows", "app", "helpers");
 const ROI_KHOI_LOP_DIR = join(PROJECT_ROOT, "flows", "app", "roi_khoi_lop");
 const ENSURE_PROFILE_ACTIVE_FLOW = join(HELPERS_DIR, "ensure-profile-active.yaml");
-const JOIN_KNOWN_CLASS_FLOW = join(ROI_KHOI_LOP_DIR, "RKL-12_19-step1-request-join-known-class.yaml");
+// RE-RUN 2026-09-18 (dev đã báo fix bug này, theo yêu cầu trực tiếp user "sửa dụng lớp mới và
+// profile mới để giao" - tránh tái sử dụng lớp "5X-RKLRejoin2" cũ đã có sẵn 2 ghost card tồn đọng
+// từ lượt phát hiện bug trước, dễ gây nhiễu kết quả xác nhận fix): dùng bản COPY riêng của module
+// này (không sửa file gốc dùng chung của roi_khoi_lop) với tên lớp mới đã thay thế sẵn.
+const JOIN_KNOWN_CLASS_FLOW = join(SELF_DIR, "_rkl-step1-request-join-ghost-retest-class.yaml");
 const OUTPUT_FILE = join(PROJECT_ROOT, "automation", "output", "new_joiner_sees_deleted_source_report.json");
 const MAESTRO_TESTS_DIR = join(homedir(), ".maestro", "tests");
 
 const SOURCE_BASE_URL = "https://parrotedu-staging.parrotedu.vn";
 const SOURCE_USERNAME = "0912312312";
 const SOURCE_PASSWORD = "123456789";
-const CLASS_NAME = "5X-RKLRejoin2";
-const CLASS_ID = "db7ae7b7-ead9-4fd0-841d-7c1c13c5d57a";
+// RE-RUN 2026-09-18: đổi sang lớp MỚI TẠO ("5X-GhostRetest-20260918", npm run add-class) thay vì
+// tái sử dụng "5X-RKLRejoin2" cũ - lớp mới hoàn toàn sạch, không có ghost card tồn đọng từ lượt
+// phát hiện bug trước, đảm bảo kết quả PASS/FAIL lần này phản ánh đúng bản fix mới, không lẫn dữ
+// liệu cũ.
+const CLASS_NAME = "5X-GhostRetest-20260918";
+const CLASS_ID = "8a28a60b-4517-4695-ad99-1d6bed141aa0";
 const SCHOOL_SEARCH_TEXT = "QA";
 const SCHOOL_RADIO_POINT = "84,978";
 const APP_ID = "com.inet.parrotedu";

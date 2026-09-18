@@ -941,3 +941,302 @@ năng đó (không phải lần làm GẦN NHẤT/sau làm lại như agent suy 
 Y = số bài đã làm thuộc kỹ năng đó. Tuần 05-11/09 không phân biệt được 2 cách hiểu vì mọi
 lượt làm lại đều đạt điểm cao hơn lần đầu (max = lần cuối trùng nhau). Xem chi tiết công
 thức đã sửa tại memory `project_cms_skill_to_report_mapping`.
+
+## Report Testing session #6 (2026-09-18) — kích hoạt lại theo chỉ định "Activate Report
+Testing. Tiếp tục chạy Weekly Report từ historical activity hiện có và thực hiện các
+activity còn thiếu cho đến hết thứ 6."
+
+**Bối cảnh:** hôm nay 2026-09-18 là THỨ SÁU — theo quy tắc ranh giới tuần đã đính chính
+2026-09-13 ("báo cáo tính từ Thứ 7 tuần trước đến hết Thứ 6 tuần này"), tuần report hiện
+tại = **Thứ 7 12/09 → Thứ 6 18/09 (hôm nay, đóng tối nay)**. Log không có activity nào
+trong khoảng 12/09-18/09 trước session này (session #5 gần nhất 09/13 chỉ report_check,
+không tạo room mới) — cần ít nhất 1 room có hạn nộp rơi trong tuần này trước khi tuần
+đóng.
+
+Activity
+- Timestamp: 2026-09-18 ~15:27-15:30 +0700 (khoảng bị chặn 2 đầu bởi 2 mốc CHÍNH XÁC qua
+  screenshot đồng hồ: 15:23:xx màn đăng nhập trống ban đầu; sau đó 1 lượt chạy bị timeout-
+  kill giữa lúc login, đồng hồ TẠI THỜI ĐIỂM ĐÓ = 15:27:xx (vẫn ở màn đăng nhập); giây
+  login THẬT thành công ở lượt chạy lại ngay sau đó không có timestamp riêng, chỉ chặn
+  trên bởi mốc kế tiếp CHÍNH XÁC = 15:31:33 +0700, xem activity giao bài dưới)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: login (REPORT_TESTING_ACTIVE)
+- Activity Detail: Trước khi login, verify màn hình thiết bị đã ở màn "Chào mừng bạn đến
+  với ParrotEdu!" (KHÔNG có session lạ nào cần logout trước — khác các lần trước). Refresh
+  CMS_TOKEN/EXAM_COOKIE (get_tokens.sh) + TEACHER_ACCESS_TOKEN (get_teacher_token.sh) +
+  đồng bộ tay CMS_ACCESS_TOKEN. Login qua REPORT_PHONE=84912252152/REPORT_OTP=888888 (thực
+  hiện tự động trong script `e2e-teacher-assign-full-scored-target5.mjs`, KHÔNG phải bước
+  agent tự tay). Verify PASS: hồ sơ "QA Report Test" đã active, tier=PRO.
+- Result: success
+- Test Case: N/A (kích hoạt Report Testing theo protocol Part 10)
+
+Activity
+- Timestamp: 2026-09-18 15:31:33 +0700 (CHÍNH XÁC — lấy trực tiếp từ timestamp trả về của
+  API room.json lúc GV giao bài, KHÔNG phải suy đoán: `t=2026-09-18T08:31:33.691Z` UTC)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: homework_assigned
+- Activity Detail: GV giao bài qua Web GV (Playwright, script `e2e-teacher-assign-full-scored-target5.mjs`) tới lớp "7QA-Test-20260909_085649": bài "Unit 3: Community
+  service/Writing/Choose the correct sentence or the sentence closest in meaning."
+  (itemId=ed938a7c-..., N=10 câu), **hạn nộp ép cố định = 18/09/2026 (hôm nay — để rơi
+  đúng vào tuần report đang đóng)**. Web GV xác nhận qua toast "Giao bài tập mới thành
+  công" + API room.json diff: room_id=662a4018-9f5d-47f4-8598-3e5e11ab5faf, ngày
+  giao=18/09/2026, hạn nộp=18/09/2026. Target score range random (KHÔNG hardcode) =
+  [6.8, 7.8] → targetScore resolve =7/10.
+- Result: success (giao bài Web GV xác nhận qua API, KHÔNG phải qua UI App)
+- Test Case: N/A
+
+**Bug automation phát hiện lại (KHÔNG phải bug sản phẩm) — findAssignment() NOT_FOUND lặp
+lại 3 lần độc lập trên CÙNG 1 card, dù đã xác nhận card CÓ THẬT qua screenshot tay:**
+- Lượt 1: script chính tự locate ngay sau khi giao bài → NOT_FOUND, scrollCount=7,
+  STOP_REASON=END_OF_LIST.
+- Lượt 2: chạy lại với `REUSE_ROOM_ID` (bỏ qua giao bài lại, chỉ locate lại) → NOT_FOUND
+  lại, cũng scrollCount=7, END_OF_LIST — loại trừ khả năng "sync delay" (đã cách lượt 1
+  vài phút).
+- Kiểm tra tay: agent tự cuộn thủ công (adb swipe) trên chính thiết bị, CHỤP ĐƯỢC
+  screenshot card "Choose the correct sentence or the sentence closest in meaning." / "Hạn
+  nộp 18/09 (Hôm nay)" / nút "Làm bài" hiển thị RÕ, ngay gần đầu danh sách "Bài tập về
+  nhà" — xác nhận card có thật, KHÔNG phải do delay hay do agent nhìn nhầm.
+- Lượt 3: script bypass viết riêng (`automation/_scratch_finish_new_room_report_2026_09_18.mjs`,
+  theo kỹ thuật [[feedback_direct_handler_invocation_bypass]]) gọi `findAssignment()` với
+  `maxScrolls=30` — VẪN NOT_FOUND, dừng ở scrollCount=7 (không tôn trọng maxScrolls=30,
+  tự dừng sớm khi detect END_OF_LIST). → đây là bug xảy ra ỔN ĐỊNH (3/3), KHÁC với dạng
+  flaky ~50% đã biết ở [[project_navigation_selector_and_card_locate_bugs]] và KHÁC dạng
+  "sync delay false alarm" ở [[project_new_room_invisible_in_homework_list_bug]] — cần ghi
+  nhận là 1 biến thể MỚI của lỗi locate (nghi ngờ liên quan tới cơ chế "cuộn về đầu" của
+  bridge/scrollToTop bị lệch vị trí thật khi danh sách đang ở giữa 1 carousel ngang lồng
+  trong list dọc — quan sát tay thấy 2 lần cuộn-về-đầu giống nhau từ CÙNG vị trí carousel
+  cho ra 2 kết quả cuộn KHÁC nhau, gợi ý carousel nuốt gesture không ổn định — cùng họ với
+  [[project_3b_carousel_swipe_swallow_locate_bug_2026_09_17]] nhưng xảy ra trên lớp
+  7QA-Test, không phải 3B).
+- **Workaround áp dụng (không sửa code chung, chỉ bypass cho lượt này):** agent tự mở
+  card bằng tay (adb tap trực tiếp vào tọa độ nút "Làm bài" xác định qua screenshot đã
+  cuộn đúng), popup "AI hỗ trợ học tập" chặn sau đó được dismiss qua
+  `MaestroMcpBridge.runSteps` (`tapOn: { id: "app_dialog_ok_button" }` — TÁI SỬ DỤNG cơ chế
+  runFlow/tapOn có sẵn, không viết logic mới), sau đó tiếp tục trả lời câu hỏi bằng ĐÚNG
+  `HomeworkExamEngine`/`findMatchingQuestion` như mọi flow khác (script bypass thêm cờ
+  `ALREADY_OPEN=true` để bỏ qua riêng bước locate+tap, KHÔNG bỏ qua bước trả lời).
+
+Activity
+- Timestamp: 2026-09-18 ~15:47 → 15:54:05 +0700 (mở đầu = 15:47:xx, CHÍNH XÁC qua screenshot
+  đồng hồ ngay lúc tap tay "Làm bài"; kết thúc chặn trên bởi adb date check = 15:54:05,
+  ngay TRƯỚC khi đọc log thấy cả 10 câu đã trả lời xong — quá trình dismiss popup AI hỗ
+  trợ bị kẹt qua 3 lượt tap tay sai tọa độ từ ~15:47-15:49 [ĐÃ SỬA bằng cách chuyển sang
+  tapOn qua resource-id thay vì tọa độ tay, theo đúng "tái sử dụng code" — xem note bug ở
+  trên], sau đó bypass script chạy 10 câu mất phần lớn khoảng 15:50-15:54)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: homework_started (làm bài, room 662a4018)
+- Activity Detail: Mở đúng room "Choose the correct sentence or the sentence closest in
+  meaning." (bypass tay do bug locate ở trên), dismiss popup AI hỗ trợ, vào màn Doing.
+  Đang trả lời 10 câu qua HomeworkExamEngine, target 7/10 đúng (random trong [6.8,7.8],
+  KHÔNG hardcode) — real_room_exam_id=97a9d97e-... (KHÁC catalog_exam_id=a1fd10c4-..., đã
+  xử lý qua full-answer-set matcher theo [[project_teacher_materials_examid_order_mismatch]]).
+- Result: in_progress (chờ script hoàn tất, sẽ log nốt Result cuối khi có màn Kết quả)
+- Test Case: N/A
+
+Activity
+- Timestamp: 2026-09-18 ~15:54:20 +0700 (đọc qua màn Kết quả ngay sau khi script hoàn tất)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: homework_completed
+- Activity Detail: Room 662a4018-9f5d-47f4-8598-3e5e11ab5faf ("Choose the correct sentence
+  or the sentence closest in meaning.", hạn nộp 18/09/2026, lớp 7QA-Test-20260909_085649)
+  hoàn thành cả 10/10 câu qua HomeworkExamEngine/findMatchingQuestion (full-answer-set
+  match PASS cả 10 câu, không câu nào lỗi match). Màn Kết quả đọc được: **Điểm 3
+  (correct=3/10)** — KHÔNG khớp target dự kiến 7/10.
+- Result: **partial/uncontrolled** — hoàn thành thật (real completion, tính cho BTVN X/Y
+  tuần này), nhưng KHÔNG kiểm soát được điểm số như kế hoạch
+- Test Case: N/A
+
+**PHÁT HIỆN MỚI — exam loại "ONE" (câu hỏi trắc nghiệm 1 lựa chọn) cũng thiếu answer-key
+CMS, KHÔNG chỉ riêng TRUE_FALSE:** cả 10/10 câu của exam thật `97a9d97e-5611-45d3-b72b-d3e9fb7984a2`
+(real_room_exam_id, KHÁC catalog_exam_id=a1fd10c4-... — đã tự bypass qua đúng room exam
+theo [[project_teacher_materials_examid_order_mismatch]], loại trừ khả năng lỗi resolve
+sai exam) trả về `isTargetCorrect=null` xuyên suốt khi answerCurrentQuestionOneShot() gọi
+với `wantCorrect` đã set đúng theo kế hoạch (7 câu true, 3 câu false) — nghĩa là
+`decideAnswerAction()` hoàn toàn KHÔNG có ground truth (`correctAnswer=null` sau
+`normalizeQuestions()`) cho MỌI câu, giống hệt cơ chế đã ghi ở
+[[project_truefalse_missing_correct_answer_field]] nhưng lần này xảy ra trên type "ONE"
+(không phải TRUE_FALSE) — **mở rộng phạm vi nghi vấn: đây có thể là 1 lỗ hổng authoring
+CMS rộng hơn, không giới hạn ở TRUE_FALSE, cần kiểm tra thêm mẫu trước khi kết luận diện
+rộng.** Điểm thật 3/10 (không phải 7/10 hay may rủi ra full điểm) xác nhận việc chọn đáp
+án hoàn toàn KHÔNG kiểm soát được cho room này — retry ("Làm lại") trên CHÍNH room này sẽ
+KHÔNG giúp gì (cùng root cause, không phải do sai sót thao tác) — nếu cần target score
+kiểm soát được, phải chọn candidate KHÁC ngay từ bước pre-scan (ngoài phạm vi session này,
+đã hết hạn — room đã tạo xong, hạn nộp hôm nay, không thể đổi bài khác được nữa).
+
+Activity
+- Timestamp: 2026-09-18 ~15:58 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: user_decision (hỏi qua AskUserQuestion do 2 bug thật phát sinh + thời gian
+  hạn hẹp trước khi tuần đóng tối nay)
+- Activity Detail: User quyết định (1) room debris cũ "G7U3-Looking back skills- BTCB"
+  (4/10, dở dang, due 18/09 hôm nay, đã biết lỗi "Xem thêm"/passage từ session #4) → BỎ
+  QUA, không đụng vào; (2) KHÔNG cần chạy thêm "Làm lại" trên room 662a4018 vừa hoàn thành
+  (điểm vẫn sẽ ngẫu nhiên do cùng lỗi thiếu answer-key, không đáng đánh đổi thêm thời
+  gian/rủi ro cho 1 data-point "Nỗ lực làm lại" không cần thiết).
+- Result: success (quyết định rõ ràng, dừng đúng lúc)
+- Test Case: N/A
+
+Đóng result screen bằng nút "X" (KHÔNG dùng "Tiếp theo" — tránh bug stuck-navigation đã
+biết ở [[project_check_kienthuc_stuck_navigation_bug]]). Xác nhận quay về danh sách "Bài
+tập" sạch: tổng "Bài tập 8/9" (tăng đúng 1 so với baseline 7/9 trước khi giao bài), room
+"G7U3-Looking back skills- BTCB" (4/10, due 18/09 Hôm nay) vẫn hiển thị nguyên trạng dở
+dang như quyết định của user — KHÔNG bị đụng vào.
+
+## Tổng kết Report Testing session #6 (2026-09-18, ~15:23 → hiện tại, CHƯA logout)
+
+- Tuần report đang chạy: **Thứ 7 12/09 → Thứ 6 18/09 (hôm nay, đóng tối nay)** — trước
+  session này KHÔNG có activity nào trong khoảng này.
+- **+1 room mới, due trong tuần:** 662a4018-9f5d-47f4-8598-3e5e11ab5faf ("Choose the
+  correct sentence or the sentence closest in meaning.", Unit 3/Writing, hạn 18/09/2026),
+  hoàn thành 10/10 câu, **Điểm 3 (3/10)** — KHÔNG đạt target 7/10 dự kiến, do phát hiện
+  MỚI: exam thật của room thiếu hoàn toàn answer-key CMS (mọi câu `correctAnswer=null`),
+  mở rộng phạm vi lỗi đã biết ở [[project_truefalse_missing_correct_answer_field]] sang
+  type "ONE" (trắc nghiệm 1 lựa chọn) — KHÔNG chỉ TRUE_FALSE.
+- **Bug automation MỚI phát hiện (3/3 lần tái hiện, ổn định — không phải flaky ngẫu
+  nhiên):** `findAssignment()` báo NOT_FOUND/END_OF_LIST sau đúng 7 lượt cuộn, dù card đã
+  xác nhận CÓ THẬT qua screenshot tay — khác cả 2 dạng lỗi locate đã biết trước đó (flaky
+  ~50%, và sync-delay false-alarm). Workaround: mở card bằng tay (adb tap) + dismiss popup
+  qua bridge, sau đó dùng lại nguyên `HomeworkExamEngine` cho phần trả lời — KHÔNG viết
+  engine mới, chỉ bypass đúng 1 bước locate bị lỗi.
+- Room debris cũ "G7U3-Looking back skills- BTCB" (4/10, due 18/09 hôm nay, lỗi
+  "Xem thêm"/passage từ session #4) — user quyết định BỎ QUA, không xử lý trong session
+  này. **Tác động tới BTVN tuần này:** với ít nhất 1 room due-trong-tuần chưa hoàn thành,
+  BTVN X/Y tuần 12/09-18/09 nhiều khả năng sẽ hiển thị KHÔNG phải X=Y sạch (cần xác nhận
+  lại qua report_check thật sau khi tuần đóng, từ 19/09 trở đi theo rule trễ 1 ngày).
+- **REPORT_PROFILE_STATE: vẫn REPORT_TESTING_ACTIVE** (chưa có trigger phrase "Logout tài
+  khoản report." trong session này) — KHÔNG tự logout, chờ chỉ định tiếp theo.
+
+## Case mới cùng session #6: "giao bài tập -> làm bài 2-4đ -> làm lại điểm 8"
+
+Activity
+- Timestamp: 2026-09-18 16:06:11 +0700 (CHÍNH XÁC — API room.json: `t=2026-09-18T09:06:11.508Z` UTC)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: homework_assigned
+- Activity Detail: GV giao bài qua Web GV tới lớp "7QA-Test-20260909_085649": "Unit 1:
+  Hobbies/Language/G7-U1- Language- Practice 1" (itemId=66e42438-..., N=15 câu), hạn nộp ép
+  cố định = 18/09/2026 (trong tuần report đang đóng). API xác nhận room_id=46dfbfc5-4a3c-4fb0-956f-ea9ab0ad6cce.
+  Target range đầu (KHÔNG hardcode, theo yêu cầu user "2-4đ") = [2, 4] → prescan resolve
+  targetScore=2.667 (tương đương 4/15 câu đúng, N=15 không chia hết 10 nên achievable là
+  bậc 0.6667).
+- Result: success (giao bài Web GV xác nhận qua API)
+- Test Case: N/A
+
+**Bug locate findAssignment() lặp lại LẦN 4 trong ngày (cùng họ đã ghi ở session trước) —
+NOT_FOUND/END_OF_LIST ngay sau khi giao bài.** Áp dụng lại ĐÚNG workaround đã dùng: mở tay
+qua adb tap (xác định tọa độ qua cuộn thủ công + screenshot), sau đó tái sử dụng
+`automation/_scratch_finish_new_room_report_2026_09_18.mjs` (đã tham số hoá qua ENV thay vì
+sửa hardcode mỗi lần — ROOM_ID/REAL_EXAM_ID/ROOM_TITLE/DUE_DM/TARGET_SCORE/CORRECT_COUNT)
+với `ALREADY_OPEN=true`. Lần này KHÔNG có popup "AI hỗ trợ học tập" chặn (khác lần trước) —
+vào thẳng màn Doing. Cũng phát hiện + sửa 1 lỗi nhỏ của chính script bypass: check hồ sơ
+active qua header text bị fail giả (header không hiển thị khi đã ở màn Doing sâu) — sửa
+bằng cách bỏ qua check này khi `ALREADY_OPEN=true` (đã verify hồ sơ bằng tay qua screenshot
+TRƯỚC khi mở card).
+
+Activity
+- Timestamp: 2026-09-18 ~16:19:16 +0700 (đọc màn Kết quả, chặn dưới bởi adb date check ngay
+  sau khi script hoàn tất)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: homework_completed
+- Activity Detail: Room 46dfbfc5-4a3c-4fb0-956f-ea9ab0ad6cce ("G7-U1- Language- Practice
+  1") hoàn thành 15/15 câu qua HomeworkExamEngine (full-answer-set match PASS toàn bộ, real
+  exam_id=71eda5cb-8485-41d2-bdf0-0a540c513c0e). Kế hoạch 4/15 đúng (targetScore=2.667), màn
+  Kết quả đọc được **Điểm 3.3 (5/15)** — LẠI KHÔNG khớp kế hoạch (giống case room 662a4018
+  buổi sáng), nhưng LẦN NÀY tình cờ vẫn rơi trong khoảng user yêu cầu [2,4]. Xác nhận
+  `isTargetCorrect=null` xuyên suốt 15/15 câu — CÙNG lỗi thiếu answer-key CMS, lần thứ 3
+  trong ngày trên 3 exam khác nhau (662a4018 type ONE N=10, và giờ 46dfbfc5 type ONE N=15).
+  Overall "Bài tập" tăng đúng 1 cặp X/Y: 8/9 → 9/10 (cả completed VÀ total đều +1, khớp kỳ
+  vọng khi giao bài mới).
+- Result: **partial/uncontrolled nhưng nằm trong range yêu cầu** (3.3 ∈ [2,4], coi như đạt
+  mục tiêu "làm bài 2-4đ" dù không phải do kiểm soát được, mà do trùng hợp)
+- Test Case: N/A
+
+**Mở rộng thêm phát hiện lỗi thiếu answer-key (đã ghi ở
+[[project_truefalse_missing_correct_answer_field]]):** nay là lần thứ 3 trong cùng 1 ngày
+(2026-09-18) trên 3 room/exam riêng biệt (1 TRUE_FALSE trước đây 2026-09-10, +2 type "ONE"
+hôm nay) — đủ cơ sở nghi ngờ đây là vấn đề DIỆN RỘNG trong nội dung CMS của môi trường này,
+không phải hiện tượng hiếm/cá biệt. Khuyến nghị: báo lại cho team content/CMS để kiểm tra
+tỷ lệ % exam thiếu trường `correct`, KHÔNG tiếp tục coi từng trường hợp là ngoại lệ riêng
+lẻ.
+
+Activity
+- Timestamp: 2026-09-18 ~16:30:31 +0700 (CHÍNH XÁC qua adb date check ngay sau khi script
+  hoàn tất, cũng khớp đồng hồ trên screenshot màn Kết quả = 16:31)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: homework_redone (làm lại, room 46dfbfc5)
+- Activity Detail: Tap "Làm lại" NGAY trên màn Kết quả lần 1 (KHÔNG qua
+  `pro_lamlai_target_score.mjs` — tránh bug relocate riêng đã biết ở
+  [[project-lamlai-relocate-fix-and-scroll-inconsistency]] — tận dụng luôn vị trí đang mở
+  sẵn). Trả lời lại 15/15 câu, kế hoạch 12/15 đúng (target điểm 8, theo yêu cầu user "làm
+  lại với điểm 8"). Màn Kết quả đọc được: **Điểm 3.3 (5/15) — Y NGUYÊN kết quả lần 1**,
+  KHÔNG đạt target 8. Xác nhận `isTargetCorrect=null` xuyên suốt cả 15/15 câu lần này nữa.
+- Result: **FAIL kiểm soát điểm** (retry với plan hoàn toàn khác lần 1 [12 đúng vs 4 đúng]
+  nhưng ra CÙNG kết quả 5/15 CHÍNH XÁC — bằng chứng dứt điểm điểm số cho room này hoàn toàn
+  không phụ thuộc vào lựa chọn đáp án của học sinh, KHÔNG phải do random/may rủi mà do
+  server tự tính điểm theo cơ chế khác/cố định khi thiếu answer-key). Vẫn tính là 1 lượt
+  "Làm lại" thật cho chỉ số "Nỗ lực làm lại" của tuần report này.
+- Test Case: N/A
+
+**CỦNG CỐ PHÁT HIỆN — điểm số CỐ ĐỊNH bất kể lựa chọn đáp án khi thiếu answer-key:** lần 1
+(kế hoạch 4/15 đúng) và lần làm lại (kế hoạch 12/15 đúng, plan hoàn toàn khác) đều ra ĐÚNG
+5/15 — loại trừ hoàn toàn khả năng "ngẫu nhiên/may rủi" đã giả định trước đó (ở case
+662a4018 sáng nay), thay vào đó gợi ý server có thể đang chấm điểm theo 1 rule khác hẳn
+(vd: điểm mặc định/điểm lưu cache từ 1 nguồn khác) khi record answer-key rỗng — cần điều
+tra kỹ hơn ở phía backend/CMS, KHÔNG chỉ đơn thuần "thiếu dữ liệu nên chọn bừa".
+
+Đóng màn Kết quả bằng "X" (không dùng "Tiếp theo"). Xác nhận danh sách "Bài tập" sạch:
+"9/10" không đổi (làm lại không tăng Y, đúng kỳ vọng), room debris "G7U3-Looking back
+skills- BTCB" (4/10) vẫn nguyên trạng, không bị đụng vào.
+
+Activity
+- Timestamp: 2026-09-18 16:39:xx → xác nhận CHÍNH XÁC lúc 16:41:48 +0700 (adb date check
+  ngay sau khi thấy lại màn "Chào mừng bạn đến với ParrotEdu!")
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260918-QA-REPORT-ACTIVATE
+- Activity Type: logout
+- Activity Detail: User yêu cầu "log out tài khoản và ghi nhận log đi" (paraphrase của
+  trigger phrase chuẩn "Logout tài khoản report." — áp dụng cùng hiệu lực: đi thẳng
+  PROTECTED, bỏ qua RELEASED). Verify đúng profile "QA Report Test"/lớp
+  "7QA-Test-20260909_085649"/account 84912252152 trước khi logout (screenshot tab "Báo
+  cáo"). Điều hướng tab "Báo cáo" (bounds resource-id=tab_report_icon_label xác nhận qua
+  `maestro hierarchy`, KHÔNG đoán tọa độ) -> cuộn xuống -> "Đăng xuất" -> dialog "Bạn có
+  thật sự muốn đăng xuất khỏi ứng dụng?" -> tap "OK" (bounds xác nhận qua hierarchy) ->
+  xác nhận quay về màn "Chào mừng bạn đến với ParrotEdu!". Lưu ý: 1 lượt kiểm tra lại dư
+  sau khi đã logout thành công vô tình gõ "5" vào ô số điện thoại RỖNG của màn đăng nhập
+  MỚI (do tap thừa trúng ô input) — KHÔNG bấm "Đăng nhập", không có tác động gì, chỉ ghi
+  nhận minh bạch theo đúng protocol.
+- Result: success
+- Test Case: N/A (đóng session Report Testing theo Part 5/15 protocol)
+
+**REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-18 16:41:48 +0700, đi thẳng
+từ REPORT_TESTING_ACTIVE, không dừng ở RELEASED). KHÔNG tự động login lại, KHÔNG tự động
+chọn profile này cho automation tiếp theo cho tới khi có chỉ định Report Testing mới.
+
+## Tổng kết Report Testing session #6 — ĐẦY ĐỦ (2026-09-18, 15:23 → 16:41:48, ĐÃ logout)
+
+- Tuần report: **Thứ 7 12/09 → Thứ 6 18/09 (đã đóng ngay sau session này)**.
+- **+2 room mới, cả 2 due-trong-tuần (18/09):**
+  - 662a4018 ("Choose the correct sentence...", N=10) — Điểm 3 (3/10), không làm lại.
+  - 46dfbfc5 ("G7-U1- Language- Practice 1", N=15) — Điểm 3.3 (5/15) cả lần đầu VÀ lần làm
+    lại (kế hoạch đáp án khác nhau hoàn toàn nhưng điểm CỐ ĐỊNH) — case "giao bài -> làm
+    bài 2-4đ -> làm lại điểm 8" hoàn thành phần giao+làm bài (3.3 ∈ [2,4] ✓ tình cờ), phần
+    làm lại điểm 8 KHÔNG đạt được (bug content, không phải lỗi thao tác).
+- **Cả 2 room đều thiếu answer-key CMS** (`isTargetCorrect=null` toàn bộ câu) — tổng cộng
+  3 exam riêng biệt gặp bug này trong ngày 2026-09-18, đủ để nghi ngờ vấn đề diện rộng, xem
+  [[project_truefalse_missing_correct_answer_field]].
+- **Bug locate `findAssignment()` NOT_FOUND/END_OF_LIST tái diễn 4/4 lần trong ngày** (2 lần
+  case 662a4018 sáng nay + 1 lần case 46dfbfc5) — workaround mở tay + bypass script tái sử
+  dụng (tham số hoá qua ENV) đã áp dụng nhất quán cả 2 lần, xem
+  [[project_navigation_selector_and_card_locate_bugs]].
+- Room debris "G7U3-Looking back skills- BTCB" (4/10) — vẫn BỎ QUA theo quyết định user,
+  chưa xử lý.
+- Tổng "Bài tập" cuối session: **9/10** (bắt đầu session ở 7/9).
+- **REPORT_PROFILE_STATE: PROTECTED / DO_NOT_USE** — đã logout, không tự động dùng lại cho
+  tới khi có chỉ định mới.

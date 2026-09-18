@@ -14,16 +14,21 @@ import { defineConfig } from "@playwright/test";
  * TRẠNG THÁI FORM qua `test.describe.serial()` (TC003 phụ thuộc lớp đã chọn ở TC001/002, TC007
  * phụ thuộc item đã tick từ bước trước) - không chạy song song được.
  *
- * `testIgnore: delete-source-regression.spec.js / delete-source-while-selected-race.spec.js` -
- * TC033/TC026 XÓA THẬT 1 item trong Kho bài tập cá nhân ("Hành động này không thể hoàn tác"), CHỦ
- * ĐỘNG loại khỏi default testMatch (không chỉ dựa vào việc thiếu ENV để "tự chặn") để không ai vô
- * tình kích hoạt qua lệnh chạy full suite - phải dùng
- * `playwright.kho-bai-tap-ca-nhan-destructive.config.js` để chạy (xem docblock đầu mỗi file spec).
+ * `testIgnore: delete-source-regression.spec.js / delete-source-while-selected-race.spec.js /
+ * delete-source-multi-room-cascade.spec.js` - TC033/TC026/multi-room-cascade XÓA THẬT 1 item trong
+ * Kho bài tập cá nhân ("Hành động này không thể hoàn tác"), CHỦ ĐỘNG loại khỏi default testMatch
+ * (không chỉ dựa vào việc thiếu ENV để "tự chặn") để không ai vô tình kích hoạt qua lệnh chạy full
+ * suite - phải dùng `playwright.kho-bai-tap-ca-nhan-destructive.config.js` để chạy (xem docblock
+ * đầu mỗi file spec).
  */
 export default defineConfig({
   testDir: "../flows/web/giao_bai_tap/kho_bai_tap_ca_nhan",
   testMatch: "**/*.spec.js",
-  testIgnore: ["**/delete-source-regression.spec.js", "**/delete-source-while-selected-race.spec.js"],
+  testIgnore: [
+    "**/delete-source-regression.spec.js",
+    "**/delete-source-while-selected-race.spec.js",
+    "**/delete-source-multi-room-cascade.spec.js",
+  ],
   fullyParallel: false,
   workers: 1,
   retries: 0,

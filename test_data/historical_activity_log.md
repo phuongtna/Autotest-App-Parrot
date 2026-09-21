@@ -1240,3 +1240,191 @@ chọn profile này cho automation tiếp theo cho tới khi có chỉ định R
 - Tổng "Bài tập" cuối session: **9/10** (bắt đầu session ở 7/9).
 - **REPORT_PROFILE_STATE: PROTECTED / DO_NOT_USE** — đã logout, không tự động dùng lại cho
   tới khi có chỉ định mới.
+
+## BỔ SUNG HỒI TỐ (2026-09-18) — session 2026-09-17 do USER tự truy cập, KHÔNG qua agent
+
+Activity
+- Timestamp: 2026-09-17 17:24 → 17:40 +0700 (user tự báo cáo lại bằng lời qua chat ngày
+  2026-09-18, KHÔNG có screenshot/adb log gốc — giây chính xác không có, chỉ có phút theo
+  đúng lời user cung cấp)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260917-QA-REPORT-MANUAL
+- Activity Type: manual_access (login + hoạt động + logout, USER tự thao tác trực tiếp
+  trên thiết bị, KHÔNG qua automation/agent)
+- Activity Detail: User báo lại: "ngày 17/9 tôi có truy cập vào account báo cáo này lúc
+  17:24 - 17:40." Không có chi tiết cụ thể đã làm gì trong khoảng này (làm bài/xem báo
+  cáo/khác) — ghi nhận theo ĐÚNG những gì user cung cấp, KHÔNG suy đoán thêm nội dung hoạt
+  động. Lưu ý: theo log trước đó, REPORT_PROFILE_STATE tại thời điểm này đáng lẽ là
+  PROTECTED/DO_NOT_USE (session #5 đã đóng 2026-09-13 09:43:45, session #6 chưa mở tới
+  2026-09-18 ~15:27) — nhưng trạng thái PROTECTED chỉ ràng buộc AGENT/automation không tự
+  ý đụng vào, KHÔNG ràng buộc chính user (chủ tài khoản) tự truy cập trực tiếp. Đây KHÔNG
+  phải vi phạm protocol, chỉ là hoạt động ngoài tầm quan sát của agent tại thời điểm đó.
+- Result: success (ghi nhận theo lời user, chưa verify độc lập được)
+- Test Case: N/A
+
+**Tác động tới phép tính "Thời gian học" tuần 12/09-18/09 (CẦN CẬP NHẬT LẠI dự đoán đã đưa
+trước đó):** phiên này (~16 phút) rơi ĐÚNG vào tuần report 12/09-18/09 đang chờ chốt sổ,
+nằm GIỮA session #5 (2026-09-13) và session #6 (2026-09-18) — trước đó agent CHƯA BIẾT
+phiên này tồn tại nên tổng "Thời gian học" thô đã tính (~87-92 phút) bị THIẾU. Tổng thô
+CẬP NHẬT LẠI cho tuần này = session #5 (~16.5') + session 09-17 (~16') + session #6
+(~70-75') ≈ **102.5-107.5 phút (~1g42-1g48)**. Vẫn giữ nguyên cảnh báo cũ: con số thô
+KHÔNG đáng tin để dự đoán số hiển thị thật (discrepancy tuần trước ~122 phút chưa rõ
+nguyên nhân) — đây chỉ là cập nhật input, không phải dự đoán chắc chắn.
+
+**Bài học quy trình:** log này chỉ đầy đủ với những gì AGENT trực tiếp quan sát/thao tác
+được — hoạt động USER tự làm ngoài phiên automation (như phiên 17/9 này) sẽ bị SÓT nếu
+user không chủ động báo lại. Khi đối chiếu "Thời gian học" hoặc bất kỳ chỉ số nào với
+report thật, cần luôn hỏi user có phiên tự thao tác nào ngoài log agent hay không, đặc
+biệt trước khi kết luận 1 discrepancy là "bug"/"chưa rõ nguyên nhân".
+
+## Đối chiếu report thật Tuần 2 (12/09-18/09) với log — TOÀN BỘ, 2026-09-18
+
+Activity
+- Timestamp: 2026-09-18 ~11:36 +0700 (theo đồng hồ trên 2 ảnh chụp màn hình user cung cấp
+  qua chat; agent KHÔNG thao tác thiết bị cho hoạt động này, chỉ đối chiếu số liệu)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: N/A (đối chiếu ad-hoc qua ảnh chụp màn hình user gửi)
+- Activity Type: report_check
+- Activity Detail: User gửi 2 ảnh chụp "Báo cáo học tập" tuần 12/09-18/09 (tuần 2).
+  Đối chiếu ĐẦY ĐỦ với log — ban đầu tưởng thiếu dữ liệu (chỉ tính 2 room của session #6),
+  sau đó phát hiện phải gộp CẢ 7 room có hạn nộp rơi vào tuần 12/09-18/09 (kể cả 4 room
+  giao từ trước, hạn 16/09 hoặc 18/09: 48819f9f/Phát âm, 2bb7600b/Ngữ pháp, d6ec3edd/Đọc,
+  8510bfea/Từ vựng — cộng thêm 662a4018/Viết, 46dfbfc5/Ngữ pháp, 47e67474/chưa hoàn thành
+  của session #6). Sau khi gộp đúng, khớp CHÍNH XÁC:
+  - Bài tập về nhà 6/7 ✅ (6 hoàn thành/7 due-trong-tuần, chỉ 47e67474 dang dở)
+  - Nỗ lực làm lại 3 lượt ✅ (2bb7600b, 8510bfea, 46dfbfc5)
+  - Phát âm 5 ✅ | Kỹ năng đọc 8 ✅ | Từ vựng 9 ✅ | Kỹ năng viết 3 ✅
+  - Ngữ pháp 6.2 ✅ (trung bình 2 bài: (9+3.3)/2=6.15≈6.2)
+  - Text "so với tuần trước" (Chuyên cần, đối chiếu với tuần 1 đã xác nhận: BTVN 3/3,
+    Nỗ lực làm lại 2, Bài đã học 0): "Tăng 3 bài" (3→6 ✅), "Tăng 1 lượt" (2→3 ✅),
+    "Không thay đổi" (0→0 ✅) — cả 3 đúng.
+  - Text "so với bài tập trước" (Kết quả học tập, đối chiếu tuần 1: Đọc=6, Viết=10):
+    Đọc "Tăng 2 điểm" (6→8 ✅), Viết "Giảm 7 điểm" (10→3 ✅) — cả 2 đúng.
+- Result: **success — 11/12 mục khớp CHÍNH XÁC 100%**. 1 mục còn lại là finding đã biết
+  từ trước, KHÔNG phải lỗi mới:
+  (a) Thời gian học 1g57 (117') vs log thô ~102-107' (đã cộng cả phiên user tự truy cập
+  09-17) — lệch ~10-15 phút, cùng dạng discrepancy chưa rõ nguyên nhân đã gặp ở tuần 1
+  (khi đó lệch ~122 phút).
+  **ĐÍNH CHÍNH (user xác nhận ngay sau, cùng ngày):** mục (b) ban đầu agent nêu ra — 3
+  ring Ngữ pháp/Phát âm/Từ vựng lần đầu có dữ liệu (tuần 1 = 0 bài) nhưng text ghi "Không
+  thay đổi so với bài tập trước" — KHÔNG phải vấn đề wording/UX như agent suy đoán. User
+  xác nhận đây là hành vi ĐÚNG THIẾT KẾ: "tuần đầu không có dữ liệu nên sẽ không hiển thị
+  điểm. Tuần 2 có thì sẽ hiển thị text như kia" — tức khi 1 ring chưa từng có dữ liệu, ring
+  đó ẨN/KHÔNG hiển thị hoàn toàn (không phải "chưa có dữ liệu" kèm delta), và lần đầu có dữ
+  liệu thật thì hệ thống mặc định ghi "Không thay đổi" cho lần xuất hiện đầu tiên đó — hành
+  vi này là CHỦ ĐÍCH, không phải copy gây hiểu nhầm. Rút lại hoàn toàn nhận định (b) cũ.
+- Test Case: N/A (đối chiếu report thật ad-hoc theo yêu cầu user, đầy đủ nhất từ trước
+  tới nay cho 1 tuần report)
+
+**Bài học quy trình quan trọng nhất rút ra từ lần đối chiếu này:** khi tính bất kỳ chỉ số
+theo-tuần nào (BTVN Y, Nỗ lực làm lại, ĐTB kỹ năng), PHẢI gộp TẤT CẢ room có hạn nộp rơi
+vào tuần đó — bất kể room được GIAO/HOÀN THÀNH từ session nào, kể cả session rất xa trước
+đó (vd 48819f9f hoàn thành từ 2026-09-09 nhưng hạn nộp 16/09 vẫn tính vào tuần 2). Lần đầu
+đối chiếu tuần 2, agent CHỈ tính 3 room mới của session #6 và kết luận nhầm là "thiếu dữ
+liệu diện rộng" — kết luận đó SAI, chỉ là do quét thiếu phạm vi due-date, không phải do
+hoạt động thật nào bị mất khỏi log.
+
+## Report Testing session #7 — kích hoạt 2026-09-21
+
+Activity
+- Timestamp: 2026-09-21 13:27:00 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260921-QA-REPORT-07
+- Activity Type: login
+- Activity Detail: User ra lệnh "Activate Report Testing." Thiết bị trước đó đang đăng
+  nhập profile không liên quan ("Hạnh vy", tài khoản 84915775115, lớp 8D, còn dở app từ
+  automation trước). Đăng xuất qua tab Báo cáo -> Đăng xuất -> OK, sau đó đăng nhập lại
+  bằng REPORT_PHONE=84912252152/REPORT_OTP=888888. Xác nhận qua tab "Bài tập": profile
+  hiện tại là "QA Report Test" / lớp "7QA-Test-20260909_085649" (khớp REPORT_TEST_PROFILE).
+  Ghi chú kỹ thuật: `maestro hierarchy` bounds cho vài phần tử (nút "Đăng xuất") bị lệch
+  đáng kể so với vị trí thực trên màn hình chụp (~500px) trong lúc trang Báo cáo đang tải
+  ảnh minh hoạ — phải chuyển sang tap theo toạ độ đọc trực tiếp từ screenshot (hệ số nhân
+  1.17) thay vì tin bounds từ hierarchy dump để thao tác chính xác.
+- Result: success
+- Test Case: N/A (kích hoạt phiên report testing)
+
+**REPORT_PROFILE_STATE: REPORT_TESTING_ACTIVE** — đã đăng nhập, sẵn sàng cho các test case
+report tiếp theo trong phiên này cho tới khi có chỉ định logout/kết thúc.
+
+## Report Testing session #7 — giao bài / làm bài 4-6đ / làm lại 9-10đ, 2026-09-21
+
+Activity
+- Timestamp: 2026-09-21 ~13:39 +0700 (giây chính xác không có, ước lượng theo mốc log/
+  screenshot quan sát được trong quá trình chạy)
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260921-QA-REPORT-07
+- Activity Type: homework_assigned
+- Activity Detail: User yêu cầu "giao bài tập -> làm bài điểm 4-6đ -> làm lại điểm 9-10đ"
+  trên profile report đang active. Chạy `flows/web/giao_bai_tap/e2e-giaobai-range34-lamlai-range67.mjs`
+  (FIRST_SCORE_MIN=4/MAX=6, REDO_SCORE_MIN=9/MAX=10, TARGET_CLASS_NAME=
+  "7QA-Test-20260909_085649", TARGET_CLASS_ID=4d423639-8c35-4194-9c10-8e76bb092f08). Đã giao
+  bài "G7-U1- Listening - Practice 1" (Unit 1: Hobbies), hạn nộp 28/09/2026, room_id
+  `d284432a-ef29-4483-9b67-20f37b0052cb`, 5 scored items resolved qua CMS.
+- Result: success
+- Test Case: N/A (case giao bài -> làm bài -> làm lại theo yêu cầu user)
+
+Activity
+- Timestamp: 2026-09-21 ~13:40-13:46 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260921-QA-REPORT-07
+- Activity Type: exercise_completed (lần làm đầu)
+- Activity Detail: Room "G7-U1- Listening - Practice 1" (room_id d284432a-...), target
+  4/10 (range [4,6]) — nhắm ĐÚNG câu 1,2, SAI câu 3,4,5. ĐIỂM THẬT=4, CHÍNH XÁC=2/5, khớp
+  target 100%. Thời gian làm bài (vào Doing -> màn Kết quả) 145.57s.
+  Ghi chú kỹ thuật: script giao-bài gốc bị Bash tool timeout (2 phút) SIGKILL ngay sau khi
+  mở màn Doing (câu 1/5, chưa trả lời gì) — room đã giao/mở THẬT nên KHÔNG chạy lại script
+  gốc (tránh giao trùng bài). Viết script resume throwaway (tái dùng nguyên `HomeworkExamEngine`/
+  `answerAllQuestions`/`resolveScoringPlanForCandidate` — không viết engine mới, theo
+  [[feedback_direct_handler_invocation_bypass]]) để attach vào màn Doing đang mở sẵn và hoàn
+  tất lần làm đầu. Lần thử đầu tiên của script resume dính lỗi MCP "hierarchy() trả về
+  'Failed to...' không phải JSON" ngay ở câu 1 (chưa trả lời gì, không phải lỗi mất tiến độ)
+  — retry lần 2 chạy trót lọt, không cần can thiệp thêm.
+- Result: success
+- Test Case: N/A
+
+Activity
+- Timestamp: 2026-09-21 ~13:47-13:48 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260921-QA-REPORT-07
+- Activity Type: exercise_redo_completed (làm lại)
+- Activity Detail: Room "G7-U1- Listening - Practice 1" (room_id d284432a-...), target
+  10/10 (range [9,10]) — nhắm ĐÚNG cả 5/5 câu. ĐIỂM THẬT=10, CHÍNH XÁC=5/5, khớp target
+  100%. Thời gian làm lại (vào Doing -> màn Kết quả) 84.13s. Dùng
+  `automation/bai_tap/resume_lamlai_range_score.mjs` (script mới viết cùng ngày — thay cơ
+  chế locate "Làm lại" từ `locateSpecificCompletedCandidate()` (đã biết fail 2/2 lần trên
+  đúng room/profile này) sang `findAssignment()`/`tapFoundCard()`, tìm thấy card chỉ sau 6
+  lượt cuộn, không gặp lại lỗi locate).
+- Result: success
+- Test Case: N/A
+
+**Tóm tắt case:** giao 1 bài mới ("G7-U1- Listening - Practice 1", hạn 28/09/2026) → làm bài
+lần đầu đạt ĐÚNG 4/10 (range 4-6 yêu cầu) → làm lại đạt ĐÚNG 10/10 (range 9-10 yêu cầu) — cả 2
+lần đều khớp target chính xác 100%, không có score-mismatch/locate-bug nào chặn được (đã né
+được bug locate đã biết bằng cách đổi cơ chế). Tổng "Bài tập" xác nhận NGAY SAU case (screenshot
+tab Bài tập, 13:53): **10/12** — tăng đúng +1/+1 so với 9/11 quan sát lúc login đầu session,
+khớp với việc chỉ giao đúng 1 bài mới và đã hoàn thành.
+
+Activity
+- Timestamp: 2026-09-21 14:14:xx → xác nhận CHÍNH XÁC lúc 14:15:37 +0700 (adb date check ngay
+  sau khi thấy lại màn "Chào mừng bạn đến với ParrotEdu!")
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260921-QA-REPORT-07
+- Activity Type: logout
+- Activity Detail: User yêu cầu "Logout tài khoản report." (đúng trigger phrase chuẩn — đi
+  thẳng PROTECTED, bỏ qua RELEASED). Verify đúng profile "QA Report Test"/lớp
+  "7QA-Test-20260909_085649"/account 84912252152 trước khi logout (screenshot tab "Báo
+  cáo"). Điều hướng tab "Báo cáo" -> "Đăng xuất" -> dialog "Bạn có thật sự muốn đăng xuất
+  khỏi ứng dụng?" -> tap "OK" -> xác nhận quay về màn "Chào mừng bạn đến với ParrotEdu!".
+  Ghi chú kỹ thuật: 2 lượt tap đầu vào đúng vị trí "Đăng xuất"/chevron cạnh nó (toạ độ đọc
+  từ screenshot, hệ số 1.17) KHÔNG có phản hồi gì (không dialog, không đổi màn) dù tap vào
+  "Bài tập" tab ngay sau đó vẫn hoạt động bình thường — nguyên nhân chưa rõ (không phải lỗi
+  toạ độ vì đã verify qua ảnh, không phải app treo vì tab khác vẫn nhận tap). Chỉ khi cuộn
+  xuống 1 đoạn trước (đưa "Đăng xuất" về giữa màn hình, tránh vùng gần rìa/gần overlay) thì
+  tap mới có phản hồi — LẶP LẠI đúng pattern đã thấy ở lượt login đầu session này, xem entry
+  activation phía trên.
+- Result: success
+- Test Case: N/A (đóng session Report Testing)
+
+**REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-21 14:15:37 +0700, đi thẳng từ
+REPORT_TESTING_ACTIVE, không dừng ở RELEASED). KHÔNG tự động login lại, KHÔNG tự động chọn
+profile này cho automation tiếp theo cho tới khi có chỉ định Report Testing mới.

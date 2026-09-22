@@ -1,4 +1,4 @@
-# Báo cáo Speaking — Score Log đối chiếu App vs Web GV (Staging, Lớp 5F)
+# Báo cáo Speaking — Score Log đối chiếu App vs Web GV (Staging Lớp 5F + Production Lớp 3B)
 
 Log thủ công, append-only. Mục đích: ghi lại điểm % TỪNG CÂU do **app** hiển thị ngay sau khi học
 sinh làm bài (nguồn: screenshot user gửi trực tiếp trong chat), để sau này đối chiếu với **Web GV**
@@ -95,3 +95,75 @@ không đủ để phân biệt 2 giả thuyết, lượt 3 (mới hơn nhưng T
 - Tổng số câu: 7 (Câu 1 → Câu 7)
 - Điểm tổng (Web GV) lượt hiện tại: Duy **3.7/10**, Hang **8.7/10** (chưa có screenshot app
   chi tiết từng câu — mới đối chiếu qua Web GV, xem báo cáo 2026-09-21 trước đó trong hội thoại).
+
+---
+
+# Môi trường: PRODUCTION (Lớp 3B)
+
+GV: `0912312312`/`123456789`, Lớp **3B** (`https://parrotedu.vn`). LƯU Ý: profile "Hang" ở đây
+là 1 học sinh KHÁC hoàn toàn với "Hang" bên Staging Lớp 5F ở trên (trùng tên, khác dữ liệu) — xem
+[[project_speaking_report_3b_production_rerun]].
+
+## Room: G3-U20-L1: Listen and repeat
+
+- Room ID (Web GV): `ca297f70-6d9c-4596-bace-87bd23c04a14`
+- Lớp: 3B — Hạn nộp: 24/09/2026
+- Tổng số câu: 10 (Câu 1 → Câu 10)
+- Sĩ số nộp bài lúc ghi nhận: 2/5 (Gia Linh, Hang); chưa nộp: Nguyệt, Minh Thiện, Hạnh vy
+
+### Profile: Hang — Lượt 1
+
+- Nguồn: đọc trực tiếp từng câu qua Web GV (tab Sai/Đúng của từng C1-C10), KHÔNG phải screenshot
+  app — ghi nhận 2026-09-21, đây là lượt duy nhất/lượt hiện tại (chưa có lượt làm lại nào).
+- Điểm tổng (Web GV): **4.5/10**
+
+| Câu | Nội dung | % | Kết quả | Học sinh đọc là | Từ/cụm sai (tô đỏ) |
+|---|---|---|---|---|---|
+| 1 | tiger | 94% | Đạt | tay · guhr | (không) |
+| 2 | This is a tiger. | 40% | Chưa đạt | (audio) | toàn bộ câu |
+| 3 | elephant | 45% | Chưa đạt | oh · oh · oh · puh · noh | (toàn bộ, phiên âm sai hẳn) |
+| 4 | I can see an elephant. | 100% | Đạt | (audio) | (không) |
+| 5 | horse | **51%** | **Đạt** | (audio) | **CASE RANH GIỚI 50/51% — xác nhận 51% = Đạt** |
+| 6 | I can see a horse. | 40% | Chưa đạt | (audio) | "can", "a" |
+| 7 | monkey | 93% | Đạt | (audio) | (không) |
+| 8 | I can see a monkey. | 40% | Chưa đạt | (audio) | toàn bộ câu trừ "monkey" |
+| 9 | peacock | 100% | Đạt | (audio) | (không) |
+| 10 | The peacock is dancing. | 40% | Chưa đạt | (audio) | toàn bộ câu |
+
+Tổng hợp: Đạt = {1,4,5,7,9} (5 câu), Chưa đạt = {2,3,6,8,10} (5 câu) — khớp đúng "Phân tích lỗi
+sai" bên Web GV (mỗi câu Chưa đạt đều hiện Sai(1), mẫu số 2 HS đã nộp → tô đỏ đậm ≥50%).
+
+**Phát hiện quan trọng: Câu 5 "horse" = 51% được phân loại Đạt** — đây là ranh giới 50/51% mà các
+lần test trước (staging) chưa gặp được. Xác nhận ngưỡng phân loại Sai/Đúng là **≥51% = Đạt/Đúng,
+≤50% = Chưa đạt/Sai** (suy ra từ 51%→Đạt kết hợp với nhiều case 40-45%→Chưa đạt đã thấy trước đó).
+
+### Profile: Hang — Lượt 2
+
+- Nguồn: user báo trực tiếp "làm lại lần 2", đối chiếu ngay qua Web GV (không có screenshot app).
+- Điểm tổng (Web GV): **8.0/10** (tăng từ 4.5/10).
+- "Phân tích lỗi sai": chỉ còn **Câu 8** ở tab Sai (1); Câu 2/3/6/10 (trước đó Chưa đạt) đã chuyển
+  hẳn sang Đúng; Câu 1/4/5/7/9 (đã Đạt từ lượt 1) vẫn Đạt.
+
+| Câu | % lượt 1 → lượt 2 (hiện tại) | Nội dung mới (nếu đổi) |
+|---|---|---|
+| 1 | 94% → (không kiểm tra lại, vẫn Đạt) | — |
+| 2 | 40% → **93%** | "This is a tiger." ("This is" vẫn tô nhẹ dù Đạt) |
+| 3 | 45% → **53%** | vẫn "elephant" |
+| 4 | 100% → (không kiểm tra lại, vẫn Đạt) | — |
+| 5 | 51% → (không kiểm tra lại, vẫn Đạt) | — |
+| 6 | 40% → **98%** | "I can see a horse." |
+| 7 | 93% → (không kiểm tra lại, vẫn Đạt) | — |
+| 8 | 40% → **40% (Y HỆT, KHÔNG ĐỔI)** | transcript giống hệt lượt 1: "I can see a monkey." toàn bộ đỏ |
+| 9 | 100% → (không kiểm tra lại, vẫn Đạt) | — |
+| 10 | 40% → **97%** | "The peacock is dancing." |
+
+**PHÁT HIỆN QUYẾT ĐỊNH — tinh chỉnh lại quy tắc chọn lượt (TC_025/027):** Câu 8 giữ **Y HỆT** dữ
+liệu lượt 1 (cùng 40%, cùng transcript chữ-cho-chữ) trong khi Câu 2/3/6/10 đều đổi sang dữ liệu MỚI
+từ lượt 2 (dù tổng điểm lượt 2 CAO HƠN hẳn: 8.0 > 4.5). Nếu hệ thống chỉ giữ "1 lượt tổng thể tốt
+nhất" thì TOÀN BỘ 10 câu phải cùng thuộc lượt 2 — không thể có chuyện 1 câu lẻ (Câu 8) trùng khớp
+tuyệt đối với lượt 1 trong khi các câu khác đổi khác hẳn (ASR không thể ra kết quả giống hệt 2 lần
+ghi âm độc lập). ⇒ **QUY TẮC THỰC SỰ LÀ: giữ điểm cao nhất THEO TỪNG CÂU (per-question best-of)**,
+không phải giữ nguyên 1 lượt làm bài tổng thể như kết luận ban đầu ở case Staging Lesson 2 (case đó
+chỉ trùng hợp không phân biệt được vì lượt 2 ở đó đã đạt tối đa mọi câu). Kết luận này THAY THẾ/CHÍNH
+XÁC HÓA kết luận trước đó ở mục "Lượt 3" phía trên (Staging) — bản chất cơ chế vẫn là so sánh và
+giữ điểm cao nhất, nhưng đơn vị so sánh là TỪNG CÂU, không phải cả bài.

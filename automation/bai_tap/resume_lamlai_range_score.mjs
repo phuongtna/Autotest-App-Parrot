@@ -45,7 +45,8 @@ import { parseEnvFile } from "../src/config.js";
 import { MaestroMcpBridge } from "../bridge/maestroMcpBridge.js";
 import { HomeworkExamEngine } from "./navigation/homeworkExamEngine.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "./discovery/teacherMaterialsExamResolver.js";
-import { findAssignment, tapFoundCard, scrollToTop } from "./discovery/findAssignment.js";
+import { locateSpecificCompletedCandidate } from "./discovery/locateCompletedCandidate.js";
+import { centerPoint } from "./discovery/homeworkUiList.js";
 import { findMatchingQuestion } from "./discovery/answerSetMatcher.js";
 import {
   resolveScoringPlanForCandidate,
@@ -64,6 +65,12 @@ const MAESTRO_DEVICE = process.env.MAESTRO_DEVICE || "";
 const PROFILE_NAME = process.env.PROFILE_NAME;
 const TARGET_TITLE = process.env.TARGET_TITLE;
 const TARGET_ROOM_ID = process.env.TARGET_ROOM_ID;
+// Optional - disambiguates when another completed card shares the exact same title (confirmed real
+// collision 2026-09-22: an older "Làm lại"-eligible card with the same title as the just-assigned
+// room). Completed cards render NO due-date line at all
+// ([[project_open_exercise_due_date_completed_card_bug]]), so the FIRST attempt's real score is the
+// usable disambiguator here, not a due date.
+const TARGET_FIRST_SCORE = process.env.TARGET_FIRST_SCORE != null ? Number(process.env.TARGET_FIRST_SCORE) : null;
 const REDO_SCORE_MIN = Number(process.env.REDO_SCORE_MIN);
 const REDO_SCORE_MAX = Number(process.env.REDO_SCORE_MAX);
 const MAX_LOCATE_SCROLLS = 60;
@@ -191,20 +198,21 @@ async function main() {
     }
     log(`  [PASS] Hồ sơ "${PROFILE_NAME}" xác nhận đang active.`);
 
-    log(`[2] Cuộn về đỉnh danh sách "Bài tập"...`);
-    const topResult = await scrollToTop(bridge);
-    if (!topResult.atTop) log(`  [WARN] scrollToTop() không xác nhận: ${topResult.reason} - vẫn tiếp tục.`);
-
-    log(`[3] Tìm card "${TARGET_TITLE}" (cta="Làm lại") qua findAssignment()...`);
-    const located = await findAssignment(bridge, { title: TARGET_TITLE, cta: "Làm lại" }, { maxScrolls: MAX_LOCATE_SCROLLS });
-    if (located.status !== "FOUND") {
-      return finish({ ...evidence, status: "FAIL", error: `findAssignment() status=${located.status}:\n${located.diagnostics}` });
+    log(`[3] Tìm card "${TARGET_TITLE}" (cta="Làm lại"${TARGET_FIRST_SCORE != null ? `, điểm=${TARGET_FIRST_SCORE}` : ""}) qua locateSpecificCompletedCandidate()...`);
+    const relocated = await locateSpecificCompletedCandidate(bridge, TARGET_TITLE, {
+      maxScrolls: MAX_LOCATE_SCROLLS,
+      expectedScore: TARGET_FIRST_SCORE,
+    });
+    const freshCandidate = relocated.candidates[0];
+    if (!freshCandidate) {
+      return finish({ ...evidence, status: "FAIL", error: `locateSpecificCompletedCandidate() không tìm thấy card "${TARGET_TITLE}" sau ${relocated.scrollsUsed} lượt cuộn (stopReason=${relocated.stopReason ?? "UNKNOWN"}).` });
     }
-    log(`  [PASS] Tìm thấy card sau ${located.scrollCount} lượt cuộn.`);
+    log(`  [PASS] Tìm thấy card sau ${relocated.scrollsUsed} lượt cuộn.`);
 
-    const tapResult = await tapFoundCard(bridge, located.card);
+    const ctaPoint = centerPoint(freshCandidate.ctaBounds);
+    const tapResult = await bridge.runSteps([{ tapOn: { point: `${ctaPoint.x},${ctaPoint.y}` } }]);
     if (!tapResult.success) {
-      return finish({ ...evidence, status: "FAIL", error: `tapFoundCard() thất bại: ${tapResult.error}` });
+      return finish({ ...evidence, status: "FAIL", error: `Tap "Làm lại" thất bại: ${tapResult.error}` });
     }
     const openResult = await bridge.runSteps([
       { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },

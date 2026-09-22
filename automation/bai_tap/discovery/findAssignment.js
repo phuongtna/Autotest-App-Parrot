@@ -72,7 +72,7 @@ function todayDdMm() {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
 }
 
-function normalizeDueDateDM(dueDateText) {
+export function normalizeDueDateDM(dueDateText) {
   if (!dueDateText) return null;
   const stripped = dueDateText
     .replace(/^Hạn nộp\s*/, "")

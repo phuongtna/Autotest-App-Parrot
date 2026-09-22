@@ -331,7 +331,7 @@ function printReport(r) {
  * pro_lamlai_target_score.mjs (findMatchingQuestion + answerCurrentQuestionOneShot), tách thành
  * hàm dùng lại được cho CẢ lượt làm đầu lẫn lượt "Làm lại" - THÊM `timed()` mỗi câu (yêu cầu mới:
  * "ghi lại chi tiết thời gian làm bài"), KHÁC bản diem3-lamlai-diem8.mjs (không có profiling này). */
-async function answerAllQuestions(bridge, exam, questions, correctIndices) {
+export async function answerAllQuestions(bridge, exam, questions, correctIndices) {
   const wantCorrectMap = buildWeightedWantCorrectPlan(questions, correctIndices);
   const answeredIds = new Set();
   const answerLog = [];
@@ -579,7 +579,10 @@ async function main() {
 
     // ===== [4] TÌM LẠI CARD -> "Làm lại" =====
     log(`[4] Tìm lại card "${picked.itemName}" (cta="Làm lại")...`);
-    const relocated = await locateSpecificCompletedCandidate(bridge, picked.itemName, { maxScrolls: MAX_LOCATE_SCROLLS });
+    // expectedScore (not dueDateDM) is the real disambiguator here: completed cards render NO due-date
+    // line at all ([[project_open_exercise_due_date_completed_card_bug]]), confirmed live 2026-09-22 -
+    // dueDateDM alone never matches any completed card. firstActualScore is already known at this point.
+    const relocated = await locateSpecificCompletedCandidate(bridge, picked.itemName, { maxScrolls: MAX_LOCATE_SCROLLS, expectedScore: firstActualScore });
     const freshCandidate = relocated.candidates[0];
     if (!freshCandidate) {
       return finish({ status: "FAIL", phase: "LOCATE_LAM_LAI", error: `Không tìm lại được card "${picked.itemName}" với cta="Làm lại" sau ${relocated.scrollsUsed} lượt cuộn (stopReason=${relocated.stopReason ?? "UNKNOWN"}).`, evidence });

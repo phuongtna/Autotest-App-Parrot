@@ -4,7 +4,7 @@ import { CTA_TEXTS, SECTION_HEADERS } from "./homeworkUiList.js";
 // thay vì viết lại: cuộn về đỉnh trước khi tìm, tránh trường hợp vị trí cuộn còn sót lại từ tab
 // trước đã nằm SAU (dưới) target thật. findAssignment.js CHỈ import từ homeworkUiList.js nên import
 // này KHÔNG tạo circular dependency.
-import { scrollToTop } from "./findAssignment.js";
+import { scrollToTop, normalizeDueDateDM } from "./findAssignment.js";
 
 /**
  * locateCompletedCandidate.js - cơ chế TÌM 1 card đã hoàn thành (cta="Làm lại") trong danh sách
@@ -237,7 +237,12 @@ export async function collectDistinctCompletedCandidates(
  * END_OF_LIST sau khi node count sập từ ~11-13 xuống 3-4 (vùng carousel "Kiến thức trong bài") - CHƯA
  * chứng minh được các card đó có nằm ở phía SAU carousel hay không (cần fix kiến trúc dùng
  * scrollUntilVisible để xuyên qua carousel mới trả lời được, KHÔNG nằm trong scope tách file này). */
-export async function locateSpecificCompletedCandidate(bridge, title, { maxScrolls, scrollLog = null }) {
+function parseScoreValue(scoreText) {
+  const m = /([0-9]+(?:[.,][0-9]+)?)/.exec(scoreText ?? "");
+  return m ? Number(m[1].replace(",", ".")) : null;
+}
+
+export async function locateSpecificCompletedCandidate(bridge, title, { maxScrolls, scrollLog = null, dueDateDM = null, expectedScore = null }) {
   const norm = (s) => (s ?? "").trim();
   let sectionSeen = false;
   let enteredAdvanced = false;
@@ -287,7 +292,20 @@ export async function locateSpecificCompletedCandidate(bridge, title, { maxScrol
     const matchDurationMs = now() - matchStart;
     sectionSeen = newSectionSeen;
     lastResults = results;
-    found = results.find((r) => norm(r.title) === norm(title)) ?? null;
+    // dueDateDM (optional) disambiguates cards sharing the same title (confirmed real bug 2026-09-22:
+    // an older completed card with the same title as a just-assigned one caused a wrong-card tap on
+    // "Làm lại" - dueDateBefore was already captured above but never used for matching). NOTE:
+    // completed cards typically render NO due-date line at all (see
+    // project_open_exercise_due_date_completed_card_bug) so dueDateBefore is usually null here -
+    // dueDateDM alone won't disambiguate 2 completed cards sharing 1 title; expectedScore (below) is
+    // the actual usable disambiguator for that case.
+    found =
+      results.find(
+        (r) =>
+          norm(r.title) === norm(title) &&
+          (!dueDateDM || normalizeDueDateDM(r.dueDateBefore) === dueDateDM) &&
+          (expectedScore == null || Math.abs((parseScoreValue(r.scoreText) ?? NaN) - expectedScore) < 0.05),
+      ) ?? null;
     return {
       hierarchyDurationMs: hierarchyT.durationMs,
       parseDurationMs,

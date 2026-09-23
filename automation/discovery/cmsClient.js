@@ -73,10 +73,11 @@ async function getExamToken({ forceRefresh = false } = {}) {
  * Gọi 1 endpoint đã khai báo trong endpoints.js. Tự gắn đúng loại token (cms/exam) và tự
  * refresh + gọi lại 1 lần nếu Exam Token bị 401 (hết hạn).
  */
-export async function callEndpoint(endpointKey, params = {}) {
+export async function callEndpoint(endpointKey, params = {}, query = {}) {
   requireCmsConfig();
   const endpoint = buildPath(endpointKey, params);
-  const url = `${config.cmsBaseUrl}${endpoint.path}`;
+  const qs = new URLSearchParams(query).toString();
+  const url = `${config.cmsBaseUrl}${endpoint.path}${qs ? `?${qs}` : ""}`;
 
   const token =
     endpoint.auth === "exam" ? await getExamToken() : config.cmsAccessToken;

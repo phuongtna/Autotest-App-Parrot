@@ -11,9 +11,12 @@
  *   - Toàn bộ hàm "quyết định đáp án đúng" THUẦN (không đụng thiết bị) từ homeworkExamEngine.js:
  *     decideAnswerAction (CHOICE), resolveFillWordValues, resolveDragDropCorrectValues,
  *     resolveConnectCorrectPairs, collectBlankIndices, collectDragDropZoneIndices,
- *     collectConnectSlots, resolveConnectSlotIndex, collectTexts, hasResourceId.
+ *     resolveConnectSlotIndex, collectTexts, hasResourceId.
  *   - ensureIdVisible() (automation/bridge/scrollUntilVisible.js) - 0 chi phí thêm khi control đã
  *     visible sẵn (xem docblock file đó) - giữ nguyên cho câu dài hơn 1 màn hình.
+ *   - ensureAllConnectPairsVisible()/tapConnectPairs() (homeworkExamEngine.js) - CÙNG thuật toán
+ *     cuộn-gộp-text + batch-tap-với-fallback-cuộn-2-chiều đã dùng cho CONNECT của Bài tập (2026-09-
+ *     23, fix bug "matching multi-scroll tap stale-index" - xem docblock 2 hàm đó).
  *   - HomeworkExamEngine#isResultScreen()/#readResult() - đọc màn "Kết quả", hoàn toàn chung.
  *   - detectQuestionUiType() (vuiHocQuestionMatcher.js) - nhận diện type qua testID, DÙNG CHUNG
  *     giữa matcher (tìm đúng câu CMS) và engine (chọn handler) - KHÔNG viết trùng 2 nơi.
@@ -32,9 +35,10 @@
 import {
   collectTexts,
   hasResourceId,
-  collectConnectSlots,
   resolveConnectCorrectPairs,
   resolveConnectSlotIndex,
+  ensureAllConnectPairsVisible,
+  tapConnectPairs,
   collectBlankIndices,
   resolveFillWordValues,
   collectDragDropZoneIndices,
@@ -239,7 +243,16 @@ export class VuiHocExamEngine {
     if (!correctPairs) {
       return { supported: false, reason: "CONNECT: không resolve được cặp đúng từ CMS.", texts: collectTexts(tree) };
     }
-    const slots = collectConnectSlots(tree);
+    // Cuộn (chỉ khi cần) tới khi đọc đủ TEXT cả 2 phía của TOÀN BỘ cặp đúng - TRƯỚC ĐÂY đọc thẳng
+    // collectConnectSlots(tree) đúng 1 lần KHÔNG cuộn, khiến câu dài hơn 1 màn hình throw
+    // BLOCKED_CONNECT_INTERACTION oan ngay từ bước resolve slot (bug thật xác nhận qua đọc code
+    // 2026-09-23, "matching multi-scroll tap stale-index" - biến thể Vui học này còn thiếu cả
+    // Phase A, không chỉ thiếu bước cuộn khôi phục trước khi tap). TÁI SỬ DỤNG
+    // ensureAllConnectPairsVisible() từ homeworkExamEngine.js, không viết thuật toán cuộn riêng.
+    const visibleResult = await ensureAllConnectPairsVisible(this.bridge, tree, correctPairs);
+    const slots = visibleResult.slots;
+    if (visibleResult.scrollCount > 0) tree = visibleResult.tree;
+
     const buildSelectSteps = () => {
       const steps = [];
       for (const pair of correctPairs) {
@@ -254,9 +267,17 @@ export class VuiHocExamEngine {
     // Nối cặp trước rồi đọc NGAY 1 lần: Vui học CONNECT có 2 hành vi khác nhau tuỳ màn - TỰ kiểm
     // tra ngay khi đủ cặp (không có "exercise_check_button", xem unit9_getting_started_tram_khoi_
     // hanh.yaml S12) HOẶC có nút Kiểm tra riêng như các dạng khác - kiểm tra thật, không giả định.
-    const tapResult = await this.bridge.runSteps([...buildSelectSteps(), { waitForAnimationToEnd: { timeout: 1500 } }]);
-    if (!tapResult.success) throw new Error(`CONNECT: nối cặp thất bại: ${tapResult.error}`);
-    const afterTapTree = this.bridge.hierarchy();
+    //
+    // tapConnectPairs() - thử BATCH 1 lượt trước (giữ nguyên PERF cũ), chỉ rớt xuống tap từng ô +
+    // cuộn khôi phục 2 chiều khi batch thất bại (CÙNG bug/fix "matching multi-scroll tap stale-
+    // index"). CHỈ áp dụng cho lượt nối cặp ĐẦU TIÊN này - lượt "Thử lại" sau (buildStepsForVerify
+    // bên dưới) vẫn dùng buildSelectSteps() thô như cũ qua _submitAndVerify() (ngoài phạm vi bug đã
+    // báo - chỉ xảy ra ở bước nối cặp đầu khi câu vừa hiện ra, chưa gặp thật ở lượt Thử lại).
+    await tapConnectPairs(this.bridge, correctPairs, slots, questionModel?.id, {
+      label: "CONNECT: nối cặp",
+      trailingSteps: [{ waitForAnimationToEnd: { timeout: 1500 } }],
+    });
+    const afterTapTree = await this.bridge.hierarchy();
 
     if (hasResourceId(afterTapTree, /^exercise_check_button$/)) {
       // Đã nối xong ở trên rồi - lượt ĐẦU của _submitAndVerify chỉ cần bấm Kiểm tra (không nối lại

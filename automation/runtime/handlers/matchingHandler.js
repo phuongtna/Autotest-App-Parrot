@@ -1,5 +1,5 @@
 import { QuestionHandler } from "./questionHandler.js";
-import { collectByScrollingIfNeeded, ensureIdVisible } from "../../bridge/scrollUntilVisible.js";
+import { collectByScrollingIfNeeded, ensureIdVisible, ensureIdVisibleBidirectional } from "../../bridge/scrollUntilVisible.js";
 
 function stripHtml(value) {
   if (typeof value !== "string") return value;
@@ -62,6 +62,34 @@ function resolveSlotIndex(slots, side, text, questionId) {
 function hasResourceId(node, id) {
   if (node?.attributes?.["resource-id"] === id) return true;
   return (node?.children ?? []).some((c) => hasResourceId(c, id));
+}
+
+/**
+ * Tap 1 ô "exercise_connect_{left|right}_{i}" - thử tap THẲNG trước (đường nhanh, ĐÚNG hành vi cũ,
+ * 0 chi phí thêm khi ô còn nằm trong khung nhìn - đa số câu vừa 1 màn hình). BUG THẬT đã xác nhận
+ * qua đọc code (2026-09-23, "matching multi-scroll tap stale-index"): `ensurePairsVisible()` ở
+ * trên cuộn (CHỈ 1 chiều xuống) để đọc đủ TEXT của toàn bộ cặp, dừng lại ở 1 vị trí cuộn CUỐI CÙNG -
+ * nếu 1 index đã đọc được ở lượt cuộn ĐẦU (câu dài 2-3 màn hình), tới lúc tap nó đã bị RecyclerView
+ * unmount khỏi khung nhìn hiện tại, tap thẳng theo id thất bại. CHỈ khi tap thẳng thất bại mới cuộn
+ * khôi phục 2 CHIỀU (`ensureIdVisibleBidirectional` - DOWN rồi UP, dùng `scrollUntilVisible` GỐC
+ * của Maestro, KHÁC point-swipe 1 chiều của Phase A) rồi tap lại ĐÚNG 1 lần nữa - không lặp vô hạn,
+ * thất bại lần 2 thì throw BLOCKED_CONNECT_INTERACTION thật (không đoán mù/không âm thầm bỏ qua).
+ */
+async function tapConnectSlot(bridge, id, questionId) {
+  const direct = await bridge.tap({ id });
+  if (direct.success) return;
+  const recovery = await ensureIdVisibleBidirectional(bridge, await bridge.hierarchy(), id);
+  if (!recovery.visible) {
+    throw new Error(
+      `BLOCKED_CONNECT_INTERACTION: không đưa được ô "${id}" vào khung nhìn để tap (đã thử cuộn ${recovery.scrollCount} lượt cả 2 chiều - tap thẳng lỗi: ${direct.error}). Question ${questionId}.`,
+    );
+  }
+  const retry = await bridge.tap({ id });
+  if (!retry.success) {
+    throw new Error(
+      `BLOCKED_CONNECT_INTERACTION: ô "${id}" đã cuộn vào khung nhìn nhưng tap vẫn thất bại: ${retry.error}. Question ${questionId}.`,
+    );
+  }
 }
 
 /**
@@ -155,7 +183,7 @@ export class MatchingHandler extends QuestionHandler {
       );
     }
 
-    const initialTree = this.bridge.hierarchy();
+    const initialTree = await this.bridge.hierarchy();
     // PHASE A (nội dung) - xem docblock ensurePairsVisible() ở trên.
     const { slots } = await ensurePairsVisible(this.bridge, initialTree, pairs);
 
@@ -163,8 +191,10 @@ export class MatchingHandler extends QuestionHandler {
     for (const pair of pairs) {
       const leftIndex = resolveSlotIndex(slots, "left", pair.leftText, question.id);
       const rightIndex = resolveSlotIndex(slots, "right", pair.rightText, question.id);
-      await this.bridge.tap({ id: `exercise_connect_left_${leftIndex}` });
-      await this.bridge.tap({ id: `exercise_connect_right_${rightIndex}` });
+      // tapConnectSlot() - xem docblock trên: thử tap thẳng trước, chỉ cuộn khôi phục 2 chiều khi
+      // ô đã bị cuộn qua/unmount.
+      await tapConnectSlot(this.bridge, `exercise_connect_left_${leftIndex}`, question.id);
+      await tapConnectSlot(this.bridge, `exercise_connect_right_${rightIndex}`, question.id);
       tappedPairs.push(`${pair.leftText} ↔ ${pair.rightText}`);
     }
 

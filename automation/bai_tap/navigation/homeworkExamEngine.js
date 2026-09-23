@@ -46,6 +46,7 @@ import {
   isFullyInViewport,
   collectByScrollingIfNeeded,
   ensureIdVisible,
+  ensureIdVisibleBidirectional,
   ensureTextVisible,
   resolveContentViewport,
 } from "../../bridge/scrollUntilVisible.js";
@@ -286,7 +287,7 @@ async function ensureAllDragDropZonesVisible(bridge, initialTree, expectedCount)
  * toan de merge du UI ao hoa khong giu nguyen phan tu da cuon qua). Tra ve CUNG hinh dang
  * {left:[{index,text}], right:[...]} nhu `collectConnectSlots()` de tuong thich voi
  * `resolveConnectSlotIndex()` hien co (khong doi ham do). */
-async function ensureAllConnectPairsVisible(bridge, initialTree, correctPairs) {
+export async function ensureAllConnectPairsVisible(bridge, initialTree, correctPairs) {
   const requiredLeft = new Set(correctPairs.map((p) => p.leftText));
   const requiredRight = new Set(correctPairs.map((p) => p.rightText));
   const { tree, acc, scrollCount } = await collectByScrollingIfNeeded(bridge, initialTree, {
@@ -310,6 +311,65 @@ async function ensureAllConnectPairsVisible(bridge, initialTree, correctPairs) {
     right: [...acc.right].map(([index, text]) => ({ index, text })),
   };
   return { tree, slots, scrollCount };
+}
+
+/**
+ * Tap TOÀN BỘ cặp CONNECT - thử BATCH tất cả tapOn vào 1 `runSteps()` DUY NHẤT trước (đường nhanh,
+ * ĐÚNG hành vi cũ, giữ nguyên PERF audit 2026-08-20: 1 lượt `maestro test`/câu thay vì 2*n lượt - 0
+ * chi phí thêm khi mọi index còn nằm trong khung nhìn, đúng với đa số câu vừa 1 màn hình).
+ *
+ * CHỈ khi batch thất bại mới rớt xuống lối CHẬM HƠN: tap TỪNG ô 1, cuộn khôi phục 2 CHIỀU
+ * (`ensureIdVisibleBidirectional`) trước khi tap lại nếu ô đó không tap được thẳng. BUG THẬT đã xác
+ * nhận qua đọc code (2026-09-23, "matching multi-scroll tap stale-index"): `ensureAllConnectPairsVisible()`
+ * chỉ cuộn 1 CHIỀU xuống để đọc đủ TEXT, dừng lại ở 1 vị trí cuộn CUỐI CÙNG - index đọc được ở lượt
+ * cuộn ĐẦU (câu dài 2-3 màn hình) đã bị RecyclerView unmount khỏi khung nhìn hiện tại lúc tap, batch
+ * `tapOn` theo id thất bại nguyên khối dù mọi cặp đều resolve đúng. Không đoán mù - throw
+ * BLOCKED_CONNECT_INTERACTION thật nếu cả tap thẳng lẫn cuộn khôi phục đều không đưa được ô vào
+ * khung nhìn.
+ * @param {import("../../bridge/maestroBridge.js").MaestroBridge} bridge
+ * @param {Array<{leftText:string, rightText:string}>} pairsToTap
+ * @param {{left: Array<{index:number,text:string}>, right: Array<{index:number,text:string}>}} slots
+ * @param {{label?: string, trailingSteps?: Array<Object|string>}} [options] - `label`: tiền tố
+ *   thông báo lỗi. `trailingSteps`: bước Maestro cần chạy NGAY SAU khi nối xong (vd
+ *   waitForAnimationToEnd/takeScreenshot) - gộp CHUNG vào batch đầu tiên (giữ nguyên PERF fast-path,
+ *   1 runSteps() duy nhất), CHỈ chạy tách riêng (1 runSteps() phụ) nếu phải rớt xuống lối fallback.
+ */
+export async function tapConnectPairs(bridge, pairsToTap, slots, questionId, { label = "CONNECT", trailingSteps = [] } = {}) {
+  const tapSteps = [];
+  for (const pair of pairsToTap) {
+    const leftIndex = resolveConnectSlotIndex(slots, "left", pair.leftText, questionId);
+    const rightIndex = resolveConnectSlotIndex(slots, "right", pair.rightText, questionId);
+    tapSteps.push({ tapOn: { id: `exercise_connect_left_${leftIndex}` } });
+    tapSteps.push({ tapOn: { id: `exercise_connect_right_${rightIndex}` } });
+  }
+  const batchResult = await bridge.runSteps([...tapSteps, ...trailingSteps]);
+  if (batchResult.success) return;
+
+  for (const pair of pairsToTap) {
+    const leftIndex = resolveConnectSlotIndex(slots, "left", pair.leftText, questionId);
+    const rightIndex = resolveConnectSlotIndex(slots, "right", pair.rightText, questionId);
+    await tapConnectSlotWithRecovery(bridge, `exercise_connect_left_${leftIndex}`, questionId, label);
+    await tapConnectSlotWithRecovery(bridge, `exercise_connect_right_${rightIndex}`, questionId, label);
+  }
+  if (trailingSteps.length) {
+    const trailingResult = await bridge.runSteps(trailingSteps);
+    if (!trailingResult.success) throw new Error(`${label}: chuỗi thao tác thất bại: ${trailingResult.error}`);
+  }
+}
+
+async function tapConnectSlotWithRecovery(bridge, id, questionId, label) {
+  const direct = await bridge.tap({ id });
+  if (direct.success) return;
+  const recovery = await ensureIdVisibleBidirectional(bridge, await bridge.hierarchy(), id);
+  if (!recovery.visible) {
+    throw new Error(
+      `${label}: không đưa được ô "${id}" vào khung nhìn để tap (đã thử cuộn ${recovery.scrollCount} lượt cả 2 chiều - tap thẳng lỗi: ${direct.error}). Question ${questionId}.`,
+    );
+  }
+  const retry = await bridge.tap({ id });
+  if (!retry.success) {
+    throw new Error(`${label}: ô "${id}" đã cuộn vào khung nhìn nhưng tap vẫn thất bại: ${retry.error}. Question ${questionId}.`);
+  }
 }
 
 /** TEXT_CHOICE/IMAGE_CHOICE_GRID: cuon (neu can) toi khi TOAN BO answers[] (tu CMS) da hien thi DAY
@@ -577,22 +637,13 @@ export class HomeworkExamEngine {
         ? correctPairs
         : correctPairs.map((p, i) => ({ leftText: p.leftText, rightText: correctPairs[(i + 1) % n].rightText }));
 
-      const tapSteps = [];
-      for (const pair of pairsToTap) {
-        const leftIndex = resolveConnectSlotIndex(slots, "left", pair.leftText, questionModel?.id);
-        const rightIndex = resolveConnectSlotIndex(slots, "right", pair.rightText, questionModel?.id);
-        tapSteps.push({ tapOn: { id: `exercise_connect_left_${leftIndex}` } });
-        tapSteps.push({ tapOn: { id: `exercise_connect_right_${rightIndex}` } });
-      }
-      // Gộp TOÀN BỘ cặp vào 1 lượt runSteps() (1 `maestro test` duy nhất) - tránh 2*n lượt riêng
-      // (mỗi lượt ~8-15s khởi động) khiến câu CONNECT chậm hơn hẳn câu khác (đã quan sát thật:
-      // treo/chậm bất thường trên câu "Match" so với hôm trước).
-      tapSteps.push({ waitForAnimationToEnd: { timeout: 1500 } });
-      tapSteps.push({ takeScreenshot: "before_submit" });
-      const connectTapResult = await this.bridge.runSteps(tapSteps);
-      if (!connectTapResult.success) {
-        throw new Error(`CONNECT: tap cặp thất bại: ${connectTapResult.error}`);
-      }
+      // tapConnectPairs() - xem docblock trên: thử BATCH 1 lượt trước (giữ nguyên PERF cũ), chỉ
+      // rớt xuống tap từng ô + cuộn khôi phục 2 chiều khi batch thất bại (bug "matching multi-
+      // scroll tap stale-index").
+      await tapConnectPairs(this.bridge, pairsToTap, slots, questionModel?.id, {
+        label: "CONNECT: tap cặp",
+        trailingSteps: [{ waitForAnimationToEnd: { timeout: 1500 } }, { takeScreenshot: "before_submit" }],
+      });
 
       let afterTapTree = this.bridge.hierarchy();
       if (!hasResourceId(afterTapTree, /^exercise_check_button$/)) {
@@ -879,20 +930,13 @@ export class HomeworkExamEngine {
         ? correctPairs
         : correctPairs.map((p, i) => ({ leftText: p.leftText, rightText: correctPairs[(i + 1) % n].rightText }));
 
-      const tapSteps = [];
-      for (const pair of pairsToTap) {
-        const leftIndex = resolveConnectSlotIndex(slots, "left", pair.leftText, questionModel?.id);
-        const rightIndex = resolveConnectSlotIndex(slots, "right", pair.rightText, questionModel?.id);
-        tapSteps.push({ tapOn: { id: `exercise_connect_left_${leftIndex}` } });
-        tapSteps.push({ tapOn: { id: `exercise_connect_right_${rightIndex}` } });
-      }
-      tapSteps.push({ waitForAnimationToEnd: { timeout: 1500 } });
-      tapSteps.push({ takeScreenshot: "before_submit" });
-
-      const tapStepsResult = await this.bridge.runSteps(tapSteps);
-      if (!tapStepsResult.success) {
-        throw new Error(`CONNECT: chuỗi thao tác thất bại: ${tapStepsResult.error}`);
-      }
+      // tapConnectPairs() - xem docblock ở ensureAllConnectPairsVisible()/tapConnectPairs() phía
+      // trên: thử BATCH 1 lượt trước (giữ nguyên PERF cũ), chỉ rớt xuống tap từng ô + cuộn khôi
+      // phục 2 chiều khi batch thất bại (bug "matching multi-scroll tap stale-index").
+      await tapConnectPairs(this.bridge, pairsToTap, slots, questionModel?.id, {
+        label: "CONNECT",
+        trailingSteps: [{ waitForAnimationToEnd: { timeout: 1500 } }, { takeScreenshot: "before_submit" }],
+      });
 
       // PHASE B (control): ĐỘC LẬP với Phase A (nối cặp) ở trên - cuộn bounded (dừng ngay khi đã
       // visible - 0 chi phí thêm nếu control đã nằm trong khung hình hiện tại) trước khi tap, tránh

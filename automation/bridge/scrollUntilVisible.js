@@ -204,3 +204,52 @@ export async function ensureTextVisible(bridge, initialTree, texts, { maxScrolls
   );
   return { tree: result.tree, visible: result.acc === true, scrollCount: result.scrollCount };
 }
+
+/**
+ * PHASE A (tap TỪNG phần tử theo thứ tự KHÔNG đơn điệu) - khác `ensureIdVisible()` ở trên (chỉ
+ * cuộn 1 CHIỀU xuống, dùng cho Phase B/control cuối cùng luôn nằm SAU nội dung). CONNECT ghép cặp
+ * theo NỘI DUNG (accessibilityText), không theo vị trí - đã xác nhận thật thứ tự index cần tap
+ * NHẢY LUNG TUNG so với thứ tự đọc (xem docblock MatchingHandler: "chỉ 1/5 cặp trùng vị trí ngẫu
+ * nhiên"). Vì `collectByScrollingIfNeeded()`/`CONTENT_SWIPE` CHỈ cuộn xuống, sau khi Phase A (đọc
+ * text) dừng lại ở 1 vị trí cuộn CUỐI CÙNG, các index đọc được ở lượt cuộn ĐẦU đã bị RecyclerView
+ * unmount - tap thẳng theo id lúc này thất bại (BUG THẬT: "matching multi-scroll tap stale-index",
+ * xác nhận qua đọc code 2026-09-23, bài dạng Nối cần cuộn 2-3 lần để thấy hết nội dung thì tap lại
+ * không đưa được phần tử đã cuộn qua trở lại khung nhìn).
+ *
+ * SỬA: dùng `scrollUntilVisible` GỐC của Maestro (element theo resource-id, KHÔNG phải point-swipe
+ * tự chế `CONTENT_SWIPE`) - đã xác nhận thật đáng tin cậy hơn cho việc di chuyển tới 1 phần tử CỤ
+ * THỂ theo 1 hướng cho trước (xem `findAssignment.js#scrollToTop()`, dùng `direction: "UP"` thành
+ * công ngay trong khi point-swipe tự chế bị "nuốt" ở đúng vị trí đó). Thử "DOWN" trước (trường hợp
+ * phổ biến hơn: Phase A vừa merge xong thường dừng ở giữa/cuối danh sách, index cần tap có thể vẫn
+ * còn ở phía dưới), fallback "UP" nếu không thấy. KHÔNG tin mù `result.success` của lệnh
+ * `scrollUntilVisible` - đã ghi nhận 1 ca false-positive cho tool khác dùng cùng lệnh này
+ * (`locateCompletedCandidate.js` 2026-08-22: báo thành công nhưng đọc lại hierarchy ra 0 candidate)
+ * - LUÔN đọc lại hierarchy + tự kiểm tra bounds bằng `isFullyInViewport()` sau mỗi lần thử, trước
+ * khi kết luận "visible" thật.
+ *
+ * CHƯA verify thật trên thiết bị cú pháp `scrollUntilVisible: { element: { id }, direction }` cho
+ * riêng combo "id + CONNECT" (mới viết 2026-09-23) - `findAssignment.js` mới verify combo "text +
+ * UP". Nếu combo này không hoạt động như kỳ vọng trên thiết bị thật, `visible` trả về `false` (an
+ * toàn - không throw ở đây, để caller tự quyết định BLOCKED_CONNECT_INTERACTION), KHÔNG lặng lẽ coi
+ * như đã tap được.
+ * @param {string} idExact - resource-id CHÍNH XÁC (không phải regex - Maestro tự so khớp đúng 1 id).
+ * @returns {Promise<{ tree: Object, visible: boolean, scrollCount: number }>}
+ */
+export async function ensureIdVisibleBidirectional(bridge, initialTree, idExact, { timeout = 8000 } = {}) {
+  const idPattern = new RegExp(`^${idExact}$`);
+  const checkVisible = (tree) => {
+    const bounds = findNodeBounds(tree, idPattern);
+    return Boolean(bounds && isFullyInViewport(bounds, resolveContentViewport(tree)));
+  };
+  if (checkVisible(initialTree)) return { tree: initialTree, visible: true, scrollCount: 0 };
+
+  let scrollCount = 0;
+  let tree = initialTree;
+  for (const direction of ["DOWN", "UP"]) {
+    const swipeResult = await bridge.runSteps([{ scrollUntilVisible: { element: { id: idExact }, direction, timeout } }]);
+    scrollCount++;
+    tree = await bridge.hierarchy();
+    if (swipeResult.success && checkVisible(tree)) return { tree, visible: true, scrollCount };
+  }
+  return { tree, visible: false, scrollCount };
+}

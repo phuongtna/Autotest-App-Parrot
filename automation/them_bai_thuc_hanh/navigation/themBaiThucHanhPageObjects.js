@@ -1,4 +1,5 @@
 import { teacherPortalPageObjects as loginPo } from "../../giao_bai_tap/navigation/teacherPortalPageObjects.js";
+import { existsSync } from "node:fs";
 
 /**
  * Page Objects cho tính năng "Thêm bài thực hành" trong Lesson - màn "Kho đề cá nhân"
@@ -63,6 +64,35 @@ export const themBaiThucHanhPageObjects = {
     // Message thật: `Bạn có chắc chắn muốn xóa bài "{title}"? Hành động này không thể hoàn tác.`
     confirmButton: "Xóa",
     cancelButton: "Hủy",
+  },
+
+  // ĐÃ XÁC NHẬN THẬT (2026-09-23, debug live qua Playwright trực tiếp - dùng `setInputFiles()` CHỈ
+  // để tự khảo sát cấu trúc DOM sau khi đính kèm, KHÔNG dùng trong test thật - xem docx mục 6.3).
+  // Loại câu hỏi mặc định khi bấm "Thêm câu hỏi" là "Chọn một" với sẵn 4 đáp án A/B/C/D, mỗi đáp
+  // án có bộ 3 nút đính kèm media RIÊNG giống hệt bộ ở Tiêu đề câu hỏi (cùng accessible name "+
+  // Audio"/"+ Ảnh"/"+ Video" - phải dùng `.nth()` để phân biệt, xem `questionTitleAttachButton()`/
+  // `answerAttachButton()`).
+  questionEditor: {
+    questionTitleInputPlaceholder: "Nhập tiêu đề câu hỏi...",
+    contentPlaceholderText: "Nhấn để nhập nội dung...", // Dùng chung cho Nội dung câu hỏi (nth 0) + từng đáp án (nth 1..N).
+    attachAudioLabel: "+ Audio",
+    attachImageLabel: "+ Ảnh",
+    attachVideoLabel: "+ Video",
+    answerListHeading: "Đáp án (chọn một đúng)",
+    addAnswerButton: "Thêm đáp án",
+    // LƯU Ý CHÍNH TẢ ĐÃ XÁC NHẬN THẬT (giống kiểu Hủy/Huỷ ở đầu file): nút xoá 1 FILE MEDIA đã đính
+    // kèm ghi "Xoá" (dấu ở "a"), KHÁC "Xóa" (dấu ở "o") của icon xoá cả 1 bài thực hành trong danh
+    // sách Lesson (`lessonSection.deleteIconTitle`) - dùng NHẦM sẽ chọn trúng phần tử khác.
+    removeMediaButtonTitle: "Xoá",
+    imagePreviewAltText: "preview",
+    // Toast lưu câu hỏi thật: "Cập nhật đề thành công" - KHÁC toast lúc tạo mới bài thực hành
+    // ("Tạo bài thực hành thành công" ở `addPopup`). ĐÃ XÁC NHẬN THẬT bug đo đạc: nếu chờ chung
+    // chung `/thành công/i` ngay sau khi vừa tạo bài (toast tạo mới CHƯA kịp tự ẩn), sẽ đọc NHẦM
+    // toast cũ thành đã lưu câu hỏi thành công trong khi thực ra "Lưu thay đổi" bị chặn hoàn toàn
+    // (0 network request) do CHƯA chọn đáp án đúng - luôn chờ toast tạo mới tự ẩn (hoặc dùng đúng
+    // chuỗi "Cập nhật đề thành công") trước khi kiểm tra kết quả Lưu thay đổi.
+    updateSuccessToast: "Cập nhật đề thành công",
+    missingCorrectAnswerMessage: /chưa chọn đáp án đúng/i,
   },
 };
 
@@ -370,4 +400,174 @@ export async function deletePracticeByTitle(page, title) {
   await dialog.getByRole("button", { name: themBaiThucHanhPageObjects.deleteConfirmDialog.confirmButton, exact: true }).click();
   await dialog.waitFor({ state: "hidden", timeout: 10000 });
   return true;
+}
+
+// ============================================================================================
+// Question editor - đính kèm Audio/Ảnh/Video (Nhóm E2: TC_TBT_029/031/032/033).
+//
+// ĐÃ XÁC NHẬN THẬT (2026-09-23, debug live bằng Playwright trực tiếp trên dev - script khảo sát
+// dùng `setInputFiles()` để tự xem trước cấu trúc DOM; ĐỔI YÊU CẦU (2026-09-24, chỉ đạo trực tiếp
+// từ user - GHI ĐÈ yêu cầu "bán tự động" ban đầu ở docx mục 6.3): test THẬT trong
+// `06-question-media-upload.spec.js` giờ TỰ ĐỘNG chọn file qua `attachMediaFile()`
+// (`page.waitForEvent("filechooser")` + `chooser.setFiles()`), dùng file mẫu có sẵn trong
+// `fixtures/upload-files/` - KHÔNG còn dừng lại chờ người test chọn file thủ công.):
+// - Nút "+ Audio"/"+ Ảnh"/"+ Video" xuất hiện 1 lần ở Tiêu đề câu hỏi + 1 lần cho MỖI đáp án (mặc
+//   định 4 đáp án A-D khi vừa "Thêm câu hỏi", loại "Chọn một") - CÙNG accessible name, phân biệt
+//   bằng `.nth()`: index 0 = Tiêu đề, index `1 + answerIndex` = đáp án tương ứng (A=0, B=1,...).
+// - Sau khi đính kèm: Ảnh -> `<img alt="preview">`; Audio -> `<audio controls>`; Video suy ra
+//   tương tự -> `<video controls>` (CHƯA xác nhận thật trực tiếp cho Video - môi trường tạo file
+//   mẫu không có ffmpeg để tạo 1 video thật, xem `fixtures/upload-files/README.md`).
+// - Hover vào preview hiện nút "Đổi ảnh"/tương đương (đổi file) + nút xoá riêng file đó
+//   (`removeMediaButtonTitle` = "Xoá", KHÁC "Xóa" xoá cả bài).
+// - "Lưu thay đổi" bị CHẶN HOÀN TOÀN (0 network request nào được gửi, không network request nào
+//   được gửi) nếu câu hỏi chưa chọn đáp án đúng - hiện message khớp `missingCorrectAnswerMessage`.
+//   Bug đo đạc đã gặp: toast "Tạo bài thực hành thành công" (lúc tạo bài) có thể còn hiển thị lúc
+//   test bấm "Lưu thay đổi" ngay sau đó, khiến `/thành công/i` chung chung khớp NHẦM - LUÔN dùng
+//   đúng `updateSuccessToast` ("Cập nhật đề thành công") hoặc chờ đủ lâu cho toast cũ tự ẩn.
+// - Khi ĐÃ chọn đáp án đúng: Lưu thay đổi gửi PATCH/PUT thật (200), ảnh/audio đính kèm giữ nguyên
+//   NGAY từ lần reload đầu tiên (KHÔNG có độ trễ lan truyền kiểu Tên đề/Kỹ năng đã gặp ở Nhóm E).
+// ============================================================================================
+
+const MEDIA_KIND_LABEL = {
+  audio: themBaiThucHanhPageObjects.questionEditor.attachAudioLabel,
+  image: themBaiThucHanhPageObjects.questionEditor.attachImageLabel,
+  video: themBaiThucHanhPageObjects.questionEditor.attachVideoLabel,
+};
+
+/** Nút "+ Audio"/"+ Ảnh"/"+ Video" ở Tiêu đề câu hỏi (`kind`: "audio"|"image"|"video"). */
+export function questionTitleAttachButton(page, kind) {
+  return page.getByRole("button", { name: MEDIA_KIND_LABEL[kind], exact: true }).nth(0);
+}
+
+/** Nút "+ Audio"/"+ Ảnh"/"+ Video" của đáp án thứ `answerIndex` (0 = A, 1 = B, ...). */
+export function answerAttachButton(page, answerIndex, kind) {
+  return page.getByRole("button", { name: MEDIA_KIND_LABEL[kind], exact: true }).nth(1 + answerIndex);
+}
+
+/**
+ * Click 1 nút "+ Audio"/"+ Ảnh"/"+ Video" (từ `questionTitleAttachButton()`/`answerAttachButton()`)
+ * VÀ tự động chọn sẵn file tại `filePath` qua hộp thoại chọn file của trình duyệt (KHÔNG cần thao
+ * tác tay) - dùng `page.waitForEvent("filechooser")` bắt sự kiện native file chooser mà click()
+ * vào nút kích hoạt (nút thật chỉ là UI, đứng sau là 1 `<input type="file" hidden>`), rồi
+ * `chooser.setFiles()` nạp file thật. Throw rõ ràng nếu `filePath` không tồn tại/không đọc được -
+ * KHÔNG âm thầm bỏ qua (đúng yêu cầu: chỉ dừng lại nhờ người can thiệp khi thật sự không có file
+ * phù hợp, còn lại phải tự xử lý hết).
+ */
+export async function attachMediaFile(page, attachButtonLocator, filePath) {
+  if (!existsSync(filePath)) {
+    throw new Error(`attachMediaFile: không tìm thấy file "${filePath}" trên máy - cần người can thiệp chọn file khác.`);
+  }
+  const [chooser] = await Promise.all([page.waitForEvent("filechooser"), attachButtonLocator.click()]);
+  await chooser.setFiles(filePath);
+}
+
+/** Locator preview sau khi đính kèm thành công, theo đúng loại media. */
+export function mediaPreviewLocator(page, kind, nth = 0) {
+  if (kind === "image") return page.locator('img[alt="preview"]').nth(nth);
+  if (kind === "audio") return page.locator("audio[controls]").nth(nth);
+  return page.locator("video[controls]").nth(nth); // "video" - suy ra tương tự, chưa xác nhận thật trực tiếp.
+}
+
+/**
+ * Xoá 1 file media ĐÃ đính kèm (hover hiện nút "Xoá" - KHÁC "Xóa" xoá cả bài, xem ghi chú ở
+ * `questionEditor.removeMediaButtonTitle`). KHÔNG xoá cả đáp án/câu hỏi.
+ */
+export async function removeAttachedMedia(page, previewLocator) {
+  const wrapper = previewLocator.locator("xpath=..");
+  await wrapper.hover();
+  const removeBtn = wrapper.locator(`button[title="${themBaiThucHanhPageObjects.questionEditor.removeMediaButtonTitle}"]`);
+  await removeBtn.first().waitFor({ state: "visible", timeout: 5000 });
+  await removeBtn.first().click();
+}
+
+/**
+ * FIX (2026-09-23, FAIL thật xác nhận khi khảo sát live): text placeholder "Nhấn để nhập nội
+ * dung..." BIẾN MẤT khỏi tập khớp `getByText()` ngay khi 1 ô đã được điền (placeholder bị thay
+ * bằng nội dung thật) - dùng `.nth(index cố định)` cho Nội dung câu hỏi + từng đáp án sẽ bị LỆCH
+ * chỉ số ngay sau lượt điền đầu tiên (mỗi lượt điền làm tập khớp còn lại tụt xuống 1). Định vị
+ * theo HÀNG đáp án (climb từ nhãn "A."/"B."/... giống `markAnswerCorrect`) thay vì chỉ số toàn cục
+ * - không phụ thuộc thứ tự gọi hay đã điền ô nào trước đó.
+ */
+async function locateAnswerRow(page, answerIndex) {
+  // FIX (2026-09-23, FAIL thật xác nhận khi khảo sát live LẦN 2): dừng climb khi `row.textContent`
+  // chứa "+ Audio" + "+ Ảnh" quá LỎNG - climb đủ xa sẽ trúng luôn container CHUNG chứa TẤT CẢ đáp
+  // án (mọi đáp án đều có "+ Audio"/"+ Ảnh" riêng, text các đáp án khác vẫn nằm trong textContent
+  // của ancestor chung) - khiến `fillAnswerContent` của B/C/D thực ra gõ đè lên ĐÚNG 1 ô còn trống
+  // đầu tiên trong TOÀN BỘ danh sách (không phải đúng hàng của letter đang gọi). Dùng LẠI chính
+  // xác kỹ thuật climb của `markAnswerCorrect()` (dừng ở hàng chứa nút radio - ĐÃ xác nhận thật
+  // tách đúng từng hàng riêng biệt, không đụng hàng khác) làm điểm neo, vì hàng đó luôn tồn tại
+  // (không biến mất khi đã điền nội dung) và nhỏ vừa đủ để không lẫn sang đáp án khác.
+  const letter = `${String.fromCharCode(65 + answerIndex)}.`;
+  const tagged = await page.evaluate((letterText) => {
+    document.querySelectorAll("[data-auto-qa-answer-row]").forEach((el) => el.removeAttribute("data-auto-qa-answer-row"));
+    const main = document.querySelector("main");
+    const node = [...main.querySelectorAll("*")].find((e) => e.children.length === 0 && e.textContent.trim() === letterText);
+    if (!node) return false;
+    let row = node.parentElement;
+    for (let i = 0; i < 3 && row; i++) {
+      const radio = [...row.querySelectorAll("button")].find((b) => !b.querySelector("svg") && !b.textContent.trim());
+      if (radio) {
+        row.setAttribute("data-auto-qa-answer-row", "1");
+        return true;
+      }
+      row = row.parentElement;
+    }
+    return false;
+  }, letter);
+  if (!tagged) throw new Error(`locateAnswerRow: không tìm thấy hàng đáp án "${letter}".`);
+  return page.locator('[data-auto-qa-answer-row="1"]').first();
+}
+
+/**
+ * CẢNH BÁO - CHƯA XÁC NHẬT THẬT ỔN ĐỊNH (2026-09-23): ô "Nội dung câu hỏi"/đáp án là 1 rich-text
+ * editor (RTE) - click() rồi `page.keyboard.type()` NGAY có lúc mất chữ gõ (placeholder biến mất
+ * do đã focus, nhưng nội dung gõ không vào - nghi do RTE cần thêm 1 nhịp mới thật sự nhận input).
+ * KHÔNG dùng 2 hàm này cho Nhóm E2 upload (029/031/032/033 - không cần nội dung text, chỉ cần đã
+ * chọn đáp án đúng qua `markAnswerCorrect()` là đủ để "Lưu thay đổi" thành công). Nếu cần dùng ở
+ * chỗ khác, PHẢI tự xác nhận lại thật (vd thêm chờ/blur, hoặc gõ qua `type()` với delay) trước.
+ */
+export async function fillQuestionContent(page, text) {
+  await page.getByText(themBaiThucHanhPageObjects.questionEditor.contentPlaceholderText, { exact: true }).first().click();
+  await page.keyboard.type(text);
+}
+
+export async function fillAnswerContent(page, answerIndex, text) {
+  const row = await locateAnswerRow(page, answerIndex);
+  await row.getByText(themBaiThucHanhPageObjects.questionEditor.contentPlaceholderText, { exact: true }).first().click();
+  await page.keyboard.type(text);
+}
+
+/**
+ * Đánh dấu đáp án thứ `answerIndex` (0 = A, 1 = B,...) là đáp án đúng - bấm vào nút radio ngay
+ * trước nhãn "A."/"B."/... (button KHÔNG có text/svg riêng). Đánh dấu tạm bằng data-attribute
+ * trong CÙNG 1 lượt `page.evaluate()` (kỹ thuật giống `locatePracticeRow`) rồi xoá marker ngay sau
+ * khi lấy xong locator, không để sót DOM.
+ */
+export async function markAnswerCorrect(page, answerIndex) {
+  const letter = `${String.fromCharCode(65 + answerIndex)}.`; // 0 -> "A.", 1 -> "B.", ...
+  const tagged = await page.evaluate((letterText) => {
+    document.querySelectorAll("[data-auto-qa-answer-radio]").forEach((el) => el.removeAttribute("data-auto-qa-answer-radio"));
+    const main = document.querySelector("main");
+    const node = [...main.querySelectorAll("*")].find((e) => e.children.length === 0 && e.textContent.trim() === letterText);
+    if (!node) return false;
+    let row = node.parentElement;
+    for (let i = 0; i < 3 && row; i++) {
+      const btn = [...row.querySelectorAll("button")].find((b) => !b.querySelector("svg") && !b.textContent.trim());
+      if (btn) {
+        btn.setAttribute("data-auto-qa-answer-radio", "1");
+        return true;
+      }
+      row = row.parentElement;
+    }
+    return false;
+  }, letter);
+  if (!tagged) throw new Error(`markAnswerCorrect: không tìm thấy radio cho đáp án "${letter}".`);
+  await page.locator('[data-auto-qa-answer-radio="1"]').first().click();
+}
+
+/** Xoá cả đáp án thứ `answerIndex` bằng icon thùng rác (Full-Auto, khác `removeAttachedMedia`). */
+export async function deleteAnswerRow(page, answerIndex) {
+  const trashButtons = page.locator("button:has(svg.lucide-trash2)");
+  // nth(0) là nút xoá CẢ câu hỏi (nằm cùng nhóm mũi tên sắp xếp) - đáp án thật bắt đầu từ nth(1).
+  await trashButtons.nth(1 + answerIndex).click();
 }

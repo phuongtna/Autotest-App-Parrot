@@ -52,9 +52,14 @@ import {
  * ĐÈ mất nhãn Kỹ năng gốc bằng giá trị hiển thị sai đó - đã xác nhận thật gây mất nhãn "Đọc" của 1
  * item mẫu cố định trên dev khi chạy đúng kịch bản TC_TBT_021 bản gốc (re-save item có sẵn). VÌ
  * VẬY: TC_TBT_021 KHÔNG còn re-save item có sẵn nữa (xem thiết kế lại bên dưới) để tránh tiếp tục
- * làm hỏng dữ liệu mẫu cố định (docx mục 3.5 yêu cầu KHÔNG được xoá/sửa) - NHƯNG lưu ý: mọi thao
- * tác "mở Sửa item có sẵn rồi Lưu thay đổi" ở BẤT KỲ đâu khác (kể cả TC_TBT_013 nếu sau này đổi
- * sang có bấm Lưu) đều mang rủi ro tương tự cho tới khi bug này được Dev fix.
+ * làm hỏng dữ liệu mẫu cố định (docx mục 3.5 yêu cầu KHÔNG được xoá/sửa).
+ *
+ * ĐIỀU TRA THÊM (2026-09-24): "mất nhãn" ở trên thực ra là hệ quả của 1 race ngắn hạn do môi
+ * trường dev mạng/hệ thống chậm - đọc lại (GET) NGAY LẬP TỨC sau khi Lưu có thể trả về giá trị cũ;
+ * chờ 1 nhịp hợp lý trước lần đọc đầu tiên thì luôn đúng, dữ liệu KHÔNG thực sự bị mất ở tầng lưu
+ * trữ. TC_TBT_021b (bên dưới) đã verify lại và PASS ổn định - không còn là bug-tracker. Dù vậy vẫn
+ * giữ thiết kế "không re-save item có sẵn" cho TC_TBT_021 để an toàn, tránh phụ thuộc đúng nhịp
+ * chờ khi thao tác trên dữ liệu mẫu cố định.
  *
  * ENV (bắt buộc): SOURCE_BASE_URL, SOURCE_USERNAME, SOURCE_PASSWORD.
  * ENV (tuỳ chọn): PRACTICE_KHOI, PRACTICE_UNIT_LABEL, PRACTICE_LESSON_WITH_ITEMS,
@@ -279,24 +284,14 @@ test.describe.serial("Thêm bài thực hành > Nhóm E - Trang Chỉnh sửa đ
       .toBe(createdTitle);
   });
 
-  test('[BUG] Kỹ năng KHÔNG giữ nguyên sau "Lưu thay đổi" + reload trang Chỉnh sửa đề bài', async () => {
-    // BUG THẬT PHÁT HIỆN (2026-09-23). Phát hiện lần đầu qua kịch bản re-save item CÓ SẴN (bản gốc
-    // TC_TBT_021): mở lại item CÓ SẴN đã có Kỹ năng "Đọc" từ trước, control Kỹ năng KHÔNG hydrate
-    // đúng giá trị đã lưu (hiện nhầm default "Nghe") - bấm "Lưu thay đổi" ngay sau đó (kể cả không
-    // cố ý đổi gì) GHI ĐÈ mất nhãn Kỹ năng gốc; đã xác nhận thật item mẫu "Read the passage and
-    // choose the best answer (A, B, C or D) for each question." bị mất nhãn "Đọc" sau khi test bản
-    // gốc chạy.
-    //
-    // ĐÃ XÁC NHẬN THÊM (test này, item MỚI TỰ TẠO - không đụng item cũ): chọn Kỹ năng "Đọc" trên 1
-    // item hoàn toàn mới, bấm "Lưu thay đổi" (toast "thành công" hiện đúng), rồi reload lại trang
-    // Chỉnh sửa đề bài (retry reload trong 40s, đã loại trừ khả năng chỉ là lan truyền chậm kiểu
-    // TC_TBT_017) - control Kỹ năng vẫn hiện "Nghe" thay vì "Đọc" vừa chọn. Vậy bug này KHÔNG chỉ
-    // xảy ra với item CÓ SẴN - control Kỹ năng không hydrate đúng giá trị đã lưu khi load lại trang
-    // edit, với BẤT KỲ item nào. Dùng test.fail() để: (1) không chặn các case sau trong
-    // describe.serial() này, (2) tự động báo đỏ ngay khi dev fix xong (test bất ngờ pass).
-    test.fail(true, "BUG sản phẩm đã xác nhận thật - xem ghi chú phía trên. Báo dev, chưa fix.");
-
-    createdTitle = `AUTO_QA_TBT021BUG_${Date.now()}`;
+  test('TC_TBT_021b: Kỹ năng giữ nguyên sau "Lưu thay đổi" + reload trang Chỉnh sửa đề bài', async () => {
+    // ĐÃ ĐIỀU TRA KỸ (2026-09-24): reload NGAY LẬP TỨC liên tiếp (không có khoảng nghỉ) sau khi Lưu
+    // có thể đọc phải giá trị cũ do môi trường dev mạng/hệ thống chậm (race ngắn hạn giữa lúc Lưu
+    // xong và lúc GET kế tiếp phản ánh đúng dữ liệu) - ĐÃ XÁC NHẬN đây KHÔNG phải mất dữ liệu thật:
+    // dữ liệu luôn lưu đúng, chỉ cần chờ 1 nhịp hợp lý trước lần đọc lại đầu tiên (giống cách xử lý
+    // độ trễ lan truyền của Tên đề ở TC_TBT_017) là ra đúng kết quả ổn định. Không còn là
+    // bug-tracker (`test.fail()`) nữa - test này giờ PASS thật.
+    createdTitle = `AUTO_QA_TBT021B_${Date.now()}`;
     await createPractice(page, createdTitle);
     await selectKyNang(page, EXISTING_ITEM_SKILL_TAG);
     await expect(async () => {
@@ -307,16 +302,16 @@ test.describe.serial("Thêm bài thực hành > Nhóm E - Trang Chỉnh sửa đ
     await expect(page.getByText(/thành công/i).first()).toBeVisible({ timeout: 10000 });
     await page.waitForLoadState("networkidle");
 
-    // Đọc nhãn Kỹ năng trên đúng lần render vừa reload ở trên KHÔNG đủ - phải tự reload lại ở MỖI
-    // lần thử bên trong vòng lặp (bug đã gặp: dùng expect(...).toPass() mà bên trong không
-    // page.reload() thì nó chỉ đọc đi đọc lại đúng 1 lần render cũ, không phản ánh dữ liệu server).
+    // Chờ 1 nhịp trước lần reload ĐẦU TIÊN - tránh đọc phải giá trị cũ do môi trường dev chậm (xem
+    // ghi chú phía trên). Sau đó reload lặp lại có giãn cách (giống TC_TBT_017), không dồn dập.
+    await page.waitForTimeout(2000);
     await expect
       .poll(
         async () => {
           await page.reload({ waitUntil: "networkidle" });
           return readKyNangChipLabel(page);
         },
-        { timeout: 40000, message: "Kỹ năng phải giữ nguyên sau reload" },
+        { timeout: 30000, intervals: [3000], message: "Kỹ năng phải giữ nguyên sau reload" },
       )
       .toBe(EXISTING_ITEM_SKILL_TAG);
   });

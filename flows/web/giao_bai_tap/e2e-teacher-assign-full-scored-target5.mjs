@@ -494,12 +494,44 @@ export async function locateOpenAndVerifyAssignment(bridge, { title, dueDateDM, 
       // phía trên (để không thiên vị thứ tự thử) - mở LẠI đúng candidate này lần cuối để tiếp tục
       // vào làm bài (postcondition trả về: exercise_close_button đang visible).
       const winner = matchedThisRound[0];
-      const reopen = await openAndCheckContent(winner.candidate);
-      triedLog.push({ candidate: winner.candidate, ...reopen, reopen: true });
+      // FIX (2026-09-25, REOPEN_FAILED thật gặp lại 4/4 lượt liên tiếp trên 2 room khác nhau, cùng
+      // triệu chứng: scan round vừa xác nhận contentMatched=true ở candidate này, nhưng mở lại NGAY
+      // SAU close lại contentMatched=false, KỂ CẢ sau khi thử poll/chờ thêm - không phải race
+      // condition render) - root cause thật: `winner.candidate` mang toạ độ/bounds CACHE từ TRƯỚC
+      // lúc closeIfOpen() - danh sách card có thể reflow (card khác đổi vị trí/CTA sau khi đóng bài,
+      // lớp "3B" nhiều debris) khiến tap lại đúng toạ độ CŨ trúng NHẦM card khác (vẫn mở được 1 exercise
+      // nào đó -> opened=true, nhưng không phải bài mình cần -> contentMatched=false mãi mãi, chờ
+      // thêm không giúp) - CÙNG lớp bug + CÙNG cách sửa đã áp dụng ở
+      // [[project_lamlai_relocate_fix_and_scroll_inconsistency]] ("stale-tap-coords fixed (relocate
+      // before tap)"): KHÔNG dùng lại `winner.candidate` (toạ độ cũ) - relocate LẠI bằng
+      // scrollToTop()+findAssignment() (CÙNG cơ chế cuộn/tìm đã dùng cho toàn bộ hàm này, không viết
+      // mới) để lấy toạ độ THẬT tại thời điểm reopen, rồi content-verify lại - nếu vẫn KHÔNG khớp,
+      // thử tiếp các candidate khác cùng title+dueDate xuất hiện qua relocate (tối đa 3 lần thử,
+      // tránh vòng lặp vô hạn) trước khi kết luận REOPEN_FAILED.
+      let reopen = { opened: false, contentMatched: false, matched: null };
+      let reopenedCandidate = winner.candidate;
+      const reopenTriedSignatures = new Set();
+      for (let attempt = 0; attempt < 3 && !reopen.contentMatched; attempt++) {
+        await scrollToTop(bridge);
+        const relocated = await findAssignment(bridge, { title, dueDateDM, cta });
+        const relocatedCandidates = relocated.status === "FOUND" ? [relocated.card] : relocated.status === "AMBIGUOUS" ? relocated.matches : [];
+        const freshCandidate = relocatedCandidates.find((c) => !reopenTriedSignatures.has(candidateSignature(c)));
+        if (!freshCandidate) break; // hết candidate mới để thử lại qua relocate - dừng, không đoán.
+        reopenTriedSignatures.add(candidateSignature(freshCandidate));
+        reopenedCandidate = freshCandidate;
+        reopen = await openAndCheckContent(freshCandidate);
+        triedLog.push({ candidate: freshCandidate, ...reopen, reopen: true, reopenAttempt: attempt + 1 });
+        if (reopen.opened && !reopen.contentMatched) {
+          const closed = await closeIfOpen();
+          if (!closed.ok) {
+            return { ok: false, status: "EXERCISE_OPEN_FAILED", diagnostics: `Không đóng lại được về homework_screen sau reopen mismatch: ${closed.error}`, triedLog };
+          }
+        }
+      }
       if (!reopen.opened || !reopen.contentMatched) {
         return { ok: false, status: "REOPEN_FAILED", diagnostics: lastDiagnostics, triedLog };
       }
-      return { ok: true, card: winner.candidate, matched: reopen.matched, triedLog };
+      return { ok: true, card: reopenedCandidate, matched: reopen.matched, triedLog };
     }
     if (matchedThisRound.length > 1) {
       // >=2 candidate CÙNG khớp content trong CÙNG 1 round - bất thường dữ liệu thật, KHÔNG phải

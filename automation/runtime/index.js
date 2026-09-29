@@ -58,12 +58,16 @@ async function main() {
   log(`Open Book "${discovery.book?.name}"...`);
   log(`Open Unit "${discovery.unit?.name}"...`);
   log(`Open Lesson "${discovery.lesson?.name}"...`);
+  if (discovery.groupPath?.length) {
+    log(`Open nested group(s): ${discovery.groupPath.map((g) => g.name).join(" > ")}...`);
+  }
   log(`Open Exercise "${discovery.exercise?.name}"...`);
   const navigation = new NavigationEngine(bridge);
   await navigation.navigateTo({
     book: discovery.book,
     unit: discovery.unit,
     lesson: discovery.lesson,
+    groups: discovery.groupPath || [],
     exercise: discovery.exercise,
   });
 

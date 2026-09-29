@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { getBooks, filterSelfLearnBooks } from "./books.js";
 import { getUnitsOfBook, filterPublishedUnits } from "./units.js";
 import { getLessonsOfUnit } from "./lessons.js";
-import { getLessonItemsOfLesson, flattenLessonItems, filterExerciseItems } from "./lessonItems.js";
+import { getLessonItemsOfLesson, flattenLessonItemsWithPath, filterExerciseEntries } from "./lessonItems.js";
 import { getExerciseDetail } from "./exercises.js";
 import { getExamOfExercise } from "./exams.js";
 import { parseQuestionsFromExamPage } from "./examPageScraper.js";
@@ -68,6 +68,12 @@ function verboseLog(...args) {
  * không tồn tại trên app. Throw ngay khi 1 cấp rỗng (vd Book không có Unit đã publish, Lesson
  * không có Exercise) hoặc Exam Scraper lỗi - để pickRandomExerciseWithRetry() quyết định thử
  * lại với lựa chọn khác.
+ *
+ * TRẢ VỀ THÊM `groupPath` (2026-09-29): mảng Lesson Item type=GROUP tổ tiên thật của
+ * `exerciseItem` (root -> gần nhất, rỗng nếu Exercise nằm TRỰC TIẾP dưới Lesson) - lấy từ
+ * `flattenLessonItemsWithPath()` (xem lessonItems.js), KHÔNG cần dò lại UI. Dùng bởi
+ * NavigationEngine (qua runVuiHocRandomExercise.mjs/runtime/index.js) để biết chính xác cần mở
+ * những nhóm lồng nhau nào (vd "Trạm khởi hành 1") trước khi tìm Exercise trên thiết bị.
  */
 export async function pickExerciseAttempt() {
   const books = filterSelfLearnBooks(await getBooks());
@@ -86,17 +92,22 @@ export async function pickExerciseAttempt() {
   verboseLog(`  -> Lesson: ${describe(lesson)}`);
 
   const topLevelItems = await getLessonItemsOfLesson(lesson);
-  const lessonItems = await flattenLessonItems(topLevelItems);
-  verboseLog(`  -> Tổng Lesson Item (đã duyệt children): ${lessonItems.length}`);
-  const exerciseItems = filterExerciseItems(lessonItems);
-  if (exerciseItems.length === 0) {
+  const flatEntries = await flattenLessonItemsWithPath(topLevelItems);
+  verboseLog(`  -> Tổng Lesson Item (đã duyệt children): ${flatEntries.length}`);
+  const exerciseEntries = filterExerciseEntries(flatEntries);
+  if (exerciseEntries.length === 0) {
     throw new Error(
       `Lesson "${describe(lesson)}" không có Lesson Item nào type = EXERCISE ` +
-        `(tổng ${lessonItems.length} lesson item sau khi duyệt hết children).`,
+        `(tổng ${flatEntries.length} lesson item sau khi duyệt hết children).`,
     );
   }
-  const exerciseItem = pickRandom(exerciseItems);
-  verboseLog(`  -> Lesson Item (đã lọc EXERCISE, ${exerciseItems.length} lựa chọn): ${describe(exerciseItem)}`);
+  const exerciseEntry = pickRandom(exerciseEntries);
+  const exerciseItem = exerciseEntry.item;
+  const groupPath = exerciseEntry.groupPath;
+  verboseLog(
+    `  -> Lesson Item (đã lọc EXERCISE, ${exerciseEntries.length} lựa chọn): ${describe(exerciseItem)}` +
+      (groupPath.length ? ` [lồng trong: ${groupPath.map(describe).join(" > ")}]` : " [trực tiếp dưới Lesson]"),
+  );
 
   const exercise = await getExerciseDetail(exerciseItem);
   verboseLog(`  -> Exercise: ${describe(exercise)}`);
@@ -107,7 +118,7 @@ export async function pickExerciseAttempt() {
   const examData = await parseQuestionsFromExamPage(exam.id);
   const questions = normalizeQuestions(examData);
 
-  return { book, unit, lesson, exerciseItem, exercise, examData, questions };
+  return { book, unit, lesson, exerciseItem, groupPath, exercise, examData, questions };
 }
 
 /**
@@ -136,13 +147,14 @@ async function main() {
   log("== Random Exercise Discovery (CMS ParrotEdu) ==\n");
   log("Đang random Book -> Unit -> Lesson -> Lesson Item -> Exercise -> Exam...");
 
-  const { book, unit, lesson, exerciseItem, exercise, examData, questions } =
+  const { book, unit, lesson, exerciseItem, groupPath, exercise, examData, questions } =
     await pickRandomExerciseWithRetry();
 
   log("---------------------------------------------");
   log(`Book: ${describe(book)}`);
   log(`Unit: ${describe(unit)}`);
   log(`Lesson: ${describe(lesson)}`);
+  if (groupPath.length) log(`Lồng trong nhóm: ${groupPath.map(describe).join(" > ")}`);
   log(`Lesson Item: ${describe(exerciseItem)}`);
   log(`Exercise: ${describe(exercise)}`);
   log(`Exam: ${examData.examName} (id=${examData.examId})`);
@@ -167,6 +179,7 @@ async function main() {
     book: toRef(book),
     unit: toRef(unit),
     lesson: toRef(lesson),
+    groupPath: groupPath.map(toRef),
     exercise: toRef(exercise),
     examId: examData.examId,
     examName: examData.examName,

@@ -49,11 +49,30 @@
  * NGAY khi settle - không phải sleep cố định) đúng trước các điểm đọc hierarchy ngay sau 1 lần
  * chuyển màn hình, cộng `assertVisible` (đọc hierarchy fresh) xác nhận lại NGAY sau khi
  * scroll/rẽ nhánh xong, trước khi tap - không tin tuyệt đối kết quả của `when`/`scrollUntilVisible`
- * nữa. LƯU Ý KHÁC (KHÔNG phải lỗi settle, KHÔNG sửa ở đây): 1 Exercise tên "Mẫu câu" random được
- * đã xác nhận KHÔNG tồn tại trong danh sách hoạt động PHẲNG của Lesson (chỉ có 4 mục cố định
- * "Trạm khởi hành"/"Thử thách 1"/"Thử thách 2"/"Trò chuyện cùng Parrot") - đây là Lesson Item
- * LỒNG NHAU (nested) trong CMS không map 1:1 ra UI phẳng mà NavigationEngine giả định - nằm
- * ngoài phạm vi sửa lần này, xử lý tạm bằng cách random lại Exercise khác khi gặp.
+ * nữa.
+ *
+ * NESTED LESSON ITEM (GROUP) - ĐÃ SỬA (2026-09-29, cùng phiên với 4 bug live-verify ở trên): 1
+ * Lesson KHÔNG phải lúc nào cũng có danh sách hoạt động PHẲNG ngay dưới nó - nhiều Lesson thật (đã
+ * xác nhận qua CMS, vd "Trạm khởi hành 1/2", "Thử thách 1/2/3") gói Exercise thật bên trong 1 hoặc
+ * nhiều tầng Lesson Item type=GROUP lồng nhau, phải bấm mở từng nhóm mới thấy Exercise. TRƯỚC ĐÂY
+ * `_openExerciseSteps()` giả định phẳng (chỉ `scrollUntilVisible` tên Exercise ngay dưới Lesson) -
+ * khi Exercise nằm trong GROUP, bước này luôn "not found" dù Exercise có thật, khiến caller (vd
+ * runVuiHocRandomExercise.mjs) hiểu NHẦM thành NAVIGATE FAIL rồi random lại Exercise khác thay vì
+ * mở đúng nhóm.
+ *
+ * CÁCH SỬA: KHÔNG dò "expandable" mù trên UI (vd đoán icon/chevron) - CMS đã tự phân biệt sẵn
+ * GROUP (container, có thể còn "children") với các type khác (leaf, vd EXERCISE) NGAY TỪ NGUỒN
+ * (xem `discovery/lessonItems.js#flattenLessonItemsWithPath()`, đệ quy CHÍNH XÁC cây Lesson Item
+ * thật bất kỳ độ sâu nào, trả kèm `groupPath` = mảng GROUP tổ tiên thật, root -> gần nhất, của mỗi
+ * leaf item). `navigateTo()` nhận thêm tham số `groups` (mảng `{name}`, LẤY TỪ `groupPath` đó,
+ * KHÔNG hardcode "Trạm khởi hành"/"Thử thách" hay bất kỳ tên nhóm nào) - mở TUẦN TỰ từng nhóm bằng
+ * `_openGroupSteps()` (state builder MỚI, dùng LẠI NGUYÊN idiom wait/scroll/assert/tap/dismiss đã
+ * có ở `_openLessonSteps()`/`_openExerciseSteps()`, không viết logic mới) TRƯỚC bước tìm Exercise -
+ * KHÔNG cần tự "biết" 1 phần tử có phải GROUP hay không, KHÔNG cần đóng nhóm/back lại (vì đường đi
+ * đã biết trước, không phải dò mù nên không có nhánh sai cần backtrack), vẫn gộp CHUNG 1 lượt
+ * `bridge.runSteps()` DUY NHẤT cho cả `navigateTo()` (giữ nguyên kiến trúc/hiệu năng 1 process ở
+ * trên). Khi `groups` rỗng (Exercise nằm trực tiếp dưới Lesson, trường hợp PHẲNG cũ), hành vi/số
+ * bước Maestro giống HỆT trước khi sửa - tương thích ngược hoàn toàn.
  */
 export class NavigationEngine {
   /** @param {import("../bridge/maestroBridge.js").MaestroBridge} bridge */
@@ -190,6 +209,23 @@ export class NavigationEngine {
    * tiên tap `_open` (id) nếu có, CHỈ fallback về tap "\\d+ / \\d+" cũ khi Lesson đó KHÔNG có id
    * `_open` (giữ tương thích ngược với hành vi "đã xác nhận thật" cũ trong
    * unit9_getting_started_tram_khoi_hanh.yaml, đề phòng Lesson dạng khác không có nút `_open`).
+   *
+   * ĐÃ SỬA BUG THẬT #5 (2026-09-29, phát hiện khi live-verify nested group trên thiết bị
+   * 3201d866d40a1681): 2 khối `runFlow` ưu tiên/fallback ở trên ĐỘC LẬP với nhau - mỗi khối tự đọc
+   * hierarchy TẠI THỜI ĐIỂM nó chạy, KHÔNG phải "if/else" thật. Khi khối ưu tiên (`_open`) tap
+   * THÀNH CÔNG và điều hướng sang màn MỚI (danh sách hoạt động của Lesson), khối fallback chạy
+   * NGAY SAU đó tự đọc hierarchy MỚI (đã rời khỏi màn Lesson-list) - `notVisible: {below:
+   * lessonName, id: openButtonId}` khi đó luôn ĐÚNG (vì `lessonName` không còn trên màn hình nữa,
+   * không phải vì thiếu nút `_open`) -> vẫn tap "\\d+ / \\d+" (đã KHÔNG tồn tại trên màn mới) ->
+   * FAIL, dù bước tap `_open` ngay trước đó đã hoàn toàn thành công. Xác nhận thật qua
+   * screen-hierarchy: sau khi `_open` COMPLETED, log vẫn chạy tiếp block fallback rồi FAILED
+   * "Element not found: \\d+ / \\d+, Below: Grammar" - chặn đứng MỌI lượt random gặp Lesson có nút
+   * `_open` (cả trường hợp PHẲNG lẫn NHÓM lồng nhau, không liên quan `groups[]`).
+   *
+   * SỬA: thêm điều kiện `visible: lessonName` vào khối fallback (Maestro `Condition` chấp nhận
+   * ĐỒNG THỜI `visible` + `notVisible`, ngữ nghĩa AND) - fallback CHỈ chạy khi VẪN CÒN đứng ở màn
+   * Lesson-list (còn thấy `lessonName`) VÀ không thấy nút `_open`, không còn tự kích hoạt sai sau
+   * khi khối ưu tiên đã điều hướng đi nơi khác.
    * @param {string} lessonName
    */
   _openLessonSteps(lessonName) {
@@ -220,7 +256,8 @@ export class NavigationEngine {
       },
       {
         runFlow: {
-          when: { notVisible: { below: lessonName, id: openButtonId } },
+          // FIX BUG #5: thêm `visible: lessonName` - CHỈ fallback khi vẫn ở màn Lesson-list.
+          when: { visible: lessonName, notVisible: { below: lessonName, id: openButtonId } },
           commands: [{ tapOn: { below: lessonName, text: "\\d+ / \\d+" } }],
         },
       },
@@ -228,8 +265,59 @@ export class NavigationEngine {
   }
 
   /**
-   * Mở đúng Exercise theo tên trong danh sách hoạt động đã sổ ra sau openLesson, rồi dismiss
-   * popup chung nếu có.
+   * Mở 1 Lesson Item type=GROUP theo tên (vd "Trạm khởi hành 1", "Thử thách 1" - tên THẬT lấy từ
+   * `groupPath` của discovery/lessonItems.js#flattenLessonItemsWithPath(), KHÔNG hardcode) rồi
+   * dismiss popup chung nếu có - CÙNG idiom hệt `_openLessonSteps()`/`_openExerciseSteps()` (chờ
+   * settle -> scroll nếu chưa thấy -> assert fresh -> tap -> dismiss popup) vì về mặt UI, "mở 1
+   * GROUP" và "mở 1 Exercise/Lesson" đều là tap 1 hàng trong danh sách rồi chờ nội dung con hiện
+   * ra (có thể mở màn mới HOẶC expand ngay tại chỗ - step builder này không cần phân biệt 2 kiểu
+   * đó: bước kế tiếp trong `navigateTo()` luôn tự chờ settle + đọc hierarchy fresh trước khi tìm
+   * tiếp, đúng như đã làm giữa Unit -> Lesson -> Exercise).
+   * @param {string} groupName
+   * @param {number} index - thứ tự nhóm trong `groups[]` (0-based, chỉ dùng đặt tên screenshot).
+   */
+  _openGroupSteps(groupName, index) {
+    return [
+      { waitForAnimationToEnd: { timeout: 2000 } },
+      {
+        runFlow: {
+          when: { notVisible: groupName },
+          commands: [
+            { scrollUntilVisible: { element: { text: groupName }, direction: "DOWN", timeout: 60000 } },
+          ],
+        },
+      },
+      { assertVisible: { text: groupName } },
+      { tapOn: groupName },
+      { waitForAnimationToEnd: { timeout: 2000 } },
+      ...this._dismissKnownPopupsSteps(),
+      // BUG THẬT #6 (2026-09-29, live-verify thật trên thiết bị, xác nhận cùng phiên bởi user):
+      // mở 1 GROUP KHÔNG vào thẳng danh sách content con - Lesson Item ĐẦU TIÊN bên trong 1 GROUP
+      // luôn là type="Dẫn nhập" (chính là field `type` CMS đã dùng để lọc EXERCISE, xem
+      // filterExerciseEntries() - "Dẫn nhập" là 1 trong các type KHÔNG phải EXERCISE bị lọc ra),
+      // app tự render thành 1 màn narrative/mascot ("Khởi động nghe – đọc...", tiêu đề app bar =
+      // tên GROUP) YÊU CẦU bấm "Tiếp theo" mới đi tiếp - xác nhận qua screenshot thật (group "Trạm
+      // khởi hành") VÀ qua bằng chứng SẴN CÓ trong repo:
+      // flows/app/exercise/EX-13-sentence-builder-blocked.yaml dòng 59-67 (fixture Unit 9, cũng
+      // `tapOn: "Trạm khởi hành"` rồi 2 lượt `tapOn: {text: "Tiếp theo", optional: true}` liền
+      // nhau - comment gốc "S01: Dẫn nhập -> Flashcard", "S02: Flashcard -> Bài tập" - TRÙNG khớp
+      // hiện tượng gặp thật ở đây). KHÔNG có nút `_open` id nào cho items trong GROUP (khác
+      // `_openLessonSteps()`) nên KHÔNG tái dùng được step builder đó - tái dùng ĐÚNG idiom
+      // `optional: true` tuần tự đã CHỨNG MINH hoạt động thật trong EX-13 thay vì viết logic mới.
+      // Bounded 2 lượt (khớp bằng chứng thật) - an toàn khi KHÔNG có Dẫn nhập (optional bỏ qua,
+      // không throw) lẫn khi content thật SỰ có chữ "Tiếp theo" ở đâu đó khác (chỉ 2 lượt, ngay
+      // sau khi vừa mở GROUP, trước khi có bất kỳ thao tác làm bài nào).
+      { tapOn: { text: "Tiếp theo", optional: true } },
+      { waitForAnimationToEnd: { timeout: 1500 } },
+      { tapOn: { text: "Tiếp theo", optional: true } },
+      { waitForAnimationToEnd: { timeout: 1500 } },
+      { takeScreenshot: `nav_group_${index + 1}_opened` },
+    ];
+  }
+
+  /**
+   * Mở đúng Exercise theo tên trong danh sách hoạt động đã sổ ra sau openLesson (hoặc sau khi mở
+   * hết `groups[]`, xem navigateTo()), rồi dismiss popup chung nếu có.
    * @param {string} exerciseName
    */
   _openExerciseSteps(exerciseName) {
@@ -254,35 +342,55 @@ export class NavigationEngine {
       },
       // FIX: xác nhận lại NGAY bằng hierarchy fresh trước khi tap.
       { assertVisible: { text: exerciseName } },
+      { takeScreenshot: "nav_target_found" },
       { tapOn: exerciseName },
       ...this._dismissKnownPopupsSteps(),
+      { takeScreenshot: "nav_target_opened" },
     ];
   }
 
   /**
-   * Điều hướng đầy đủ Book -> Unit -> Lesson -> Exercise trong ĐÚNG 1 lượt `maestro test`.
-   * @param {{ book: {name:string}, unit: {name:string}, lesson: {name:string}, exercise: {name:string} }} target
+   * Điều hướng đầy đủ Book -> Unit -> Lesson -> (0 hoặc nhiều GROUP lồng nhau) -> Exercise trong
+   * ĐÚNG 1 lượt `maestro test`.
+   * @param {{
+   *   book: {name:string}, unit: {name:string}, lesson: {name:string},
+   *   groups?: Array<{name:string}>, exercise: {name:string},
+   * }} target - `groups`: đường đi CHÍNH XÁC các Lesson Item type=GROUP tổ tiên của `exercise`,
+   *   thứ tự root -> gần nhất (xem discovery/lessonItems.js#flattenLessonItemsWithPath() -
+   *   `groupPath`). Bỏ trống/không truyền = Exercise nằm trực tiếp dưới Lesson (trường hợp PHẲNG).
    */
-  async navigateTo({ book, unit, lesson, exercise }) {
+  async navigateTo({ book, unit, lesson, groups = [], exercise }) {
     if (!book?.name || !unit?.name || !lesson?.name || !exercise?.name) {
       throw new Error(
         "NavigationEngine.navigateTo() cần đủ book.name/unit.name/lesson.name/exercise.name.",
       );
     }
+    groups.forEach((group, index) => {
+      if (!group?.name) {
+        throw new Error(
+          `NavigationEngine.navigateTo(): groups[${index}] thiếu "name" (mỗi phần tử groups[] ` +
+            `phải là 1 Lesson Item type=GROUP thật lấy từ groupPath - xem ` +
+            `discovery/lessonItems.js#flattenLessonItemsWithPath()).`,
+        );
+      }
+    });
 
     const steps = [
       ...this._dismissKnownPopupsSteps(),
       ...this._ensureBookSelectedSteps(book.name),
       ...this._ensureUnitOpenSteps(unit.name),
       ...this._openLessonSteps(lesson.name),
+      ...(groups.length > 0 ? [{ takeScreenshot: "nav_lesson_before_groups" }] : []),
+      ...groups.flatMap((group, index) => this._openGroupSteps(group.name, index)),
       ...this._openExerciseSteps(exercise.name),
     ];
 
     const result = await this.bridge.runSteps(steps);
     if (!result.success) {
+      const groupPathDesc = groups.length ? ` qua nhóm [${groups.map((g) => g.name).join(" > ")}]` : "";
       throw new Error(
         `NavigationEngine: điều hướng tới Book "${book.name}" / Unit "${unit.name}" / Lesson ` +
-          `"${lesson.name}" / Exercise "${exercise.name}" thất bại: ${result.error}`,
+          `"${lesson.name}"${groupPathDesc} / Exercise "${exercise.name}" thất bại: ${result.error}`,
       );
     }
   }

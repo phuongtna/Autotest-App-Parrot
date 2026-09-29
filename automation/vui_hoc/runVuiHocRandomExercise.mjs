@@ -6,7 +6,7 @@ import { config } from "../src/config.js";
 import { MaestroBridge } from "../bridge/maestroBridge.js";
 import { NavigationEngine } from "../navigation/navigationEngine.js";
 import { VuiHocExamEngine } from "./vuiHocExamEngine.js";
-import { runVuiHocQuestionPool } from "./vuiHocExamRunner.js";
+import { runVuiHocQuestionPool, captureScreenshotViaAdb } from "./vuiHocExamRunner.js";
 import { pickRandomExerciseWithRetry } from "../discovery/cli.js";
 import { getEntityId, getEntityName } from "../discovery/entityId.js";
 
@@ -53,16 +53,19 @@ import { getEntityId, getEntityName } from "../discovery/entityId.js";
  * tab gốc sẽ fail vì lý do KHÁC HẲN (cascade sai lệch nguyên nhân thật) - `resetToVuiHocHome()`
  * chạy giữa các lượt retry để cắt đứt cascade này.
  *
- * GIỚI HẠN CÒN LẠI - CHƯA SỬA, CHẤP NHẬN THEO QUYẾT ĐỊNH CỦA USER (2026-09-29): rất nhiều Lesson
- * trong kho nội dung CMS hiện tại hiển thị dạng NHÓM LỒNG NHAU ("Thử thách 1/2/3"... - phải bấm mở
- * từng nhóm con mới thấy Exercise thật bên trong), không phải danh sách hoạt động PHẲNG mà
- * `_openExerciseSteps()`'s `scrollUntilVisible` giả định. ĐÃ ĐO THẬT qua nhiều batch live-test:
- * tỉ lệ gặp dạng nhóm lồng nhau CAO HƠN NHIỀU so với ước tính ban đầu trong NavigationEngine cũ
- * ("hiếm gặp") - phần lớn lượt random rơi vào dạng này, khiến `MAX_NAVIGATE_ATTEMPTS` mặc định (5)
- * thường KHÔNG đủ để random trúng 1 Exercise dạng phẳng. Workaround hiện tại (retry + random lại
- * hoàn toàn khi NAVIGATE fail) vẫn ĐÚNG và AN TOÀN (không đoán/không tự mở nhầm nhóm) nhưng có tỉ
- * lệ thành công thấp trong 1 lượt chạy ngắn - tăng `MAX_NAVIGATE_ATTEMPTS` qua env nếu cần tăng cơ
- * hội, hoặc xem đây là việc cần thiết kế riêng (tự phát hiện + mở đúng nhóm con) cho 1 phiên sau.
+ * NESTED GROUP - ĐÃ SỬA (2026-09-29, cùng phiên, THAY THẾ giới hạn "random lại khi gặp nhóm" đã
+ * ghi ở đây trước đó): rất nhiều Lesson trong kho nội dung CMS hiện tại hiển thị dạng NHÓM LỒNG
+ * NHAU (vd "Trạm khởi hành 1/2", "Thử thách 1/2/3" - phải bấm mở từng nhóm con mới thấy Exercise
+ * thật bên trong), không phải danh sách hoạt động PHẲNG mà `NavigationEngine._openExerciseSteps()`
+ * TRƯỚC ĐÂY giả định - ĐO THẬT qua nhiều batch live-test: tỉ lệ gặp dạng này CAO HƠN NHIỀU ước
+ * tính ban đầu ("hiếm gặp"), khiến `MAX_NAVIGATE_ATTEMPTS` mặc định (5) hầu như luôn hết trước khi
+ * random trúng 1 Exercise phẳng. SỬA (dùng chung `NavigationEngine`, xem docblock `navigateTo()`
+ * trong navigation/navigationEngine.js): `discovery/lessonItems.js#flattenLessonItemsWithPath()`
+ * (CMS đã tự phân biệt GROUP/leaf, KHÔNG cần dò UI) trả kèm `groupPath` thật của Exercise được
+ * random - truyền vào `NavigationEngine.navigateTo({ ..., groups: groupPath })` để tự mở ĐÚNG các
+ * nhóm lồng nhau (bất kỳ độ sâu) trước khi tìm Exercise, KHÔNG hardcode tên nhóm nào. Vòng lặp
+ * NAVIGATE FAIL bên dưới giờ chỉ còn xảy ra do lỗi UI/timeout THẬT (tên không khớp, mất kết nối...),
+ * không còn do "gặp nhóm chưa xử lý được" - `resetToVuiHocHome()` vẫn giữ nguyên cho các lỗi đó.
  *
  * GIẢ ĐỊNH (giống mọi runtime khác trong automation/): thiết bị Android thật đang kết nối, app đã
  * mở, ĐÃ đăng nhập sẵn, đang ở tab gốc "Vui học" (xem NavigationEngine).
@@ -143,14 +146,21 @@ async function main() {
   for (let attempt = 1; attempt <= maxNavigateAttempts; attempt++) {
     log(`\n[DISCOVER] (lượt ${attempt}/${maxNavigateAttempts}) Random Book(SELF_LEARN) -> Unit(published) -> Lesson -> Exercise qua CMS...`);
     const discoverStart = nowNs();
-    const { book, unit, lesson, exerciseItem, exercise, examData, questions: pickedQuestions } = await pickRandomExerciseWithRetry();
+    const { book, unit, lesson, exerciseItem, groupPath, exercise, examData, questions: pickedQuestions } = await pickRandomExerciseWithRetry();
     discoverSeconds = secondsSince(discoverStart);
 
-    const navTarget = { book: toRef(book), unit: toRef(unit), lesson: toRef(lesson), exercise: toRef(exercise) };
+    const navTarget = {
+      book: toRef(book),
+      unit: toRef(unit),
+      lesson: toRef(lesson),
+      groups: groupPath.map(toRef),
+      exercise: toRef(exercise),
+    };
     discoverInfo = {
       book: navTarget.book,
       unit: navTarget.unit,
       lesson: navTarget.lesson,
+      groupPath: navTarget.groups,
       exerciseItem: toRef(exerciseItem),
       exercise: navTarget.exercise,
       examId: examData.examId,
@@ -161,6 +171,9 @@ async function main() {
     log(`[DISCOVER] Book: ${navTarget.book.name}`);
     log(`[DISCOVER] Unit: ${navTarget.unit.name}`);
     log(`[DISCOVER] Lesson: ${navTarget.lesson.name}`);
+    if (navTarget.groups.length) {
+      log(`[DISCOVER] Lồng trong nhóm: ${navTarget.groups.map((g) => g.name).join(" > ")}`);
+    }
     log(`[DISCOVER] Exercise: ${navTarget.exercise.name}`);
     log(`[DISCOVER] Exam: ${examData.examName} (${examData.examId}) - ${pickedQuestions.length} câu: ${discoverInfo.types.join(", ")}`);
     log(`[DISCOVER] Thời gian random CMS: ${discoverSeconds.toFixed(2)}s`);
@@ -179,6 +192,15 @@ async function main() {
     if (!navigateError) {
       questions = pickedQuestions;
       log(`[NAVIGATE] Đã vào đúng bài (${navigateSeconds.toFixed(2)}s).`);
+      // Checkpoint 5/5 (xem docblock đầu file): screenshot ngay khi bắt đầu execution của module
+      // Vui học (VuiHocExamEngine/runVuiHocQuestionPool bên dưới) - tái sử dụng NGUYÊN
+      // captureScreenshotViaAdb() đã có (KHÔNG viết lại), cùng cơ chế/thư mục output với các
+      // screenshot khác của module này (vd *_result_*.png, *_blocked_*.png).
+      mkdirSync(OUTPUT_DIR, { recursive: true });
+      captureScreenshotViaAdb(
+        config.deviceId || undefined,
+        join(OUTPUT_DIR, `vuihoc_random_nav_done_${Date.now()}.png`),
+      );
       break;
     }
 

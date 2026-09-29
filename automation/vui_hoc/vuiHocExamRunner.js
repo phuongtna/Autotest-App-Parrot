@@ -23,8 +23,10 @@ function log(...args) {
 }
 
 /** Chụp màn hình THẬT qua `adb exec-out screencap` trực tiếp - KHÔNG qua Maestro (xem lý do gốc
- * trong runVuiHocExercise.mjs trước khi tách file này). */
-function captureScreenshotViaAdb(deviceId, outPath) {
+ * trong runVuiHocExercise.mjs trước khi tách file này). Export (2026-09-29) để
+ * runVuiHocRandomExercise.mjs tái sử dụng NGUYÊN VẸN cho screenshot "bắt đầu execution Vui học"
+ * (checkpoint cuối của bộ 5 screenshot debug nested-group) thay vì viết lại hàm capture riêng. */
+export function captureScreenshotViaAdb(deviceId, outPath) {
   const args = deviceId ? ["-s", deviceId, "exec-out", "screencap", "-p"] : ["exec-out", "screencap", "-p"];
   const png = execFileSync("adb", args, { maxBuffer: 64 * 1024 * 1024 });
   writeFileSync(outPath, png);

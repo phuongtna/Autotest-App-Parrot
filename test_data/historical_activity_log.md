@@ -1428,3 +1428,101 @@ Activity
 **REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-21 14:15:37 +0700, đi thẳng từ
 REPORT_TESTING_ACTIVE, không dừng ở RELEASED). KHÔNG tự động login lại, KHÔNG tự động chọn
 profile này cho automation tiếp theo cho tới khi có chỉ định Report Testing mới.
+
+## 2026-09-28
+
+Activity
+- Timestamp: 2026-09-28 16:03:10 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260928-QA-REPORT-08
+- Activity Type: login
+- Activity Detail: User yêu cầu "Activate Report Testing" (đúng trigger phrase chuẩn). Device
+  lúc bắt đầu đang ở màn "Chào mừng bạn đến với ParrotEdu!" (không có session nào active — không
+  cần logout profile khác trước). Đăng nhập REPORT_PHONE=84912252152/REPORT_OTP=888888 qua
+  `flows/app/helpers/login.yaml` (maestro). Verify qua tab "Bài tập": profile "QA Report Test"
+  Pro / lớp "7QA-Test-20260909_085649" — khớp REPORT_TEST_PROFILE/profile ID d79076ca-...9a9b.
+  Ghi chú kỹ thuật: `maestro test` bị Bash tool timeout (2 phút) SIGKILL ngay sau khi nhập đủ
+  6 số OTP (màn hình đã hiện nút "Xác nhận" bật sáng) — không chạy lại toàn bộ flow (tránh gửi
+  lại OTP/đổi số điện thoại), chỉ tap thủ công vào nút "Xác nhận" (qua adb, toạ độ screenshot
+  ×1.17) để hoàn tất đăng nhập.
+- Result: success
+- Test Case: N/A
+
+**REPORT_PROFILE_STATE = REPORT_TESTING_ACTIVE** (từ 2026-09-28 16:03:10 +0700).
+
+## Case: giao bài tập -> làm bài (>0 và <5đ) -> làm lại (8-10đ), 2026-09-28
+
+Activity
+- Timestamp: 2026-09-28 ~16:11 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260928-QA-REPORT-08
+- Activity Type: homework_assigned
+- Activity Detail: User yêu cầu "chạy full luồng case GBT và làm bài. Có cả làm lại. Lần 1 làm
+  >0 và <5đ. Lần 2 làm 8-10đ." Chạy lại nguyên script đã verify
+  `flows/web/giao_bai_tap/e2e-giaobai-range34-lamlai-range67.mjs` (KHÔNG viết engine mới, theo
+  [[feedback_reuse_first_workflow]]) với FIRST_SCORE_MIN=0.1/MAX=4.9 (mô phỏng ">0 và <5" theo
+  quy ước strict-range đã dùng trước đây), REDO_SCORE_MIN=8/MAX=10, PROFILE_NAME="QA Report
+  Test", TARGET_CLASS_NAME="7QA-Test-20260909_085649", TARGET_CLASS_ID=4d423639-8c35-4194-
+  9c10-8e76bb092f08. Đã giao bài "Choose the correct form of the verbs" (Unit 3: Community
+  service, Grammar), hạn nộp 05/10/2026, room_id `7f494441-bdc1-43e4-b230-2957b611b2bc`, 10
+  scored items resolved qua CMS.
+- Result: success
+- Test Case: N/A (case giao bài -> làm bài -> làm lại theo yêu cầu user, chạy để lấy dữ liệu
+  cho báo cáo cuối tuần)
+
+Activity
+- Timestamp: 2026-09-28 16:13:58 -> 16:16:32 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260928-QA-REPORT-08
+- Activity Type: exercise_completed (lần làm đầu)
+- Activity Detail: Room "Choose the correct form of the verbs" (room_id 7f494441-...), target
+  range (0,5) — chọn targetScore=1 (đúng 1/10 câu). ĐIỂM THẬT=1, CHÍNH XÁC=1/10, khớp target
+  100%. Thời gian làm bài (vào Doing -> màn Kết quả) 154.00s.
+- Result: success
+- Test Case: N/A
+
+Activity
+- Timestamp: 2026-09-28 16:17:12 -> 16:19:13 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260928-QA-REPORT-08
+- Activity Type: exercise_redo_completed (làm lại)
+- Activity Detail: Room "Choose the correct form of the verbs" (room_id 7f494441-...), target
+  range [8,10] — chọn targetScore=9 (đúng 9/10 câu). ĐIỂM THẬT=9, CHÍNH XÁC=9/10, khớp target
+  100%. Thời gian làm lại (vào Doing -> màn Kết quả) 120.81s. Sau khi bấm CTA thật "Tiếp theo"
+  ở màn Kết quả, app auto-chain sang MỘT bài KHÁC không liên quan ("G7U3-Writing- BTNC", theo
+  đúng cơ chế auto-chain đã biết ở [[project_hw29_general_remaining_exercises_run]]) — bài này
+  KHÔNG nằm trong yêu cầu case, agent đóng lại bằng nút "X" mà KHÔNG trả lời câu nào (tránh
+  ghi nhận điểm/hoạt động ngoài yêu cầu, tránh nhiễu dữ liệu báo cáo).
+- Result: success
+- Test Case: N/A
+
+**Tóm tắt case:** giao 1 bài mới ("Choose the correct form of the verbs", hạn 05/10/2026) →
+làm bài lần đầu đạt ĐÚNG 1/10 (range (0,5) yêu cầu) → làm lại đạt ĐÚNG 9/10 (range [8,10] yêu
+cầu) — cả 2 lần đều khớp target chính xác 100%, script tổng PASS (468.7s), không dính bug
+locate/score-mismatch nào. Tổng "Bài tập" xác nhận: **3/5 (trước, lúc login 16:03) -> 4/6 (sau,
+16:21)** — tăng đúng +1/+1, khớp với việc chỉ giao đúng 1 bài mới và đã hoàn thành trọn vẹn,
+không có hoạt động thừa lọt vào (bài "G7U3-Writing- BTNC" bị auto-chain mở ra nhưng đã đóng
+ngay, không trả lời câu nào, không tính vào tiến độ).
+
+**Mục đích:** dữ liệu case này rơi vào tuần báo cáo hiện tại (28/09/2026 nằm trong kỳ báo cáo
+tuần 04, chưa đóng) — dùng để đối chiếu với report thật khi tuần này kết thúc (thứ Bảy tới, xem
+[[project_historical_activity_log_format]] rule "report chạy lúc Thứ Bảy 00:00:00").
+
+Activity
+- Timestamp: 2026-09-28 16:32:18 +0700
+- Profile ID: d79076ca-5ef8-4c7e-9dad-25c1c8df9a9b
+- Session ID: SESS-20260928-QA-REPORT-08
+- Activity Type: logout
+- Activity Detail: User yêu cầu "log out tài khoản". Điều hướng tab "Báo cáo" -> cuộn xuống ->
+  "Đăng xuất" -> dialog "Bạn có thật sự muốn đăng xuất khỏi ứng dụng?" -> tap "OK" -> xác nhận
+  quay về màn "Chào mừng bạn đến với ParrotEdu!" (không còn tab bar). Ghi chú kỹ thuật: ngay sau
+  khi tap "OK", 1 screenshot chụp được 1 khung hình chuyển tiếp lạ (header mất tên profile,
+  hiện card "Nâng cấp tài khoản" phía trên "Báo cáo học tập") — xác minh lại bằng 1 lần cuộn lên
+  đỉnh + screenshot thứ 2 thì đã ở đúng màn welcome/login, kết luận khung hình lạ chỉ là 1 frame
+  render tạm thời trong lúc chuyển màn (animation logout), không phải lỗi thật.
+- Result: success
+- Test Case: N/A (đóng session Report Testing)
+
+**REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-28 16:32:18 +0700, đi thẳng từ
+REPORT_TESTING_ACTIVE, không dừng ở RELEASED). KHÔNG tự động login lại, KHÔNG tự động chọn
+profile này cho automation tiếp theo cho tới khi có chỉ định Report Testing mới.

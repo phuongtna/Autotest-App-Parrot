@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { writeFileSync, mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { getBooks, filterSelfLearnBooks } from "./books.js";
 import { getUnitsOfBook, filterPublishedUnits } from "./units.js";
@@ -69,7 +69,7 @@ function verboseLog(...args) {
  * không có Exercise) hoặc Exam Scraper lỗi - để pickRandomExerciseWithRetry() quyết định thử
  * lại với lựa chọn khác.
  */
-async function pickExerciseAttempt() {
+export async function pickExerciseAttempt() {
   const books = filterSelfLearnBooks(await getBooks());
   if (books.length === 0) throw new Error("Không lấy được Book type SELF_LEARN nào từ CMS.");
   const book = pickRandom(books);
@@ -114,7 +114,7 @@ async function pickExerciseAttempt() {
  * Thử pickExerciseAttempt() tối đa MAX_ATTEMPTS lần - gặp lỗi (ngõ cụt ở bất kỳ cấp nào) thì
  * log lại rồi random lại HOÀN TOÀN từ Book, không cần biết/không phụ thuộc trạng thái Unit.
  */
-async function pickRandomExerciseWithRetry() {
+export async function pickRandomExerciseWithRetry() {
   let lastErr;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
@@ -178,19 +178,25 @@ async function main() {
   log(`\nĐã ghi kết quả ra ${OUTPUT_FILE}`);
 }
 
-main().catch((err) => {
-  console.error("\n[discover] Dừng lại vì lỗi:\n");
-  if (err instanceof CmsApiError) {
-    console.error(`  ${err.message}`);
-    if (err.status) console.error(`  HTTP status: ${err.status}`);
-    if (err.body) console.error(`  Response body: ${JSON.stringify(err.body)}`);
-  } else {
-    console.error(`  ${err.message}`);
-  }
-  console.error(
-    "\nNếu đây là lỗi do path endpoint sai/chưa xác nhận, cập nhật automation/discovery/endpoints.js " +
-      "sau khi có curl/response mẫu thật tương ứng. Nếu lỗi liên quan tới Exam Scraper (session " +
-      "hết hạn), cập nhật lại automation/.cache/exam_session.json theo automation/README.md.",
-  );
-  process.exitCode = 1;
-});
+// Chỉ tự chạy main() khi file này được gọi TRỰC TIẾP (`node discovery/cli.js` / `npm run
+// discover`) - KHÔNG chạy khi được import làm module (vd `pickRandomExerciseWithRetry` dùng bởi
+// vui_hoc/runVuiHocRandomExercise.mjs) - nếu không guard, `main()` sẽ tự chạy như 1 side-effect
+// ngay khi import (gọi CMS 2 lần, ghi đè output/discovery.json ngoài ý muốn).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("\n[discover] Dừng lại vì lỗi:\n");
+    if (err instanceof CmsApiError) {
+      console.error(`  ${err.message}`);
+      if (err.status) console.error(`  HTTP status: ${err.status}`);
+      if (err.body) console.error(`  Response body: ${JSON.stringify(err.body)}`);
+    } else {
+      console.error(`  ${err.message}`);
+    }
+    console.error(
+      "\nNếu đây là lỗi do path endpoint sai/chưa xác nhận, cập nhật automation/discovery/endpoints.js " +
+        "sau khi có curl/response mẫu thật tương ứng. Nếu lỗi liên quan tới Exam Scraper (session " +
+        "hết hạn), cập nhật lại automation/.cache/exam_session.json theo automation/README.md.",
+    );
+    process.exitCode = 1;
+  });
+}

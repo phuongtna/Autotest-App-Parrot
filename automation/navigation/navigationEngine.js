@@ -78,6 +78,30 @@ export class NavigationEngine {
 
   /**
    * Đảm bảo đang ở đúng Khối (Book) - nếu chưa, mở dropdown chọn khối và chọn theo tên.
+   *
+   * ĐÃ SỬA (2026-09-29, xác nhận thật trên thiết bị 3201d866d40a1681, live-verify cho
+   * runVuiHocRandomExercise.mjs): selector cũ `tapOn: { leftOf: "Chuyển profile" }` (copy từ
+   * flows/app/vui_hoc/study_unit9_protecting_environment.yaml, từng "đã xác nhận thật" tại thời
+   * điểm viết) FAIL 100% ("Element not found: Left of: Chuyển profile") - khớp đúng bug đã ghi
+   * nhận trong memory "Navigation selector + card-locate bugs" (fail cả khi KHÔNG cần đổi Khối).
+   * Root cause xác nhận qua screenshot thật: UI hiện tại render "Khối X" là 1 text-element TỰ NÓ
+   * tappable (kèm chevron dropdown), KHÔNG còn nằm ở vị trí "bên trái Chuyển profile" mà
+   * `leftOf` có thể giải quyết được (có thể do redesign UI sau thời điểm 2 file yaml gốc được
+   * viết) - lúc đầu đổi sang tap text "Khối {số}" (regex) - đã verify mở đúng bottom sheet "Chọn
+   * khối" (screenshot xác nhận, liệt kê Khối 1-12, Khối hiện tại được highlight).
+   *
+   * ĐÃ SỬA LẦN 2 (2026-09-29, cùng phiên): thay text regex bằng id THẬT `happy_learning_book_
+   * selector` (đọc được qua screen-hierarchy khi debug lỗi Lesson - xem `_openLessonSteps()`) -
+   * robust hơn text (không phụ thuộc locale/format hiển thị "Khối N").
+   *
+   * ĐÃ SỬA LẦN 3 (2026-09-29, cùng phiên - SỰ CỐ SETTLE): sau khi đổi Khối, `bookName` (vd
+   * "Khối 9") hiện lên GẦN NHƯ NGAY (chỉ đổi header) nhưng nội dung THẬT của Khối mới (banner +
+   * link "Tất cả units") vẫn đang tải - `_ensureUnitOpenSteps()` chạy NGAY SAU đó tap "Tất cả
+   * units" có thể FAIL "Element not found" dù chỉ cần chờ thêm (đã xác nhận qua 2 screenshot cùng
+   * 1 màn "Unit 1..." - lúc có banner+link, lúc chưa). Thêm `waitForAnimationToEnd` (bounded,
+   * CÙNG pattern "FIX SỰ CỐ SETTLE" đã dùng cho các transition khác trong file này) SAU khi
+   * `bookName` visible - CHỈ trong nhánh THẬT SỰ vừa đổi Khối, không tốn thêm chi phí khi đã
+   * đúng Khối sẵn (skip cả block `when`).
    * @param {string} bookName
    */
   _ensureBookSelectedSteps(bookName) {
@@ -86,9 +110,11 @@ export class NavigationEngine {
         runFlow: {
           when: { notVisible: bookName },
           commands: [
-            { tapOn: { leftOf: "Chuyển profile" } },
+            { tapOn: { id: "happy_learning_book_selector" } },
             { extendedWaitUntil: { visible: { text: "Chọn khối" }, timeout: 5000 } },
             { tapOn: bookName },
+            { extendedWaitUntil: { visible: { text: bookName }, timeout: 10000 } },
+            { waitForAnimationToEnd: { timeout: 3000 } },
           ],
         },
       },
@@ -101,6 +127,13 @@ export class NavigationEngine {
    * `scrollUntilVisible` (native, không lặp swipe+isVisible thủ công). Bấm nút hành động
    * ("Chinh phục" hoặc "Ôn tập") ngay dưới tên Unit - CHỈ best-effort (`optional: true`, xem
    * ghi chú cũ: Unit đang là Unit "hiện tại" trên tab gốc thì không có nút này).
+   *
+   * TIMEOUT scrollUntilVisible TĂNG 20000 -> 60000 (2026-09-29, xác nhận thật cho
+   * runVuiHocRandomExercise.mjs, thiết bị 3201d866d40a1681): random trúng Unit "Review 2" của
+   * Book "Khối 9" - 20000ms chỉ đủ ~6 lượt swipe, dừng ở Unit 6 (screenshot xác nhận), CHƯA tới
+   * "Review 2" (nằm sau nhiều Unit hơn) -> FAILED sai "not found" dù Unit có thật, chỉ do timeout
+   * quá ngắn cho danh sách dài - CÙNG NGUYÊN NHÂN đã từng sửa cho
+   * flows/app/helpers/open-exercise.yaml (tăng 30000 -> 90000/150000, xem docblock file đó).
    * @param {string} unitName
    */
   _ensureUnitOpenSteps(unitName) {
@@ -122,7 +155,7 @@ export class NavigationEngine {
               scrollUntilVisible: {
                 element: { text: unitName },
                 direction: "DOWN",
-                timeout: 20000,
+                timeout: 60000,
               },
             },
             // FIX: xác nhận lại NGAY (hierarchy fresh, không dùng lại kết quả nội bộ của
@@ -132,7 +165,7 @@ export class NavigationEngine {
               scrollUntilVisible: {
                 element: { below: unitName, text: "Chinh phục|Ôn tập" },
                 direction: "DOWN",
-                timeout: 20000,
+                timeout: 60000,
               },
             },
           ],
@@ -146,9 +179,21 @@ export class NavigationEngine {
   /**
    * Mở danh sách bài học của Lesson - bấm vào thanh tiến độ dạng "x / y" ngay dưới tên Lesson
    * (KHÔNG bấm mũi tên "tiếp tục" - xem ghi chú trong unit9_getting_started_tram_khoi_hanh.yaml).
+   *
+   * ĐÃ SỬA (2026-09-29, live-verify runVuiHocRandomExercise.mjs, thiết bị 3201d866d40a1681): tap
+   * "\\d+ / \\d+" (thanh tiến độ) KHÔNG mở được danh sách hoạt động cho phần lớn Lesson gặp thật
+   * khi random (Khối 10 "Reading", Khối 11 "Language"...) - xác nhận qua screen-hierarchy: mỗi
+   * Lesson card thật ra có id `happy_learning_lesson_{i}_open` (nút mũi tên xanh "→", RIÊNG biệt
+   * với `happy_learning_lesson_{i}_toggle`) - "\\d+ / \\d+" tap trúng vùng progress/toggle
+   * (không mở màn mới), khiến `scrollUntilVisible` bước sau đó tìm Exercise mãi không thấy (vẫn
+   * đứng ở màn danh sách Lesson, KHÔNG phải Lesson Item lồng nhau như từng đoán ban đầu). SỬA: ưu
+   * tiên tap `_open` (id) nếu có, CHỈ fallback về tap "\\d+ / \\d+" cũ khi Lesson đó KHÔNG có id
+   * `_open` (giữ tương thích ngược với hành vi "đã xác nhận thật" cũ trong
+   * unit9_getting_started_tram_khoi_hanh.yaml, đề phòng Lesson dạng khác không có nút `_open`).
    * @param {string} lessonName
    */
   _openLessonSteps(lessonName) {
+    const openButtonId = "happy_learning_lesson_\\d+_open";
     return [
       // FIX (2026-08-06): điều kiện `when: notVisible` chỉ đọc hierarchy 1 LẦN DUY NHẤT (không
       // tự retry như extendedWaitUntil) - ngay sau khi màn Unit-list chuyển sang Lesson-list, đã
@@ -160,14 +205,25 @@ export class NavigationEngine {
         runFlow: {
           when: { notVisible: lessonName },
           commands: [
-            { scrollUntilVisible: { element: { text: lessonName }, direction: "DOWN", timeout: 20000 } },
+            { scrollUntilVisible: { element: { text: lessonName }, direction: "DOWN", timeout: 60000 } },
           ],
         },
       },
       // FIX: xác nhận lại NGAY bằng hierarchy fresh (bắt được cả trường hợp `when` báo sai ở
       // trên) trước khi tap - không tin tưởng tuyệt đối vào kết quả của `when`/scrollUntilVisible.
       { assertVisible: { text: lessonName } },
-      { tapOn: { below: lessonName, text: "\\d+ / \\d+" } },
+      {
+        runFlow: {
+          when: { visible: { below: lessonName, id: openButtonId } },
+          commands: [{ tapOn: { below: lessonName, id: openButtonId } }],
+        },
+      },
+      {
+        runFlow: {
+          when: { notVisible: { below: lessonName, id: openButtonId } },
+          commands: [{ tapOn: { below: lessonName, text: "\\d+ / \\d+" } }],
+        },
+      },
     ];
   }
 
@@ -190,7 +246,7 @@ export class NavigationEngine {
               scrollUntilVisible: {
                 element: { text: exerciseName },
                 direction: "DOWN",
-                timeout: 20000,
+                timeout: 60000,
               },
             },
           ],

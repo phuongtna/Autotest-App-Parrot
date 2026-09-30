@@ -5,6 +5,7 @@ import { CTA_TEXTS, SECTION_HEADERS } from "./homeworkUiList.js";
 // trước đã nằm SAU (dưới) target thật. findAssignment.js CHỈ import từ homeworkUiList.js nên import
 // này KHÔNG tạo circular dependency.
 import { scrollToTop, normalizeDueDateDM } from "./findAssignment.js";
+import { runSearchStateMachine } from "./assignmentSearchEngine.js";
 
 /**
  * locateCompletedCandidate.js - cơ chế TÌM 1 card đã hoàn thành (cta="Làm lại") trong danh sách
@@ -15,6 +16,12 @@ import { scrollToTop, normalizeDueDateDM } from "./findAssignment.js";
  * TÁCH RA từ automation/bai_tap/pro_lamlai_target_score.mjs (2026-08-24, theo yêu cầu đưa scroll/
  * locate logic vào automation/bai_tap để dùng chung/dễ test độc lập) - KHÔNG đổi hành vi so với bản
  * đã fix+verify live trên thiết bị thật cùng ngày (xem ROOT CAUSE, [[project_lamlai_scroll_root_cause]]).
+ *
+ * PHASE 1 (2026-09-30, assignment-search-engine): `locateSpecificCompletedCandidate()` giờ là
+ * wrapper mỏng gọi `runSearchStateMachine()` (assignmentSearchEngine.js) DÙNG CHUNG với
+ * `findAssignment.js` - xem docblock hàm đó. `findCompletedCardsWithCtaBounds()` (parser) VÀ
+ * `collectDistinctCompletedCandidates()` (hàm quét-nhiều-candidate, mục đích KHÁC hẳn "tìm 1 target
+ * cụ thể" - xem docblock riêng của nó) GIỮ NGUYÊN 100%, không thuộc phạm vi Phase 1.
  */
 
 const COMPLETED_CTA = "Làm lại";
@@ -24,11 +31,6 @@ const PROGRESS_PATTERN = /^\d+\s*\/\s*\d+$/;
 const DUE_DATE_PATTERN = /^Hạn nộp \d{2}\/\d{2}(\s*\(QUÁ HẠN\))?$/;
 const SCORE_PATTERN = /^Điểm\s*[0-9.,]+.*$/;
 const MAX_CTA_LOOKAHEAD = 6;
-// Giá trị GIỐNG HỆT NORMAL_SWIPE/RECOVERY_SWIPE trong findAssignment.js (không export nên phải khai
-// báo lại, không phải divergence có chủ đích) - dùng bởi locateSpecificCompletedCandidate() để tái
-// tạo đúng cơ chế "2-tier swipe" đã proven ở đó (xem ROOT CAUSE 2026-08-24).
-const NORMAL_SWIPE_STEP = { start: "50%,80%", end: "50%,25%", duration: 400 };
-const RECOVERY_SWIPE_STEP = { start: "50%,90%", end: "50%,10%", duration: 700 };
 
 function now() {
   return Date.now();
@@ -99,7 +101,12 @@ function findCompletedCardsWithCtaBounds(nodes, { sectionSeen: initialSectionSee
       if (PROGRESS_PATTERN.test(t) || SECTION_HEADERS.includes(t)) break;
     }
     if (cta === COMPLETED_CTA && ctaBounds) {
-      results.push({ title, cta, ctaBounds, scoreText, dueDateBefore, viewLinkBounds });
+      // titleBounds (MỚI - Phase 1 assignment-search-engine): field additive, cùng pattern chính
+      // xác đã dùng ở homeworkUiList.js#parseHomeworkCardsWithDetail() (titleNode.bounds). Cần cho
+      // computeViewportSignature() (assignmentSearchEngine.js) tính Y-shift của top/bottom card -
+      // KHÔNG có field này trước đây khiến viewportSignature suy biến về fingerprint text thuần cho
+      // đúng luồng "Làm lại" (xem assignment_search_final_implementation_contract.md, Blocker 1).
+      results.push({ title, titleBounds: titleNode.bounds, cta, ctaBounds, scoreText, dueDateBefore, viewLinkBounds });
     }
   }
   return { results, sectionSeen };
@@ -242,14 +249,44 @@ function parseScoreValue(scoreText) {
   return m ? Number(m[1].replace(",", ".")) : null;
 }
 
-export async function locateSpecificCompletedCandidate(bridge, title, { maxScrolls, scrollLog = null, dueDateDM = null, expectedScore = null }) {
-  const norm = (s) => (s ?? "").trim();
-  let sectionSeen = false;
-  let enteredAdvanced = false;
-  let found = null;
-  let lastResults = [];
-  let lastFingerprint = "";
+const norm = (s) => (s ?? "").trim();
 
+/** Matcher cho card ĐÃ hoàn thành - target = {title, dueDateDM?, expectedScore?}. GIỮ NGUYÊN 3 tiêu
+ * chí identity đã có (title bắt buộc + dueDateDM/expectedScore optional để phân biệt card trùng
+ * title, xem comment gốc ở dưới về expectedScore là disambiguator thật sự dùng được). */
+function matchesCompletedTarget(card, target) {
+  if (norm(card.title) !== norm(target.title)) return false;
+  if (target.dueDateDM && normalizeDueDateDM(card.dueDateBefore) !== target.dueDateDM) return false;
+  if (target.expectedScore != null && Math.abs((parseScoreValue(card.scoreText) ?? NaN) - target.expectedScore) >= 0.05) return false;
+  return true;
+}
+
+/** dedupIdentity RỘNG (không phải match identity - xem matchesCompletedTarget() ở trên) - dùng để
+ * engine đếm "đã thấy bao nhiêu card phân biệt" (seenAssignments, contract Phase 1 mục 9). */
+function dedupIdentity(card) {
+  return `${card.title}|${card.scoreText ?? ""}`;
+}
+
+/**
+ * PHASE 1 (assignment-search-engine) - CHUYỂN sang gọi runSearchStateMachine() DÙNG CHUNG với
+ * findAssignment() (assignmentSearchEngine.js) thay vì tự lặp fingerprint/recovery-swipe RIÊNG (bản
+ * cũ có 2 lệch giá trị với findAssignment.js: NORMAL_SWIPE_STEP/RECOVERY_SWIPE_STEP đã export/import
+ * KHÔNG được, phải khai báo lại - và `waitForAnimationToEnd` 1200ms trong khi findAssignment.js cũ
+ * dùng 800ms - chính là bằng chứng SỐNG dẫn tới việc hợp nhất, xem docblock assignmentSearchEngine.js
+ * và assignment_search_final_implementation_contract.md Blocker 5). PARSER
+ * (`findCompletedCardsWithCtaBounds`) GIỮ NGUYÊN 100% - chỉ đổi state-machine/progress-detection.
+ *
+ * BLOCKER 4 (contract): silent-first-pick TỪNG tồn tại ở 2 TẦNG - tầng này (`results.find(...)` lấy
+ * phần tử đầu) VÀ tầng caller (`.candidates[0]`, xem pro_lamlai_target_score.mjs/
+ * resume_lamlai_range_score.mjs). Engine mới dùng `filter()` (qua matchesTarget được gọi trên TOÀN
+ * BỘ card mỗi lượt đọc) nên tầng NÀY không còn silent-first-pick - trả `status:"AMBIGUOUS"` +
+ * `matches` đầy đủ khi ≥2 card cùng khớp, map xuống `ambiguous:true` ở return shape cũ bên dưới.
+ *
+ * scrollToTop() GIỮ NGUYÊN - gọi TRƯỚC khi vào engine (đúng tiền điều kiện "xuất phát từ đỉnh danh
+ * sách" đã ghi trong docblock chính hàm đó), engine KHÔNG tự gọi scrollToTop (đối xứng với
+ * findAssignment(), caller/wrapper chịu trách nhiệm, không phải engine).
+ */
+export async function locateSpecificCompletedCandidate(bridge, title, { maxScrolls, scrollLog = null, dueDateDM = null, expectedScore = null }) {
   const scrollTopT = await timed(() => scrollToTop(bridge));
   scrollLog?.push({
     scrollIndex: "scrollToTop",
@@ -267,163 +304,45 @@ export async function locateSpecificCompletedCandidate(bridge, title, { maxScrol
     console.log(`  [LOCATE] scrollToTop() không xác nhận về đỉnh (${scrollTopT.result.reason}) - vẫn tiếp tục tìm từ vị trí hiện tại.`);
   }
 
-  // Fingerprint TOÀN BỘ text node đang thấy trong scrollable list (không riêng candidate cta="Làm
-  // lại") - cùng nguyên tắc `fingerprint()` đã proven trong findAssignment.js, chỉ khác input là các
-  // node thô của module này (không có parser card chung).
-  const fingerprintNodes = (nodes) => nodes.map((n) => n.text).join("||");
+  // enteredAdvanced: GIỮ NGUYÊN field trong return shape cũ (PHASE 9C - chỉ để log/diagnostics,
+  // KHÔNG dùng để cắt/dừng vòng lặp từ trước) - tính qua side-effect trong parseVisibleCards vì
+  // engine không có khái niệm "section nâng cao" (đặc thù luồng completed-card này).
+  let enteredAdvanced = false;
+  const target = { title, dueDateDM, expectedScore };
 
-  const readOnce = async () => {
-    const hierarchyT = await timed(() => bridge.hierarchy());
-    const tree = hierarchyT.result;
-    const parseStart = now();
-    const nodes = collectNodesWithBoundsInsideScrollableList(tree, []);
-    const advancedIdx = nodes.findIndex((n) => n.text === ADVANCED_SECTION_HEADER);
-    if (advancedIdx !== -1) enteredAdvanced = true;
-    // PHASE 9C (2026-08-31, xem PHASE 9B): KHÔNG còn cắt relevantNodes tại "Bài tập nâng cao" nữa -
-    // findCompletedCardsWithCtaBounds() đã tổng quát theo SECTION_HEADERS (gồm cả "Bài tập nâng cao",
-    // homeworkUiList.js:60) từ trước; evidence thật (Phase 9B, card "G7U2-HW-LB lang-BTNC" đã hoàn
-    // thành) xác nhận card completed trong section này CÙNG cấu trúc dòng (title -> "N / M" -> "Điểm
-    // N" -> "Xem bài đã làm" -> CTA "Làm lại") như card completed ở "Bài tập về nhà" - không cần loại
-    // riêng. `advancedIdx`/`enteredAdvanced` vẫn giữ để log/stopReason, chỉ không dùng để cắt/dừng.
-    const relevantNodes = nodes;
-    const parseDurationMs = now() - parseStart;
-    const matchStart = now();
-    const { results, sectionSeen: newSectionSeen } = findCompletedCardsWithCtaBounds(relevantNodes, { sectionSeen });
-    const matchDurationMs = now() - matchStart;
-    sectionSeen = newSectionSeen;
-    lastResults = results;
-    // dueDateDM (optional) disambiguates cards sharing the same title (confirmed real bug 2026-09-22:
-    // an older completed card with the same title as a just-assigned one caused a wrong-card tap on
-    // "Làm lại" - dueDateBefore was already captured above but never used for matching). NOTE:
-    // completed cards typically render NO due-date line at all (see
-    // project_open_exercise_due_date_completed_card_bug) so dueDateBefore is usually null here -
-    // dueDateDM alone won't disambiguate 2 completed cards sharing 1 title; expectedScore (below) is
-    // the actual usable disambiguator for that case.
-    found =
-      results.find(
-        (r) =>
-          norm(r.title) === norm(title) &&
-          (!dueDateDM || normalizeDueDateDM(r.dueDateBefore) === dueDateDM) &&
-          (expectedScore == null || Math.abs((parseScoreValue(r.scoreText) ?? NaN) - expectedScore) < 0.05),
-      ) ?? null;
-    return {
-      hierarchyDurationMs: hierarchyT.durationMs,
-      parseDurationMs,
-      matchDurationMs,
-      visibleCardRange: { totalNodes: nodes.length, advancedSectionFound: advancedIdx !== -1 },
-      candidateCount: results.length,
-      fingerprint: fingerprintNodes(relevantNodes),
-    };
-  };
+  const result = await runSearchStateMachine(bridge, {
+    target,
+    collectNodes: collectNodesWithBoundsInsideScrollableList,
+    parseVisibleCards: (nodes, parserState) => {
+      if (nodes.some((n) => n.text === ADVANCED_SECTION_HEADER)) enteredAdvanced = true;
+      const parsed = findCompletedCardsWithCtaBounds(nodes, { sectionSeen: parserState.sectionSeen });
+      return { cards: parsed.results, parserState: { sectionSeen: parsed.sectionSeen } };
+    },
+    matchesTarget: matchesCompletedTarget,
+    dedupIdentity,
+    maxScrolls,
+    scrollLog,
+  });
 
-  const doSwipe = async (step, label) => {
-    const swipeT = await timed(() => bridge.runSteps([{ swipe: step }]));
-    if (!swipeT.result.success) {
-      console.log(`  [LOCATE] swipe (${label}) thất bại: ${swipeT.result.error} - dừng cuộn.`);
-      return { ok: false, swipeT, waitT: null };
-    }
-    const waitT = await timed(() => bridge.runSteps([{ waitForAnimationToEnd: { timeout: 1200 } }]));
-    if (!waitT.result.success) {
-      // Giữ nguyên hành vi cũ (xem comment tương ứng trong collectDistinctCompletedCandidates()):
-      // bản gốc gộp swipe+wait 1 lần gọi, wait fail cũng khiến vòng lặp dừng.
-      console.log(`  [LOCATE] waitForAnimationToEnd (${label}) thất bại: ${waitT.result.error} - dừng cuộn.`);
-      return { ok: false, swipeT, waitT };
-    }
-    return { ok: true, swipeT, waitT };
-  };
-
-  const readStats0 = await readOnce();
-  lastFingerprint = readStats0.fingerprint;
-  scrollLog?.push({ scrollIndex: 0, scrollDurationMs: null, waitDurationMs: null, ...readStats0, foundTarget: !!found, progress: null, recoveryAttempted: false });
-  let scrollsUsed = 0;
-  let recoveryAttempted = false;
-  let stopReason = null;
-
-  // PHASE 9C: bỏ `!enteredAdvanced` khỏi điều kiện dừng - xem comment trong readOnce() ở trên. Vòng
-  // lặp giờ chỉ dừng khi tìm thấy, hết maxScrolls, hoặc plateau thật (SWIPE_ERROR/NO_PROGRESS/
-  // END_OF_LIST, không đổi) - cho phép cuộn xuyên qua "Bài tập nâng cao" để tìm card completed nằm ở đó.
-  while (!found && scrollsUsed < maxScrolls) {
-    const fingerprintBeforeScroll = lastFingerprint;
-    const swipeResult = await doSwipe(NORMAL_SWIPE_STEP, `normal #${scrollsUsed + 1}`);
-    if (!swipeResult.ok) {
-      stopReason = "SWIPE_ERROR";
-      break;
-    }
-    scrollsUsed++;
-    const readStats = await readOnce();
-    const progressed = readStats.fingerprint !== fingerprintBeforeScroll;
-    lastFingerprint = readStats.fingerprint;
-    console.log(
-      `  [LOCATE] scroll #${scrollsUsed} (normal): card/node=${readStats.visibleCardRange.totalNodes}, ` +
-        `progress=${progressed}, recoveryAttempted=${recoveryAttempted}, foundTarget=${!!found}`,
-    );
-    scrollLog?.push({
-      scrollIndex: scrollsUsed,
-      scrollDurationMs: swipeResult.swipeT.durationMs,
-      waitDurationMs: swipeResult.waitT.durationMs,
-      ...readStats,
-      fingerprintBeforeScroll,
-      foundTarget: !!found,
-      progress: progressed,
-      recoveryAttempted,
-    });
-    if (found) break;
-    if (progressed) {
-      recoveryAttempted = false; // list vẫn tiến triển thật - nạp lại "ngân sách" recovery.
-      continue;
-    }
-
-    // List đứng yên sau 1 lượt cuộn thật - KHÔNG kết luận ngay (có thể chỉ animation/settle chưa
-    // xong, hoặc đây chính là FALSE PLATEAU do carousel "Kiến thức trong bài" nuốt gesture - xem
-    // findAssignment.js#scrollToTop() docblock) - thử recovery ĐÚNG 1 LẦN, không lặp vô hạn.
-    if (recoveryAttempted) {
-      stopReason = scrollsUsed <= 2 ? "NO_PROGRESS" : "END_OF_LIST";
-      console.log(`  [LOCATE] List không tiến triển sau recovery swipe (scroll #${scrollsUsed}) - dừng: ${stopReason}.`);
-      break;
-    }
-    recoveryAttempted = true;
-    const fingerprintBeforeRecovery = lastFingerprint;
-    const recoveryResult = await doSwipe(RECOVERY_SWIPE_STEP, `recovery @${scrollsUsed + 1}`);
-    if (!recoveryResult.ok) {
-      stopReason = "SWIPE_ERROR";
-      break;
-    }
-    scrollsUsed++;
-    const recoveryStats = await readOnce();
-    const recoveryProgressed = recoveryStats.fingerprint !== fingerprintBeforeRecovery;
-    lastFingerprint = recoveryStats.fingerprint;
-    console.log(
-      `  [LOCATE] scroll #${scrollsUsed} (recovery): card/node=${recoveryStats.visibleCardRange.totalNodes}, ` +
-        `progress=${recoveryProgressed}, recoveryAttempted=true, foundTarget=${!!found}`,
-    );
-    scrollLog?.push({
-      scrollIndex: scrollsUsed,
-      scrollDurationMs: recoveryResult.swipeT.durationMs,
-      waitDurationMs: recoveryResult.waitT.durationMs,
-      ...recoveryStats,
-      fingerprintBeforeScroll: fingerprintBeforeRecovery,
-      foundTarget: !!found,
-      progress: recoveryProgressed,
-      recoveryAttempted: true,
-    });
-    if (found) break;
-    if (!recoveryProgressed) {
-      stopReason = scrollsUsed <= 3 ? "NO_PROGRESS" : "END_OF_LIST";
-      console.log(`  [LOCATE] Recovery swipe cũng không tiến triển (scroll #${scrollsUsed}) - dừng: ${stopReason}.`);
-      break;
-    }
-    recoveryAttempted = false;
+  if (result.status === "FOUND") {
+    console.log(`  [LOCATE] Tìm thấy card "${title}" sau ${result.scrollsUsed} lượt cuộn.`);
+    return { candidates: [result.card], ambiguous: false, scrollsUsed: result.scrollsUsed, enteredAdvanced, stopReason: null };
   }
-  if (!found && !stopReason) {
-    stopReason = scrollsUsed >= maxScrolls ? "MAX_SCROLLS_REACHED" : enteredAdvanced ? "ADVANCED_SECTION_REACHED" : "UNKNOWN";
-  }
-  if (!found) {
+  if (result.status === "AMBIGUOUS") {
     console.log(
-      `  [LOCATE] Không tìm thấy card "${title}" sau ${scrollsUsed} lượt cuộn (enteredAdvanced=${enteredAdvanced}, stopReason=${stopReason}) - ` +
-        `${lastResults.length} candidate completed khác thấy được gần nhất: ${lastResults.map((r) => `"${r.title}"`).join(", ") || "(không có)"}.`,
+      `  [LOCATE] AMBIGUOUS: ${result.matches.length} candidate cùng khớp title "${title}" sau ${result.scrollsUsed} ` +
+        `lượt cuộn (${result.matches.map((c) => `score=${c.scoreText ?? "?"}`).join(", ")}) - KHÔNG tự chọn candidate đầu tiên.`,
     );
+    // candidates: GIỮ NGUYÊN ý nghĩa cũ khi ambiguous=false (rỗng=not-found, 1 phần tử=found) - khi
+    // ambiguous=true, chứa TOÀN BỘ candidate trùng để caller tự log/quyết định (contract Blocker 4).
+    return { candidates: result.matches, ambiguous: true, scrollsUsed: result.scrollsUsed, enteredAdvanced, stopReason: "AMBIGUOUS" };
   }
-  return { candidates: found ? [found] : [], scrollsUsed, enteredAdvanced, stopReason };
+  // NOT_FOUND (reason="PROGRESS_STALLED"), MAX_SCROLLS_REACHED, hoặc ERROR (bridge/swipe lỗi cứng).
+  const stopReason = result.status === "MAX_SCROLLS_REACHED" ? "MAX_SCROLLS_REACHED" : result.status === "ERROR" ? "SWIPE_ERROR" : result.reason;
+  console.log(
+    `  [LOCATE] Không tìm thấy card "${title}" sau ${result.scrollsUsed} lượt cuộn (enteredAdvanced=${enteredAdvanced}, stopReason=${stopReason}).`,
+  );
+  return { candidates: [], ambiguous: false, scrollsUsed: result.scrollsUsed, enteredAdvanced, stopReason };
 }
 
 export { COMPLETED_CTA, VIEW_LINK_TEXT };

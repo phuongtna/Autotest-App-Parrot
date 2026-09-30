@@ -203,6 +203,17 @@ async function main() {
       maxScrolls: MAX_LOCATE_SCROLLS,
       expectedScore: TARGET_FIRST_SCORE,
     });
+    // AMBIGUOUS (Phase 1, assignment_search_final_implementation_contract.md Blocker 3): check
+    // TRƯỚC khi đọc candidates[0] - ABORT (không retry, không tự chọn) nếu ≥2 candidate cùng khớp.
+    if (relocated.ambiguous) {
+      return finish({
+        ...evidence,
+        status: "FAIL",
+        error:
+          `AMBIGUOUS: ${relocated.candidates.length} candidate cùng khớp title "${TARGET_TITLE}" ` +
+          `(${relocated.candidates.map((c) => `score=${c.scoreText ?? "?"}`).join(", ")}) - KHÔNG tự chọn candidate đầu tiên.`,
+      });
+    }
     const freshCandidate = relocated.candidates[0];
     if (!freshCandidate) {
       return finish({ ...evidence, status: "FAIL", error: `locateSpecificCompletedCandidate() không tìm thấy card "${TARGET_TITLE}" sau ${relocated.scrollsUsed} lượt cuộn (stopReason=${relocated.stopReason ?? "UNKNOWN"}).` });

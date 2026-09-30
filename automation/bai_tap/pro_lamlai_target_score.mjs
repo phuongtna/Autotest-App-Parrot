@@ -1066,6 +1066,21 @@ async function main() {
     const relocateT = await timed(() =>
       locateSpecificCompletedCandidate(bridge, chosen.candidate.title, { maxScrolls: MAX_LOCATE_SCROLLS }),
     );
+    // AMBIGUOUS (Phase 1, assignment_search_final_implementation_contract.md Blocker 3): trước đây
+    // đọc thẳng `candidates[0]` - nếu relocate gặp ≥2 card cùng khớp title (identity yếu, hàm này
+    // KHÔNG truyền dueDateDM/expectedScore - xem contract mục 2 Blocker 3 "Remaining uncertainty"),
+    // sẽ ÂM THẦM tap NHẦM card. PHẢI check `ambiguous` TRƯỚC, ABORT (không retry - đây là vấn đề dữ
+    // liệu, không phải lỗi tạm thời) nếu có, dùng NGUYÊN pattern finish({status:"FAIL"}) đã có sẵn.
+    if (relocateT.result.ambiguous) {
+      return finish({
+        status: "FAIL",
+        phase: "RELOCATE_BEFORE_TAP",
+        error:
+          `AMBIGUOUS: ${relocateT.result.candidates.length} candidate cùng khớp title "${chosen.candidate.title}" ` +
+          `(${relocateT.result.candidates.map((c) => `score=${c.scoreText ?? "?"}`).join(", ")}) - KHÔNG tự chọn candidate đầu tiên.`,
+        evidence,
+      });
+    }
     const freshCandidate = relocateT.result.candidates[0];
     if (!freshCandidate) {
       return finish({

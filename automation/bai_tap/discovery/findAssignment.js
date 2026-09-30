@@ -3,6 +3,7 @@ import {
   parseHomeworkCardsWithDetail,
   centerPoint,
 } from "./homeworkUiList.js";
+import { runSearchStateMachine } from "./assignmentSearchEngine.js";
 
 /**
  * findAssignment() - cơ chế TÌM 1 assignment CỤ THỂ trong danh sách "Bài tập", DÙNG CHUNG cho toàn
@@ -21,29 +22,21 @@ import {
  * BẮT BUỘC phải sống ở Node, lái Maestro qua bridge/session (giống kiến trúc discovery/
  * homeworkUiList.js đã có, KHÔNG phải kiến trúc mới) - không thể vá trong 1 file `.yaml` thuần.
  *
- * THUẬT TOÁN (đúng yêu cầu target-driven search, không giả định vị trí):
- *   đọc hierarchy -> parse card -> khớp target?
- *     -> đúng 1 khớp: FOUND, dừng ngay (không cuộn thêm)
- *     -> ≥2 khớp: AMBIGUOUS, dừng ngay (không tự đoán chọn 1 trong số đó)
- *     -> 0 khớp: cuộn 1 bước vừa phải -> chờ ổn định -> đọc lại -> lặp
- *   Phát hiện "cuộn không tiến triển" bằng fingerprint TOÀN BỘ card đang thấy (không phải so sánh
- *   riêng target) - giống hệt cơ chế ĐÃ HOẠT ĐỘNG ĐÚNG trong
- *   `homeworkUiList.js#collectVisibleHomeworkCards()` (dừng khi 2 lượt liên tiếp không có card
- *   mới), chỉ khác đây dừng khi 2 lượt liên tiếp fingerprint TOÀN BỘ giống hệt nhau (kể cả không có
- *   card mới lẫn không mất card cũ - dấu hiệu list đứng yên hoàn toàn, không phải chỉ "hết card
- *   MỚI"). Không so sánh nội dung để "đoán hết danh sách" như scrollUntilVisible - chỉ dùng để biết
- *   "còn đổi hay không", quyết định found/not-found luôn dựa vào chính target có khớp hay không.
+ * THUẬT TOÁN (Phase 1, 2026-09-30 - xem assignmentSearchEngine.js): TÌM KIẾM/SCROLL/PROGRESS-
+ * DETECTION giờ SỐNG Ở `runSearchStateMachine()` (assignmentSearchEngine.js), DÙNG CHUNG với
+ * `locateSpecificCompletedCandidate()` (locateCompletedCandidate.js) - file này chỉ còn cung cấp
+ * PARSER (`parseHomeworkCardsWithDetail`) + MATCHER (`matchesTarget`) + dedupIdentity riêng cho card
+ * CHƯA làm. Tóm tắt thuật toán (chi tiết đầy đủ + lý do root cause xem docblock
+ * `assignmentSearchEngine.js`): đọc hierarchy -> parse card -> khớp target? (đúng 1 khớp: FOUND,
+ * dừng ngay; ≥2 khớp: AMBIGUOUS, dừng ngay, KHÔNG tự chọn; 0 khớp: cuộn -> chờ ổn định -> đọc lại ->
+ * lặp). Phát hiện "cuộn không tiến triển" giờ dùng `viewportSignature` ĐA TÍN HIỆU (nội dung + vị
+ * trí Y + số node thô, KHÔNG PHẢI 1 chuỗi fingerprint text đơn) + LUÔN thử 2 chiến lược gesture khác
+ * BẢN CHẤT trước khi kết luận bất cứ điều gì - KHÔNG BAO GIỜ tự đoán APP_FROZEN/END_OF_LIST khi
+ * thiếu bằng chứng độc lập (trả `PROGRESS_STALLED` thay vì đoán).
  *
  * IDENTITY: title BẮT BUỘC + dueDateDM ("DD/MM", optional) + cta (optional) - dueDateDM lấy từ
  * HomeworkModel.deadline.endTime qua `homeworkModel.js#isoToDueDateDM()`. Không có ID nào khác lộ
  * ra trên UI (xem homeworkModel.js - room.id chỉ có qua API, không hiển thị trên card).
- *
- * LOADING INDICATOR (yêu cầu #9): ĐÃ KIỂM TRA, app KHÔNG lộ ra 1 testID/text riêng cho "đang tải
- * thêm trang" trong danh sách Bài tập (flows/helpers/open-tab-homework.yaml chỉ chờ NỘI DUNG thật
- * xuất hiện, không có selector spinner) - không có gì để hardcode. `waitForAnimationToEnd` sau mỗi
- * swipe + đọc lại hierarchy cho fingerprint là cơ chế thay thế thực tế: nếu list đang load/settle,
- * fingerprint đổi ở lượt đọc kế tiếp; nếu KHÔNG đổi dù đã cuộn thật, coi là NO_PROGRESS/END_OF_LIST
- * (xem bên dưới) - không search/tap khi chưa xác nhận fingerprint ổn định.
  *
  * @typedef {Object} AssignmentTarget
  * @property {string} title
@@ -57,10 +50,6 @@ import {
  * @property {function(Array<Object|string>): Promise<{success:boolean, error?:string}>} runSteps
  */
 
-const NORMAL_SWIPE = { start: "50%,80%", end: "50%,25%", duration: 400 };
-// Biên độ/tốc độ RỘNG HƠN NORMAL_SWIPE, dùng đúng 1 lần khi phát hiện plateau - mục đích loại trừ
-// khả năng "chỉ là 1 lượt animation/settle chưa xong" trước khi kết luận NO_PROGRESS/END_OF_LIST.
-const RECOVERY_SWIPE = { start: "50%,90%", end: "50%,10%", duration: 700 };
 const DEFAULT_MAX_SCROLLS = 40;
 
 /** "Hôm nay" - THẬT xác nhận 2026-09-14: card hạn nộp đúng ngày hiện tại render "Hạn nộp Hôm nay"
@@ -88,42 +77,11 @@ function matchesTarget(card, target) {
   return true;
 }
 
-function fingerprint(cards) {
-  return cards.map((c) => `${c.title}|${c.dueDate ?? ""}|${c.cta}`).join("||");
-}
-
-function cardSummaryLine(card) {
-  return `- ${card.title} | ${card.dueDate ?? "(không có hạn nộp)"} | CTA=${card.cta}`;
-}
-
-function formatDiagnostics({ target, scrollCount, previousCards, currentCards, status, reason }) {
-  const targetLines = [`Title = ${target.title}`];
-  if (target.dueDateDM) targetLines.push(`Due date = ${target.dueDateDM}`);
-  if (target.cta) targetLines.push(`CTA = ${target.cta}`);
-
-  const listOrEmpty = (cards, emptyLabel) => (cards.length ? cards.map(cardSummaryLine).join("\n") : emptyLabel);
-
-  const lines = [
-    "TARGET:",
-    ...targetLines,
-    "",
-    "SCROLL:",
-    String(scrollCount),
-    "",
-    "PREVIOUS VISIBLE STATE:",
-    listOrEmpty(previousCards, "(chưa cuộn lần nào trước đó)"),
-    "",
-    "LAST VISIBLE STATE:",
-    listOrEmpty(currentCards, "(không có card hợp lệ nào đang hiển thị)"),
-    "",
-    "PROGRESS AFTER LAST SCROLL:",
-    fingerprint(previousCards) !== fingerprint(currentCards) ? "CÓ thay đổi" : "KHÔNG thay đổi (list không tiến triển)",
-    "",
-    "STATUS:",
-    status,
-  ];
-  if (reason) lines.push("", "STOP REASON:", reason);
-  return lines.join("\n");
+// dedupIdentity RỘNG (không phải match identity - xem matchesTarget() ở trên) - dùng để engine đếm
+// "đã thấy bao nhiêu card phân biệt" (seenAssignments, contract Phase 1 mục 9) cho diagnostics, KHÔNG
+// ảnh hưởng quyết định FOUND/AMBIGUOUS/NOT_FOUND.
+function dedupIdentity(card) {
+  return `${card.title}|${card.dueDate ?? ""}|${card.cta}`;
 }
 
 /**
@@ -133,93 +91,47 @@ function formatDiagnostics({ target, scrollCount, previousCards, currentCards, s
  * @returns {Promise<
  *   | { status: "FOUND", card: Object, scrollCount: number, diagnostics: string }
  *   | { status: "AMBIGUOUS", matches: Object[], scrollCount: number, diagnostics: string }
- *   | { status: "NOT_FOUND", reason: "END_OF_LIST"|"NO_PROGRESS", scrollCount: number, diagnostics: string }
+ *   | { status: "NOT_FOUND", reason: "PROGRESS_STALLED"|"MAX_SCROLLS_REACHED", scrollCount: number, diagnostics: string }
  *   | { status: "ERROR", reason: string, scrollCount: number, diagnostics: string }
  * >}
+ *
+ * PHASE 1 (assignment-search-engine) - CHUYỂN sang gọi runSearchStateMachine() dùng CHUNG với
+ * locateSpecificCompletedCandidate() (assignmentSearchEngine.js) thay vì tự lặp fingerprint/
+ * recovery-swipe RIÊNG (bản cũ, đã DRIFT khỏi bản trong locateCompletedCandidate.js - waitForAnimationToEnd
+ * 800ms vs 1200ms - chính là bằng chứng SỐNG cho việc hợp nhất). THUẬT TOÁN/EVIDENCE bên trong đã đổi
+ * (xem assignmentSearchEngine.js docblock: viewportSignature đa tín hiệu, 2 gesture strategy khác
+ * BẢN CHẤT, PROGRESS_STALLED thay vì đoán NO_PROGRESS/END_OF_LIST) - `reason` trả về giờ là
+ * "PROGRESS_STALLED"/"MAX_SCROLLS_REACHED" thay vì "NO_PROGRESS"/"END_OF_LIST" cũ. Public SHAPE
+ * (status/scrollCount/card/matches/reason/diagnostics) giữ NGUYÊN - caller hiện có
+ * (HomeworkNavigationEngine._locateAssignmentOrThrow(), throw generic cho mọi status khác FOUND)
+ * KHÔNG cần sửa gì.
  */
 export async function findAssignment(bridge, target, { maxScrolls = DEFAULT_MAX_SCROLLS } = {}) {
   if (!target?.title) {
     throw new Error("findAssignment() cần target.title (identity tối thiểu - xem docblock).");
   }
 
-  let sectionSeen = false;
-  const readCards = async () => {
-    const tree = await bridge.hierarchy();
-    const nodes = collectTextNodesWithBoundsInsideScrollableList(tree, []);
-    const parsed = parseHomeworkCardsWithDetail(nodes, { sectionSeen });
-    sectionSeen = parsed.sectionSeen;
-    return parsed.cards;
-  };
-
-  const swipe = async (step) => {
-    const result = await bridge.runSteps([{ swipe: step }, { waitForAnimationToEnd: { timeout: 800 } }]);
-    if (!result.success) throw new Error(`Cuộn thất bại: ${result.error}`);
-  };
-
-  let scrollCount = 0;
-  let previousCards = [];
-  let currentCards = await readCards();
-  let recoveryAttempted = false;
-
-  const finish = (status, extra = {}) => ({
-    status,
-    scrollCount,
-    ...extra,
-    diagnostics: formatDiagnostics({
-      target,
-      scrollCount,
-      previousCards,
-      currentCards,
-      status,
-      reason: extra.reason ?? null,
-    }),
+  const result = await runSearchStateMachine(bridge, {
+    target,
+    collectNodes: collectTextNodesWithBoundsInsideScrollableList,
+    parseVisibleCards: (nodes, parserState) => {
+      const parsed = parseHomeworkCardsWithDetail(nodes, { sectionSeen: parserState.sectionSeen });
+      return { cards: parsed.cards, parserState: { sectionSeen: parsed.sectionSeen } };
+    },
+    matchesTarget,
+    dedupIdentity,
+    maxScrolls,
   });
 
-  // Không giả định target nằm ở viewport thứ N - luôn kiểm tra viewport HIỆN TẠI trước, chỉ cuộn
-  // khi thật sự chưa thấy (yêu cầu #3 TARGET-DRIVEN SEARCH).
-  while (true) {
-    const matches = currentCards.filter((card) => matchesTarget(card, target));
-    if (matches.length === 1) return finish("FOUND", { card: matches[0] });
-    if (matches.length > 1) return finish("AMBIGUOUS", { matches });
-    if (scrollCount >= maxScrolls) return finish("NOT_FOUND", { reason: "END_OF_LIST" });
-
-    const fingerprintBeforeScroll = fingerprint(currentCards);
-    try {
-      await swipe(NORMAL_SWIPE);
-    } catch (err) {
-      return finish("ERROR", { reason: err.message });
-    }
-    scrollCount++;
-    previousCards = currentCards;
-    currentCards = await readCards();
-
-    if (fingerprint(currentCards) !== fingerprintBeforeScroll) {
-      recoveryAttempted = false; // list vẫn đang tiến triển thật - "ngân sách" recovery được nạp lại.
-      continue;
-    }
-
-    // List đứng yên sau 1 lượt cuộn thật - KHÔNG kết luận ngay (có thể chỉ là animation/settle
-    // chưa xong) - thử recovery HỢP LÝ ĐÚNG 1 LẦN (yêu cầu #6), không lặp lại vô hạn.
-    if (recoveryAttempted) {
-      // scrollCount<=2 nghĩa là plateau xảy ra ngay từ (gần) đầu, trước khi list kịp tiến triển
-      // thật sự - nhiều khả năng do UI kẹt/chưa settle hơn là "đã cuộn hết 1 danh sách dài" ->
-      // NO_PROGRESS. Ngược lại (đã cuộn qua nhiều màn hình rồi mới đứng yên) -> END_OF_LIST.
-      return finish("NOT_FOUND", { reason: scrollCount <= 2 ? "NO_PROGRESS" : "END_OF_LIST" });
-    }
-    recoveryAttempted = true;
-    try {
-      await swipe(RECOVERY_SWIPE);
-    } catch (err) {
-      return finish("ERROR", { reason: err.message });
-    }
-    scrollCount++;
-    previousCards = currentCards;
-    currentCards = await readCards();
-    if (fingerprint(currentCards) === fingerprintBeforeScroll) {
-      return finish("NOT_FOUND", { reason: scrollCount <= 3 ? "NO_PROGRESS" : "END_OF_LIST" });
-    }
-    recoveryAttempted = false;
-  }
+  if (result.status === "FOUND") return { status: "FOUND", scrollCount: result.scrollsUsed, card: result.card, diagnostics: result.diagnostics };
+  if (result.status === "AMBIGUOUS") return { status: "AMBIGUOUS", scrollCount: result.scrollsUsed, matches: result.matches, diagnostics: result.diagnostics };
+  if (result.status === "ERROR") return { status: "ERROR", scrollCount: result.scrollsUsed, reason: result.reason, diagnostics: result.diagnostics };
+  // NOT_FOUND (reason=PROGRESS_STALLED) hoặc MAX_SCROLLS_REACHED (tầng engine) - CẢ 2 map về
+  // status:"NOT_FOUND" ở public API cũ (chưa từng có status MAX_SCROLLS_REACHED riêng), NHƯNG
+  // `reason` PHẢI phân biệt rõ 2 trường hợp này (KHÔNG BAO GIỜ diễn giải MAX_SCROLLS_REACHED thành
+  // PROGRESS_STALLED/END_OF_LIST - đúng ràng buộc gốc).
+  const reason = result.status === "MAX_SCROLLS_REACHED" ? "MAX_SCROLLS_REACHED" : result.reason;
+  return { status: "NOT_FOUND", scrollCount: result.scrollsUsed, reason, diagnostics: result.diagnostics };
 }
 
 // Anchor GIỐNG HỆT `readOverallProgress()` (e2e-teacher-assign-full-scored-target5.mjs

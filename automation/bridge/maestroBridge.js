@@ -50,6 +50,23 @@ export class MaestroBridge {
     // automation/bai_tap/navigation/homeworkExamEngine.js) - THUẦN TUÝ thêm 1 counter, không đổi
     // hành vi/kết quả trả về của bất kỳ method nào.
     this.hierarchyInvocationCount = 0;
+    // PERF PROFILING (2026-10-01, thuần đo đạc - KHÔNG đổi hành vi/return value của bất kỳ method
+    // nào): ghi lại mốc thời gian THẬT của MỖI lượt `maestro test`/`maestro hierarchy` kèm nhãn
+    // "phase" do caller tự đặt qua `setPhase()` (NavigationEngine/vuiHocExamRunner gọi trước mỗi
+    // đoạn lớn) - dùng để tổng hợp báo cáo breakdown theo giai đoạn (Navigation/Content opening/
+    // Question execution/Submit-result) mà KHÔNG cần sửa logic nơi khác.
+    this.callLog = [];
+    this.currentPhase = "unspecified";
+  }
+
+  /** Đặt nhãn giai đoạn cho các lượt `runSteps()`/`hierarchy()`/`tap()` TIẾP THEO (chỉ gắn nhãn
+   * cho mục đích đo đạc - KHÔNG ảnh hưởng hành vi). */
+  setPhase(label) {
+    this.currentPhase = label;
+  }
+
+  _logCall(type, seconds, meta) {
+    this.callLog.push({ phase: this.currentPhase, type, seconds, ts: Date.now(), ...meta });
   }
 
   _deviceArgs() {
@@ -61,17 +78,51 @@ export class MaestroBridge {
    *   "back") - serialize bằng js-yaml giống automation/bridge/flowGenerator.js.
    * @returns {{ success: boolean, error?: string }}
    */
+  /**
+   * PERF FIX (2026-10-01, đo THẬT trên thiết bị 3201d866d40a1681 - xem PERF PROFILE REPORT phiên
+   * tối ưu Self-Learning): mặc định `maestro test`/`maestro hierarchy` TỰ REINSTALL driver+server
+   * app trên thiết bị TRƯỚC MỖI lượt gọi (hành vi mặc định của chính Maestro CLI, không phải code
+   * của project) - đo trực tiếp (3 lượt `maestro hierarchy` KHÔNG qua code này, hoàn toàn cô lập)
+   * cho kết quả ~48-58s/lượt dù KHÔNG thao tác gì với app; thêm cờ `--no-reinstall-driver` (CLI
+   * flag CÓ SẴN của Maestro, không phải tự chế) giảm còn ~9-14s/lượt (ỔN ĐỊNH qua 4 lượt liên
+   * tiếp) - ĐÚNG NGUYÊN NHÂN khiến 1 lượt chạy E2E thật (51 lượt gọi) tốn 3275s (51 × ~64s ≈
+   * 3268s, khớp gần như tuyệt đối) dù KHÔNG hề có retry nào (totalRetryAttempts=0) và mọi
+   * waitForAnimationToEnd đều bounded dưới 4s - ĐÂY LÀ BOTTLENECK DUY NHẤT CHIẾM ~100% RUNTIME,
+   * không phải logic điều hướng/trả lời câu hỏi.
+   *
+   * RỦI RO đã cân nhắc: bỏ qua reinstall giả định driver/server app đã cài đúng + còn sống trên
+   * thiết bị - đúng với mọi phiên làm việc thật trong repo này (device dùng liên tục nhiều giờ,
+   * hàng chục/hàng trăm lượt gọi liên tiếp không có sự cố) nhưng về lý thuyết driver có thể crash
+   * giữa 1 phiên dài. TỰ HỒI PHỤC (KHÔNG đổi hành vi bên ngoài - vẫn trả `{success,error}`/throw
+   * như cũ nếu thật sự fail cả 2 lượt): nếu lượt gọi KHÔNG reinstall thất bại, retry ĐÚNG 1 lần CÓ
+   * reinstall (buộc sửa driver nếu đó là nguyên nhân) trước khi kết luận fail thật.
+   */
+  _execMaestro(args) {
+    try {
+      return execCliSync("maestro", [...args, "--no-reinstall-driver"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    } catch (err) {
+      try {
+        return execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+      } catch {
+        throw err; // Báo lỗi gốc (lượt nhanh) - lượt reinstall chỉ để tự hồi phục, không che lỗi thật.
+      }
+    }
+  }
+
   _runFlow(steps) {
     this.testInvocationCount++;
+    const startMs = Date.now();
     mkdirSync(OUTPUT_TMP_DIR, { recursive: true });
     const flowPath = join(OUTPUT_TMP_DIR, `bridge_step_${++callCounter}.yaml`);
     const yaml = `appId: \${APP_ID}\n---\n${dump(steps, { lineWidth: -1 })}`;
     writeFileSync(flowPath, yaml, "utf8");
     try {
       const args = [...this._deviceArgs(), "test", flowPath, "-e", `APP_ID=${this.appId}`];
-      execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+      this._execMaestro(args);
+      this._logCall("test", (Date.now() - startMs) / 1000, { stepCount: steps.length, success: true });
       return { success: true };
     } catch (err) {
+      this._logCall("test", (Date.now() - startMs) / 1000, { stepCount: steps.length, success: false });
       return { success: false, error: err.message };
     } finally {
       rmSync(flowPath, { force: true });
@@ -80,8 +131,10 @@ export class MaestroBridge {
 
   _dumpHierarchy() {
     this.hierarchyInvocationCount++;
+    const startMs = Date.now();
     const args = [...this._deviceArgs(), "hierarchy"];
-    const raw = execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    const raw = this._execMaestro(args);
+    this._logCall("hierarchy", (Date.now() - startMs) / 1000, {});
     return JSON.parse(raw);
   }
 

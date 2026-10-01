@@ -74,6 +74,8 @@
  * trên). Khi `groups` rỗng (Exercise nằm trực tiếp dưới Lesson, trường hợp PHẲNG cũ), hành vi/số
  * bước Maestro giống HỆT trước khi sửa - tương thích ngược hoàn toàn.
  */
+import { ensureTextVisible } from "../bridge/scrollUntilVisible.js";
+
 export class NavigationEngine {
   /** @param {import("../bridge/maestroBridge.js").MaestroBridge} bridge */
   constructor(bridge) {
@@ -192,6 +194,18 @@ export class NavigationEngine {
       },
       { waitForAnimationToEnd: { timeout: 1500 } },
       { tapOn: { below: unitName, text: "Chinh phục|Ôn tập", optional: true } },
+      // FIX (2026-10-01, live-verify nested-group E2E, thiết bị 3201d866d40a1681): tap "Chinh
+      // phục" điều hướng sang màn danh sách Lesson ĐẦY ĐỦ của Unit (KHÔNG phải cùng 1 trạng thái
+      // phẳng) - app hiện 1 màn loading toàn màn hình (spinner, che cả header) trong lúc tải, đã
+      // xác nhận THẬT spinner này còn hiển thị sau >1500ms (screenshot adb chụp ngay sau tap+chờ
+      // vẫn thấy spinner). TRƯỚC ĐÂY không có bước chờ nào SAU tap này - `_openLessonSteps()`
+      // chạy ngay, đọc phải hierarchy lúc đang chuyển cảnh (lessonName có thể đọc được thoáng qua
+      // rồi mất lại khi list thật load xong, y hệt lớp bug "SỰ CỐ SETTLE" đã ghi ở đầu file) -
+      // khiến bước tap "below lessonName" sau đó FAIL "not found" dù Lesson có thật và đúng cấu
+      // trúc (đã xác nhận tay: progress label "x / y" luôn nằm "below" title thật, selector cũ
+      // vẫn đúng - chỉ thiếu thời gian chờ màn mới load xong). Thêm chờ settle NGAY SAU tap,
+      // trước khi _openLessonSteps() bắt đầu đọc hierarchy.
+      { waitForAnimationToEnd: { timeout: 4000 } },
     ];
   }
 
@@ -237,17 +251,48 @@ export class NavigationEngine {
       // trong khi hierarchy thật lúc đó chưa hề có lessonName -> tap bước sau fail vì phần tử
       // không tồn tại. Chờ settle (tối đa 2000ms) TRƯỚC KHI điều kiện này được đánh giá.
       { waitForAnimationToEnd: { timeout: 2000 } },
-      {
-        runFlow: {
-          when: { notVisible: lessonName },
-          commands: [
-            { scrollUntilVisible: { element: { text: lessonName }, direction: "DOWN", timeout: 60000 } },
-          ],
-        },
-      },
-      // FIX: xác nhận lại NGAY bằng hierarchy fresh (bắt được cả trường hợp `when` báo sai ở
-      // trên) trước khi tap - không tin tưởng tuyệt đối vào kết quả của `when`/scrollUntilVisible.
+      // FIX #7 (2026-10-01, live-verify nested-group E2E, Lesson "Vocabulary" chứa group "Thử
+      // thách" - thiết bị 3201d866d40a1681, lặp lại GIỐNG HỆT 3 lượt chạy liên tiếp, kể cả sau khi
+      // tăng settle-wait): root cause THẬT xác nhận qua screen-hierarchy dump ngay sau mỗi lượt
+      // FAIL - hàng Lesson (`happy_learning_lesson_N`) tương ứng với `lessonName` chỉ "peek" hé
+      // đúng ~10px ở MÉP DƯỚI màn hình (chưa thật sự cuộn tới), nhưng node text tên Lesson VẪN
+      // match được qua `when: notVisible` (đọc hierarchy 1 lần, KHÔNG yêu cầu % hiển thị) - khiến
+      // nhánh `when: { notVisible: lessonName }` TRƯỚC ĐÂY ở đây luôn SKIPPED (tưởng đã visible nên
+      // bỏ qua scroll), trong khi progress label/nút mở thật sự NẰM NGOÀI màn hình (bị clip, chưa
+      // compose đủ) - tap "below lessonName" sau đó luôn "not found" dù đợi bao lâu (xác nhận: evem
+      // extendedWaitUntil 20s cũng timeout, vì phần tử CHƯA BAO GIỜ thật sự vào viewport, không
+      // phải vấn đề tốc độ tải dữ liệu). SỬA: bỏ hẳn gate `when: notVisible` (vốn không đủ nghiêm
+      // ngặt) - LUÔN LUÔN chạy `scrollUntilVisible` với `visibilityPercentage: 100` (yêu cầu hiển
+      // thị ĐẦY ĐỦ, không chỉ "có mặt 1 phần") trước khi đọc tiếp - scrollUntilVisible tự no-op
+      // nhanh nếu đã 100% hiển thị sẵn nên không tốn thêm chi phí ở trường hợp phẳng/bình thường.
+      // FIX #8 (2026-10-01, cùng phiên live-verify #7 ở trên): `scrollUntilVisible` (dù đã bắt
+      // buộc visibilityPercentage 100%) báo COMPLETED gần như NGAY LẬP TỨC (<1s, không có swipe
+      // thật nào kịp xảy ra) trong khi hàng Lesson thật SỰ vẫn ở dạng rỗng/~10px - đã thử thêm
+      // `waitForAnimationToEnd` sau đó CŨNG không sửa được (lệnh này coi "hết animation" dựa trên
+      // 2 lượt hierarchy liên tiếp GIỐNG NHAU, mà hierarchy ở đây đang kẹt ở y hệt 1 snapshot cũ
+      // nên "giống nhau" ngay, trả về ngay dù dữ liệu thật chưa cập nhật). Xác nhận bằng đối chứng
+      // TRỰC TIẾP: lặp lại ĐÚNG giao diện này bằng 2 lượt `adb shell input swipe` thật (KHÁC hẳn
+      // swipeFromCenter nội bộ của `scrollUntilVisible`) + nghỉ 2s giữa mỗi lượt -> hàng Lesson
+      // hiển thị ĐÚNG ĐỦ (title+progress label+nút mở) ngay lần đầu. SỬA: "jiggle" ĐỐI XỨNG (swipe
+      // xuống rồi swipe lên lại ĐÚNG khoảng cách đó, net scroll offset = 0) để buộc app recompute
+      // danh sách mà KHÔNG làm lệch vị trí cuộn thật - an toàn cho cả trường hợp Lesson nằm ngay
+      // đầu danh sách (vd lesson_0, "Getting started") - nếu dùng swipe 1 CHIỀU như lần thử trước
+      // có thể cuộn VƯỢT QUA 1 Lesson gần đầu mà `scrollUntilVisible` sau đó (chỉ DOWN) không cuộn
+      // ngược lại được, gây regression cho trường hợp phẳng đơn giản vốn đã chạy đúng từ trước.
+      { swipe: { start: "50%, 60%", end: "50%, 85%", duration: 600 } },
+      { waitForAnimationToEnd: { timeout: 1500 } },
+      { swipe: { start: "50%, 85%", end: "50%, 60%", duration: 600 } },
+      { waitForAnimationToEnd: { timeout: 1500 } },
+      { scrollUntilVisible: { element: { text: lessonName }, direction: "DOWN", visibilityPercentage: 100, timeout: 60000 } },
+      // FIX: xác nhận lại NGAY bằng hierarchy fresh trước khi tap.
       { assertVisible: { text: lessonName } },
+      // Giữ thêm lớp bảo vệ cuối: chờ CÓ retry (khác assertVisible 1 lần) đúng phần tử sẽ tap, đề
+      // phòng còn lệch settle nhỏ sau khi scrollUntilVisible vừa xong. SỬA: thêm `extendedWaitUntil`
+      // (tự retry nhiều lần, KHÁC `when`/`assertVisible` chỉ đọc
+      // 1 lần) chờ ĐÚNG phần tử sẽ tap (progress label "x / y" ngay dưới lessonName) với timeout
+      // dài (20s, đủ margin cho dữ liệu tải chậm) TRƯỚC KHI vào 2 khối quyết định tap bên dưới -
+      // không đổi logic ưu tiên/fallback, chỉ đảm bảo dữ liệu thật đã sẵn sàng trước khi đọc.
+      { extendedWaitUntil: { visible: { below: lessonName, text: "\\d+ / \\d+" }, timeout: 20000 } },
       {
         runFlow: {
           when: { visible: { below: lessonName, id: openButtonId } },
@@ -375,23 +420,148 @@ export class NavigationEngine {
       }
     });
 
-    const steps = [
+    const bookUnitSteps = [
       ...this._dismissKnownPopupsSteps(),
       ...this._ensureBookSelectedSteps(book.name),
       ...this._ensureUnitOpenSteps(unit.name),
-      ...this._openLessonSteps(lesson.name),
-      ...(groups.length > 0 ? [{ takeScreenshot: "nav_lesson_before_groups" }] : []),
-      ...groups.flatMap((group, index) => this._openGroupSteps(group.name, index)),
-      ...this._openExerciseSteps(exercise.name),
     ];
-
-    const result = await this.bridge.runSteps(steps);
-    if (!result.success) {
-      const groupPathDesc = groups.length ? ` qua nhóm [${groups.map((g) => g.name).join(" > ")}]` : "";
+    const groupPathDesc = groups.length ? ` qua nhóm [${groups.map((g) => g.name).join(" > ")}]` : "";
+    const fail = (error) => {
       throw new Error(
         `NavigationEngine: điều hướng tới Book "${book.name}" / Unit "${unit.name}" / Lesson ` +
-          `"${lesson.name}"${groupPathDesc} / Exercise "${exercise.name}" thất bại: ${result.error}`,
+          `"${lesson.name}"${groupPathDesc} / Exercise "${exercise.name}" thất bại: ${error}`,
+      );
+    };
+
+    if (groups.length === 0) {
+      // TRƯỜNG HỢP PHẲNG (Exercise nằm trực tiếp dưới Lesson) - GIỮ NGUYÊN kiến trúc gộp 1 lượt
+      // `maestro test` DUY NHẤT như trước (đã verify thật, không đổi hành vi/hiệu năng).
+      this.bridge.setPhase?.("nav:flat_bundled");
+      const result = await this.bridge.runSteps([
+        ...bookUnitSteps,
+        ...this._openLessonSteps(lesson.name),
+        ...this._openExerciseSteps(exercise.name),
+      ]);
+      if (!result.success) fail(result.error);
+      return;
+    }
+
+    // TRƯỜNG HỢP LỒNG NHÓM (groups.length > 0) - XỬ LÝ TƯƠNG TÁC, KHÔNG gộp chung 1 process.
+    //
+    // BUG THẬT (2026-10-01, live-verify E2E nested-group, Lesson "Vocabulary" chứa group "Thử
+    // thách" - thiết bị 3201d866d40a1681, tái hiện ỔN ĐỊNH 4/4 lượt thử với MỌI cách sửa chỉ thêm
+    // thời gian chờ/visibilityPercentage): khi `_openLessonSteps()`/`_openGroupSteps()` cũ chạy
+    // GỘP CHUNG 1 process `maestro test` (scrollUntilVisible/assertVisible/when đọc hierarchy
+    // NỘI BỘ qua Orchestra của Maestro, không phải `maestro hierarchy` CLI rời), hàng Lesson vừa
+    // cuộn tới có thể bị đọc phải 1 snapshot CŨ/KHÔNG đồng bộ với layout thật (xác nhận qua đối
+    // chứng: lặp lại ĐÚNG thao tác bằng tay qua 2 lượt `adb shell input swipe` RỜI (không phải
+    // trong cùng 1 `maestro test`) + nghỉ giữa mỗi lượt cho ra kết quả ĐÚNG ngay lần đầu) - khiến
+    // tap "below lessonName" sau đó luôn "not found" dù đợi bao lâu. CÙNG LÚC phát hiện bug #2:
+    // nút "_open" (mũi tên) của Lesson tự động CONTINUE vào group ĐẦU TIÊN (vd "Trạm khởi hành")
+    // thay vì hiện danh sách các group con để chọn - khiến KHÔNG THỂ vào thẳng group THỨ 2 trở đi
+    // (vd "Thử thách") qua nút đó.
+    //
+    // SỬA (tái sử dụng ĐÚNG cơ chế scroll/locate đã verify thật của tab Bài tập - KHÔNG viết thuật
+    // toán scroll mới): `ensureTextVisible()`/`collectByScrollingIfNeeded()`
+    // (automation/bridge/scrollUntilVisible.js, đã dùng ổn định bởi
+    // bai_tap/navigation/homeworkExamEngine.js) - mỗi lượt cuộn là 1 `bridge.runSteps()` (1 lượt
+    // `maestro test` swipe NGẮN) + 1 lượt `bridge.hierarchy()` (1 lượt `maestro hierarchy` CLI RỜI,
+    // ĐỘC LẬP, luôn fresh) riêng biệt, check `isFullyInViewport()` bằng toạ độ thật - CHÍNH kiểu
+    // đọc hierarchy "rời" này (không phải đọc nội bộ trong Orchestra) đã verify thật là tin cậy
+    // được cho chính bug lớp này ở nơi khác (xem docblock file đó). Đổi lại: KHÔNG còn gộp 1 process
+    // duy nhất cho đoạn Lesson/groups (chậm hơn chút, chấp nhận được - đoạn Book/Unit trước đó vẫn
+    // gộp 1 process như cũ).
+    //
+    // Sau khi mở rộng Lesson (tap "_toggle", KHÔNG phải "_open" - xác nhận thật: "_toggle" mở ra
+    // DANH SÁCH các group con ngay tại chỗ, "_open" tự ý vào thẳng group đầu tiên), tap TUẦN TỰ
+    // từng group trong `groups[]` theo tên (đã lấy THẬT từ CMS groupPath, không hardcode) - mỗi
+    // group sau khi mở có thể hiện màn "Dẫn nhập" (narrative/mascot) yêu cầu bấm "Tiếp theo" trước
+    // khi thấy nội dung con (tái dùng ĐÚNG idiom `optional: true` đã verify thật trong
+    // `_openGroupSteps()` cũ, không viết lại). Bước cuối (tìm+mở Exercise) dùng lại NGUYÊN
+    // `_openExerciseSteps()` (gộp 1 process, đã có sẵn 2 `takeScreenshot` TRƯỚC/SAU khi mở target).
+    this.bridge.setPhase?.("nav:book_unit");
+    const bookUnitResult = await this.bridge.runSteps(bookUnitSteps);
+    if (!bookUnitResult.success) fail(bookUnitResult.error);
+
+    this.bridge.setPhase?.("nav:lesson_locate");
+    let tree = this.bridge.hierarchy();
+    const lessonScroll = await ensureTextVisible(this.bridge, tree, lesson.name);
+    tree = lessonScroll.tree;
+    if (!lessonScroll.visible) {
+      fail(`Lesson "${lesson.name}" không tìm thấy/không hiển thị đủ sau khi cuộn (tương tác).`);
+    }
+
+    const lessonIndex = this._findLessonIndexByTitle(tree, lesson.name);
+    if (lessonIndex === null) {
+      fail(
+        `Không xác định được "happy_learning_lesson_{n}_toggle" tương ứng với Lesson "${lesson.name}" ` +
+          `(không tìm thấy node title khớp trong hierarchy).`,
       );
     }
+    this.bridge.setPhase?.("nav:lesson_toggle");
+    await this.bridge.tap({ id: `happy_learning_lesson_${lessonIndex}_toggle` });
+    tree = this.bridge.hierarchy();
+
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i];
+      this.bridge.setPhase?.(`nav:group_${i + 1}_locate`);
+      const groupScroll = await ensureTextVisible(this.bridge, tree, group.name);
+      tree = groupScroll.tree;
+      if (!groupScroll.visible) {
+        fail(`Group "${group.name}" không tìm thấy sau khi mở rộng Lesson "${lesson.name}".`);
+      }
+      this.bridge.setPhase?.(`nav:group_${i + 1}_open`);
+      // PERF FIX (2026-10-01, xem PERF PROFILE REPORT): gộp tap(group.name) VÀO CHUNG 1
+      // `runSteps()` với các bước dismiss/"Tiếp theo" ngay sau (tiết kiệm 1 lượt `maestro test`
+      // riêng/group) - AN TOÀN vì group.name VỪA được xác nhận visible bằng hierarchy FRESH
+      // (ensureTextVisible() ở trên, đọc rời qua `maestro hierarchy` CLI, không phải in-process)
+      // ngay trước khi tap - không đụng tới cơ chế scroll/locate (nguồn gốc bug "stale lazy-list"
+      // ĐÃ SỬA) chỉ gộp các tap TUẦN TỰ xác định sau khi đã xác nhận xong.
+      const groupOpenResult = await this.bridge.runSteps([
+        { tapOn: group.name },
+        { waitForAnimationToEnd: { timeout: 2000 } },
+        ...this._dismissKnownPopupsSteps(),
+        { tapOn: { text: "Tiếp theo", optional: true } },
+        { waitForAnimationToEnd: { timeout: 1500 } },
+        { tapOn: { text: "Tiếp theo", optional: true } },
+        { waitForAnimationToEnd: { timeout: 1500 } },
+      ]);
+      if (!groupOpenResult.success) fail(`Mở group "${group.name}" thất bại: ${groupOpenResult.error}`);
+      // PERF FIX (2026-10-01, xem PERF PROFILE REPORT): `tree` đọc ở đây CHỈ được dùng bởi
+      // `ensureTextVisible()` của NHÓM KẾ TIẾP (vòng lặp sau) - nếu đây đã là group CUỐI CÙNG,
+      // `_openExerciseSteps()` ngay sau vòng lặp tự đọc hierarchy MỚI bên trong chính nó (bundled
+      // process riêng), KHÔNG dùng `tree` này - gọi thêm 1 lượt `maestro hierarchy` ở đây cho
+      // group cuối là THỪA, bỏ qua để tiết kiệm 1 lượt/target (không ảnh hưởng gì vì giá trị
+      // không được đọc lại ở đâu khác).
+      if (i < groups.length - 1) {
+        tree = this.bridge.hierarchy();
+      }
+    }
+
+    this.bridge.setPhase?.("nav:open_exercise");
+    const exResult = await this.bridge.runSteps(this._openExerciseSteps(exercise.name));
+    if (!exResult.success) fail(exResult.error);
+  }
+
+  /**
+   * Tìm index `n` của `happy_learning_lesson_{n}_title` có text KHỚP CHÍNH XÁC `lessonName` -
+   * dùng để suy ra đúng id `happy_learning_lesson_{n}_toggle` cần tap (tap theo id CHÍNH XÁC,
+   * không tap mù theo vị trí "below lessonName" - tránh đúng lớp bug đã gặp ở trên).
+   * @returns {string|null}
+   */
+  _findLessonIndexByTitle(tree, lessonName) {
+    let found = null;
+    const walk = (node) => {
+      if (found !== null || !node) return;
+      const attrs = node.attributes || {};
+      const m = /^happy_learning_lesson_(\d+)_title$/.exec(attrs["resource-id"] || "");
+      if (m && attrs.text === lessonName) {
+        found = m[1];
+        return;
+      }
+      for (const child of node.children ?? []) walk(child);
+    };
+    walk(tree);
+    return found;
   }
 }

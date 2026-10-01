@@ -66,6 +66,36 @@ function checkButtonTap() {
   return { tapOn: { id: "exercise_check_button", optional: true } };
 }
 
+// PERF FIX (2026-10-01, đo THẬT trên thiết bị 3201d866d40a1681 - xem PERF PROFILE REPORT phiên tối
+// ưu Self-Learning, mục "Question execution"): TRƯỚC ĐÂY mỗi câu luôn tốn ÍT NHẤT 2 lượt `maestro
+// test` RIÊNG (1: chọn đáp án + Kiểm tra, 1: bấm tiếp sau khi đã xác nhận "Chính xác" qua 1 lượt
+// `hierarchy()` RỜI) + 1 lượt `hierarchy()` - đo thật 2 lượt chạy E2E liên tiếp cho ĐÚNG 1 target
+// (10 câu, maxAttempts=3, 0/0 retry CẢ 2 lượt - automation LUÔN chọn đáp án ĐÚNG THẬT lấy từ CMS
+// nên "Thử lại" trên thực tế gần như KHÔNG BAO GIỜ xảy ra, chỉ là safety net cho trục trặc thao
+// tác UI) cho thấy "Question execution" chiếm 73.5% TOÀN BỘ runtime (654.68s/890.51s) - bottleneck
+// LỚN NHẤT còn lại sau khi đã thêm `--no-reinstall-driver` ở MaestroBridge.
+//
+// SỬA: gộp bước "bấm tiếp" (advance) vào NGAY TRONG CÙNG 1 lượt `maestro test` với bước Kiểm tra,
+// dùng native `runFlow: { when: { visible: "Chính xác..." } }` của CHÍNH Maestro (đọc hierarchy
+// NỘI BỘ 1 lần duy nhất, KHÔNG lặp/poll) - AN TOÀN khác hẳn lớp bug "stale lazy-list" đã gặp ở
+// Navigation (SỰ CỐ SETTLE/bug nested-group): banner "Chính xác"/"Chưa chính xác" là 1 OVERLAY
+// TOÀN MÀN HÌNH xuất hiện NGAY LẬP TỨC sau đúng 1 hành động xác định (tap "Kiểm tra"), KHÔNG phải
+// 1 hàng trong danh sách cuộn/ảo hoá (RecyclerView/LazyColumn) - không có cơ chế nào để nó "peek"
+// 1 phần rồi đọc hụt như hàng Lesson đã gặp. Tiết kiệm ĐÚNG 1 lượt `maestro test`/câu cho trường
+// hợp ĐÚNG NGAY (phổ biến áp đảo - xác nhận 0/0 retry). Nhánh "Thử lại"/"đã hết lượt, lộ đáp án"
+// GIỮ NGUYÊN 100% logic cũ bên dưới (KHÔNG đổi, KHÔNG rủi ro thêm) - native block này CHỈ cộng
+// thêm 1 bước điều kiện vào CUỐI mảng `steps` đã có, không thay bất kỳ bước nào khác.
+function advanceIfCorrectSteps() {
+  return [
+    {
+      runFlow: {
+        when: { visible: "Chính xác.*" },
+        commands: [checkButtonTap(), { waitForAnimationToEnd: { timeout: 1200 } }],
+      },
+    },
+  ];
+}
+
 export class VuiHocExamEngine {
   /** @param {import("../bridge/maestroBridge.js").MaestroBridge} bridge */
   constructor(bridge) {
@@ -88,13 +118,19 @@ export class VuiHocExamEngine {
    * dùng biến đếm để suy đoán "còn thử lại hay hết lượt" (bug thật đã gặp 2026-09-10: app có thể
    * hết lượt thử SỚM hơn giới hạn `maxAttempts` riêng của engine).
    *
-   * Lượt ĐẦU: `buildSelectSteps()` (chọn/gõ/kéo đáp án) + tap "exercise_check_button" GỘP CHUNG
-   * 1 `runSteps()`. Sau đó đọc ĐÚNG 1 lần `hierarchy()` để lấy nhãn thật:
-   *   - "Chính xác..."                          -> CORRECT, bấm thêm 1 lần để đi tiếp, DỪNG.
-   *   - "Chưa chính xác..." + còn "Thử lại"      -> gộp (Thử lại + chọn lại đáp án + Kiểm tra lại)
-   *                                                 vào 1 `runSteps()` cho lượt kế, lặp lại.
+   * Lượt ĐẦU: `buildSelectSteps()` (chọn/gõ/kéo đáp án) + tap "exercise_check_button" + (PERF FIX
+   * 2026-10-01) `advanceIfCorrectSteps()` (native `runFlow: when: visible "Chính xác..."` - tự tap
+   * tiếp NGAY TRONG CÙNG `runSteps()` nếu đúng, loại bỏ 1 lượt `maestro test` riêng cho trường hợp
+   * PHỔ BIẾN NHẤT - đã đo thật 0/0 retry). Sau đó đọc ĐÚNG 1 lần `hierarchy()` để lấy nhãn thật:
+   *   - "Chính xác..." VẪN còn visible (advance chưa kịp/không fire) -> CORRECT, DỪNG (không tap
+   *     lại - advanceIfCorrectSteps() đã/sẽ tự xử lý trong steps, xem comment tại chỗ return).
+   *   - "Chưa chính xác..." + còn "Thử lại"      -> gộp (Thử lại + chọn lại đáp án + Kiểm tra lại +
+   *                                                 advanceIfCorrectSteps()) vào 1 `runSteps()` cho
+   *                                                 lượt kế, lặp lại.
    *   - "Chưa chính xác..." + KHÔNG còn "Thử lại" -> đã reveal, bấm thêm 1 lần để đi tiếp, DỪNG.
-   *   - Không thấy nhãn nào (đã tự chuyển màn)     -> DỪNG, correct=null.
+   *   - Không thấy nhãn nào -> advanceIfCorrectSteps() ĐÃ tự tap xong (CÓ CĂN CỨ, xem comment tại
+   *     chỗ return bên dưới) -> CORRECT, DỪNG. KHÁC bản gốc trước khi có native advance (lúc đó
+   *     nhánh này thật sự mơ hồ, trả correct=null).
    * Bounded bởi `maxAttempts` (an toàn, KHÔNG phải điều kiện thiết kế chính - chỉ chặn lặp vô hạn
    * nếu app vào trạng thái không lường trước).
    * @param {number} maxAttempts
@@ -102,7 +138,13 @@ export class VuiHocExamEngine {
    *   thực thi) - gọi lại được nhiều lần (mỗi lần thử lại gọi 1 lần, PHẢI idempotent).
    */
   async _submitAndVerify(maxAttempts, buildSelectSteps) {
-    let steps = [...buildSelectSteps(), { waitForAnimationToEnd: { timeout: 1000 } }, checkButtonTap(), { waitForAnimationToEnd: { timeout: 1200 } }];
+    let steps = [
+      ...buildSelectSteps(),
+      { waitForAnimationToEnd: { timeout: 1000 } },
+      checkButtonTap(),
+      { waitForAnimationToEnd: { timeout: 1200 } },
+      ...advanceIfCorrectSteps(),
+    ];
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const result = await this.bridge.runSteps(steps);
@@ -115,18 +157,26 @@ export class VuiHocExamEngine {
       const canRetry = texts.includes("Thử lại");
 
       if (correct) {
-        await this.bridge.runSteps([checkButtonTap(), { waitForAnimationToEnd: { timeout: 1200 } }]); // "Tiếp tục"/"Hoàn thành"
-        return { correct: true, attempts: attempt };
+        // PERF FIX: bước "Tiếp tục"/"Hoàn thành" ĐÃ chạy native TRONG CÙNG `steps` ở trên
+        // (advanceIfCorrectSteps()) - KHÔNG tap lại lần nữa (tránh double-tap sang màn/câu kế).
+        // `tree` ở NHÁNH NÀY (banner "Chính xác" VẪN còn đọc được) là trường hợp HIẾM (native khi
+        // chưa kịp fire do timing) - KHÔNG CHẮC đã phản ánh câu/màn kế tiếp -> nextTree=null (an
+        // toàn, để caller tự đọc lại hierarchy() fresh cho vòng lặp sau, KHÔNG tái sử dụng nhầm).
+        return { correct: true, attempts: attempt, nextTree: null };
       }
 
       if (incorrect) {
         if (!canRetry || attempt >= maxAttempts) {
           // Hết lượt thử THẬT (nút đã đổi "Tiếp theo"/"Hoàn thành") HOẶC hết giới hạn an toàn -
           // bấm ĐÚNG 1 lần để đi tiếp, KHÔNG reselect (tránh thao tác nhầm sang câu kế tiếp).
+          // KHÔNG dùng advanceIfCorrectSteps() ở đây (điều kiện "Chính xác" chắc chắn false) -
+          // GIỮ NGUYÊN lượt runSteps() riêng như cũ, không đổi hành vi nhánh hiếm gặp này.
           await this.bridge.runSteps([checkButtonTap(), { waitForAnimationToEnd: { timeout: 1200 } }]);
-          return { correct: false, attempts: attempt };
+          // Không đọc tree mới ở nhánh hiếm này (giữ nguyên perf cũ) - nextTree=null.
+          return { correct: false, attempts: attempt, nextTree: null };
         }
-        // Gộp "Thử lại" + chọn lại đáp án + "Kiểm tra" lại vào 1 runSteps() DUY NHẤT cho lượt kế.
+        // Gộp "Thử lại" + chọn lại đáp án + "Kiểm tra" lại vào 1 runSteps() DUY NHẤT cho lượt kế -
+        // vẫn cộng thêm advanceIfCorrectSteps() để lượt thử lại CŨNG được hưởng tối ưu nếu đúng.
         steps = [
           checkButtonTap(), // "Thử lại"
           { waitForAnimationToEnd: { timeout: 800 } },
@@ -134,14 +184,37 @@ export class VuiHocExamEngine {
           { waitForAnimationToEnd: { timeout: 1000 } },
           checkButtonTap(), // "Kiểm tra" lại
           { waitForAnimationToEnd: { timeout: 1200 } },
+          ...advanceIfCorrectSteps(),
         ];
         continue;
       }
 
-      // Không thấy "Chính xác"/"Chưa chính xác" - có thể đã tự chuyển câu/màn Kết quả.
-      return { correct: null, attempts: attempt };
+      // BUG THẬT ĐÃ SỬA (2026-10-01, phát hiện NGAY SAU KHI thêm advanceIfCorrectSteps() ở trên -
+      // live-verify thiết bị 3201d866d40a1681): "không thấy nhãn nào" KHÔNG còn mơ hồ như comment
+      // gốc phía trên (viết TỪ TRƯỚC khi có native advance) - `steps` ở MỌI nhánh trong hàm này
+      // (lượt đầu VÀ lượt "Thử lại") LUÔN kết thúc bằng `advanceIfCorrectSteps()`, mà khối lệnh đó
+      // là HÀNH ĐỘNG DUY NHẤT trong `steps` có thể khiến banner biến mất (tap lần 2 vào CHÍNH
+      // "exercise_check_button" NGAY SAU KHI "Chính xác..." đã thật sự visible native) - `result.
+      // success` đã xác nhận cả `steps` chạy KHÔNG lỗi (nếu không đã throw ở trên). Vì vậy "đọc
+      // hierarchy() SAU steps mà KHÔNG còn thấy banner nào" = BẰNG CHỨNG CÓ CĂN CỨ rằng nhánh native
+      // "Chính xác" đã chạy, KHÔNG phải trường hợp mù mờ - đo thật: 10/10 câu rơi vào đúng nhánh
+      // này (vì automation luôn chọn đáp án CMS đúng, "Chính xác" hiện NGAY lượt đầu) nhưng TRƯỚC
+      // KHI sửa, hàm trả `correct: null` SAI cho cả 10 câu (benchmark/report mất khả năng xác nhận
+      // "đã trả lời đúng" dù điểm cuối cùng vẫn đúng 10/10 qua đường readResult() riêng - 2 cơ chế
+      // độc lập, lỗi này KHÔNG ảnh hưởng điểm số/completion thật, chỉ ảnh hưởng validate per-câu).
+      // SỬA: trả correct=true (không phải null) cho đúng ý nghĩa MỚI của nhánh này.
+      //
+      // PERF FIX (2026-10-01, tiếp tục giảm "loop overhead"): CHÍNH `tree` vừa đọc ở đây ĐÃ LÀ
+      // trạng thái màn hình SAU KHI advance - tức là màn hình của câu/kết quả KẾ TIẾP, giống hệt
+      // dữ liệu mà vòng lặp runVuiHocQuestionPool() sẽ đọc lại bằng 1 lượt `bridge.hierarchy()`
+      // RIÊNG ngay đầu iteration sau (lãng phí 1 lượt `maestro hierarchy` hoàn toàn trùng lặp, đo
+      // thật chiếm ~100s/10 câu - "loop overhead" trong PERF PROFILE REPORT). Trả kèm `nextTree` để
+      // caller TÁI SỬ DỤNG thay vì đọc lại - CHỈ an toàn ở ĐÚNG nhánh này (banner đã chắc chắn biến
+      // mất, xem lập luận ở trên) - 2 nhánh "correct hiếm"/"incorrect hết lượt" ở trên trả
+      // nextTree=null (caller tự đọc lại, KHÔNG đổi hành vi/an toàn của 2 nhánh đó).
+      return { correct: true, attempts: attempt, nextTree: tree };
     }
-    return { correct: null, attempts: maxAttempts };
+    return { correct: null, attempts: maxAttempts, nextTree: null };
   }
 
   async _answerChoice(questionModel, tree, maxAttempts) {

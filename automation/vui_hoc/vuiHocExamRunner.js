@@ -70,11 +70,27 @@ export async function runVuiHocQuestionPool({
   // quả) - KHÔNG phải điều kiện thiết kế chính, chỉ chặn lặp vô hạn nếu app kẹt thật.
   const maxIterations = questions.length + 3;
 
+  // PERF FIX (2026-10-01, xem PERF PROFILE REPORT mục "loop overhead"): khi câu TRƯỚC đã trả về
+  // `nextTree` (nghĩa là tree đó ĐÃ CHẮC CHẮN phản ánh đúng màn hình KẾ TIẾP - xem
+  // vuiHocExamEngine.js#_submitAndVerify()), TÁI SỬ DỤNG tree đó cho vòng lặp này thay vì gọi thêm
+  // 1 lượt `bridge.hierarchy()` HOÀN TOÀN TRÙNG LẶP (đo thật tiết kiệm ~1 lượt `maestro hierarchy`/
+  // câu, ~100s/10 câu). CHỈ dùng ĐÚNG 1 LẦN rồi reset về null - các nhánh KHÔNG trả `nextTree` (vd
+  // SORT, CONNECT không qua `_submitAndVerify`, hoặc 2 nhánh hiếm "correct nhưng banner còn"/"hết
+  // lượt incorrect") giữ NGUYÊN hành vi cũ (tự đọc `bridge.hierarchy()` fresh, KHÔNG đổi/rủi ro gì).
+  let pendingNextTree = null;
+
   let iter = 0;
   for (; iter < maxIterations; iter++) {
-    const tree = bridge.hierarchy();
+    // PERF PROFILING (2026-10-01, thuần đo đạc - không đổi hành vi): nhãn "phase" mặc định cho
+    // lượt hierarchy() đầu mỗi vòng lặp (detect màn Kết quả/uiType/matching) - tách riêng khỏi
+    // "vuihoc:question_N" (chỉ bao bọc đúng answerCurrentQuestion()) để báo cáo profiling phân
+    // biệt được "overhead vòng lặp" và "thời gian trả lời thật".
+    bridge.setPhase?.(`vuihoc:loop_overhead_${iter + 1}`);
+    const tree = pendingNextTree ?? bridge.hierarchy();
+    pendingNextTree = null;
 
     if (engine.isResultScreen(tree)) {
+      bridge.setPhase?.("vuihoc:result_screen");
       // DỪNG NGAY - KHÔNG bấm/thao tác gì thêm trước khi capture (yêu cầu bắt buộc).
       resultTimestamp = new Date().toISOString();
       finalResult = engine.readResult(tree);
@@ -116,6 +132,7 @@ export async function runVuiHocQuestionPool({
     const testCallsBefore = bridge.testInvocationCount;
     const hierarchyCallsBefore = bridge.hierarchyInvocationCount;
     const qStart = nowNs();
+    bridge.setPhase?.(`vuihoc:question_${perQuestionResults.length + 1}`);
     let outcome;
     try {
       outcome = await engine.answerCurrentQuestion(entry.question, { maxAttempts: maxAttemptsPerQuestion, tree, uiType });
@@ -124,6 +141,7 @@ export async function runVuiHocQuestionPool({
     }
     const qSeconds = secondsSince(qStart);
     entry.answered = true;
+    pendingNextTree = outcome.nextTree ?? null;
 
     const record = {
       cmsId: entry.question.id,

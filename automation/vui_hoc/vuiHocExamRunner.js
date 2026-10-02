@@ -86,7 +86,9 @@ export async function runVuiHocQuestionPool({
     // "vuihoc:question_N" (chỉ bao bọc đúng answerCurrentQuestion()) để báo cáo profiling phân
     // biệt được "overhead vòng lặp" và "thời gian trả lời thật".
     bridge.setPhase?.(`vuihoc:loop_overhead_${iter + 1}`);
-    const tree = pendingNextTree ?? bridge.hierarchy();
+    // ASYNC MIGRATION (pilot MaestroMcpBridge): `await` tương thích CẢ 2 bridge (sync cũ lẫn MCP
+    // async) - xem docblock pilot script _scratch_perf_pilot_mcp.mjs.
+    const tree = pendingNextTree ?? (await bridge.hierarchy());
     pendingNextTree = null;
 
     if (engine.isResultScreen(tree)) {

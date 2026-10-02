@@ -150,7 +150,10 @@ export class VuiHocExamEngine {
       const result = await this.bridge.runSteps(steps);
       if (!result.success) throw new Error(`Thao tác trả lời câu thất bại (lượt ${attempt}): ${result.error}`);
 
-      const tree = this.bridge.hierarchy(); // ĐÚNG 1 lượt đọc để biết verdict - không polling.
+      // ASYNC MIGRATION (pilot MaestroMcpBridge, xem docblock đầu file): `hierarchy()` là async ở
+      // bridge MCP (sync ở MaestroBridge CLI cũ) - `await` ở đây tương thích CẢ 2 bridge (await 1
+      // giá trị không phải Promise vẫn resolve đúng giá trị đó, chỉ thêm 1 microtask tick).
+      const tree = await this.bridge.hierarchy(); // ĐÚNG 1 lượt đọc để biết verdict - không polling.
       const texts = collectTexts(tree);
       const correct = texts.some((t) => t.startsWith("Chính xác"));
       const incorrect = texts.some((t) => t.startsWith("Chưa chính xác"));
@@ -410,7 +413,7 @@ export class VuiHocExamEngine {
         if (!move) return;
         const dragResult = await this.bridge.runSteps([move, { waitForAnimationToEnd: { timeout: 1500 } }]);
         if (!dragResult.success) throw new Error(`SORT: kéo thất bại (vòng ${round + 1}): ${dragResult.error}`);
-        t = this.bridge.hierarchy();
+        t = await this.bridge.hierarchy(); // ASYNC MIGRATION - xem comment _submitAndVerify().
       }
     };
     await fixOrder(tree); // Lượt ĐẦU dùng `tree` đã có sẵn cho round đầu tiên của fixOrder.
@@ -419,7 +422,7 @@ export class VuiHocExamEngine {
       const checkResult = await this.bridge.runSteps([checkButtonTap(), { waitForAnimationToEnd: { timeout: 1200 } }]);
       if (!checkResult.success) throw new Error(`SORT: bấm Kiểm tra thất bại (lượt ${attempt}): ${checkResult.error}`);
 
-      const verdictTree = this.bridge.hierarchy();
+      const verdictTree = await this.bridge.hierarchy(); // ASYNC MIGRATION - xem comment _submitAndVerify().
       const texts = collectTexts(verdictTree);
       const correct = texts.some((t) => t.startsWith("Chính xác"));
       const incorrect = texts.some((t) => t.startsWith("Chưa chính xác"));
@@ -436,7 +439,11 @@ export class VuiHocExamEngine {
         }
         const retryTapResult = await this.bridge.runSteps([checkButtonTap(), { waitForAnimationToEnd: { timeout: 800 } }]); // "Thử lại"
         if (!retryTapResult.success) throw new Error(`SORT: bấm Thử lại thất bại: ${retryTapResult.error}`);
-        await fixOrder(this.bridge.hierarchy()); // vị trí có thể vẫn sai sau Thử lại - kéo lại.
+        // ASYNC MIGRATION: `hierarchy()` TRẢ VỀ TRỰC TIẾP làm argument cho fixOrder() - PHẢI
+        // `await` TRƯỚC khi truyền (khác các chỗ khác chỉ gán biến) - nếu không, bridge MCP (async)
+        // sẽ truyền 1 Promise CHƯA RESOLVE làm `startTree`, fixOrder() dùng luôn làm tree sai hoàn
+        // toàn (không throw rõ ràng, chỉ ra kết quả sai lặng lẽ) - BUG THẬT đã audit trước khi sửa.
+        await fixOrder(await this.bridge.hierarchy()); // vị trí có thể vẫn sai sau Thử lại - kéo lại.
         continue;
       }
       return { supported: true, type: "SORT", correct: null, attempts: attempt };
@@ -455,7 +462,7 @@ export class VuiHocExamEngine {
    *   khi gọi độc lập/test).
    */
   async answerCurrentQuestion(questionModel, { maxAttempts = 3, tree = null, uiType = null } = {}) {
-    const t = tree ?? this.bridge.hierarchy();
+    const t = tree ?? (await this.bridge.hierarchy());
     const type = uiType ?? detectQuestionUiType(t);
 
     switch (type) {

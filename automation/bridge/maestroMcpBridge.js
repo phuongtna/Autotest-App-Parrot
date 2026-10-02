@@ -31,6 +31,40 @@ export class MaestroMcpBridge {
     // mà KHÔNG cần đọc `session.toolCallCount` (gộp cả 2 loại + `list_devices` lúc start()).
     this.runCallCount = 0;
     this.hierarchyCallCount = 0;
+    // PILOT (2026-10-02, migration Vui học sang Persistent Maestro Session - xem
+    // automation/_scratch_perf_pilot_mcp.mjs): THUẦN TUÝ ĐO ĐẠC, KHÔNG đổi hành vi/return value của
+    // bất kỳ method nào - cùng pattern `callLog`/`setPhase()` đã verify ở `maestroBridge.js` (CLI),
+    // thêm vào ĐÂY để NavigationEngine/vuiHocExamRunner.js (gọi `bridge.setPhase?.()` sẵn, optional
+    // chaining - không crash dù bridge không có method này) có thể tạo breakdown phase cho CẢ 2
+    // bridge, so sánh được apples-to-apples. Nhãn `type` ghi "test"/"hierarchy" (KHÔNG phải "run")
+    // để tái dùng NGUYÊN VẸN `summarizeByPhase()` của pilot script (đã viết cho shape callLog của
+    // MaestroBridge) - "test" ở đây nghĩa là 1 lượt tool `run` MCP, tương đương 1 `maestro test` cũ.
+    this.callLog = [];
+    this.currentPhase = "unspecified";
+  }
+
+  /** Đặt nhãn giai đoạn cho các lượt tiếp theo - CÙNG method/semantics với `MaestroBridge.setPhase()`. */
+  setPhase(label) {
+    this.currentPhase = label;
+  }
+
+  _logCall(type, seconds, meta) {
+    this.callLog.push({ phase: this.currentPhase, type, seconds, ts: Date.now(), ...meta });
+  }
+
+  // PILOT - COMPATIBILITY SHIM: `vuiHocExamRunner.js` đọc TRỰC TIẾP `bridge.testInvocationCount`/
+  // `bridge.hierarchyInvocationCount` (tên thuộc tính của `MaestroBridge` CLI cũ) để tính
+  // test/hierarchy invocation delta MỖI câu - PHÁT HIỆN qua audit TRƯỚC KHI sửa code (Phase 1):
+  // KHÔNG alias thì 2 thuộc tính này là `undefined` ở bridge MCP, phép trừ `undefined - number` ra
+  // `NaN`, hỏng số liệu per-question (KHÔNG hỏng logic trả lời - chỉ hỏng báo cáo) mà không throw
+  // lỗi rõ ràng. Alias trỏ THẲNG vào `runCallCount`/`hierarchyCallCount` đã có sẵn - KHÔNG đếm
+  // trùng, KHÔNG thêm state mới, giữ `vuiHocExamRunner.js` NGUYÊN VẸN không cần sửa.
+  get testInvocationCount() {
+    return this.runCallCount;
+  }
+
+  get hierarchyInvocationCount() {
+    return this.hierarchyCallCount;
   }
 
   /** Khởi động tiến trình `maestro mcp` DUY NHẤT cho toàn bộ session - gọi 1 LẦN trước khi dùng. */
@@ -53,7 +87,10 @@ export class MaestroMcpBridge {
    */
   async runSteps(steps) {
     this.runCallCount++;
-    return this.session.run(this.appId, steps);
+    const startMs = Date.now();
+    const result = await this.session.run(this.appId, steps);
+    this._logCall("test", (Date.now() - startMs) / 1000, { stepCount: steps.length, success: result.success });
+    return result;
   }
 
   /** @param {string|Object} selector */
@@ -108,7 +145,10 @@ export class MaestroMcpBridge {
    */
   async hierarchy() {
     this.hierarchyCallCount++;
-    return this.session.hierarchy();
+    const startMs = Date.now();
+    const tree = await this.session.hierarchy();
+    this._logCall("hierarchy", (Date.now() - startMs) / 1000, {});
+    return tree;
   }
 
   /** Bấm nút nộp đáp án - chữ cố định, dùng chung cho MỌI dạng bài. */

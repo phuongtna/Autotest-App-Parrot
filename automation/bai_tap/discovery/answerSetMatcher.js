@@ -85,9 +85,34 @@ export function normalizeQuestionTokens(text) {
   return cleaned.split(" ").filter((w) => w.length >= 3 && !STOPWORDS.has(w));
 }
 
-const MIN_CONTENT_TOKENS = 3;
+// (2026-10-02, fix real AMBIGUOUS_MATCH 2 lần sống - room 80b88e7a-.../3f119f63-...): HẠ từ 3
+// xuống 1 - câu ngắn tự nhiên (vd rút gọn "'s"/"'re") thường CHỈ còn 1-2 token riêng sau khi loại
+// stopword/placeholder, dù nội dung đó HOÀN TOÀN đủ phân biệt khi thật sự hiển thị trên màn hình
+// (đã xác minh bằng CMS data thật - xem answerSetMatcher.fixtureTest.mjs case [J]/[K]). KHÔNG đổi
+// MIN_MATCH_COVERAGE/MIN_MARGIN_OVER_RUNNER_UP - winner vẫn phải đạt coverage>=0.6 VÀ bỏ xa runner-up
+// >=0.25 y hệt trước, chỉ không còn bị ép coverage=0 một cách tuỳ tiện chỉ vì ít hơn 3 token.
+const MIN_CONTENT_TOKENS = 1;
 const MIN_MATCH_COVERAGE = 0.6;
 const MIN_MARGIN_OVER_RUNNER_UP = 0.25;
+
+/**
+ * (2026-10-02, cùng fix trên) Token của CHÍNH các đáp án dùng chung trong nhóm candidate đang so
+ * (answer-set đã khớp đủ nên LUÔN hiển thị cho MỌI candidate trong nhóm, bất kể câu nào đang thật sự
+ * hiển thị) - loại các token này KHỎI nội dung câu hỏi trước khi tính coverage, để tránh 1 candidate
+ * có câu dẫn đề chỉ 1-2 token (giờ không còn bị chặn bởi MIN_CONTENT_TOKENS) vô tình "ăn điểm" chỉ vì
+ * trùng ĐÚNG 1 từ với chính đáp án (không phải bằng chứng câu đó đang hiển thị). Derive từ dữ liệu
+ * thật của nhóm candidate, không hard-code từ cụ thể nào.
+ */
+export function buildSharedAnswerTokenSet(candidates) {
+  const set = new Set();
+  for (const c of candidates) {
+    for (const a of c.answers ?? []) {
+      if (typeof a !== "string") continue;
+      for (const tok of normalizeQuestionTokens(a)) set.add(tok);
+    }
+  }
+  return set;
+}
 
 /**
  * Disambiguate giữa các candidate ĐÃ cùng khớp đủ answer-set, bằng nội dung câu hỏi/đoạn văn thay vì
@@ -118,8 +143,9 @@ function scoreAgainstTexts(candidates, sourceTexts) {
   for (const t of sourceTexts) {
     for (const tok of normalizeQuestionTokens(t)) visibleTokenSet.add(tok);
   }
+  const sharedAnswerTokens = buildSharedAnswerTokenSet(candidates);
   const scored = candidates.map((question) => {
-    const tokens = [...new Set(normalizeQuestionTokens(question.question))];
+    const tokens = [...new Set(normalizeQuestionTokens(question.question))].filter((tok) => !sharedAnswerTokens.has(tok));
     if (tokens.length < MIN_CONTENT_TOKENS) {
       return { question, coverage: 0, tokenCount: tokens.length, tier: "NONE" };
     }

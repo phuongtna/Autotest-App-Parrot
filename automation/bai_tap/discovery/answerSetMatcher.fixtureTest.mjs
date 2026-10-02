@@ -37,6 +37,7 @@ import {
   normalizeQuestionTokens,
   disambiguateByQuestionText,
   findMatchingQuestion,
+  buildSharedAnswerTokenSet,
 } from "./answerSetMatcher.js";
 
 let passes = 0;
@@ -301,6 +302,80 @@ async function main() {
       buildNormalizedVisibleSet(["A", "B"]),
     );
     report("findFullAnswerSetMatches chỉ trả candidate khớp ĐỦ (f1, không f2)", matches.length === 1 && matches[0].id === "f1");
+  }
+
+  console.log('=== [J] regression THẬT 2026-10-02 (room 80b88e7a-..., lớp 4D, "Choose the correct word (A, B, C or D) to complete each sentence.") - 3 câu ngắn cùng answer-set, chỉ còn 1-2 token riêng sau normalize (MIN_CONTENT_TOKENS cũ=3 từng ép AMBIGUOUS oan) ===');
+  {
+    const bank = ["tent", "photo", "story", "campfire"];
+    const j1 = q("j1", { answers: bank, correctAnswer: "story", question: "She's telling a ___." }); // normalize -> [telling] (1 token)
+    const j2 = q("j2", { answers: bank, correctAnswer: "campfire", question: "They're dancing around the ___." }); // -> [dancing, around] (2 token)
+    const j3 = q("j3", { answers: bank, correctAnswer: "campfire", question: "Nam is building a ___." }); // -> [nam, building] (2 token)
+    const pool = [j2, j1, j3]; // thứ tự xáo trộn - không được phụ thuộc index.
+
+    report(
+      "[J0] normalizeQuestionTokens xác nhận đúng short-token scenario thật",
+      JSON.stringify(normalizeQuestionTokens(j1.question)) === JSON.stringify(["telling"]) &&
+        JSON.stringify(normalizeQuestionTokens(j2.question)) === JSON.stringify(["dancing", "around"]) &&
+        JSON.stringify(normalizeQuestionTokens(j3.question)) === JSON.stringify(["nam", "building"]),
+    );
+
+    const textsJ2 = ["They're dancing around the", ...bank];
+    const rJ2 = await findMatchingQuestion(staticBridge(textsJ2), pool, undefined, 1, null);
+    report("[J1] chọn đúng j2 dù chỉ còn 2 token riêng (dancing/around)", rJ2.status === "MATCHED" && rJ2.question.id === "j2", JSON.stringify(rJ2.status));
+
+    const textsJ1 = ["She's telling a", ...bank];
+    const rJ1 = await findMatchingQuestion(staticBridge(textsJ1), pool, undefined, 1, null);
+    report("[J2] chọn đúng j1 dù chỉ còn ĐÚNG 1 token riêng (telling)", rJ1.status === "MATCHED" && rJ1.question.id === "j1", JSON.stringify(rJ1.status));
+
+    const textsJ3 = ["Nam is building a", ...bank];
+    const rJ3 = await findMatchingQuestion(staticBridge(textsJ3), pool, undefined, 1, null);
+    report("[J3] chọn đúng j3 (nam/building)", rJ3.status === "MATCHED" && rJ3.question.id === "j3", JSON.stringify(rJ3.status));
+  }
+
+  console.log('=== [K] regression THẬT 2026-10-02 (room 3f119f63-..., lớp 4D, "Choose the correct question word...") - 3 câu cùng answer-set {Where,What,When,Who}, 1 trong 3 chỉ còn 2 token riêng ===');
+  {
+    const bank = ["Where", "What", "When", "Who"];
+    const k1 = q("k1", { answers: bank, correctAnswer: "What", question: "______ are these animals? – They're hippos." }); // -> [animals, hippos] (2 token)
+    const k2 = q("k2", { answers: bank, correctAnswer: "Who", question: "______'s he doing? – He's building a campfire." }); // -> [doing, building, campfire] (3 token)
+    const k3 = q("k3", { answers: bank, correctAnswer: "What", question: "______ are they doing? – They're playing card games." }); // -> [doing, playing, card, games] (4 token)
+    const pool = [k3, k1, k2];
+
+    const textsK1 = ["are these animals?", "They're hippos.", ...bank];
+    const rK1 = await findMatchingQuestion(staticBridge(textsK1), pool, undefined, 1, null);
+    report(
+      "[K1] chọn đúng k1 dù chỉ còn 2 token riêng (animals/hippos) - case thật từng bị AMBIGUOUS oan ở câu 7/10",
+      rK1.status === "MATCHED" && rK1.question.id === "k1",
+      JSON.stringify(rK1.status),
+    );
+  }
+
+  console.log("=== [L] (tổng hợp, không phải data thật) chứng minh buildSharedAnswerTokenSet() thật sự loại answer token khỏi bằng chứng phân biệt ===");
+  {
+    const bank2 = ["garden", "kitchen", "bedroom"];
+    // l2 cố ý chứa NGUYÊN 1 từ trùng đáp án dùng chung ("garden") làm từ DUY NHẤT còn lại sau lọc
+    // stopword - nếu KHÔNG loại answer token, "garden" sẽ bị tính nhầm là bằng chứng nội dung chỉ vì
+    // nó LUÔN hiển thị dưới dạng 1 trong các lựa chọn đáp án, không phải vì câu l2 thật sự đang hiển thị.
+    const l1 = q("l1", { answers: bank2, correctAnswer: "garden", question: "Tom is watering flowers in the ___." });
+    const l2 = q("l2", { answers: bank2, correctAnswer: "kitchen", question: "In the garden." });
+    const pool = [l1, l2];
+
+    report(
+      "[L0] buildSharedAnswerTokenSet() derive đúng từ answers thật của nhóm (không hard-code)",
+      (() => {
+        const set = buildSharedAnswerTokenSet(pool);
+        return set.has("garden") && set.has("kitchen") && set.has("bedroom");
+      })(),
+    );
+
+    // Màn hình đang hiển thị ĐÚNG câu l1 - "garden" xuất hiện CHỈ vì nó là 1 đáp án hiển thị, không
+    // phải vì l2 đang hiển thị.
+    const textsL1 = ["Tom is watering flowers in the", ...bank2];
+    const rL1 = await findMatchingQuestion(staticBridge(textsL1), pool, undefined, 1, null);
+    report(
+      "[L1] chọn đúng l1, l2 KHÔNG được 'ăn điểm' giả nhờ trùng đúng 1 từ với đáp án dùng chung (chứng minh filter có hiệu lực thật, không chỉ lý thuyết)",
+      rL1.status === "MATCHED" && rL1.question.id === "l1",
+      JSON.stringify(rL1.status),
+    );
   }
 
   console.log(`\n${passes} passed, ${failures} failed.`);

@@ -484,7 +484,9 @@ export class NavigationEngine {
     if (!bookUnitResult.success) fail(bookUnitResult.error);
 
     this.bridge.setPhase?.("nav:lesson_locate");
-    let tree = this.bridge.hierarchy();
+    // ASYNC MIGRATION (pilot MaestroMcpBridge): `await` tương thích CẢ 2 bridge (sync cũ lẫn MCP
+    // async) - xem docblock pilot script.
+    let tree = await this.bridge.hierarchy();
     const lessonScroll = await ensureTextVisible(this.bridge, tree, lesson.name);
     tree = lessonScroll.tree;
     if (!lessonScroll.visible) {
@@ -500,7 +502,7 @@ export class NavigationEngine {
     }
     this.bridge.setPhase?.("nav:lesson_toggle");
     await this.bridge.tap({ id: `happy_learning_lesson_${lessonIndex}_toggle` });
-    tree = this.bridge.hierarchy();
+    tree = await this.bridge.hierarchy(); // ASYNC MIGRATION - xem comment phía trên.
 
     for (let i = 0; i < groups.length; i++) {
       const group = groups[i];
@@ -534,7 +536,7 @@ export class NavigationEngine {
       // group cuối là THỪA, bỏ qua để tiết kiệm 1 lượt/target (không ảnh hưởng gì vì giá trị
       // không được đọc lại ở đâu khác).
       if (i < groups.length - 1) {
-        tree = this.bridge.hierarchy();
+        tree = await this.bridge.hierarchy(); // ASYNC MIGRATION - xem comment phía trên.
       }
     }
 

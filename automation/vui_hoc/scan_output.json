@@ -1,0 +1,3779 @@
+{
+  "sampledCount": 201,
+  "okCount": 201,
+  "errorCount": 0,
+  "results": [
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 1: In the school playground",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter B-b",
+      "examId": "a66dbf57-68b9-48a3-9a84-27158294cc99",
+      "examName": "Letter B-b",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 2: In the dining room",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Cc",
+      "examId": "1982e2ba-a74a-4c35-982d-70502848a673",
+      "examName": "chữ c",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 3: At the street market",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Aa",
+      "examId": "274b1f35-e7b4-4fea-934d-bb84a67e1ca6",
+      "examName": "chữ a",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Fun time 1",
+      "lessonName": "Let’s fun",
+      "exerciseName": "Let’s fun",
+      "examId": "4dcc7a4e-eb31-44a4-b7bc-a570604e44ed",
+      "examName": "Let’s fun ",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SENTENCE_BUILDER": 2,
+        "ONE": 2,
+        "CONNECT": 2,
+        "SPEAK": 2,
+        "DRAG_DROP": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "b53a43c8-d21e-43ab-b005-987144e86c8c",
+          "point": 1
+        },
+        {
+          "id": "c9398194-c4a2-46c4-b074-4677521da81f",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 4: In the bedroom",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Dd",
+      "examId": "7db70ce9-6dc6-4ed9-95a5-d79f88b06c76",
+      "examName": "chữ d",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Review 1",
+      "lessonName": "Phonics",
+      "exerciseName": "Phonics",
+      "examId": "ff11f282-9caf-4de9-bec5-6fd9dbae1a78",
+      "examName": "Phonics",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 4,
+        "ONE": 4,
+        "DRAG_DROP": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "323c506a-922a-4d3e-b295-57cf8639631a",
+          "point": 1
+        },
+        {
+          "id": "441b439b-ce3e-42d0-832a-aed33992317f",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 5: At the fish and chip shop",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Ii",
+      "examId": "36fd7fd0-0744-4df4-8fd7-66686a33d401",
+      "examName": "chữ i",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 6: In the classroom",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Ee",
+      "examId": "fefa83e6-3661-4a5a-b294-122407202e1e",
+      "examName": "chữ e",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Fun time 2",
+      "lessonName": "Let's fun",
+      "exerciseName": "Vocab",
+      "examId": "43cb1659-289c-40ca-a052-3887bc5592d4",
+      "examName": "fun time 2 tt 1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "DRAG_DROP": 2,
+        "CONNECT": 2,
+        "ONE": 2,
+        "SORT": 2,
+        "SPEAK": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "2d770613-17a6-4317-8e1c-bf66f3be8150",
+          "point": 1
+        },
+        {
+          "id": "824b5f67-8ac3-4f04-beca-5f9ad53c82ea",
+          "point": 1
+        }
+      ],
+      "dragDropQuestions": [
+        {
+          "id": "060bcdeb-e78a-4566-83b3-2e35e2ac3265",
+          "point": 1
+        },
+        {
+          "id": "9e5e6b1b-0f60-4e5e-b2ef-ee61d3639de9",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 7: In the garden",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Gg",
+      "examId": "cf9eaec2-daff-4bfa-b4e6-dfc626cef1f6",
+      "examName": "chữ Gg",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 8: In the park",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Hh",
+      "examId": "93d273b9-f691-485c-b1ba-d579f69965fd",
+      "examName": "chữ h",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Review 2",
+      "lessonName": "Phonics",
+      "exerciseName": "Thử thách",
+      "examId": "8d7df16c-58b3-42eb-8663-969f40afbc39",
+      "examName": "G1 REVIEW 2 PHONICS",
+      "questionCount": 10,
+      "typeHistogram": {
+        "DRAG_DROP": 2,
+        "SPEAK": 4,
+        "ONE": 4
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "13b4bf28-62b7-4402-8a4f-ab802edf2743",
+          "point": 1
+        },
+        {
+          "id": "ff469bb1-80da-4588-b779-273dd1a9de58",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 9: In the shop",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Oo",
+      "examId": "38979a75-705d-4918-a245-43b67d270168",
+      "examName": "G1U9 O",
+      "questionCount": 3,
+      "typeHistogram": {
+        "ONE": 2,
+        "SPEAK": 1
+      },
+      "totalPoint": 9.99,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 10: At the zoo",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter M n",
+      "examId": "92f4ad89-2ba0-4e25-812b-8dc6ab2b86b2",
+      "examName": "chữ m",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Fun time 3",
+      "lessonName": "Let’s fun",
+      "exerciseName": "Thử thách",
+      "examId": "f6bbd085-1486-4406-a9c0-b76b4597e713",
+      "examName": "G1 Fun time 3 Let's fun",
+      "questionCount": 10,
+      "typeHistogram": {
+        "DRAG_DROP": 2,
+        "SPEAK": 2,
+        "ONE": 2,
+        "SENTENCE_BUILDER": 2,
+        "CONNECT": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "03f6bb72-cb6a-4503-b753-5fe5a718077a",
+          "point": 1
+        },
+        {
+          "id": "41e00ac5-42c1-4b8d-b8b8-5cd6b3b4eb57",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 11: At the bus stop",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Uu",
+      "examId": "7105036b-7def-428d-8c18-f821d85bf4a5",
+      "examName": "chữ u",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 12: At the lake",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Ll",
+      "examId": "8790649c-0da5-420f-96cd-ae8be1b0d687",
+      "examName": "chữ l",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Review 3",
+      "lessonName": "Phonics",
+      "exerciseName": "Thử thách Phonics",
+      "examId": "6edf3759-0ab4-4884-bde3-cdb894e1f438",
+      "examName": "G1 Review 3 Phonics",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 4,
+        "ONE": 4,
+        "DRAG_DROP": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "53ed188d-fef5-46c8-bee9-28a217052e0a",
+          "point": 1
+        },
+        {
+          "id": "ac29f200-1c32-4e53-8527-06b5508af784",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 13: In the school canteen",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Nn",
+      "examId": "3c33a70f-ad71-4aa5-a11a-1b9cd6406244",
+      "examName": "chữ n",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 14: In the toy shop",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Tt",
+      "examId": "bcb06bf0-e74f-4c5d-8f33-2d8147c48204",
+      "examName": "G1-U14 Letter Tt",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 1,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Fun time 4",
+      "lessonName": "Let’s fun",
+      "exerciseName": "Bài tập vocab",
+      "examId": "854fe56b-f82c-4b61-8742-54f4619fdbca",
+      "examName": "BT vocab",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SENTENCE_BUILDER": 4,
+        "ONE": 2,
+        "SPEAK": 2,
+        "CONNECT": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 15: At the football match",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Ff",
+      "examId": "0152305c-0ebc-49d7-8ced-549bc6231d15",
+      "examName": "chữ f",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Unit 16: At home",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Ww",
+      "examId": "b5e1d8ef-c6d2-4985-b9f9-6e593988641e",
+      "examName": "Lesson 1 - W",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 1",
+      "unitName": "Review 4",
+      "lessonName": "Phonics",
+      "exerciseName": "Thử thách",
+      "examId": "5696ad5a-3880-4087-a009-fe4b150b7a51",
+      "examName": "G1R4 phonics",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 4,
+        "DRAG_DROP": 2,
+        "ONE": 4
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "090b1143-2297-4d87-922c-d67d93d75dd5",
+          "point": 1
+        },
+        {
+          "id": "53503fe0-2cda-4e29-b986-7ce20ecf6114",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 1: At my birthday party",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Pp",
+      "examId": "8a2f294f-9ed3-49b0-befe-1eee1b2928bc",
+      "examName": "letter P",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 2: In the backyard",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Kk",
+      "examId": "69da7b95-203a-4dc4-9dfa-e9bd12d80630",
+      "examName": "letter Kk",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Fun Time 1",
+      "lessonName": "Let's fun",
+      "exerciseName": "Let's fun",
+      "examId": "1bb62994-d644-492d-9a8c-ae34c2d082d2",
+      "examName": "g2 funtime1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "ONE": 2,
+        "CONNECT": 2,
+        "DRAG_DROP": 4,
+        "SPEAK": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "5d14dc97-42fc-4ddb-a47e-bcdd33bb50cd",
+          "point": 1
+        },
+        {
+          "id": "7af676ec-9406-4ff2-9b4d-dbdc4a3bcf0a",
+          "point": 1
+        },
+        {
+          "id": "b148c50f-2d82-46ce-9fdf-0feda093e4b9",
+          "point": 1
+        },
+        {
+          "id": "e7a019de-dc28-422f-bd18-035c03804b7e",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 3: At the seaside",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Ss",
+      "examId": "b64ecc6e-4599-43e8-9dc6-77767c8e80d1",
+      "examName": "G2U3L1 letter s",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 4: In the countryside",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Rr",
+      "examId": "4fb68f9e-5704-46f6-94d6-1467236b21c6",
+      "examName": "Letter Rr",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Review 1",
+      "lessonName": "Phonics",
+      "exerciseName": "Phonics",
+      "examId": "a9245bd2-ba82-4339-9e15-7c20fcef1fc6",
+      "examName": "review 1.1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "DRAG_DROP": 2,
+        "ONE": 4,
+        "SPEAK": 4
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "0cb16bf7-f6af-4a12-839a-722ec165a1a8",
+          "point": 1
+        },
+        {
+          "id": "5708c969-cde4-4495-840c-7cc2bf72974b",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 5: In the classroom",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Qq",
+      "examId": "0c452882-e664-43d7-8c2b-88284b49d2ad",
+      "examName": "chữ q",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 6: On the farm",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Xx",
+      "examId": "92df3a66-8c03-4d60-9923-bcacfa013084",
+      "examName": "Letter Xx",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Fun time 2",
+      "lessonName": "Let’s fun",
+      "exerciseName": "1",
+      "examId": "c9d03f9b-8614-4981-9db2-53705c06ea99",
+      "examName": "Let’s sing 1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 2,
+        "ONE": 2,
+        "DRAG_DROP": 4,
+        "CONNECT": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "4cb28f71-5196-4a08-9166-0c82f31b22fa",
+          "point": 1
+        },
+        {
+          "id": "67ddab3f-1d9d-4b4d-aaf6-b9da967ff30b",
+          "point": 1
+        },
+        {
+          "id": "8da75928-522b-40ed-b7b3-5c689e38b1f6",
+          "point": 1
+        },
+        {
+          "id": "949ce9a8-da8f-4758-bf75-bb341f88b52b",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 7: In the kitchen",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Jj",
+      "examId": "34ff476c-26b0-4ceb-b242-38a511df853d",
+      "examName": "chữ j",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 8: In the village",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Vv",
+      "examId": "27fcf670-2458-4dfc-97c3-1d12bc042c56",
+      "examName": "chữ v",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Review 2",
+      "lessonName": "Phonics",
+      "exerciseName": "TT1",
+      "examId": "6b6b5789-78ab-4ef7-9bdb-5197670f18c9",
+      "examName": "phonics",
+      "questionCount": 10,
+      "typeHistogram": {
+        "DRAG_DROP": 2,
+        "SPEAK": 4,
+        "ONE": 4
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "0e32a957-63e3-4f01-945e-2027f9ee6691",
+          "point": 1
+        },
+        {
+          "id": "2a45ec6a-cc6d-40a2-9bb2-2bdff4098c73",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 9: In the grocery store",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Yy",
+      "examId": "34fbafba-e7ef-4fa1-a397-429b3587432f",
+      "examName": "chữ y",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 10: At the zoo",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Zz",
+      "examId": "7ed99f10-e969-4e9a-9fea-fa2062b7f7f4",
+      "examName": "chữ z",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Fun time 3",
+      "lessonName": "Let's fun",
+      "exerciseName": "Thực hành",
+      "examId": "5500dae2-ae75-4bbc-a995-23d8a90ebdcd",
+      "examName": "Lett fun fun time 3",
+      "questionCount": 10,
+      "typeHistogram": {
+        "CONNECT": 2,
+        "SPEAK": 2,
+        "ONE": 2,
+        "SORT": 2,
+        "DRAG_DROP": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "62c709cf-92d2-4836-a64d-58068940ca03",
+          "point": 1
+        },
+        {
+          "id": "8c4dc79c-cf21-4028-a692-89ebb9cd7036",
+          "point": 1
+        }
+      ],
+      "dragDropQuestions": [
+        {
+          "id": "8c1c6dcf-9c91-4221-a030-2423726a0ccd",
+          "point": 1
+        },
+        {
+          "id": "f8741a4c-13b2-4307-afcd-85f1978802ed",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 11: In the playground",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Ii",
+      "examId": "b952c2b7-50b0-4de2-bf48-5e303822540c",
+      "examName": "chữ i",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 12: At the café",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Aa",
+      "examId": "ead28cb2-faa5-4fb2-b278-e77b1544e5f5",
+      "examName": "G2U12L1 A-a",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 13: In the maths class",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter Nn",
+      "examId": "e22c0e89-b64a-467d-a540-5e4df858d02a",
+      "examName": "chữ n",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Review 3",
+      "lessonName": "Phonics",
+      "exerciseName": "Thử thách",
+      "examId": "33d2daa0-e649-4f03-b3f9-1c3525e15663",
+      "examName": "Phonics review 3 G2",
+      "questionCount": 10,
+      "typeHistogram": {
+        "ONE": 4,
+        "SPEAK": 4,
+        "DRAG_DROP": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "cdf19b74-926d-499e-b9db-0c1811980552",
+          "point": 1
+        },
+        {
+          "id": "e9952339-3038-4ea9-a2bd-0220c0267023",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Fun time 4",
+      "lessonName": "Let's fun",
+      "exerciseName": "Bài thực hành 1",
+      "examId": "bed8c3d0-b221-408c-8d29-f18af4d0b417",
+      "examName": "Fun 4",
+      "questionCount": 10,
+      "typeHistogram": {
+        "DRAG_DROP": 2,
+        "ONE": 2,
+        "SENTENCE_BUILDER": 2,
+        "CONNECT": 2,
+        "SPEAK": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "04ba7e53-1eea-4953-93e5-0c5fa5913caa",
+          "point": 1
+        },
+        {
+          "id": "48d88e37-1b1c-4715-9bf5-83cdda2fe307",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 14: At home",
+      "lessonName": "Lesson 1",
+      "exerciseName": "er",
+      "examId": "5ba34366-a0b0-4472-914d-4454d204bc12",
+      "examName": "er",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 15: In the clothes shop",
+      "lessonName": "Lesson 1",
+      "exerciseName": "shirt",
+      "examId": "1be4a8ff-1d32-4c08-a397-f4ddda237c6f",
+      "examName": "octopus",
+      "questionCount": 3,
+      "typeHistogram": {
+        "ONE": 2,
+        "SPEAK": 1
+      },
+      "totalPoint": 9.99,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Unit 16: At the campsite",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Letter T - t",
+      "examId": "2ab5cd9b-7e9e-4d1e-aa36-7e2a8115e845",
+      "examName": "chữ T",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 2",
+      "unitName": "Review 4",
+      "lessonName": "Phonics",
+      "exerciseName": "Thử thách 1",
+      "examId": "bc511a79-3af8-42bb-85b8-12e446173acc",
+      "examName": "Phonics - Review 4",
+      "questionCount": 10,
+      "typeHistogram": {
+        "ONE": 4,
+        "DRAG_DROP": 2,
+        "SPEAK": 4
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "3f33f5af-71f0-4b3d-8ad1-6a68cacadcad",
+          "point": 1
+        },
+        {
+          "id": "8e61a77c-1526-4068-9276-f4d5b7030922",
+          "point": 1
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 1: Hello",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Hello",
+      "examId": "277f120d-4d01-46ff-ae5e-d010a135fa04",
+      "examName": "G3U1L1 hello",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 2: Our names",
+      "lessonName": "Lesson 1",
+      "exerciseName": "my",
+      "examId": "cd6d50b0-98b3-4fad-93c4-4d8f6792f1e1",
+      "examName": "G3U2L1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 3: Our friends",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ this",
+      "examId": "908fde0e-933b-4b6b-96fd-a3b99cb3b950",
+      "examName": "Ben",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 4: Our bodies",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "8f2bc179-8166-40ca-b4b9-1751f139323b",
+      "examName": "G3U4L1 ear",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 5: My hobbies",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "8d34be09-37fe-4f5b-b61e-743d7dee5cf8",
+      "examName": "G3U5L1 singing",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Review 1",
+      "lessonName": "Phonics",
+      "exerciseName": "Phonics",
+      "examId": "119b4cfd-bf74-4982-9512-4146260056c6",
+      "examName": "phonetics",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 5,
+        "ONE": 5
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 6: Our school",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1. school",
+      "examId": "35c6fb5b-4ca6-45ea-b704-07819d278476",
+      "examName": "Từ 1. school",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 7: Classroom instructions",
+      "lessonName": "Lesson 1",
+      "exerciseName": "open your book",
+      "examId": "ff36c612-b099-45dd-81c1-6b9502533493",
+      "examName": "G3U7 open your book",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 8: My school things",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "7fa895b9-38ff-4ad6-8083-3db0a15b5908",
+      "examName": "G3U8L1 pen",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 9: Colours",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "a21e66cd-6464-4341-b104-ad733b616e9f",
+      "examName": "G3U9L1 blue",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 10: Break time activities",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "875e2dd5-0ae2-4bb6-b671-62674fe2ed5f",
+      "examName": "G3U10L1 play chess",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Review 2",
+      "lessonName": "Phonics",
+      "exerciseName": "Phonics",
+      "examId": "7d7689a4-1a36-4809-86dc-30c330fbe455",
+      "examName": "G3R3-Phonics1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 10
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 11: My family",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "434104e8-9ec9-44ef-9736-63847e3c8162",
+      "examName": "G3U11L1 Writing ",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 12: Jobs",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "bccb575d-d6db-4262-a721-58fcdb6eb55a",
+      "examName": "G3U12L1 Writing ",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 13: My house",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "6d3bbe0b-dea4-47e0-b236-45c50afa6d2c",
+      "examName": "G3U13L1 Writing ",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 14: My bedroom",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "bc0d593f-7471-4646-857f-6d9809736173",
+      "examName": "G3U14L1 bed",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 15: At the dining table",
+      "lessonName": "Lesson 1",
+      "exerciseName": "beans",
+      "examId": "ee05c74a-085e-462f-9667-5b0671c702de",
+      "examName": "G3U15L1 beans",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Review 3",
+      "lessonName": "Phonics",
+      "exerciseName": "Phonics",
+      "examId": "784b6863-44a7-4cbe-a42d-e6822327c3d3",
+      "examName": "G3R3-1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 10
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 16: My pets",
+      "lessonName": "Lesson 1",
+      "exerciseName": "bird practice",
+      "examId": "f519b678-4f4a-4618-818c-3fbb4ebca16c",
+      "examName": "bird practice",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 17: Our toys",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ: car",
+      "examId": "58e5d60e-cedd-491f-9678-cde1dd3c2101",
+      "examName": "Từ: car",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 18: Playing and doing",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "0b25cf66-f86f-46c7-83e5-922e8694fade",
+      "examName": "G3U18L1 Writing ",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 19: Outdoor activities",
+      "lessonName": "Lesson 1",
+      "exerciseName": "painting",
+      "examId": "64685e8a-1892-4f9b-97f4-9805bd28251a",
+      "examName": "Lesson 1 Vocabulary Practice",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Unit 20: At the zoo",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Peacock",
+      "examId": "622a811a-c2a0-4014-bd23-25c0b9134440",
+      "examName": "E3 U20 peacock",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 3",
+      "unitName": "Review 4",
+      "lessonName": "Phonics",
+      "exerciseName": "phonics",
+      "examId": "cb3394db-a4bd-45ce-94d1-7a288fc720a8",
+      "examName": "Pronunciation - Thu Thach 2",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 5,
+        "ONE": 5
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 1: My friends",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "caf52e25-496c-40c3-8542-923a7ac52743",
+      "examName": "G4U1 Từ 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 2: Time and daily routines",
+      "lessonName": "Lesson 1",
+      "exerciseName": "O'clock",
+      "examId": "9b6ff4b5-ef1d-4077-bcfb-3894e3356ef4",
+      "examName": "G4-U2-L1 Practice: o'clock",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 3: My week",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "2486a684-e972-45d0-a581-e9f353a8648d",
+      "examName": "G4U3L1 Monday",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 4: My birthday party",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "bb7e3a10-8bfa-4c81-bd2f-d5903ce1698e",
+      "examName": "G4U4L1 January",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 5: Things we can do",
+      "lessonName": "Lesson 1",
+      "exerciseName": "ride a bike",
+      "examId": "dafadb68-4473-47a9-b651-b496c0bb563d",
+      "examName": "K4U5L1 Vocab draw",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Review 1",
+      "lessonName": "Phonics",
+      "exerciseName": "Thực hành 1",
+      "examId": "e982b4c6-8e54-4c05-9de4-7dc87307ffca",
+      "examName": "G4R1-1",
+      "questionCount": 6,
+      "typeHistogram": {
+        "SPEAK": 6
+      },
+      "totalPoint": 10.02,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 6: Our school facilities",
+      "lessonName": "Lesson 1",
+      "exerciseName": "city",
+      "examId": "d69422b6-9e23-4924-8ff2-f0afb0089e63",
+      "examName": "G4U6L1 city",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 7: Our timetables",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Vietnamese",
+      "examId": "08bb86d9-e986-4e8f-aec3-583933f936c1",
+      "examName": "G4U7L1 Vietnamese",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 8: My favourite subjects",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Word 1: art",
+      "examId": "61ed3762-f089-4a1a-ac9c-033934437c1f",
+      "examName": "K4U8L1 art",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 9: Our sports day",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "c960abd2-915b-41f2-bca6-1f50ca8b396c",
+      "examName": "G4U9 Từ 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 10: Our summer holidays",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "9071ac05-c361-4cb4-aa1d-3aa44c856f6a",
+      "examName": "G4U10L1 beach",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Review 2",
+      "lessonName": "Phonics",
+      "exerciseName": "Thử thách 1",
+      "examId": "e374adc0-d55e-4d01-8a05-631c516bd858",
+      "examName": "G4R2-1",
+      "questionCount": 6,
+      "typeHistogram": {
+        "SPEAK": 6
+      },
+      "totalPoint": 10.02,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 11: My home",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "4d6eb1d9-50bf-48b1-8054-5a943019e113",
+      "examName": "G4U11L1 street",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 12: Jobs",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "16f2c651-6ed2-4e65-b4b7-971c9b394cc3",
+      "examName": "G4U12L1 farmer",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 13: Appearance",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "385732ec-54dc-4cf2-b08f-a94b91ec79bd",
+      "examName": "tall",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 14: Daily activities",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "a726597c-3f62-4ec2-a1e1-e050e92de555",
+      "examName": "Từ 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 15: My family's weekends",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "630e6a03-c78c-4e69-8b42-c7f8a5e56872",
+      "examName": "G4U15L1 cinema",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Review 3",
+      "lessonName": "Phonics",
+      "exerciseName": "Thử thách 1",
+      "examId": "a8fcfb16-24d8-4db8-a771-d9e995b03d86",
+      "examName": "G4 Review  3 phonics",
+      "questionCount": 10,
+      "typeHistogram": {
+        "ONE": 5,
+        "SPEAK": 5
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 16: Weather",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "176455ae-0b44-4f59-adc5-408d165cdf95",
+      "examName": "G4U16L1 sunny",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 17: In the city",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1: stop",
+      "examId": "bc9635d8-640b-4841-892b-2680222c4d03",
+      "examName": "G4U17L1 stop",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 18: At the shopping centre",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "6fab577a-f445-4697-b0e9-b166d35983a0",
+      "examName": "G4U18 Từ 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 19: The animal world",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Hippos",
+      "examId": "0aa5f560-8485-4035-8dd8-704310568a88",
+      "examName": "E4 - hippos",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Unit 20: At summer camp",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Putting up a tent",
+      "examId": "23a51e10-10a3-4739-a51a-d3ee8b479ffc",
+      "examName": "E4 U20 put up a tent",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 4",
+      "unitName": "Review 4",
+      "lessonName": "Phonics",
+      "exerciseName": "Thử thách 1",
+      "examId": "564a71ee-8079-47c0-9833-b21ddd0d2bb0",
+      "examName": "Lop 4 - review 4 - phonics 1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 6,
+        "ONE": 4
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 1: All about me!",
+      "lessonName": "Lesson 1",
+      "exerciseName": "city",
+      "examId": "c380dbc5-73fd-4b6f-89d9-f493f68d3d25",
+      "examName": "E5U1 city",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 2: Our homes",
+      "lessonName": "Lesson 1",
+      "exerciseName": "house",
+      "examId": "a59ffae3-bbc4-4670-981d-3a3c34734b72",
+      "examName": "1 house",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 3: My foreign friends",
+      "lessonName": "Lesson 1",
+      "exerciseName": "nationality",
+      "examId": "b4309b65-5dc7-4e1e-b652-f3adada0e296",
+      "examName": "E5U3L1 nationality",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 4: Our free-time activities",
+      "lessonName": "Lesson 1",
+      "exerciseName": "play the violin",
+      "examId": "e1b7fadc-32db-4908-8706-124273e1c3ec",
+      "examName": "play the violin",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 5: My future job",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "8695ce7f-0cc4-4d17-9641-80a66a3013d1",
+      "examName": "K5U5 Từ 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Review 1",
+      "lessonName": "Phonics",
+      "exerciseName": "Thực hành 1",
+      "examId": "777ddde4-743f-41ae-8004-45924ec51eef",
+      "examName": "th1phonics",
+      "questionCount": 10,
+      "typeHistogram": {
+        "ONE": 5,
+        "SPEAK": 5
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 6: Our school rooms",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "cf7165a8-c62e-49cf-a724-a374a9484993",
+      "examName": "G5U6L1 library ",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 7: Our favourite school activities",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "657f8214-5eac-4e26-8ecf-c562d3b6b367",
+      "examName": "G5U7L1 doing projects",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 8: In our classroom",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "fcc9dcc6-f5c1-4969-9d31-4fd3de183b7a",
+      "examName": "Từ 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 9: Our outdoor activities",
+      "lessonName": "Lesson 1",
+      "exerciseName": "G5U9L1 cinema",
+      "examId": "b61dbb43-5844-4ee2-9d56-652aec632e4d",
+      "examName": "G5U9L1 cinema",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 10: Our school trip",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Địa điểm 1",
+      "examId": "71ae84ce-e088-4aed-a030-ab65bad0621a",
+      "examName": "G5U10L1 Ba Na Hills",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Review 2",
+      "lessonName": "Phonics",
+      "exerciseName": "Thực hành 1",
+      "examId": "dba9498b-6e24-4fe1-88dd-5f26992cc0b7",
+      "examName": "th1phonics",
+      "questionCount": 10,
+      "typeHistogram": {
+        "ONE": 5,
+        "SPEAK": 5
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 11: Family time",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "6419c7cd-7653-45a6-bce1-20951e2a83cd",
+      "examName": "G5U11L1 swam",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 12: Our Tet holiday",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "2f8ee7e7-2682-471b-a20a-aa64a3f8abdb",
+      "examName": "G5U12 decorate the house",
+      "questionCount": 3,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "SENTENCE_BUILDER": 1,
+        "ONE": 1
+      },
+      "totalPoint": 9.99,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 13: Our special days",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "79eb78fe-c09b-4dcb-b134-0ccadf699b1c",
+      "examName": "G5U13L1 Children's Day",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 14: Staying healthy",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "1cbf6a76-ca2f-4e1d-9622-c62deeb91b0b",
+      "examName": "G5U14L1 Vocab 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 15: Our health",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "d91318bd-7581-4ad3-9b30-6cb144aac89c",
+      "examName": "G5U15L1 Vocab 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "ONE": 1,
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Review 3",
+      "lessonName": "Phonics",
+      "exerciseName": "Thực hành 1",
+      "examId": "0e4422e9-3b94-4f87-b578-5496511b5f9b",
+      "examName": "rv3phonics 1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "SPEAK": 5,
+        "ONE": 5
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 16: Seasons and the weather",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "286e2f41-dea9-44d6-9ab7-118d1e4815c0",
+      "examName": "G5U16 Từ 1",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 17: Stories for children",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "75c08568-4e56-44b0-9d0a-e87af0c184ed",
+      "examName": "G5U17L1 Snow White and the seven dwarfs",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 18: Means of transport",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Từ 1",
+      "examId": "9dc277de-a14a-4eb6-ac6f-96f239ad4c76",
+      "examName": "G5U18L1 Ha Noi Opera House",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 19: Places of interest",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Ban Gioc Waterfall",
+      "examId": "9f4d0674-c9b2-47a3-86ce-fcd3a1c30099",
+      "examName": "L1 - Ban Gioc Waterfall",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Unit 20: Our summer holiday",
+      "lessonName": "Lesson 1",
+      "exerciseName": "Huong River",
+      "examId": "57283c4c-f748-40fa-bca8-6aa339ac6fe8",
+      "examName": "L1 - river",
+      "questionCount": 2,
+      "typeHistogram": {
+        "SPEAK": 1,
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 5",
+      "unitName": "Review 4",
+      "lessonName": "Phonics",
+      "exerciseName": "1",
+      "examId": "964a5d60-0fea-43d6-9075-730b2ab3bddb",
+      "examName": "P - 1",
+      "questionCount": 10,
+      "typeHistogram": {
+        "ONE": 5,
+        "SPEAK": 5
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 1: My new school",
+      "lessonName": "Getting started",
+      "exerciseName": "smart",
+      "examId": "be04ea7e-aed7-46a8-85a3-84a5e96d174d",
+      "examName": "smart",
+      "questionCount": 1,
+      "typeHistogram": {
+        "FILL_WORD": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [
+        {
+          "id": "11708d07-6576-4d84-b930-a88e1af90526",
+          "point": 10,
+          "correctLen": 1
+        }
+      ],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 2: My house",
+      "lessonName": "Getting started",
+      "exerciseName": "town house",
+      "examId": "5931e4e8-ca6a-4ae8-a93a-2ef34f92804e",
+      "examName": "town house",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 3: My friends",
+      "lessonName": "Getting started",
+      "exerciseName": "cheek",
+      "examId": "0fc355df-e2c3-42bc-99f7-d14eee682af3",
+      "examName": "1 picnic",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Review 1",
+      "lessonName": "Language",
+      "exerciseName": "Thử thách",
+      "examId": "f5ba149d-35e6-43ff-9f32-32a810ba0dcd",
+      "examName": "G6R1 - Language - QC feedback fix",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 20
+      },
+      "totalPoint": 20,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 4: My neighbourhood",
+      "lessonName": "Getting started",
+      "exerciseName": "turning",
+      "examId": "0092743d-3faf-4f20-93cd-8b329da658e4",
+      "examName": "turning",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 5: Natural wonders of Vietnam",
+      "lessonName": "Getting started",
+      "exerciseName": "rock",
+      "examId": "54ff93b4-191d-4bad-bfc7-5272a494a5b1",
+      "examName": "2 rock",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 6: Our Tet holiday",
+      "lessonName": "Getting started",
+      "exerciseName": "decorate",
+      "examId": "f63816f3-f691-4f32-8dd3-4772c5395aec",
+      "examName": "1 decorate",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Review 2",
+      "lessonName": "Language",
+      "exerciseName": "Part A",
+      "examId": "98fe6060-2414-4292-86a9-669251b5db17",
+      "examName": "1",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 20
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 7: Television",
+      "lessonName": "Getting started",
+      "exerciseName": "1 programme",
+      "examId": "874a55df-d0e1-454d-bb93-1091b1b2632c",
+      "examName": "1 programme",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 8: Sports and Games",
+      "lessonName": "Getting Started",
+      "exerciseName": "gym",
+      "examId": "66cc651b-8161-4b2f-9bd0-32e9135d057f",
+      "examName": "1 gym",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 9: Cities of the world",
+      "lessonName": "Getting started",
+      "exerciseName": "holiday",
+      "examId": "58a6dd05-691f-4d8e-ac74-aec5f8cc4faa",
+      "examName": "1 holiday",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SENTENCE_BUILDER": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Review 3",
+      "lessonName": "Language",
+      "exerciseName": "Đề part 1",
+      "examId": "9e50dc72-4683-471f-97e3-02639c012f77",
+      "examName": "G6R3 - Language - QC feedback fix",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 20
+      },
+      "totalPoint": 20,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 10: Our houses in the future",
+      "lessonName": "Getting started",
+      "exerciseName": "future",
+      "examId": "578aadf6-261f-4c15-96c8-ccb826b89f9e",
+      "examName": "future",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 11: Our greener world",
+      "lessonName": "Getting started",
+      "exerciseName": "picnic",
+      "examId": "c3dbf57c-5ebb-4f73-b7ce-241fada81c1f",
+      "examName": "1 picnic",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 12: Robots",
+      "lessonName": "Getting started",
+      "exerciseName": "useful",
+      "examId": "0e5e199c-6f6d-49f1-963a-1324e8a95e01",
+      "examName": "GS - useful",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Review 4",
+      "lessonName": "Language",
+      "exerciseName": "Đề part 1",
+      "examId": "2a20c1cd-5989-4237-b7e4-cac4638065f3",
+      "examName": "E6 - Review 4.1",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 19,
+        "SORT": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "7413836a-0ca1-4ff1-b13c-0ce61694871e",
+          "point": 0.5
+        }
+      ],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 1: Hobbies",
+      "lessonName": "Getting Started",
+      "exerciseName": "dollhouse",
+      "examId": "6e5c6bef-6bae-4ff7-a08b-8bd5e7977f73",
+      "examName": "1 dollhouse",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 2: Healthy living",
+      "lessonName": "Getting started",
+      "exerciseName": "health",
+      "examId": "64404eb3-3dc9-4000-947f-a308e973e120",
+      "examName": "GS - health",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 3: Community Service",
+      "lessonName": "Getting started",
+      "exerciseName": "community service",
+      "examId": "f0da8394-ed95-4f5e-bdc9-3b996bc807f1",
+      "examName": "1 community service",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Review 1",
+      "lessonName": "Language",
+      "exerciseName": "Thử thách Language",
+      "examId": "f7a1125b-a5aa-4da6-8e6b-9407379fa82d",
+      "examName": "Review language p1",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 18,
+        "SORT": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "4f57d480-178c-4b86-91dd-9552cf08a580",
+          "point": 0.5
+        },
+        {
+          "id": "c29117e5-a6f7-4f3d-a44b-8a1d660b0dbc",
+          "point": 0.5
+        }
+      ],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 4: Music and Arts",
+      "lessonName": "Getting started",
+      "exerciseName": "EXERCISE_painting",
+      "examId": "36790dac-8ef8-4f2a-a2b2-7c079d0669b6",
+      "examName": "1 painting",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 5: Food and Drink",
+      "lessonName": "Getting started",
+      "exerciseName": "fried",
+      "examId": "0d7561f7-f712-4f36-a042-c2edb3129b59",
+      "examName": "G7U5GS fried",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 6: A visit to school",
+      "lessonName": "Getting started",
+      "exerciseName": "Gym",
+      "examId": "f8a749d7-a142-4d0b-84d1-a4157ee4fced",
+      "examName": "1 gym",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Review 2",
+      "lessonName": "Language",
+      "exerciseName": "Đề part 1",
+      "examId": "b4a56d42-f4d0-459e-bfca-d42e45366c22",
+      "examName": "G7R2 đề p1",
+      "questionCount": 19,
+      "typeHistogram": {
+        "ONE": 18,
+        "SORT": 1
+      },
+      "totalPoint": 10.07,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "438d0716-570b-4cf4-af05-0afe8ff2860b",
+          "point": 0.53
+        }
+      ],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 7: Traffic",
+      "lessonName": "Getting started",
+      "exerciseName": "traffic",
+      "examId": "ff0b2d0f-927c-4321-a98d-8168b3f91fb9",
+      "examName": "traffic",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 8: Films",
+      "lessonName": "Getting started",
+      "exerciseName": "film",
+      "examId": "9254d2b2-9139-4386-b653-5adf131a31df",
+      "examName": "2 film",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 9: Festivals around the world",
+      "lessonName": "Getting started",
+      "exerciseName": "1 festival",
+      "examId": "a34fc34b-7490-4f67-a3ec-a22128ad06ed",
+      "examName": "1 festival",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Review 3",
+      "lessonName": "Language",
+      "exerciseName": "Bài thực hành 1",
+      "examId": "6328cc68-44bc-4ee4-abb0-b5dc421c0846",
+      "examName": "G07 Review 3 (1)",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 20
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 10: Energy Sources",
+      "lessonName": "Getting started",
+      "exerciseName": "energy",
+      "examId": "a52108b0-328b-4aea-9db2-578918e526da",
+      "examName": "energy",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 11: Travelling in the future",
+      "lessonName": "Getting started",
+      "exerciseName": "fume",
+      "examId": "317ff5f7-07b2-4ef6-bbf3-074119f92714",
+      "examName": "GS - fume",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 12: English-speaking countries",
+      "lessonName": "Getting started",
+      "exerciseName": "local",
+      "examId": "573c179e-567c-4636-a730-7f18ad83f244",
+      "examName": "Read and choose.",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Review 4",
+      "lessonName": "Language",
+      "exerciseName": "Đề part 1",
+      "examId": "22aafeeb-1ab9-4a2e-b370-2637482c4fc3",
+      "examName": "Review 4 - p1",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 19,
+        "SORT": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "6f0ce620-df1a-4749-b781-b849137f25aa",
+          "point": 0.5
+        }
+      ],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 1: Leisure time",
+      "lessonName": "Getting started",
+      "exerciseName": "knitting",
+      "examId": "abf2aa24-d6a5-4e2f-a6f1-c9b5034357d0",
+      "examName": "1 knitting",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 2: Life in the countryside",
+      "lessonName": "Getting started",
+      "exerciseName": "combine harvester",
+      "examId": "92a2486e-520d-4493-ba42-7281d4050c06",
+      "examName": "combine harvester",
+      "questionCount": 1,
+      "typeHistogram": {
+        "DRAG_DROP": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "f9462a13-3d76-4b2a-977a-8f9f818f388a",
+          "point": 10
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 3: Teenagers",
+      "lessonName": "Getting started",
+      "exerciseName": "forum",
+      "examId": "f09ee2a2-d332-42c5-ad70-de19972e1b9f",
+      "examName": "forum",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Review 1",
+      "lessonName": "Language",
+      "exerciseName": "LANGUAGE copy",
+      "examId": "735f46df-2661-4d71-8610-d6c4ef188d89",
+      "examName": "RV 1 K8",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 20
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 4: Ethnic groups of Vietnam",
+      "lessonName": "Getting started",
+      "exerciseName": "ethnic group",
+      "examId": "4499c3ef-cb2d-4428-8c05-81a22be97c64",
+      "examName": "ex getting started",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 5: Our customs and traditions",
+      "lessonName": "Getting started",
+      "exerciseName": "ornamental tree",
+      "examId": "95b03171-20ea-44c0-ade6-5b3b52a9a630",
+      "examName": "ornamental tree",
+      "questionCount": 1,
+      "typeHistogram": {
+        "DRAG_DROP": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "dbb5a0cf-cbb8-4f48-8f4e-a17e29b89b08",
+          "point": 10
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 6: Lifestyles",
+      "lessonName": "Getting started",
+      "exerciseName": "1 lifestyle",
+      "examId": "99500dcd-2156-4f14-a2ed-9229a28153a7",
+      "examName": "1 lifestyle",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Review 2",
+      "lessonName": "Language",
+      "exerciseName": "Language",
+      "examId": "e7ae09d6-b5e4-4b58-be16-abb762cd60a8",
+      "examName": "RV2.1",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 20
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 7: Environmental Protection",
+      "lessonName": "Getting Started",
+      "exerciseName": "product",
+      "examId": "9409f08a-c7de-4ecb-a8dd-c0e30f96ccea",
+      "examName": "product",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 8: Shopping",
+      "lessonName": "Getting started",
+      "exerciseName": "fair",
+      "examId": "73ac42d3-3521-4f4e-ae68-88769624caf5",
+      "examName": "2 supermarket",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 9: Natural Disasters",
+      "lessonName": "Getting Started",
+      "exerciseName": "storm",
+      "examId": "cd2d3faa-1ce4-434f-9e06-40dae83dd7a6",
+      "examName": "5 storm",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Review 3",
+      "lessonName": "Language",
+      "exerciseName": "Language",
+      "examId": "699d18fe-d5f5-433b-99c7-acc558544527",
+      "examName": "RV3",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 18,
+        "SORT": 2
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "359da13b-94ab-485d-9121-c192a3fa3627",
+          "point": 0.5
+        },
+        {
+          "id": "b020efd6-e956-40c4-8608-8db8ed34dc5c",
+          "point": 0.5
+        }
+      ],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 10: Communication In The Future",
+      "lessonName": "Getting started",
+      "exerciseName": "tablet",
+      "examId": "1087e342-5b90-4f70-8872-7754b29e5eee",
+      "examName": "G8U10GS tablet",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 11: Science and Technology",
+      "lessonName": "Getting started",
+      "exerciseName": "breakout rooms",
+      "examId": "253fc163-60f4-444d-823c-45b355f45dda",
+      "examName": "3 breakout rooms",
+      "questionCount": 1,
+      "typeHistogram": {
+        "TRUE_FALSE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 12: Life on other planets",
+      "lessonName": "Getting started",
+      "exerciseName": "creature",
+      "examId": "23288ba6-813c-48a7-818b-2c59587474f2",
+      "examName": "Bài thực hành: creature",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Review 4",
+      "lessonName": "Language",
+      "exerciseName": "Đề part 1",
+      "examId": "f6844a09-37c7-4052-bddb-df5790084479",
+      "examName": "E8R4.1",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 19,
+        "SORT": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "c4a617ef-ab08-4231-9906-61a577f3f99f",
+          "point": 0.5
+        }
+      ],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 1: Local Community",
+      "lessonName": "Getting started",
+      "exerciseName": "suburb",
+      "examId": "07f880fe-ae5f-43a9-97df-7da3ab9cc288",
+      "examName": "1 suburb",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 2: City Life",
+      "lessonName": "Getting Started",
+      "exerciseName": "itchy",
+      "examId": "57f0c523-aba9-452b-87c1-79bb4a50d0fb",
+      "examName": "4 itchy eyes",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 3: Healthy Living For Teens",
+      "lessonName": "Getting started",
+      "exerciseName": "mental",
+      "examId": "975283aa-6c2c-4204-86dc-0d2259d2a62b",
+      "examName": "G9U3GS mental",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Review 1",
+      "lessonName": "Language",
+      "exerciseName": "TT 1",
+      "examId": "c7ac7773-f980-47dc-9fb6-01144f0975fa",
+      "examName": "VOCAB",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 20
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 4: Remembering The Past",
+      "lessonName": "Getting started",
+      "exerciseName": "castle",
+      "examId": "b566347c-1cd6-4795-b636-30a34143aba5",
+      "examName": "G9U4GS castle",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 5: Our experiences",
+      "lessonName": "Getting started",
+      "exerciseName": "1 experience",
+      "examId": "dd54536e-9091-41a4-b31a-7f7b2deb3fde",
+      "examName": "1 experience",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 6: Vietnamese lifestyle: Then and now",
+      "lessonName": "Getting started",
+      "exerciseName": "lifestyle",
+      "examId": "af8effb1-353d-499f-b464-ad64c5a22df3",
+      "examName": "lifestyle",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Review 2",
+      "lessonName": "Language",
+      "exerciseName": "Review Vocab + Grammar",
+      "examId": "8037f0cc-4c7a-4348-9f83-67f236540676",
+      "examName": "G9R2 Workflow - Review Vocab + Grammar",
+      "questionCount": 18,
+      "typeHistogram": {
+        "ONE": 18
+      },
+      "totalPoint": 18,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 7: Natural Wonders of the World",
+      "lessonName": "Getting started",
+      "exerciseName": "crazy (about something)",
+      "examId": "1af91d15-3add-4ea5-a6bb-3e66c14ca231",
+      "examName": "crazy (about something)",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 8: Tourism",
+      "lessonName": "Getting started",
+      "exerciseName": "food tourism",
+      "examId": "0f128e7f-0b1e-4957-88d0-a461dbf2a323",
+      "examName": "tan",
+      "questionCount": 1,
+      "typeHistogram": {
+        "TRUE_FALSE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 9: World Englishes",
+      "lessonName": "Getting started",
+      "exerciseName": "exchange student",
+      "examId": "47342c1b-6b65-4ab4-9441-9a48c29749c9",
+      "examName": "exchange student",
+      "questionCount": 1,
+      "typeHistogram": {
+        "DRAG_DROP": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [
+        {
+          "id": "36d2a411-114e-4d00-9c61-2ab5515c5422",
+          "point": 10
+        }
+      ],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Review 3",
+      "lessonName": "Language",
+      "exerciseName": "Đề 1",
+      "examId": "5e54781f-fa70-445e-b60b-e9d83b81aef6",
+      "examName": "đề 1",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 20
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 10: Planet earth",
+      "lessonName": "Getting started",
+      "exerciseName": "liquid water",
+      "examId": "aa60a14e-7bed-499f-8772-2853a9203ec2",
+      "examName": "liquid water",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SPEAK": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 11: Electronics device",
+      "lessonName": "Getting started",
+      "exerciseName": "touchscreen",
+      "examId": "b1357aa9-2617-45ef-bdc6-84cdd748f31d",
+      "examName": "3 touchscreen",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 12: Career choices",
+      "lessonName": "Getting started",
+      "exerciseName": "career",
+      "examId": "bd74b88a-03fd-4141-b390-07bfa39ef617",
+      "examName": "GS - career",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Review 4",
+      "lessonName": "Language",
+      "exerciseName": "Đề part 1",
+      "examId": "fe4c9115-253e-4a38-9cff-3bdc0d098581",
+      "examName": "G9R4 - part 1",
+      "questionCount": 20,
+      "typeHistogram": {
+        "ONE": 19,
+        "SORT": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [
+        {
+          "id": "375f491a-4fe8-4339-bf60-dc1e63e4b675",
+          "point": 0.5
+        }
+      ],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 1: Family life",
+      "lessonName": "Getting started",
+      "exerciseName": "breadwinner",
+      "examId": "5b7b3aef-baa6-4158-877a-bd7399444cf6",
+      "examName": "5 breadwinner",
+      "questionCount": 1,
+      "typeHistogram": {
+        "TRUE_FALSE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 2: Humans and the environment",
+      "lessonName": "Getting started",
+      "exerciseName": "adopt",
+      "examId": "84396b63-c110-4ce5-9dd2-b8c4c2e17750",
+      "examName": "GS - adopt",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 3: Music",
+      "lessonName": "Getting started",
+      "exerciseName": "idol",
+      "examId": "f602afc3-bea8-4b42-9ead-5ac915faabfd",
+      "examName": "GS-idol",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 9: Protecting the enviroment",
+      "lessonName": "Getting started",
+      "exerciseName": "endangered",
+      "examId": "089c22ee-a9be-4fc9-9fea-517131714d9d",
+      "examName": "GS - endangered",
+      "questionCount": 1,
+      "typeHistogram": {
+        "TRUE_FALSE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 10: Ecotourism",
+      "lessonName": "Getting started",
+      "exerciseName": "explore",
+      "examId": "78aae79c-7e6d-4c81-8f21-cfbb1b315266",
+      "examName": "1 explore",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Review 4",
+      "lessonName": "Language",
+      "exerciseName": "Pronun + Vocab + Grammar",
+      "examId": "8f59365b-f3a3-477c-82fc-bdbd31531a0c",
+      "examName": "RV4 - P1",
+      "questionCount": 15,
+      "typeHistogram": {
+        "ONE": 15
+      },
+      "totalPoint": 10.05,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 1: A long and healthy life",
+      "lessonName": "Getting started",
+      "exerciseName": "balanced",
+      "examId": "c2fb134f-6cd0-490f-9ff3-fd15f3ee4ce0",
+      "examName": "1 bacteria",
+      "questionCount": 1,
+      "typeHistogram": {
+        "SENTENCE_BUILDER": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 3: Cities of the future",
+      "lessonName": "Getting Started",
+      "exerciseName": "energy_1",
+      "examId": "4c2f1a39-7eed-40f1-9f1b-3a54284a2a52",
+      "examName": "energy_1",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 9: Social issues",
+      "lessonName": "Getting started",
+      "exerciseName": "bullying",
+      "examId": "450ffe6f-3eb8-49db-90f4-c0f4adf4b946",
+      "examName": "1 bullying",
+      "questionCount": 1,
+      "typeHistogram": {
+        "TRUE_FALSE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": false
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 10: The ecosystem",
+      "lessonName": "Getting started",
+      "exerciseName": "fauna",
+      "examId": "f14e7fdd-1a25-40c0-9b57-e39a3527899d",
+      "examName": "fauna",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Review 4",
+      "lessonName": "Language",
+      "exerciseName": "Pronoun + Vocab + Grammar",
+      "examId": "b43f4abc-1115-43a6-91c9-6f999e057160",
+      "examName": "Review 4",
+      "questionCount": 15,
+      "typeHistogram": {
+        "ONE": 15
+      },
+      "totalPoint": 10.05,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 2: A multicultural world",
+      "lessonName": "Getting Started",
+      "exerciseName": "bamboo dancing",
+      "examId": "d70018d1-2d9f-41a8-a42b-eb0cc2963ba1",
+      "examName": "G12U2GS Bamboo dancing",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 3: Green living",
+      "lessonName": "Getting started",
+      "exerciseName": "clean up",
+      "examId": "166dbacf-886b-485e-9a5d-18b26fd9a8ab",
+      "examName": "G12U3 Getting started cleanup",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Review 1",
+      "lessonName": "Language",
+      "exerciseName": "Thử thách 1",
+      "examId": "0c940473-ce4d-400d-8efd-f7445c637441",
+      "examName": "G12R1 - Language Thử thách 1 - QC fix",
+      "questionCount": 15,
+      "typeHistogram": {
+        "ONE": 15
+      },
+      "totalPoint": 10.05,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 9: Career paths",
+      "lessonName": "Getting started",
+      "exerciseName": "pursue",
+      "examId": "a66c6ad1-7551-459b-850c-4f2cf9e62b87",
+      "examName": "wrap-up",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 10: Lifelong learning",
+      "lessonName": "Getting started",
+      "exerciseName": "boost",
+      "examId": "5620e7d8-f404-4b0f-8036-c4b2eddd6169",
+      "examName": "GS - boost",
+      "questionCount": 1,
+      "typeHistogram": {
+        "ONE": 1
+      },
+      "totalPoint": 10,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Review 4",
+      "lessonName": "Language",
+      "exerciseName": "Pronun + Vocab + Grammar",
+      "examId": "f52eec87-50e3-473f-8266-6767b4132c11",
+      "examName": "G12 Review 4",
+      "questionCount": 15,
+      "typeHistogram": {
+        "ONE": 15
+      },
+      "totalPoint": 10.05,
+      "fillWordQuestions": [],
+      "sortQuestions": [],
+      "dragDropQuestions": [],
+      "allChoicePointsUniform": true
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,1425 @@
+{
+  "sampledCount": 619,
+  "errorCount": 4,
+  "fillWordExams": [
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 1: My new school",
+      "lessonName": "Vocabulary",
+      "exerciseName": "calculator",
+      "examId": "46af1870-91ed-4539-b4ec-8a7ced475ccf",
+      "fillWordQuestions": [
+        {
+          "id": "da00f8ca-e69a-4f3f-b9ba-11e79a597c80",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 1: My new school",
+      "lessonName": "Vocabulary",
+      "exerciseName": "English",
+      "examId": "c2d01f8c-57ff-48e5-bfe7-7d3dac21bf96",
+      "fillWordQuestions": [
+        {
+          "id": "8d9c1ad2-bd20-4f58-9efb-78d3fd6b050d",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 1: My new school",
+      "lessonName": "Vocabulary",
+      "exerciseName": "Luyện tập từ vựng",
+      "examId": "4ebc31a3-efe1-4071-a0d4-096e342c12f6",
+      "fillWordQuestions": [
+        {
+          "id": "4282095b-f988-443b-8912-96d6e60ebb8b",
+          "point": 1,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 2: My house",
+      "lessonName": "Vocabulary",
+      "exerciseName": "cupboard",
+      "examId": "0589b6d7-5797-498a-a6ba-2919cf40b91e",
+      "fillWordQuestions": [
+        {
+          "id": "9d6f4b35-8339-4ea0-ab6d-0319a13e32ec",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 2: My house",
+      "lessonName": "Vocabulary",
+      "exerciseName": "picture",
+      "examId": "804cd071-b02c-4a5e-abca-c126a8e272d8",
+      "fillWordQuestions": [
+        {
+          "id": "2df7151c-fbe9-4cd6-9e22-829ab6abdbf8",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 3: My friends",
+      "lessonName": "Vocabulary",
+      "exerciseName": "hard-working",
+      "examId": "9bb41c02-6e4d-4781-b167-60d3f3a7d9f8",
+      "fillWordQuestions": [
+        {
+          "id": "d936002f-a0c3-4017-8cae-7e2f2ea73c8c",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 3: My friends",
+      "lessonName": "Vocabulary",
+      "exerciseName": "caring",
+      "examId": "8510d9f2-d964-4d5a-99c9-00171911115b",
+      "fillWordQuestions": [
+        {
+          "id": "4f1a6015-0d84-4f4b-87fe-2d0b376e93f2",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 3: My friends",
+      "lessonName": "Vocabulary",
+      "exerciseName": "active",
+      "examId": "91459d6f-8bce-48d2-b41e-955f7fa262fd",
+      "fillWordQuestions": [
+        {
+          "id": "c889987a-905b-484f-8592-ca9dcd8b1a7c",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 8: Sports and Games",
+      "lessonName": "Vocabulary",
+      "exerciseName": "sports shoes",
+      "examId": "6226cc5a-cc3e-47e9-8800-9686c5f0dcca",
+      "fillWordQuestions": [
+        {
+          "id": "8b047bd6-31ce-4590-806a-fbe811109e1a",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 8: Sports and Games",
+      "lessonName": "Vocabulary",
+      "exerciseName": "take place",
+      "examId": "3c96e626-2496-4bcb-9aa1-686d153bc296",
+      "fillWordQuestions": [
+        {
+          "id": "8934299c-409d-4d93-b9ca-7b8a9e984168",
+          "point": 1,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 8: Sports and Games",
+      "lessonName": "Vocabulary",
+      "exerciseName": "fantastic",
+      "examId": "61335de3-8938-456d-907b-82c064773525",
+      "fillWordQuestions": [
+        {
+          "id": "eb0447d1-cae0-4032-adbb-237ce8227e0d",
+          "point": 1,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 8: Sports and Games",
+      "lessonName": "Vocabulary",
+      "exerciseName": "marathon",
+      "examId": "ec1e8783-510f-42eb-bf1c-fc36176bbede",
+      "fillWordQuestions": [
+        {
+          "id": "ec71a561-9089-4ab7-8a4e-141900c2d2ef",
+          "point": 1,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 9: Cities of the world",
+      "lessonName": "Vocabulary",
+      "exerciseName": "postcard",
+      "examId": "99d5c925-ba8e-4f89-bbb6-cb05289f3540",
+      "fillWordQuestions": [
+        {
+          "id": "3a4dd510-5d7e-484a-8a88-fed05173df6a",
+          "point": 10,
+          "correctLen": 7
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 9: Cities of the world",
+      "lessonName": "Vocabulary",
+      "exerciseName": "street food",
+      "examId": "f394f428-5300-45af-88bc-ea6a7c41c3e4",
+      "fillWordQuestions": [
+        {
+          "id": "8bfd1294-46ed-4ee0-8dbe-31a989b6778b",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 6",
+      "unitName": "Unit 12: Robots",
+      "lessonName": "Vocabulary",
+      "exerciseName": "understand",
+      "examId": "83c26227-0d85-4d35-a3fc-0aa505ea8d22",
+      "fillWordQuestions": [
+        {
+          "id": "176990ca-5e6c-4bcf-8704-721acab1bfd7",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 3: Community Service",
+      "lessonName": "Vocabulary",
+      "exerciseName": "volunteer",
+      "examId": "c4e869b8-3885-4737-b6a2-b577e8db8847",
+      "fillWordQuestions": [
+        {
+          "id": "973ebb5f-d8ec-4bdf-9110-ce48b09dfc97",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 3: Community Service",
+      "lessonName": "Vocabulary",
+      "exerciseName": "homeless",
+      "examId": "0ff66c51-fb30-4503-81d2-c235acb2e9b9",
+      "fillWordQuestions": [
+        {
+          "id": "276bc39e-943b-455c-9c73-0e4f46136137",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 3: Community Service",
+      "lessonName": "Vocabulary",
+      "exerciseName": "exchange",
+      "examId": "1d03b22c-3da3-43f9-828a-1f7c87cd43b0",
+      "fillWordQuestions": [
+        {
+          "id": "fad237aa-7222-4a72-a518-f4b70ead3d69",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 3: Community Service",
+      "lessonName": "Vocabulary",
+      "exerciseName": "tutor",
+      "examId": "5c138fbf-6bef-4d52-ba10-2f14e30eb32a",
+      "fillWordQuestions": [
+        {
+          "id": "8c75f182-4ff5-4c46-965f-1a515c1e3164",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 3: Community Service",
+      "lessonName": "Vocabulary",
+      "exerciseName": "orphanage",
+      "examId": "63ea6a4b-81e8-47de-b9e9-bc1123d67bf5",
+      "fillWordQuestions": [
+        {
+          "id": "767ffaf4-aaf4-42ff-be11-b75097491c5e",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 3: Community Service",
+      "lessonName": "Vocabulary",
+      "exerciseName": "mountainous",
+      "examId": "5d8b2965-ca25-4110-9fa2-b16d2c80083a",
+      "fillWordQuestions": [
+        {
+          "id": "49c6113d-7064-4e28-b54d-15bd4cda07d8",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 3: Community Service",
+      "lessonName": "Vocabulary",
+      "exerciseName": "provide",
+      "examId": "be311beb-9bb8-47de-ad64-13938f8df682",
+      "fillWordQuestions": [
+        {
+          "id": "898cb110-49d3-44ce-b781-8a27006d3d13",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 4: Music and Arts",
+      "lessonName": "Vocabulary",
+      "exerciseName": "concert hall",
+      "examId": "8605fca7-12f6-4d35-8f73-cb1d69dd94f7",
+      "fillWordQuestions": [
+        {
+          "id": "90542499-faa5-4668-8dbe-3b521da99b9a",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 4: Music and Arts",
+      "lessonName": "Vocabulary",
+      "exerciseName": "artist",
+      "examId": "aa9773d0-a01a-44d9-aaa4-9806e6eaebba",
+      "fillWordQuestions": [
+        {
+          "id": "5e80e740-a78b-4356-a9ba-b6eb6ada1c1b",
+          "point": 1,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 4: Music and Arts",
+      "lessonName": "Vocabulary",
+      "exerciseName": "musician",
+      "examId": "d487adc6-d3c9-4bae-9808-a91289f2d58d",
+      "fillWordQuestions": [
+        {
+          "id": "77219c86-c9a3-4786-8f1f-2a4ee3af8347",
+          "point": 1,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 4: Music and Arts",
+      "lessonName": "Vocabulary",
+      "exerciseName": "portrait",
+      "examId": "1309e1f5-dd63-49c0-a56f-0e4fa3ff71e6",
+      "fillWordQuestions": [
+        {
+          "id": "c90108e9-d931-428b-bb5f-3684fec04fa3",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 5: Food and Drink",
+      "lessonName": "Vocabulary",
+      "exerciseName": "ingredient",
+      "examId": "eff604f6-bc10-4611-a5e8-6f6c43a83c7d",
+      "fillWordQuestions": [
+        {
+          "id": "30d88186-48fc-46cf-a0a9-96ac9fd6829a",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 5: Food and Drink",
+      "lessonName": "Vocabulary",
+      "exerciseName": "recipe",
+      "examId": "99b49bea-dd02-49dd-be88-540b690caf44",
+      "fillWordQuestions": [
+        {
+          "id": "e822ed1e-cb15-4e4d-95a7-eb1dcf343aa1",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 5: Food and Drink",
+      "lessonName": "Vocabulary",
+      "exerciseName": "pepper",
+      "examId": "a2c46bb6-4e82-4e81-931f-480a245be275",
+      "fillWordQuestions": [
+        {
+          "id": "be5be621-192b-4ffa-afe0-403592596075",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 6: A visit to school",
+      "lessonName": "Vocabulary",
+      "exerciseName": "take part in",
+      "examId": "19e2fa17-20d2-4c64-8edf-2f3046156ce2",
+      "fillWordQuestions": [
+        {
+          "id": "579adc8f-5471-40ab-94fd-af5219c13674",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 6: A visit to school",
+      "lessonName": "Vocabulary",
+      "exerciseName": "school facilities",
+      "examId": "f4d8cdb3-38e6-433d-8b31-d4ef0b977f5a",
+      "fillWordQuestions": [
+        {
+          "id": "113afad8-f6c6-4f41-9ae1-469c9aaba1af",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 6: A visit to school",
+      "lessonName": "Vocabulary",
+      "exerciseName": "entrance examination",
+      "examId": "c9989850-50f0-484d-91a0-a682b213fb0e",
+      "fillWordQuestions": [
+        {
+          "id": "789f9977-c5bb-4d86-b7b7-f45fc72d258f",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 6: A visit to school",
+      "lessonName": "Vocabulary",
+      "exerciseName": "lower secondary school",
+      "examId": "b6debef5-85fa-4ab6-bc18-2260eed9bc9d",
+      "fillWordQuestions": [
+        {
+          "id": "e390dce9-4581-450a-94a8-8bb885bc273d",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 7: Traffic",
+      "lessonName": "Vocabulary",
+      "exerciseName": "zebra crossing",
+      "examId": "0fbc1b73-cba7-40b6-837f-8e443a0f6aa9",
+      "fillWordQuestions": [
+        {
+          "id": "ae7a064b-0f3c-4977-a39b-603ac0b17ffa",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 8: Films",
+      "lessonName": "Vocabulary",
+      "exerciseName": "documentary",
+      "examId": "a6415e3b-dc29-4bf7-98dc-58093f293b08",
+      "fillWordQuestions": [
+        {
+          "id": "164dcce3-86c6-4526-b514-5455823a0fb7",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 9: Festivals around the world",
+      "lessonName": "Vocabulary",
+      "exerciseName": "Thanksgiving",
+      "examId": "4082f7b4-c147-43db-b684-ba8760b764e2",
+      "fillWordQuestions": [
+        {
+          "id": "e5b053b8-63b0-415a-b728-25346ad7dbb8",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 10: Energy Sources",
+      "lessonName": "Vocabulary",
+      "exerciseName": "renewable",
+      "examId": "b12fd820-c596-4504-9557-7f45bd4ce47c",
+      "fillWordQuestions": [
+        {
+          "id": "9e7b62d9-cee1-4c62-a639-72ae567db8a3",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 10: Energy Sources",
+      "lessonName": "Vocabulary",
+      "exerciseName": "non-renewable",
+      "examId": "da4d1198-adda-4139-9545-dacc29bd11f3",
+      "fillWordQuestions": [
+        {
+          "id": "59ecdca8-90be-4f3b-a831-ed528eee0966",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 10: Energy Sources",
+      "lessonName": "Vocabulary",
+      "exerciseName": "limited",
+      "examId": "6591fb38-2d25-419b-b771-4301fce879a7",
+      "fillWordQuestions": [
+        {
+          "id": "c56bf476-a1db-4ed7-8847-26fc4f7e76dc",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 11: Travelling in the future",
+      "lessonName": "Vocabulary",
+      "exerciseName": "autopilot",
+      "examId": "a0afa33a-7681-4998-a5e1-430ad8a25aa7",
+      "fillWordQuestions": [
+        {
+          "id": "aebffd24-27c8-43b5-bd5e-a40f5d76132d",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 7",
+      "unitName": "Unit 11: Travelling in the future",
+      "lessonName": "Vocabulary",
+      "exerciseName": "solar-powered",
+      "examId": "76ac55aa-587e-4b53-b31a-e32584707f90",
+      "fillWordQuestions": [
+        {
+          "id": "0fc38680-9b4c-409b-939a-bde7d5641d7e",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 2: Life in the countryside",
+      "lessonName": "Vocabulary",
+      "exerciseName": "hospitable",
+      "examId": "ae87f42d-b0e0-42fd-9f9d-01171b4c07ab",
+      "fillWordQuestions": [
+        {
+          "id": "097070ba-96c1-40a8-8367-23227c16bde7",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 3: Teenagers",
+      "lessonName": "Vocabulary",
+      "exerciseName": "Vocabulary - Bài tập 1",
+      "examId": "1ce2fb29-b77f-4a82-a380-a576d153a018",
+      "fillWordQuestions": [
+        {
+          "id": "56b2eb59-cf0b-49b6-83cc-c29506ccdb6b",
+          "point": 1,
+          "correctLen": 1
+        },
+        {
+          "id": "9b5913d3-57a1-4963-8c94-f08f37bbc6d2",
+          "point": 1,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 5: Our customs and traditions",
+      "lessonName": "Vocabulary",
+      "exerciseName": "acrobatics",
+      "examId": "7c5d61c1-3301-4189-aa6d-9995b20367c1",
+      "fillWordQuestions": [
+        {
+          "id": "11f06423-95f0-4244-987b-ea9cc95acf5c",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 5: Our customs and traditions",
+      "lessonName": "Vocabulary",
+      "exerciseName": "ceremony",
+      "examId": "0c49c3d0-18e9-4aaf-b90f-9e19484e23e7",
+      "fillWordQuestions": [
+        {
+          "id": "943b5d59-31cf-4268-897a-54b4b6f2344d",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 5: Our customs and traditions",
+      "lessonName": "Vocabulary",
+      "exerciseName": "longevity",
+      "examId": "d7927def-8b0a-4f72-af34-961895b200ce",
+      "fillWordQuestions": [
+        {
+          "id": "b6b1ed42-7aef-49e0-9850-e4161feb9427",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 7: Environmental Protection",
+      "lessonName": "Vocabulary",
+      "exerciseName": "ecosystem",
+      "examId": "86bb5246-2284-4c2c-af70-02971b5ae123",
+      "fillWordQuestions": [
+        {
+          "id": "3c37b168-fbdb-4f83-b363-8d812009a37c",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 7: Environmental Protection",
+      "lessonName": "Vocabulary",
+      "exerciseName": "participate",
+      "examId": "ea248142-c299-4be2-a056-716bc9e57082",
+      "fillWordQuestions": [
+        {
+          "id": "69710663-0a1f-4c40-a4f5-dbd7d192b314",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 8: Shopping",
+      "lessonName": "Vocabulary",
+      "exerciseName": "shopaholic",
+      "examId": "51fac2be-d7ab-43d4-88af-129621d52236",
+      "fillWordQuestions": [
+        {
+          "id": "47b438e5-0e2f-4cad-9b29-31b8aa365eb5",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 8: Shopping",
+      "lessonName": "Vocabulary",
+      "exerciseName": "advertisement",
+      "examId": "e35c284b-ae2e-4fa3-8d2f-99412615d803",
+      "fillWordQuestions": [
+        {
+          "id": "d1736e12-77aa-4477-8dd5-0f668a991ca3",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 9: Natural Disasters",
+      "lessonName": "Vocabulary",
+      "exerciseName": "rescue worker",
+      "examId": "820ca632-0767-4ea1-b6de-49948ca4c1a1",
+      "fillWordQuestions": [
+        {
+          "id": "9c93d581-fd7e-411a-99dd-ff292c58bdac",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 9: Natural Disasters",
+      "lessonName": "Vocabulary",
+      "exerciseName": "authority",
+      "examId": "c2fdf36d-5603-473b-96cf-75074dc55cb3",
+      "fillWordQuestions": [
+        {
+          "id": "6b1dfa43-3fc2-4116-bb55-933156f19349",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 10: Communication In The Future",
+      "lessonName": "Vocabulary",
+      "exerciseName": "holography",
+      "examId": "e21e78e2-5911-459d-b4fe-df4200019309",
+      "fillWordQuestions": [
+        {
+          "id": "6f0c34b9-3e9d-4ee9-b418-a24ee19c1651",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 10: Communication In The Future",
+      "lessonName": "Vocabulary",
+      "exerciseName": "language barrier",
+      "examId": "d3028596-725b-4cc4-9b7c-ce7a0fe4bc9e",
+      "fillWordQuestions": [
+        {
+          "id": "4fcae06a-5bf4-42af-a8b6-f7503ad3cd56",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 11: Science and Technology",
+      "lessonName": "Vocabulary",
+      "exerciseName": "experiment",
+      "examId": "da7392b2-1cae-4535-b610-2943a3f0fae5",
+      "fillWordQuestions": [
+        {
+          "id": "e5a65f83-ea12-45c6-bdb3-7d104f16e989",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 8",
+      "unitName": "Unit 11: Science and Technology",
+      "lessonName": "Vocabulary",
+      "exerciseName": "technology",
+      "examId": "543a79b6-2d53-48c1-bc3c-7274d4655616",
+      "fillWordQuestions": [
+        {
+          "id": "8b2cded8-037d-48d6-8241-cc4c35050b64",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 1: Local Community",
+      "lessonName": "Vocabulary",
+      "exerciseName": "garbage collector",
+      "examId": "3e51c094-62a3-44f2-8ba8-097fc0721039",
+      "fillWordQuestions": [
+        {
+          "id": "6a6426ea-4fb9-406c-b065-39ee50f706d1",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 1: Local Community",
+      "lessonName": "Vocabulary",
+      "exerciseName": "delivery person",
+      "examId": "1fc807b8-abfc-444e-8f44-771727642f56",
+      "fillWordQuestions": [
+        {
+          "id": "223d5d65-8422-478e-9bc7-9de1e05041e2",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 1: Local Community",
+      "lessonName": "Vocabulary",
+      "exerciseName": "handicraft",
+      "examId": "19d8f58c-3ed0-46fc-8e4f-8052f72e8d9c",
+      "fillWordQuestions": [
+        {
+          "id": "10dcda98-9940-4047-9a81-0382a86707f1",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 1: Local Community",
+      "lessonName": "Vocabulary",
+      "exerciseName": "artisan",
+      "examId": "8f6569fb-adba-4f6e-ae42-3969b8ab57f3",
+      "fillWordQuestions": [
+        {
+          "id": "ef768f35-2414-43a2-b79a-e4b19453c6d7",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 2: City Life",
+      "lessonName": "Vocabulary",
+      "exerciseName": "concrete jungle",
+      "examId": "7b5d8553-8a3a-4420-94a0-61d6310fee39",
+      "fillWordQuestions": [
+        {
+          "id": "4ac850e6-0ece-4781-9569-f2b93c13960f",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 2: City Life",
+      "lessonName": "Vocabulary",
+      "exerciseName": "public amenities",
+      "examId": "69a7d2c6-5bfa-46d5-b8ed-563290f42249",
+      "fillWordQuestions": [
+        {
+          "id": "052fea93-50ee-4bf4-9710-f481083920fe",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 3: Healthy Living For Teens",
+      "lessonName": "Vocabulary",
+      "exerciseName": "optimistic",
+      "examId": "14261173-bedf-4fcd-983d-048964d6c9e7",
+      "fillWordQuestions": [
+        {
+          "id": "9365c446-e213-41a7-aa01-94b7693790e4",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 4: Remembering The Past",
+      "lessonName": "Vocabulary",
+      "exerciseName": "generation",
+      "examId": "be7b8f2f-724c-4da2-bcc9-cf9d15b6d9b8",
+      "fillWordQuestions": [
+        {
+          "id": "f056bd68-42ae-4912-9c99-010268da0635",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 4: Remembering The Past",
+      "lessonName": "Vocabulary",
+      "exerciseName": "takeaway",
+      "examId": "b1c020c8-1e91-4400-baa0-f4f259d6cc09",
+      "fillWordQuestions": [
+        {
+          "id": "059d8503-1a04-42a5-9da2-6bc58a87c9cc",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 5: Our experiences",
+      "lessonName": "Vocabulary",
+      "exerciseName": "5 embarrassing",
+      "examId": "378eba8f-220a-4af7-abb5-46a5cf77c636",
+      "fillWordQuestions": [
+        {
+          "id": "a58ca322-79f4-4418-a3c0-89940e0c343e",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 6: Vietnamese lifestyle: Then and now",
+      "lessonName": "Vocabulary",
+      "exerciseName": "democratic",
+      "examId": "18e774fe-e45b-46f1-b508-5705dc8fe4bc",
+      "fillWordQuestions": [
+        {
+          "id": "d2ed6069-c684-4e6a-89e4-0eba631b4885",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 7: Natural Wonders of the World",
+      "lessonName": "Vocabulary",
+      "exerciseName": "biodiversity",
+      "examId": "b618ff10-a4c8-47c7-b4d4-6b1d873d86b7",
+      "fillWordQuestions": [
+        {
+          "id": "2cf585d5-5c8c-45e2-b397-f9e2e8a45afe",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 7: Natural Wonders of the World",
+      "lessonName": "Vocabulary",
+      "exerciseName": "majestic",
+      "examId": "cb2b76d9-37d5-4d19-8a34-e696316ba480",
+      "fillWordQuestions": [
+        {
+          "id": "0b986663-8253-4097-b951-6a4ba0897fa9",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 7: Natural Wonders of the World",
+      "lessonName": "Vocabulary",
+      "exerciseName": "paradise",
+      "examId": "70e23eaf-f250-4708-8edb-f8b7fbdcd697",
+      "fillWordQuestions": [
+        {
+          "id": "e9743c57-8fe5-4a54-9969-4933a11c473d",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 8: Tourism",
+      "lessonName": "Vocabulary",
+      "exerciseName": "itinerary",
+      "examId": "6928988e-34a8-4b89-8bb4-bfa2b7eaac83",
+      "fillWordQuestions": [
+        {
+          "id": "5b86be9e-93d8-4df0-bb26-12f659ade168",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 10: Planet earth",
+      "lessonName": "Vocabulary",
+      "exerciseName": "climate change",
+      "examId": "08b66a3c-2f5a-44b5-ba5a-92a6a9dd5663",
+      "fillWordQuestions": [
+        {
+          "id": "83573d98-8cfd-4e54-bc11-d19ed5e260b0",
+          "point": 10,
+          "correctLen": 4
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 10: Planet earth",
+      "lessonName": "Vocabulary",
+      "exerciseName": "nature reserve",
+      "examId": "d0f7ca3a-0934-4da1-a1cc-11854369b023",
+      "fillWordQuestions": [
+        {
+          "id": "04f6b3bf-5fc9-459d-8a44-237e3eba1a40",
+          "point": 10,
+          "correctLen": 4
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 11: Electronics device",
+      "lessonName": "Vocabulary",
+      "exerciseName": "3D printer",
+      "examId": "7e00d4c5-7544-4859-b14b-f953073d3e58",
+      "fillWordQuestions": [
+        {
+          "id": "1b144bde-6b27-4abb-8b62-1f73e772bc07",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 11: Electronics device",
+      "lessonName": "Vocabulary",
+      "exerciseName": "robotic vacuum cleaner",
+      "examId": "60d53f0f-7e05-40ba-bd6a-363d9932da5d",
+      "fillWordQuestions": [
+        {
+          "id": "ca07467f-2274-4d8f-a979-8d90503f3518",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 12: Career choices",
+      "lessonName": "Vocabulary",
+      "exerciseName": "software engineer",
+      "examId": "8441e4b5-d1c2-4a96-a7dc-bb3c293bb700",
+      "fillWordQuestions": [
+        {
+          "id": "f1e9994d-5080-4b1d-9198-23d7022181c7",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 9",
+      "unitName": "Unit 12: Career choices",
+      "lessonName": "Vocabulary",
+      "exerciseName": "repetitive",
+      "examId": "b5bd6236-bc3b-44bd-a6dd-3d380d79233d",
+      "fillWordQuestions": [
+        {
+          "id": "5f0b0cda-186f-435f-97cc-9675794c136e",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 2: Humans and the environment",
+      "lessonName": "Vocabulary",
+      "exerciseName": "eco-friendly",
+      "examId": "bbbf18fb-0e1b-42a0-af1e-3cef91d7a203",
+      "fillWordQuestions": [
+        {
+          "id": "4a621859-b0e4-44f2-9f82-b04cf195353f",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 2: Humans and the environment",
+      "lessonName": "Vocabulary",
+      "exerciseName": "household appliances",
+      "examId": "67f0a69a-3f33-4273-bcd0-e0176ef0de47",
+      "fillWordQuestions": [
+        {
+          "id": "ed6b30fc-6edf-47df-8ecb-9237289942ec",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 2: Humans and the environment",
+      "lessonName": "Vocabulary",
+      "exerciseName": "sustainable",
+      "examId": "ff64d291-a146-4ef0-8be6-6450e137cddc",
+      "fillWordQuestions": [
+        {
+          "id": "0bd5cc8a-ad96-46fc-b62d-f5140a99dcde",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 2: Humans and the environment",
+      "lessonName": "Vocabulary",
+      "exerciseName": "electrical",
+      "examId": "ec4c2b2c-9f01-4cc1-8cc4-5ad18a0c851d",
+      "fillWordQuestions": [
+        {
+          "id": "f4399e91-05fe-4a70-8cf6-654b7238761b",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 3: Music",
+      "lessonName": "Vocabulary",
+      "exerciseName": "Check competition",
+      "examId": "4193253a-012c-4463-bd9f-ee110044cb4d",
+      "fillWordQuestions": [
+        {
+          "id": "694da8d2-6325-4c1c-b556-6ab3abbf68a1",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 3: Music",
+      "lessonName": "Vocabulary",
+      "exerciseName": "musician",
+      "examId": "eefa0f9a-986d-4584-b0bb-b08899cd8a57",
+      "fillWordQuestions": [
+        {
+          "id": "896dd5ca-cfba-4c8d-a591-66997048eaab",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 9: Protecting the enviroment",
+      "lessonName": "Vocabulary",
+      "exerciseName": "biodiversity",
+      "examId": "c56500f9-4eee-4c69-9176-5c36af4ea6db",
+      "fillWordQuestions": [
+        {
+          "id": "5205d59d-89fd-4060-93fa-893e7af132bc",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 9: Protecting the enviroment",
+      "lessonName": "Vocabulary",
+      "exerciseName": "ecosystem",
+      "examId": "09931bc9-dfbc-40ed-8e0f-0faf550d1af8",
+      "fillWordQuestions": [
+        {
+          "id": "21498f3b-30c1-4881-af20-5f7dd5d05ccc",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 10",
+      "unitName": "Unit 10: Ecotourism",
+      "lessonName": "Vocabulary",
+      "exerciseName": "floating market",
+      "examId": "24c34f50-e637-485c-8d28-5a55509b28ae",
+      "fillWordQuestions": [
+        {
+          "id": "7ecf41bd-3561-4e16-8e34-a0a3af9e0156",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 1: A long and healthy life",
+      "lessonName": "Vocabulary",
+      "exerciseName": "strength",
+      "examId": "1aa29ab2-7d1c-40e2-8b2a-1ead3d4b71b5",
+      "fillWordQuestions": [
+        {
+          "id": "12325321-dae6-4966-b5dd-82dd5500f13b",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 1: A long and healthy life",
+      "lessonName": "Vocabulary",
+      "exerciseName": "illness",
+      "examId": "a98a6989-f041-4818-857f-443d54191adf",
+      "fillWordQuestions": [
+        {
+          "id": "cd0b432b-dc5b-430e-92f3-c297284e2fa4",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 3: Cities of the future",
+      "lessonName": "Vocabulary",
+      "exerciseName": "infrastructure_",
+      "examId": "5f16a070-ea29-4234-8465-c87ad67fc03e",
+      "fillWordQuestions": [
+        {
+          "id": "edcff18e-d401-483b-935c-6078e5696257",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 9: Social issues",
+      "lessonName": "Vocabulary",
+      "exerciseName": "anxiety",
+      "examId": "c05d169e-3109-4d60-ba8d-2142428b89e5",
+      "fillWordQuestions": [
+        {
+          "id": "8490de48-05c1-493f-89b0-01801492ae48",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 9: Social issues",
+      "lessonName": "Vocabulary",
+      "exerciseName": "cyberbullying",
+      "examId": "016eed48-f12c-446c-8928-edebf555b132",
+      "fillWordQuestions": [
+        {
+          "id": "e437f238-cdff-4719-91d4-a957ea77bb79",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 10: The ecosystem",
+      "lessonName": "Vocabulary",
+      "exerciseName": "national park",
+      "examId": "e7dca492-0100-4934-9a64-57121104fba1",
+      "fillWordQuestions": [
+        {
+          "id": "7f1e21b7-2bd4-4a6d-83fe-0170cf409801",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 11",
+      "unitName": "Unit 10: The ecosystem",
+      "lessonName": "Vocabulary",
+      "exerciseName": "conservation",
+      "examId": "70be3bac-7624-4fa5-bfcf-e88243fc3cd8",
+      "fillWordQuestions": [
+        {
+          "id": "57573b24-90bd-43ef-b750-207dbcde2840",
+          "point": 10,
+          "correctLen": 4
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 2: A multicultural world",
+      "lessonName": "Vocabulary",
+      "exerciseName": "festivity",
+      "examId": "2b1d47f1-b101-4ddb-b60b-fd48df646bc8",
+      "fillWordQuestions": [
+        {
+          "id": "26af1c13-c86d-492f-9083-6907ac164f3f",
+          "point": 10,
+          "correctLen": 4
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 2: A multicultural world",
+      "lessonName": "Vocabulary",
+      "exerciseName": "identity",
+      "examId": "980bbefe-0105-45ff-82ce-2fb184eb9d67",
+      "fillWordQuestions": [
+        {
+          "id": "83b92340-e790-4fe6-af4c-fea94d45d3a4",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 2: A multicultural world",
+      "lessonName": "Vocabulary",
+      "exerciseName": "characteristic",
+      "examId": "2de0bcdf-4418-4855-8d5e-5fe2204f083f",
+      "fillWordQuestions": [
+        {
+          "id": "04c0c057-cb4a-45d7-8493-0d240f7c01e5",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 3: Green living",
+      "lessonName": "Vocabulary",
+      "exerciseName": "reusable",
+      "examId": "83337086-f364-4001-9b80-4af5b73dbca9",
+      "fillWordQuestions": [
+        {
+          "id": "a11379ab-0687-477a-a9b3-055aa8d56496",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 9: Career paths",
+      "lessonName": "Vocabulary",
+      "exerciseName": "deal with",
+      "examId": "cbf02cfa-301c-458d-aa19-7acfca7b271d",
+      "fillWordQuestions": [
+        {
+          "id": "dbfe7fe4-0444-4ef0-b8a8-8a35574af299",
+          "point": 10,
+          "correctLen": 1
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 9: Career paths",
+      "lessonName": "Vocabulary",
+      "exerciseName": "communicate with",
+      "examId": "e8f75646-8aeb-431e-97f1-926cab230549",
+      "fillWordQuestions": [
+        {
+          "id": "062437c9-8bdd-4a73-8249-13dab7c5bc8f",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 10: Lifelong learning",
+      "lessonName": "Vocabulary",
+      "exerciseName": "adult education",
+      "examId": "0fa4bae9-9d3b-4587-bb8a-c6e583741764",
+      "fillWordQuestions": [
+        {
+          "id": "4f6806db-85c3-450a-9609-c668ca23e2e9",
+          "point": 10,
+          "correctLen": 3
+        }
+      ]
+    },
+    {
+      "bookName": "Khối 12",
+      "unitName": "Unit 10: Lifelong learning",
+      "lessonName": "Vocabulary",
+      "exerciseName": "learning community",
+      "examId": "bc76706a-34b5-41bb-80ec-4dbc15698584",
+      "fillWordQuestions": [
+        {
+          "id": "0833e780-b009-4ff0-89f4-3be86186e3df",
+          "point": 10,
+          "correctLen": 2
+        }
+      ]
+    }
+  ]
+}

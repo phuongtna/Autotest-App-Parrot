@@ -38,9 +38,15 @@
  *   nào ngoài `title` (dùng cho `cardIdentityString()` chung, xem bên dưới) + optional `titleBounds`.
  */
 
-/** Strategy A - gesture MẶC ĐỊNH, GIỮ NGUYÊN giá trị NORMAL_SWIPE đã proven ở quy mô nhỏ (không đổi
- * so với findAssignment.js/locateCompletedCandidate.js trước đây). */
-const STRATEGY_A = { start: "50%,80%", end: "50%,25%", duration: 400 };
+/** Strategy A - gesture MẶC ĐỊNH. Amplitude 25% (Phase 4, 2026-10-06) - THAY cho 55% cũ
+ * (`start:"50%,80%" end:"50%,25%"`) sau khi Phase 3 benchmark trên device thật (profile Ngoc/4D,
+ * 6 round/amplitude, 0 INFRA_FAILURE) đo được: 55% có OverlapRate=0% (6/6 round NO_OVERLAP - CHÍNH
+ * root cause Phase 2 đã sửa ở compareSignatures(), tái hiện sạch trong benchmark), trong khi 25% có
+ * OverlapRate=100%, NoProgressRate=0%, vẫn reveal card mới (avgNewCount=0.83/swipe) - SAFE_CANDIDATE
+ * duy nhất có throughput tốt hơn 20% (SAFE_CANDIDATE còn lại, avgNewCount=0.67). X-anchor (50%) và
+ * start Y (80%) GIỮ NGUYÊN - CHỈ amplitude (end Y, 25%->55%) đổi. Xem automation/bai_tap/discovery/
+ * amplitudeBenchmark.mjs (benchmark Phase 3, giữ lại làm bằng chứng/tái benchmark sau này). */
+const STRATEGY_A = { start: "50%,80%", end: "50%,55%", duration: 400 };
 
 /** Strategy B - CHỈ dùng trong RECOVERING, sau khi Strategy A + settle-retry đều NO_PROGRESS. Toạ độ
  * X lệch khỏi trung tâm (20% thay vì 50%) - [ASSUMPTION, xem contract mục 6]: carousel "Kiến thức
@@ -99,12 +105,26 @@ export function computeViewportSignature(cards, rawNodeCount) {
 }
 
 /**
- * So sánh 2 viewportSignature liên tiếp - trả 1 trong 3 verdict, KHÔNG BAO GIỜ tự leo thẳng lên
+ * So sánh 2 viewportSignature liên tiếp - trả 1 trong 4 verdict, KHÔNG BAO GIỜ tự leo thẳng lên
  * END_OF_LIST/APP_FROZEN (đó là việc của state machine gọi hàm này, dựa trên NHIỀU lượt gọi + recovery
  * strategy, xem `runSearchStateMachine()`). Xem contract mục 4 cho lý giải từng nhánh (Case A-E).
+ *
+ * PHASE 2 (2026-10-06, sửa BUG đã xác nhận bằng benchmark thật - xem
+ * `assignmentSearchBenchmark.mjs`/benchmark_run3.log): bản Phase 1 coi MỌI "bộ card đổi hẳn"
+ * (`!sameCardSet`) là `STRONG_PROGRESS`, KHÔNG phân biệt "đổi hẳn nhưng có ít nhất 1 card chung
+ * (anchor thật, xác nhận 2 viewport nối tiếp)" với "đổi hẳn và 2 bộ card HOÀN TOÀN rời nhau (0 card
+ * chung)". Benchmark thật trên device (Strategy A, 6/6 round) cho thấy case thứ 2 xảy ra ở MỌI round
+ * - swipe hiện tại di chuyển xấp xỉ đúng 1 "card pitch" (~1056-1107px đo thật) nên thường xuyên
+ * KHÔNG để lại overlap nào, trong khi code cũ vẫn tự tin báo STRONG_PROGRESS - nghĩa là nếu có 1 card
+ * nằm TRỌN trong vùng bị nhảy qua giữa 2 lần đọc, nó sẽ KHÔNG BAO GIỜ xuất hiện ở bất kỳ snapshot
+ * nào mà thuật toán vẫn tưởng đã an toàn tiến lên. SỬA: thêm `hasOverlap` (≥1 card identity chung
+ * CẢ 2 phía) làm điều kiện BẮT BUỘC cho STRONG_PROGRESS khi bộ card đổi hẳn; nếu không có overlap,
+ * trả `LOW_CONFIDENCE_PROGRESS` (verdict MỚI) - `runSearchStateMachine()` bắt buộc verdict này phải
+ * qua xác minh (Strategy B cross-check) trước khi được chấp nhận là tiến triển, KHÔNG được tự động
+ * continue như STRONG_PROGRESS nữa (xem docblock hàm đó).
  * @param {ReturnType<typeof computeViewportSignature>} prev
  * @param {ReturnType<typeof computeViewportSignature>} curr
- * @returns {"STRONG_PROGRESS"|"WEAK_PROGRESS"|"NO_PROGRESS"}
+ * @returns {"STRONG_PROGRESS"|"LOW_CONFIDENCE_PROGRESS"|"WEAK_PROGRESS"|"NO_PROGRESS"}
  */
 export function compareSignatures(prev, curr) {
   const sameCardSet = arraysEqual(prev.cardIdentities, curr.cardIdentities);
@@ -112,16 +132,22 @@ export function compareSignatures(prev, curr) {
   const topYShift =
     sameTopTitle && prev.topCard?.y != null && curr.topCard?.y != null ? Math.abs(prev.topCard.y - curr.topCard.y) : null;
   const nodeCountChanged = prev.rawNodeCount !== curr.rawNodeCount;
+  // OVERLAP THẬT (Phase 2): ≥1 card identity xuất hiện ở CẢ 2 phía - anchor THẬT xác nhận 2 viewport
+  // nối tiếp nhau. KHÁC HẲN "cardIdentities khác nhau" (bất kỳ 2 bộ card nào khác nhau - kể cả rời
+  // nhau HOÀN TOÀN - cũng làm sameCardSet=false, bản Phase 1 coi NHƯ NHAU - chính là bug đã sửa).
+  const hasOverlap = prev.cardIdentities.some((id) => curr.cardIdentities.includes(id));
 
   // Case A: same cards (cùng topCard.title), Y đổi ĐÁNG KỂ -> chắc chắn đã cuộn thật.
   if (sameTopTitle && topYShift !== null && topYShift > MIN_MEANINGFUL_Y_SHIFT_PX) {
     return "STRONG_PROGRESS";
   }
-  // Case B: bộ card đổi hẳn (topCard.title khác NHAU hoặc identity list khác) -> KHÔNG xét Y (vô
-  // nghĩa khi so 2 card khác nhau - viewport luôn hiển thị "đầu danh sách hiện tại" ở cùng vùng Y
-  // màn hình bất kể cuộn bao xa, xem contract mục 2.A câu 3).
   if (!sameCardSet) {
-    return "STRONG_PROGRESS";
+    // Case B (SỬA, Phase 2): bộ card đổi hẳn - CHỈ còn là STRONG_PROGRESS khi có overlap THẬT. Không
+    // overlap (dù cả 2 phía đều có card thật, hay 1 phía rỗng - vd cuộn qua khỏi cuối danh sách) đều
+    // KHÔNG đủ bằng chứng để tự tin "đã tiến đúng, không bỏ sót gì" - trả LOW_CONFIDENCE_PROGRESS,
+    // bắt buộc qua xác minh ở tầng gọi (runSearchStateMachine()) trước khi được chấp nhận.
+    if (hasOverlap) return "STRONG_PROGRESS";
+    return "LOW_CONFIDENCE_PROGRESS";
   }
   // Case C (nhánh NO_PROGRESS thật): cùng card, Y giống hệt (hoặc không so được), VÀ node count
   // cũng không đổi -> bằng chứng mạnh nhất hiện có cho "đứng yên thật".
@@ -176,6 +202,17 @@ export async function runSearchStateMachine(bridge, options) {
   let parserState = {};
   let scrollsUsed = 0;
   let lastCards = [];
+  // PHASE 2 (2026-10-06) - đếm riêng để minh bạch trong diagnostics, KHÔNG ảnh hưởng quyết định
+  // FOUND/AMBIGUOUS/NOT_FOUND:
+  //   lowConfidenceCount: số lần compareSignatures() trả LOW_CONFIDENCE_PROGRESS (Strategy A hoặc B).
+  //   unresolvedGapSteps: số lần CHẤP NHẬN tiếp tục sau LOW_CONFIDENCE_PROGRESS nhờ Strategy B xác
+  //     nhận vị trí hiện tại ổn định - nhưng quãng NẰM GIỮA (trước Strategy A) KHÔNG được quét (giới
+  //     hạn hình học đã biết: Strategy A/B cùng khoảng cách Y, không gesture nào quét được phần nằm
+  //     giữa 2 vị trí cách nhau đúng 1 bước - xem compareSignatures() docblock). Không giả vờ đã xác
+  //     minh hết - số này giúp người đọc report biết có bao nhiêu bước "tiến nhưng chưa chứng minh
+  //     được an toàn tuyệt đối".
+  let lowConfidenceCount = 0;
+  let unresolvedGapSteps = 0;
 
   const readCurrent = async () => {
     const tree = await bridge.hierarchy();
@@ -216,6 +253,7 @@ export async function runSearchStateMachine(bridge, options) {
       `TARGET: ${targetDesc}`,
       `SCROLL: ${scrollsUsed}`,
       `SEEN DISTINCT (dedupIdentity): ${seen.size}`,
+      `LOW_CONFIDENCE_PROGRESS events: ${lowConfidenceCount}, trong đó UNRESOLVED_GAP (chấp nhận tiến tiếp nhưng không quét được quãng giữa): ${unresolvedGapSteps}`,
       `LAST VISIBLE STATE:\n${summarizeCards(lastCards)}`,
       `STATUS: ${status}${reason ? ` / ${reason}` : ""}${confidence ? ` (confidence=${confidence})` : ""}`,
     ];
@@ -243,23 +281,38 @@ export async function runSearchStateMachine(bridge, options) {
     reason: extra.reason ?? null,
     confidence: extra.confidence ?? null,
     scrollsUsed,
+    // PHASE 2 - field ADDITIVE (không đổi field cũ) - caller cũ không đọc field này vẫn hoạt động
+    // nguyên vẹn (findAssignment.js/locateCompletedCandidate.js hiện chỉ đọc status/scrollsUsed/card/
+    // matches/reason/diagnostics, không bị ảnh hưởng).
+    lowConfidenceCount,
+    unresolvedGapSteps,
     diagnostics: buildDiagnostics({ status, reason: extra.reason ?? null, confidence: extra.confidence ?? null, matches: extra.matches, card: extra.card }),
   });
 
   const log = (entry) => scrollLog?.push({ scrollIndex: scrollsUsed, ...entry });
 
+  // PHASE 2 (2026-10-06): tách match-check thành helper, gọi KHÔNG CHỈ ở đỉnh vòng lặp mà còn NGAY
+  // TRƯỚC mỗi lần sắp trả PROGRESS_STALLED (2 chỗ bên dưới). Lý do: Phase 2 khiến LOW_CONFIDENCE_
+  // PROGRESS có thể dẫn tới PROGRESS_STALLED NGAY TRONG CÙNG 1 vòng lặp (qua RECOVERING) mà KHÔNG
+  // quay lại đỉnh vòng lặp trước đó - nếu không recheck, dữ liệu `current.cards` MỚI NHẤT (vừa đọc
+  // được, có thể ĐÃ chứa target thật) sẽ bị vứt bỏ oan uổng chỉ vì progress-detection không chắc chắn
+  // - 2 việc này ĐỘC LẬP, match-detection phải luôn được ưu tiên khi có dữ liệu trong tay (phát hiện
+  // qua regression test thật khi thêm overlap-check, xem assignmentSearchEngine.fixtureTest.mjs).
+  const checkMatches = () => {
+    const matches = current.cards.filter((c) => matchesTarget(c, target));
+    if (matches.length === 1) return { done: true, result: finish("FOUND", { card: matches[0] }) };
+    if (matches.length > 1) return { done: true, result: finish("AMBIGUOUS", { matches }) };
+    return { done: false };
+  };
+
   let current = await readCurrent();
   log({ state: "READING", visibleCards: current.cards.length, viewportSignature: current.signature });
 
   while (true) {
-    const matches = current.cards.filter((c) => matchesTarget(c, target));
-    if (matches.length === 1) {
-      log({ state: "TARGET_FOUND" });
-      return finish("FOUND", { card: matches[0] });
-    }
-    if (matches.length > 1) {
-      log({ state: "TARGET_AMBIGUOUS", matchCount: matches.length });
-      return finish("AMBIGUOUS", { matches });
+    const topCheck = checkMatches();
+    if (topCheck.done) {
+      log({ state: topCheck.result.status === "FOUND" ? "TARGET_FOUND" : "TARGET_AMBIGUOUS" });
+      return topCheck.result;
     }
     if (scrollsUsed >= maxScrolls) {
       log({ state: "MAX_SCROLLS_REACHED" });
@@ -279,19 +332,26 @@ export async function runSearchStateMachine(bridge, options) {
 
     if (verdict !== "STRONG_PROGRESS") {
       // R1 (settle-retry): chờ thêm, KHÔNG gesture mới, so lại với beforeSignature (pre-Strategy-A) -
-      // bắt buộc chạy TRƯỚC KHI coi WEAK_PROGRESS/NO_PROGRESS là plateau thật (contract mục 2.B: gap
-      // đã tìm thấy trong pseudocode cũ - không được swipe tiếp mà chưa xác nhận render đã settle).
+      // bắt buộc chạy TRƯỚC KHI coi WEAK_PROGRESS/NO_PROGRESS/LOW_CONFIDENCE_PROGRESS là plateau/
+      // zero-overlap thật (contract mục 2.B: gap đã tìm thấy trong pseudocode cũ - không được swipe
+      // tiếp mà chưa xác nhận render đã settle).
       await waitOnly();
       current = await readCurrent();
       verdict = compareSignatures(beforeSignature, current.signature);
       log({ state: "RENDERING", strategy: "A", action: "SETTLE_RETRY", verdict, viewportSignature: current.signature });
     }
 
-    if (verdict === "STRONG_PROGRESS") continue; // render-delay đã được xác nhận resolve, hoặc tiến triển thật ngay từ đầu.
+    if (verdict === "STRONG_PROGRESS") continue; // overlap THẬT đã xác nhận (trực tiếp hoặc sau settle) - an toàn, tiếp tục.
 
-    // verdict còn lại (WEAK_PROGRESS hoặc NO_PROGRESS) sau settle-retry: CHƯA đủ bằng chứng progress -
-    // chuyển RECOVERING (Strategy B) - KHÔNG BAO GIỜ tự động thành END_OF_LIST/PROGRESS_STALLED ở đây
-    // (đúng ràng buộc "WEAK_PROGRESS không được tự động chuyển thành END_OF_LIST").
+    if (verdict === "LOW_CONFIDENCE_PROGRESS") lowConfidenceCount++;
+
+    // verdict còn lại (LOW_CONFIDENCE_PROGRESS, WEAK_PROGRESS, hoặc NO_PROGRESS) sau settle-retry:
+    // CHƯA đủ bằng chứng progress AN TOÀN - chuyển RECOVERING (Strategy B) - KHÔNG BAO GIỜ tự động
+    // thành END_OF_LIST/PROGRESS_STALLED/STRONG_PROGRESS ở đây.
+    // PHASE 2 (2026-10-06): LOW_CONFIDENCE_PROGRESS giờ ĐI QUA CÙNG cổng RECOVERING này - ở Phase 1,
+    // case "!sameCardSet" luôn là STRONG_PROGRESS nên KHÔNG BAO GIỜ tới được nhánh RECOVERING - đây
+    // chính là root cause benchmark thật đã xác nhận (6/6 round Strategy A sharedCount=0 vẫn được
+    // chấp nhận ngay, không qua xác minh nào, xem assignmentSearchBenchmark.mjs).
     log({ state: "RECOVERING", strategy: "B", reason: verdict });
     const beforeRecoverySignature = current.signature;
     const swipeB = await doSwipe(STRATEGY_B);
@@ -302,17 +362,68 @@ export async function runSearchStateMachine(bridge, options) {
     const recoveryVerdict = compareSignatures(beforeRecoverySignature, current.signature);
     log({ state: "RENDERING", strategy: "B", verdict: recoveryVerdict, viewportSignature: current.signature });
 
+    if (recoveryVerdict === "STRONG_PROGRESS") {
+      if (verdict === "LOW_CONFIDENCE_PROGRESS") {
+        // Strategy B xác nhận overlap THẬT từ vị trí sau Strategy A - vị trí ĐÓ là thật/ổn định
+        // (không phải artifact đọc nhầm). NHƯNG: quãng NẰM GIỮA beforeSignature (trước Strategy A) và
+        // vị trí này KHÔNG được bất kỳ gesture nào quét qua (Strategy A VÀ Strategy B cùng khoảng
+        // cách Y, không gesture nào lấy mẫu được phần nằm giữa 2 vị trí cách nhau đúng 1 bước - giới
+        // hạn hình học đã biết, xem compareSignatures() docblock + assignmentSearchBenchmark.mjs mục
+        // Recommendation, để Phase 3 xử lý bằng biên độ nhỏ hơn có benchmark). Chấp nhận tiếp tục
+        // (KHÔNG chặn tiến trình chỉ vì 1 giới hạn hình học đã biết, không phải lỗi mới) nhưng GHI
+        // NHẬN rõ ràng - KHÔNG giả vờ đã xác minh hết quãng giữa.
+        unresolvedGapSteps++;
+        log({
+          state: "UNRESOLVED_GAP_ACCEPTED",
+          note: "Strategy B xác nhận vị trí hiện tại ổn định, nhưng quãng giữa beforeSignature và vị trí này KHÔNG được quét - không loại trừ được khả năng bỏ sót card trong quãng đó.",
+        });
+      } else {
+        // WEAK_PROGRESS/NO_PROGRESS (case cũ, giữ NGUYÊN hành vi/nhãn) -> Strategy B cho thấy tiến
+        // triển thật - gesture gốc bị "nuốt" (case carousel đã xác nhận, xem docblock scrollToTop()),
+        // KHÔNG PHẢI lỗi/kết thúc, chỉ là cần đổi chiến lược.
+        log({ state: "GESTURE_INEFFECTIVE" });
+      }
+      continue;
+    }
+
+    if (recoveryVerdict === "LOW_CONFIDENCE_PROGRESS") {
+      // Strategy B CŨNG nhảy zero-overlap - 2 gesture ĐỘC LẬP (khác X-anchor, cùng khoảng cách Y) đều
+      // không xác nhận được tính liên tục. Đáng ngờ hơn hẳn 1 gesture đơn lẻ - KHÔNG an toàn để tự
+      // tin "continue" (ĐÂY LÀ BUG PHASE 1 ĐÃ SỬA: trước đây case tương đương luôn trả STRONG_PROGRESS
+      // bất kể recovery có xác nhận được gì hay không). TRƯỚC KHI dừng, recheck match trên dữ liệu
+      // MỚI NHẤT vừa đọc được (xem checkMatches() docblock) - không vứt bỏ 1 match THẬT chỉ vì
+      // progress-detection không chắc chắn.
+      const recheck = checkMatches();
+      if (recheck.done) {
+        log({ state: "TARGET_FOUND_ON_STALL_RECHECK" });
+        return recheck.result;
+      }
+      lowConfidenceCount++;
+      log({
+        state: "PROGRESS_STALLED",
+        confidence: "LOW",
+        reason: "LOW_CONFIDENCE_PROGRESS ở cả Strategy A lẫn Strategy B - không xác minh được tính liên tục của viewport.",
+      });
+      return finish("NOT_FOUND", { reason: "PROGRESS_STALLED", confidence: "LOW" });
+    }
+
     if (recoveryVerdict !== "NO_PROGRESS") {
-      // Strategy B tạo ra thay đổi (STRONG hoặc WEAK) trong khi Strategy A không - gesture gốc bị
-      // "nuốt" (case carousel đã xác nhận, xem docblock scrollToTop()), KHÔNG PHẢI lỗi/kết thúc, chỉ
-      // là cần đổi chiến lược - log nhãn GESTURE_INEFFECTIVE rồi quay lại vòng lặp bình thường.
+      // WEAK_PROGRESS (case cũ, giữ NGUYÊN) - Strategy B tạo thay đổi nhẹ, chấp nhận tiếp tục.
       log({ state: "GESTURE_INEFFECTIVE" });
       continue;
     }
 
-    // Cả Strategy A (+settle-retry) VÀ Strategy B đều NO_PROGRESS - cận trên 2 bước/episode đã dùng
-    // hết (KHÔNG có bước R3/scrollUntilVisible nào ở Phase 1). KHÔNG có Probe 3 (OS-level, Phase 3)
-    // để phân biệt APP_FROZEN khỏi END_OF_LIST - trả PROGRESS_STALLED (confidence LOW), KHÔNG đoán.
+    // Cả Strategy A (+settle-retry) VÀ Strategy B đều NO_PROGRESS thật - cận trên 2 bước/episode đã
+    // dùng hết (KHÔNG có bước R3/scrollUntilVisible nào ở Phase 1/2). KHÔNG có Probe 3 (OS-level,
+    // Phase 3) để phân biệt APP_FROZEN khỏi END_OF_LIST - trả PROGRESS_STALLED (confidence LOW),
+    // KHÔNG đoán. Recheck match trên dữ liệu mới nhất trước khi dừng - cùng lý do như trên.
+    {
+      const recheck = checkMatches();
+      if (recheck.done) {
+        log({ state: "TARGET_FOUND_ON_STALL_RECHECK" });
+        return recheck.result;
+      }
+    }
     log({ state: "PROGRESS_STALLED", confidence: "LOW" });
     return finish("NOT_FOUND", { reason: "PROGRESS_STALLED", confidence: "LOW" });
   }

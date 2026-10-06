@@ -123,15 +123,21 @@ export async function findAssignment(bridge, target, { maxScrolls = DEFAULT_MAX_
     maxScrolls,
   });
 
-  if (result.status === "FOUND") return { status: "FOUND", scrollCount: result.scrollsUsed, card: result.card, diagnostics: result.diagnostics };
-  if (result.status === "AMBIGUOUS") return { status: "AMBIGUOUS", scrollCount: result.scrollsUsed, matches: result.matches, diagnostics: result.diagnostics };
+  // PHASE 2 (2026-10-06) - lowConfidenceCount/unresolvedGapSteps: field ADDITIVE, forward nguyên vẹn
+  // từ engine (xem assignmentSearchEngine.js) để caller/report thấy được minh bạch số bước "tiến
+  // nhưng chưa chứng minh được an toàn tuyệt đối" - KHÔNG đổi field cũ nào, caller cũ bỏ qua field
+  // mới này vẫn hoạt động nguyên vẹn.
+  if (result.status === "FOUND")
+    return { status: "FOUND", scrollCount: result.scrollsUsed, card: result.card, diagnostics: result.diagnostics, lowConfidenceCount: result.lowConfidenceCount, unresolvedGapSteps: result.unresolvedGapSteps };
+  if (result.status === "AMBIGUOUS")
+    return { status: "AMBIGUOUS", scrollCount: result.scrollsUsed, matches: result.matches, diagnostics: result.diagnostics, lowConfidenceCount: result.lowConfidenceCount, unresolvedGapSteps: result.unresolvedGapSteps };
   if (result.status === "ERROR") return { status: "ERROR", scrollCount: result.scrollsUsed, reason: result.reason, diagnostics: result.diagnostics };
   // NOT_FOUND (reason=PROGRESS_STALLED) hoặc MAX_SCROLLS_REACHED (tầng engine) - CẢ 2 map về
   // status:"NOT_FOUND" ở public API cũ (chưa từng có status MAX_SCROLLS_REACHED riêng), NHƯNG
   // `reason` PHẢI phân biệt rõ 2 trường hợp này (KHÔNG BAO GIỜ diễn giải MAX_SCROLLS_REACHED thành
   // PROGRESS_STALLED/END_OF_LIST - đúng ràng buộc gốc).
   const reason = result.status === "MAX_SCROLLS_REACHED" ? "MAX_SCROLLS_REACHED" : result.reason;
-  return { status: "NOT_FOUND", scrollCount: result.scrollsUsed, reason, diagnostics: result.diagnostics };
+  return { status: "NOT_FOUND", scrollCount: result.scrollsUsed, reason, diagnostics: result.diagnostics, lowConfidenceCount: result.lowConfidenceCount, unresolvedGapSteps: result.unresolvedGapSteps };
 }
 
 // Anchor GIỐNG HỆT `readOverallProgress()` (e2e-teacher-assign-full-scored-target5.mjs

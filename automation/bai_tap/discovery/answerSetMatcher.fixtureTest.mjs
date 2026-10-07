@@ -39,6 +39,7 @@ import {
   findMatchingQuestion,
   buildSharedAnswerTokenSet,
 } from "./answerSetMatcher.js";
+import { decideAnswerAction } from "../navigation/homeworkExamEngine.js";
 
 let passes = 0;
 let failures = 0;
@@ -375,6 +376,101 @@ async function main() {
       "[L1] chọn đúng l1, l2 KHÔNG được 'ăn điểm' giả nhờ trùng đúng 1 từ với đáp án dùng chung (chứng minh filter có hiệu lực thật, không chỉ lý thuyết)",
       rL1.status === "MATCHED" && rL1.question.id === "l1",
       JSON.stringify(rL1.status),
+    );
+  }
+
+  console.log('=== [M] regression THẬT 2026-10-07 (room 055cbc9f-..., lớp 4D, "G4-U2-L1: Listen and choose") - 5 câu con dùng CHUNG đúng answer-set {"A","B","C"} (đáp án là ẢNH, "A"/"B"/"C" chỉ là nhãn chữ đi kèm), câu dẫn đề CHỈ khác nhau đúng 1 số thứ tự ("Number 1".."Number 5") - trước fix, số thứ tự 1 CHỮ SỐ bị normalizeQuestionTokens() lọc mất (length>=3), khiến winnerScore=runnerUpScore=1.0 -> AMBIGUOUS SAI dù "Number 1" và "Number 2" là text KHÁC NHAU thật sự hiển thị trên màn ===');
+  {
+    // Dữ liệu THẬT lấy từ CMS examId 3eae6d90-895d-4585-b705-0b257d0cbf0c (xem inspect_raw_exam.mjs
+    // live-dump 2026-10-07) - answers luôn là ["A","B","C"] (chữ nhãn đi kèm ảnh, answer.image mới là
+    // ảnh thật nhưng app không expose identifier nào cho ảnh - xem báo cáo C, không liên quan fix này).
+    const m1 = q("8a072c43-cf5a-4156-9eb1-eee640c81b69", { answers: ["A", "B", "C"], correctAnswer: "B", question: "Number 1" });
+    const m2 = q("d7af94f7-5cf2-4e47-9135-14aae4db68cf", { answers: ["A", "B", "C"], correctAnswer: "A", question: "Number 2" });
+    const m3 = q("b4d46631-9ed7-4ef1-80ba-8de39cd63e1e", { answers: ["A", "B", "C"], correctAnswer: "B", question: "Number 3" });
+    const m4 = q("5de71bde-fffc-4ee3-b604-7071137aea72", { answers: ["A", "B", "C"], correctAnswer: "C", question: "Number 4" });
+    const m5 = q("8a4da2e8-91f4-48ab-b90b-14fbce82206f", { answers: ["A", "B", "C"], correctAnswer: "B", question: "Number 5" });
+    const pool = [m1, m2, m3, m4, m5];
+
+    report(
+      "[M0] normalizeQuestionTokens giữ lại số thứ tự - \"Number 1\" khác \"Number 2\" (trước fix: cả 2 đều -> [\"number\"], giống hệt nhau)",
+      JSON.stringify(normalizeQuestionTokens("Number 1")) === JSON.stringify(["number", "1"]) &&
+        JSON.stringify(normalizeQuestionTokens("Number 2")) === JSON.stringify(["number", "2"]) &&
+        JSON.stringify(normalizeQuestionTokens("Number 1")) !== JSON.stringify(normalizeQuestionTokens("Number 2")),
+      JSON.stringify({ n1: normalizeQuestionTokens("Number 1"), n2: normalizeQuestionTokens("Number 2") }),
+    );
+
+    // Màn hình đang hiển thị ĐÚNG "Number 1" (UI thật: "Number 1" + 3 option ảnh có nhãn A/B/C).
+    const textsN1 = ["Number 1", "A", "B", "C"];
+    const rN1 = await findMatchingQuestion(staticBridge(textsN1), pool, undefined, 1, null);
+    report(
+      "[M1] chọn đúng câu \"Number 1\" (không còn AMBIGUOUS giữa 5 candidate cùng answer-set)",
+      rN1.status === "MATCHED" && rN1.question.id === "8a072c43-cf5a-4156-9eb1-eee640c81b69",
+      JSON.stringify(rN1.status),
+    );
+
+    // Đổi màn hình sang "Number 3" - PHẢI đổi theo đúng candidate, không dính lại Number 1.
+    const textsN3 = ["Number 3", "A", "B", "C"];
+    const rN3 = await findMatchingQuestion(staticBridge(textsN3), pool, undefined, 3, null);
+    report(
+      "[M2] chọn đúng câu \"Number 3\" khi màn hình đổi sang câu khác (không stale theo M1)",
+      rN3.status === "MATCHED" && rN3.question.id === "b4d46631-9ed7-4ef1-80ba-8de39cd63e1e",
+      JSON.stringify(rN3.status),
+    );
+
+    // Đổi màn hình sang "Number 5" (đầu mút cuối, dễ bị nhầm với "5" của 1 số khác nếu regex token
+    // hoá sai ranh giới từ) - xác nhận vẫn đúng.
+    const textsN5 = ["Number 5", "A", "B", "C"];
+    const rN5 = await findMatchingQuestion(staticBridge(textsN5), pool, undefined, 5, null);
+    report(
+      "[M3] chọn đúng câu \"Number 5\"",
+      rN5.status === "MATCHED" && rN5.question.id === "8a4da2e8-91f4-48ab-b90b-14fbce82206f",
+      JSON.stringify(rN5.status),
+    );
+
+    // Thứ tự pool bị xáo trộn - không được phụ thuộc index trong mảng.
+    const rN2Reordered = await findMatchingQuestion(staticBridge(["Number 2", "A", "B", "C"]), [m5, m3, m1, m4, m2], undefined, 2, null);
+    report(
+      "[M4] kết quả không phụ thuộc thứ tự pool",
+      rN2Reordered.status === "MATCHED" && rN2Reordered.question.id === "d7af94f7-5cf2-4e47-9135-14aae4db68cf",
+      JSON.stringify(rN2Reordered.status),
+    );
+
+    // isVisible tối giản cùng ngữ nghĩa isVisibleInTree() thật (regex neo "^pattern$" trên từng text) -
+    // đủ để test decideAnswerAction() (hàm THUẦN, nhận isVisible làm tham số đúng mục đích dễ test -
+    // xem docblock homeworkExamEngine.js#decideAnswerAction()). KHÔNG cần tree thật vì nhánh TEXT_CHOICE
+    // không đọc tree - chỉ dummy tree rỗng để nhánh fallback IMAGE_CHOICE_GRID (nếu rơi vào) tự trả null.
+    const isVisibleFactory = (texts) => (pattern) => texts.some((t) => new RegExp(`^${pattern}$`).test(t));
+    const dummyTree = { attributes: {}, children: [] };
+
+    // Câu "Number 1" đã match đúng ở [M1] - giờ xác nhận decideAnswerAction() dùng ĐÚNG text "A"/"B"/"C"
+    // (chữ nhãn CMS thật, KHÔNG phải vị trí/index đoán mò) để quyết định tap gì - đây CHÍNH LÀ cơ chế
+    // "map CMS image answer -> app option" cho dạng bài này (xem báo cáo C: ảnh không có identifier gì,
+    // nhưng chữ nhãn "A"/"B"/"C" đi kèm LÀ text thật, hiển thị thật, verify được qua isVisible() y hệt
+    // TEXT_CHOICE thường - KHÔNG cần thêm cơ chế positional/accessibilityText song song).
+    const isVisibleN1All = isVisibleFactory(["Number 1", "A", "B", "C"]);
+    const actionCorrect = decideAnswerAction(dummyTree, isVisibleN1All, m1, true);
+    report(
+      '[M5] decideAnswerAction() chọn ĐÚNG text đáp án ("B") khi cả 3 option đều hiển thị + wantCorrect=true',
+      actionCorrect?.type === "TEXT_CHOICE" && actionCorrect.text === "B" && actionCorrect.isTargetCorrect === true,
+      JSON.stringify(actionCorrect),
+    );
+    const actionWrong = decideAnswerAction(dummyTree, isVisibleN1All, m1, false);
+    report(
+      "[M6] decideAnswerAction() chọn ĐÁP ÁN SAI có chủ đích khi wantCorrect=false (cho làm sai lần 1 theo target score)",
+      actionWrong?.type === "TEXT_CHOICE" && actionWrong.text !== "B" && actionWrong.isTargetCorrect === false,
+      JSON.stringify(actionWrong),
+    );
+
+    // Mô phỏng MISMATCH: màn hình thật chỉ hiển thị ĐÚNG 1/3 option (vd màn hình cũ chưa kịp render
+    // hết/stale, hoặc candidate sai) - decideAnswerAction() PHẢI trả null (BLOCK), TUYỆT ĐỐI không tap
+    // đại 1 trong các option còn thiếu bằng chứng (và KHÔNG fallback sang IMAGE_CHOICE_GRID giả vì
+    // dummyTree không có box nào thật).
+    const isVisibleMismatch = isVisibleFactory(["Number 1", "A"]);
+    const actionBlocked = decideAnswerAction(dummyTree, isVisibleMismatch, m1, true);
+    report(
+      "[M7] decideAnswerAction() trả null (BLOCK) khi mismatch - chỉ 1/3 option hiển thị, KHÔNG đủ bằng chứng để tap",
+      actionBlocked === null,
+      JSON.stringify(actionBlocked),
     );
   }
 

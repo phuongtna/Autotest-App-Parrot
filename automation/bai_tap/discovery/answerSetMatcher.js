@@ -73,6 +73,17 @@ const STOPWORDS = new Set([
  * trong text CMS, KHÔNG render literal trên màn hình nên không thể so trực tiếp), loại dấu câu, loại
  * token quá ngắn (<3 ký tự, thường là stopword/hạt nhân không mang nghĩa) và stopword. Giữ Unicode
  * chữ cái (an toàn cho tiếng Việt) qua `\p{L}`.
+ *
+ * FIX (2026-10-07, root cause thật của AMBIGUOUS_MATCH sai trên bài "Listen and choose" nhóm N câu
+ * dùng chung 1 answer-set {"A","B","C"} - room 055cbc9f-...): câu dẫn đề của mỗi câu con CHỈ khác
+ * nhau đúng 1 SỐ THỨ TỰ ("Number 1".."Number 5", hiển thị y hệt trên UI) - nhưng bộ lọc `length>=3`
+ * cũ loại bỏ số 1 CHỮ SỐ này ("1".."9"), xoá mất tín hiệu phân biệt DUY NHẤT còn lại, khiến mọi câu
+ * con trông "giống hệt nhau" (chỉ còn từ chung "number") -> winnerScore=runnerUpScore=1.0 ->
+ * AMBIGUOUS sai (không phải thiếu dữ liệu, chỉ là tokenizer tự làm mất dữ liệu đã có sẵn). Giữ
+ * NGUYÊN ngưỡng `length>=3` cho mọi token khác (không nới lỏng rộng rãi) - CHỈ thêm ngoại lệ cho
+ * token THUẦN CHỮ SỐ (`\p{N}+`, không trộn chữ) vì số thứ tự ngắn vẫn mang đầy đủ ý nghĩa phân biệt
+ * dù chỉ 1 ký tự (khác hẳn chữ cái ngắn như "a"/"to" thường là nhiễu) - xem answerSetMatcher.fixtureTest.mjs
+ * case [M].
  */
 export function normalizeQuestionTokens(text) {
   const cleaned = stripHtmlLite(text)
@@ -82,7 +93,7 @@ export function normalizeQuestionTokens(text) {
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return [];
-  return cleaned.split(" ").filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+  return cleaned.split(" ").filter((w) => !STOPWORDS.has(w) && (w.length >= 3 || /^\p{N}+$/u.test(w)));
 }
 
 // (2026-10-02, fix real AMBIGUOUS_MATCH 2 lần sống - room 80b88e7a-.../3f119f63-...): HẠ từ 3

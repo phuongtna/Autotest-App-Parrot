@@ -3,7 +3,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SESSION_FILE = join(__dirname, "..", ".cache", "exam_session.json");
+// EXAM_SESSION_FILE (optional): đổi file session dùng cho 1 lần chạy (vd đọc staging thay vì
+// production) mà không đụng file mặc định .cache/exam_session.json - cùng quy ước với
+// CMS_BASE_URL/CMS_ACCESS_TOKEN (override qua process.env, xem src/config.js#readVar()).
+const SESSION_FILE = process.env.EXAM_SESSION_FILE || join(__dirname, "..", ".cache", "exam_session.json");
 
 /**
  * Session thật (cookie + localStorage) export từ 1 phiên Chrome ĐÃ đăng nhập và đang xem

@@ -69,7 +69,7 @@ import { parseQuestionsFromExamPage } from "../../../automation/discovery/examPa
 import { normalizeQuestions } from "../../../automation/model/questionModel.js";
 import { resolveHomeworkExamQuestionsForRoomId } from "../../../automation/bai_tap/discovery/teacherMaterialsExamResolver.js";
 import { findAssignment, scrollToTop, tapFoundCard } from "../../../automation/bai_tap/discovery/findAssignment.js";
-import { locateSpecificCompletedCandidate } from "../../../automation/bai_tap/discovery/locateCompletedCandidate.js";
+import { locateCompletedCandidateOrOpenFromNotification } from "../../../automation/bai_tap/discovery/locateCompletedCandidate.js";
 import { centerPoint } from "../../../automation/bai_tap/discovery/homeworkUiList.js";
 import { findMatchingQuestion } from "../../../automation/bai_tap/discovery/answerSetMatcher.js";
 import { resolveScoringPlanForCandidate, buildWeightedWantCorrectPlan } from "./e2e-teacher-assign-full-scored-target5.mjs";
@@ -577,30 +577,53 @@ async function main() {
     }
     log(`  [PASS] Đã đóng màn Kết quả (lần đầu), về lại danh sách Bài tập.`);
 
-    // ===== [4] TÌM LẠI CARD -> "Làm lại" =====
+    // ===== [4] TÌM LẠI CARD -> "Làm lại" (list-locate, fallback qua thông báo "giao bài" nếu list
+    // cạn kiệt thật - xem docblock locateCompletedCandidateOrOpenFromNotification()) =====
     log(`[4] Tìm lại card "${picked.itemName}" (cta="Làm lại")...`);
     // expectedScore (not dueDateDM) is the real disambiguator here: completed cards render NO due-date
     // line at all ([[project_open_exercise_due_date_completed_card_bug]]), confirmed live 2026-09-22 -
     // dueDateDM alone never matches any completed card. firstActualScore is already known at this point.
-    const relocated = await locateSpecificCompletedCandidate(bridge, picked.itemName, { maxScrolls: MAX_LOCATE_SCROLLS, expectedScore: firstActualScore });
-    const freshCandidate = relocated.candidates[0];
-    if (!freshCandidate) {
-      return finish({ status: "FAIL", phase: "LOCATE_LAM_LAI", error: `Không tìm lại được card "${picked.itemName}" với cta="Làm lại" sau ${relocated.scrollsUsed} lượt cuộn (stopReason=${relocated.stopReason ?? "UNKNOWN"}).`, evidence });
-    }
-    log(`  [PASS] Tìm thấy card "Làm lại" sau ${relocated.scrollsUsed} lượt cuộn.`);
+    const relocated = await locateCompletedCandidateOrOpenFromNotification(bridge, picked.itemName, {
+      maxScrolls: MAX_LOCATE_SCROLLS,
+      expectedScore: firstActualScore,
+      // "DD/MM/YYYY" - KHÁC dueDateDM "DD/MM" ở trên, cần cho fallback khớp nội dung thông báo "giao
+      // bài" nếu list-locate cạn kiệt thật (xem [[project_new_room_invisible_in_homework_list_bug]]).
+      notificationDueDateDdMmYyyy: dueDateDdMmYyyy,
+    });
+    evidence.locateLamLai = { source: relocated.source, scrollsUsed: relocated.scrollsUsed, stopReasonBeforeFallback: relocated.stopReasonBeforeFallback ?? null };
+    if (relocated.notificationFallback) evidence.locateLamLai.notificationFallback = relocated.notificationFallback;
 
-    const ctaPoint = centerPoint(freshCandidate.ctaBounds);
-    const tapRedo = await bridge.runSteps([
-      { tapOn: { point: `${ctaPoint.x},${ctaPoint.y}` } },
-      { waitForAnimationToEnd: { timeout: 3000 } },
-      { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
-      { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } },
-    ]);
-    const redoAttemptStartedAt = Date.now();
-    if (!tapRedo.success) {
-      return finish({ status: "FAIL", phase: "TAP_LAM_LAI", error: `Tap "Làm lại" thất bại: ${tapRedo.error}`, evidence });
+    let redoAttemptStartedAt;
+    if (relocated.source === "NOTIFICATION" && relocated.alreadyOnDoingScreen) {
+      log(`  [PASS] Danh sách "Bài tập" không hiển thị card đã hoàn thành (stopReason=${relocated.stopReasonBeforeFallback}) - fallback qua thông báo "giao bài" PASS, đã vào màn Doing (lần 2).`);
+      redoAttemptStartedAt = Date.now();
+    } else {
+      const freshCandidate = relocated.candidates[0];
+      if (!freshCandidate) {
+        return finish({
+          status: "FAIL",
+          phase: "LOCATE_LAM_LAI",
+          error:
+            `Không tìm lại được card "${picked.itemName}" với cta="Làm lại" sau ${relocated.scrollsUsed} lượt cuộn (stopReason=${relocated.stopReason ?? "UNKNOWN"})` +
+            (relocated.notificationFallback ? ` - fallback thông báo "giao bài" CŨNG thất bại: ${relocated.notificationFallback.reason}` : ""),
+          evidence,
+        });
+      }
+      log(`  [PASS] Tìm thấy card "Làm lại" sau ${relocated.scrollsUsed} lượt cuộn.`);
+
+      const ctaPoint = centerPoint(freshCandidate.ctaBounds);
+      const tapRedo = await bridge.runSteps([
+        { tapOn: { point: `${ctaPoint.x},${ctaPoint.y}` } },
+        { waitForAnimationToEnd: { timeout: 3000 } },
+        { runFlow: { when: { visible: "AI hỗ trợ học tập" }, commands: [{ tapOn: "Tiếp tục" }] } },
+        { extendedWaitUntil: { visible: { id: "exercise_close_button" }, timeout: 15000 } },
+      ]);
+      redoAttemptStartedAt = Date.now();
+      if (!tapRedo.success) {
+        return finish({ status: "FAIL", phase: "TAP_LAM_LAI", error: `Tap "Làm lại" thất bại: ${tapRedo.error}`, evidence });
+      }
+      log(`  [PASS] Đã tap "Làm lại" - vào màn Doing (lần 2).`);
     }
-    log(`  [PASS] Đã tap "Làm lại" - vào màn Doing (lần 2).`);
 
     // ===== [5] LÀM LẠI - target ~REDO_SCORE_MIN..REDO_SCORE_MAX =====
     log(`[5] Trả lời lại ${QUESTIONS.length} câu, nhắm điểm ${redoPlan.targetScore} (range [${REDO_SCORE_MIN},${REDO_SCORE_MAX}])...`);

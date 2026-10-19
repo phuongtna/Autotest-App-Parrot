@@ -6,6 +6,7 @@ import { CTA_TEXTS, SECTION_HEADERS } from "./homeworkUiList.js";
 // này KHÔNG tạo circular dependency.
 import { scrollToTop, normalizeDueDateDM } from "./findAssignment.js";
 import { runSearchStateMachine } from "./assignmentSearchEngine.js";
+import { openExerciseViaGiaoBaiNotification } from "../../thong_bao/notificationGiaoBaiFallback.js";
 
 /**
  * locateCompletedCandidate.js - cơ chế TÌM 1 card đã hoàn thành (cta="Làm lại") trong danh sách
@@ -343,6 +344,90 @@ export async function locateSpecificCompletedCandidate(bridge, title, { maxScrol
     `  [LOCATE] Không tìm thấy card "${title}" sau ${result.scrollsUsed} lượt cuộn (enteredAdvanced=${enteredAdvanced}, stopReason=${stopReason}).`,
   );
   return { candidates: [], ambiguous: false, scrollsUsed: result.scrollsUsed, enteredAdvanced, stopReason };
+}
+
+/**
+ * locateCompletedCandidateOrOpenFromNotification() - wrapper ADDITIVE quanh `locateSpecificCompletedCandidate()`
+ * (KHÔNG đổi hành vi hàm gốc - mọi caller hiện có gọi hàm gốc không bị ảnh hưởng gì).
+ *
+ * TẠI SAO CẦN: ĐÃ XÁC NHẬN LIVE (2026-10-19, room `082518c4-f1da-465a-80e2-bc093b305e17`, profile
+ * Ngoc/lớp 4D) - 1 phòng vừa hoàn thành ĐÚNG (point=5/10, xác nhận qua gọi thẳng API
+ * `resolveHomeworkExamQuestionsForRoomId()`, KHÔNG phải suy đoán) có thể KHÔNG BAO GIỜ xuất hiện
+ * trong danh sách "Bài tập", kể cả sau full app relaunch + đổi cả 2 bộ lọc "2 tuần gần nhất"/"1
+ * tháng gần nhất" + >100 lượt cuộn (tự động qua `runSearchStateMachine()` LẪN thủ công qua
+ * `adb shell input swipe` + `uiautomator dump` độc lập). Đây là DATA-SYNC BUG ở tầng list-
+ * aggregation (server/cache) - đã loại trừ nguyên nhân scroll/pagination bằng bằng chứng thật, KHÔNG
+ * phải giả định (xem báo cáo rà soát đính kèm task). `runSearchStateMachine()` (assignmentSearchEngine.js)
+ * đã RẤT kỹ (viewportSignature đa tín hiệu + 2 chiến lược gesture khác bản chất + recheck match
+ * trước khi kết luận PROGRESS_STALLED) - verdict PROGRESS_STALLED/MAX_SCROLLS_REACHED của nó trong
+ * case này là ĐÚNG (card thật sự không có trong bất kỳ viewport nào), không phải lỗi thuật toán cần
+ * vá thêm. KHÔNG tăng maxScrolls/thêm chiến lược gesture mới để "chữa" bug này - vô ích khi dữ liệu
+ * gốc không có thật trong response server trả về cho danh sách.
+ *
+ * CHỈ fallback khi list-locate ĐÃ CẠN KIỆT THẬT (stopReason=PROGRESS_STALLED hoặc
+ * MAX_SCROLLS_REACHED) - KHÔNG fallback khi:
+ *   - `ambiguous=true` (≥2 card trùng title đã tìm thấy - cần người vận hành quyết định, không tự
+ *     chọn 1 trong 2 bằng cách mở thông báo rồi coi như "đã tìm thấy", sẽ che giấu đúng tình huống
+ *     "có thể có nhiều bài cùng điểm/cùng tên" mà fallback này không được phép tự xử lý).
+ *   - `stopReason="SWIPE_ERROR"` (lỗi hạ tầng - bridge/gesture thật sự lỗi, fallback sẽ che giấu lỗi
+ *     hạ tầng cần biết, không phải tình huống "card không có trong list").
+ *
+ * Fallback mở qua thông báo "giao bài" GỐC (KHÔNG phải thông báo "hoàn thành" - xem docblock
+ * notificationGiaoBaiFallback.js để biết lý do route "hoàn thành" là ngõ cụt đã verify LIVE) - identity
+ * = title (nguyên văn, trong ngoặc kép) + "Hạn nộp: DD/MM/YYYY", KHÔNG dùng điểm số (expectedScore)
+ * làm tiêu chí fallback vì điểm số có thể trùng giữa nhiều bài khác nhau.
+ *
+ * @param {import("./findAssignment.js").AssignmentBridge} bridge
+ * @param {string} title
+ * @param {{ maxScrolls: number, scrollLog?: Array, dueDateDM?: ?string, expectedScore?: ?number, notificationDueDateDdMmYyyy?: ?string }} options
+ *   `notificationDueDateDdMmYyyy` ("DD/MM/YYYY", KHÁC `dueDateDM` "DD/MM" của list-locate) - BẮT BUỘC
+ *   nếu muốn fallback thật sự chạy (thiếu thì chỉ log cảnh báo + trả thẳng kết quả list-locate, KHÔNG
+ *   throw - giữ hành vi an toàn/dễ đoán cho caller chưa kịp truyền tham số mới này).
+ * @returns {Promise<{
+ *   candidates: Object[], ambiguous: boolean, scrollsUsed: number, enteredAdvanced: boolean,
+ *   stopReason: ?string, source: "LIST"|"NOTIFICATION", alreadyOnDoingScreen: boolean,
+ *   stopReasonBeforeFallback?: string, notificationFallback?: Object,
+ * }>}
+ */
+export async function locateCompletedCandidateOrOpenFromNotification(
+  bridge,
+  title,
+  { maxScrolls, scrollLog = null, dueDateDM = null, expectedScore = null, notificationDueDateDdMmYyyy = null } = {},
+) {
+  const listResult = await locateSpecificCompletedCandidate(bridge, title, { maxScrolls, scrollLog, dueDateDM, expectedScore });
+  if (listResult.candidates.length > 0 || listResult.ambiguous) {
+    return { ...listResult, source: "LIST", alreadyOnDoingScreen: false };
+  }
+  const genuinelyExhausted = listResult.stopReason === "PROGRESS_STALLED" || listResult.stopReason === "MAX_SCROLLS_REACHED";
+  if (!genuinelyExhausted) {
+    return { ...listResult, source: "LIST", alreadyOnDoingScreen: false };
+  }
+  if (!notificationDueDateDdMmYyyy) {
+    console.log(
+      `  [LOCATE] List-locate cạn kiệt (${listResult.stopReason}) nhưng KHÔNG có notificationDueDateDdMmYyyy - bỏ qua fallback thông báo (cần "Hạn nộp: DD/MM/YYYY" chính xác để khớp nội dung thông báo "giao bài", xem docblock locateCompletedCandidateOrOpenFromNotification()).`,
+    );
+    return { ...listResult, source: "LIST", alreadyOnDoingScreen: false };
+  }
+  console.log(
+    `  [LOCATE] List-locate cạn kiệt thật (${listResult.stopReason}) - thử fallback: mở lại "${title}" qua thông báo "giao bài" (title+Hạn nộp, KHÔNG dùng điểm số)...`,
+  );
+  const notifResult = await openExerciseViaGiaoBaiNotification(bridge, { title, dueDateDdMmYyyy: notificationDueDateDdMmYyyy });
+  if (!notifResult.ok) {
+    console.log(`  [LOCATE] Fallback thông báo CŨNG thất bại: ${notifResult.reason}`);
+    return { ...listResult, source: "LIST", stopReasonBeforeFallback: listResult.stopReason, notificationFallback: notifResult, alreadyOnDoingScreen: false };
+  }
+  console.log(`  [LOCATE] Fallback thông báo PASS - đã vào màn Doing ĐÚNG "${title}" (matched="${notifResult.matchedNotificationText}").`);
+  return {
+    candidates: [],
+    ambiguous: false,
+    scrollsUsed: listResult.scrollsUsed,
+    enteredAdvanced: listResult.enteredAdvanced,
+    stopReason: null,
+    stopReasonBeforeFallback: listResult.stopReason,
+    source: "NOTIFICATION",
+    alreadyOnDoingScreen: true,
+    notificationFallback: notifResult,
+  };
 }
 
 export { COMPLETED_CTA, VIEW_LINK_TEXT };

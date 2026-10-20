@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { writeFileSync, mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { config } from "../src/config.js";
 import { MaestroBridge } from "../bridge/maestroBridge.js";
@@ -332,6 +332,25 @@ async function main() {
     log(`[ScenarioMatrix] Đã vào bài (${secondsSince(navStart).toFixed(2)}s).`);
   }
 
+  const { stoppedReason, finalResult, perQuestionResults } = await runScenarioExam({ bridge, questions, scenarioMap });
+
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+  const outPath = join(OUTPUT_DIR, `vuihoc_scenario_matrix_${Date.now()}.json`);
+  writeFileSync(
+    outPath,
+    JSON.stringify({ examId, examName, bookName, unitName, lessonName, exerciseName, scenarioMap, stoppedReason, finalResult, perQuestionResults }, null, 2),
+  );
+  log(`[ScenarioMatrix] Đã ghi kết quả: ${outPath}`);
+}
+
+/**
+ * Vòng lặp trả lời (Scenario A/B/C theo `scenarioMap`, khoá CMS id) tới màn Kết quả - TÁCH RA từ
+ * `main()` (2026-10-20, thuần refactor, KHÔNG đổi hành vi) để các script khác (vd orchestrator
+ * random-exercise + target-score) tái sử dụng NGUYÊN state machine này thay vì viết lại, chỉ cần
+ * tự lo phần discover/navigate + tính `scenarioMap` riêng.
+ * @param {{bridge: MaestroBridge, questions: Array, scenarioMap: Record<string,"A"|"B"|"C">}} args
+ */
+export async function runScenarioExam({ bridge, questions, scenarioMap }) {
   const engine = new VuiHocExamEngine(bridge);
   const pool = questions.map((q) => ({ question: q, answered: false }));
   const maxIterations = questions.length + 3;
@@ -394,16 +413,14 @@ async function main() {
     }
   }
 
-  mkdirSync(OUTPUT_DIR, { recursive: true });
-  const outPath = join(OUTPUT_DIR, `vuihoc_scenario_matrix_${Date.now()}.json`);
-  writeFileSync(
-    outPath,
-    JSON.stringify({ examId, examName, bookName, unitName, lessonName, exerciseName, scenarioMap, stoppedReason, finalResult, perQuestionResults }, null, 2),
-  );
-  log(`[ScenarioMatrix] Đã ghi kết quả: ${outPath}`);
+  return { stoppedReason, finalResult, perQuestionResults };
 }
 
-main().catch((err) => {
-  console.error("FATAL:", err);
-  process.exit(1);
-});
+// Guard: KHÔNG tự chạy main() khi file này được import làm module (vd `runScenarioExam` dùng bởi
+// runVuiHocRandomTargetScore.mjs) - cùng pattern đã dùng ở discovery/cli.js.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("FATAL:", err);
+    process.exit(1);
+  });
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { writeFileSync, mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { config } from "../src/config.js";
 import { MaestroBridge } from "../bridge/maestroBridge.js";
@@ -124,7 +124,9 @@ function backIfNeeded() {
   return { runFlow: { when: { notVisible: "Vui học" }, commands: ["back", { waitForAnimationToEnd: { timeout: 1000 } }] } };
 }
 
-async function resetToVuiHocHome(bridge) {
+// export thêm (không đổi hành vi) để orchestrator khác tái sử dụng cùng cơ chế reset giữa các
+// lượt random+navigate - xem docblock runVuiHocRandomTargetScore.mjs.
+export async function resetToVuiHocHome(bridge) {
   await bridge.runSteps([backIfNeeded(), backIfNeeded(), backIfNeeded(), { tapOn: { id: "tab_happy_learning" } }, { waitForAnimationToEnd: { timeout: 1500 } }]);
 }
 
@@ -294,7 +296,11 @@ async function main() {
   if (summary.stoppedReason !== "COMPLETED") process.exitCode = 1;
 }
 
-main().catch((err) => {
-  console.error("[runVuiHocRandomExercise] LỖI:", err);
-  process.exit(1);
-});
+// Guard: KHÔNG tự chạy main() khi file này được import làm module (vd `resetToVuiHocHome` dùng
+// bởi runVuiHocRandomTargetScore.mjs) - cùng pattern đã dùng ở discovery/cli.js.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("[runVuiHocRandomExercise] LỖI:", err);
+    process.exit(1);
+  });
+}

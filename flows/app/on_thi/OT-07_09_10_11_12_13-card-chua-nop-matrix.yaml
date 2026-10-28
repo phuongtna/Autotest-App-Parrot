@@ -1,0 +1,103 @@
+# OT-07_09_10_11_12_13 — Ma trận hiển thị Card đề CHƯA nộp (tab Ôn thi > Đề thầy cô giao)
+# Gộp OT-07 (đủ field), OT-09 (nhãn QUÁ HẠN), OT-10 (nhãn Hôm nay), OT-11 (CTA "Làm bài"),
+# OT-12 (CTA "Làm tiếp"), OT-13 (tap CTA điều hướng đúng đề) - cùng data-dependent/broad-assertion
+# style như `flows/app/bai_tap/HW-07_08_09_10_11-card-matrix.yaml` (không khoá vào 1 đề cụ thể,
+# chỉ xác nhận CÓ ÍT NHẤT 1 card khớp mỗi mẫu đang hiển thị trong danh sách).
+#
+# KHÔNG gộp OT-08 (thứ tự sắp xếp theo Ngày giao) - cần đối chiếu dữ liệu Ngày giao thật ngoài UI,
+# xem TEST-CASES.md Ghi chú #2 (đã có bug thật ghi nhận cho rule này, không phải case đơn giản tự
+# verify bằng assertion rộng như các case khác trong nhóm).
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT - xem automation/on_thi/discovery/onThiUiList.js (hằng số parser)
+# và automation/on_thi/navigation/onThiPageObjects.js (CTA text) để biết phần nào đã thấy thật
+# trong ảnh mockup vs phần nào còn là giả định.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: OT-07_09_10_11_12_13 Ma tran hien thi Card de chua nop
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-on-thi.yaml
+
+# --- OT-07: Card đủ Tên đề + tiến độ x/y + thanh tiến độ + Hạn nộp (card CHƯA nộp bất kỳ) ---
+- scrollUntilVisible:
+    element:
+      text: ".*(Hạn nộp).*"
+    direction: DOWN
+    timeout: 60000
+    speed: 70
+- assertVisible:
+    text: ".*(Hạn nộp).*"
+- assertVisible:
+    text: "\\d+\\s*/\\s*\\d+"
+- takeScreenshot: artifacts/OT-07-card-chua-nop
+
+# --- OT-11: CTA "Làm bài" (chưa từng làm, thường kèm Hạn nộp mà KHÔNG có "x/y" nào khác 0) ---
+- assertVisible:
+    text: ".*(Làm bài).*"
+- takeScreenshot: artifacts/OT-11-cta-lam-bai
+
+# --- OT-12: CTA "Làm tiếp" (đang làm dở) - optional vì tài khoản test có thể chưa có đề đang dở ---
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 250
+- scrollUntilVisible:
+    element:
+      text: ".*(Làm tiếp).*"
+    direction: DOWN
+    timeout: 30000
+    optional: true
+- takeScreenshot: artifacts/OT-12-cta-lam-tiep
+
+# --- OT-09: Nhãn quá hạn, chữ đỏ (màu không verify được qua text selector - chỉ xác nhận có text) ---
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 250
+- scrollUntilVisible:
+    element:
+      text: ".*QUÁ HẠN.*"
+    direction: DOWN
+    timeout: 30000
+    optional: true
+- takeScreenshot: artifacts/OT-09-qua-han
+
+# --- OT-10: Nhãn hạn nộp HÔM NAY ---
+- repeat:
+    times: 5
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 250
+- scrollUntilVisible:
+    element:
+      text: ".*Hôm nay.*"
+    direction: DOWN
+    timeout: 30000
+    optional: true
+- takeScreenshot: artifacts/OT-10-hom-nay
+
+# --- OT-13: tap CTA của 1 card CỤ THỂ (dùng DE_NAME truyền vào, KHÔNG tap theo index) -> vào đúng
+# màn Chi tiết đề (dùng chung marker exercise_close_button với module Bài tập - xem open-de.yaml) ---
+- runFlow:
+    when:
+      true: ${DE_NAME != null && DE_NAME != 'undefined'}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME}
+            DE_DUE_DATE_DM: ${DE_DUE_DATE_DM}
+      - takeScreenshot: artifacts/OT-13-opened-de-detail

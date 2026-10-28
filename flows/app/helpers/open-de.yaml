@@ -1,0 +1,117 @@
+# Helper: mở 1 đề ("Đề thầy cô giao") và dừng lại ở màn LÀM BÀI (cùng màn
+# app/dashboard/exercise/doing.tsx đã dùng cho module Bài tập - spec.json không nói có màn riêng
+# cho on_thi, và câu hỏi dùng chung testID exercise_* theo mọi ghi chú module đã biết trong repo).
+#
+# NHÁI LẠI ĐÚNG kỹ thuật đã verify thật trong `flows/app/helpers/open-exercise.yaml` (escape regex
+# ký tự đặc biệt trong tên đề, due-date làm anchor VERIFY không phải SCROLL TARGET, tapOn CTA lồng
+# "below" 2 cấp title->Hạn nộp để né lỗi tap-nhầm-card-trùng-lặp) - mở tab "Ôn thi > Đề thầy cô
+# giao" (thay vì "Bài tập") + CTA regex "(Làm bài|Làm tiếp|Làm lại)".
+#
+# ĐÃ VERIFY THẬT (2026-10-28, thiết bị 3201d866d40a1681 model SM-M205G, app com.inet.parrotedu, tài
+# khoản/profile "Phương" lớp 11A2): card CHƯA nộp dùng "Làm bài" (resource-id
+# exam_prep_assignment_<id>_action_none), card ĐÃ nộp dùng "Làm lại" (resource-id
+# exam_prep_assignment_<id>_action_done) - CẢ 2 ĐỀU LÀ NÚT "mở 1 lượt làm bài MỚI" (khác "Xem bài đã
+# làm"/_review, dẫn vào màn lịch sử read-only, KHÔNG mở lượt làm mới). "Làm tiếp" (đang làm dở) CHƯA
+# quan sát được thật trên tài khoản này (chưa có đề nào đang dở dang tại thời điểm test) - giữ trong
+# regex vì đã có trong ảnh mockup gốc, nhưng CHƯA tự verify text/id riêng.
+#
+# Tham số: PHONE, OTP, DE_NAME (mặc định dùng tên đặt chỗ, LUÔN truyền thật khi chạy có ý nghĩa),
+# DE_DUE_DATE_DM (optional, "DD/MM" - dùng khi DE_NAME có thể trùng ≥2 card).
+#
+# DEVICE_MODE=true -> bỏ qua launchApp + login (xem open-exercise.yaml để biết lý do đầy đủ).
+#
+# CHƯA VERIFY HẾT TRÊN THIẾT BỊ THẬT - đã verify nhánh "Làm bài"/"Làm lại" (trên), CHƯA verify
+# nhánh EXERCISE_DUE_DATE_DM (due-date làm anchor lồng 2 cấp) + bottom sheet nâng cấp Pro/Free (xem
+# ghi chú CẦN XÁC MINH ở automation/on_thi/navigation/onThiPageObjects.js).
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      true: ${DEVICE_MODE != 'true'}
+    commands:
+      - runFlow: launch-keep-session.yaml
+      - runFlow:
+          file: login.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+- runFlow:
+    when:
+      true: ${DEVICE_MODE == 'true'}
+    commands:
+      - tapOn:
+          id: "exercise_close_button"
+          optional: true
+      - tapOn:
+          id: "exercise_show_answer_next_button"
+          optional: true
+      - tapOn:
+          text: ".*(Hoàn thành|Đóng).*"
+          optional: true
+
+- runFlow: open-tab-on-thi.yaml
+
+- runFlow:
+    when:
+      true: ${DE_DUE_DATE_DM != null && DE_DUE_DATE_DM != 'undefined'}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 150000
+          speed: 70
+          waitToSettleTimeoutMs: 500
+      - assertVisible:
+          text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
+          below:
+            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - tapOn:
+          text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+          below:
+            text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
+            below:
+              text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+- runFlow:
+    when:
+      true: ${DE_DUE_DATE_DM == null || DE_DUE_DATE_DM == 'undefined'}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 90000
+          speed: 70
+          waitToSettleTimeoutMs: 500
+      - tapOn:
+          text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+          below:
+            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+
+# Bottom sheet nâng cấp Pro/Free (spec.json mục "Rule quyền truy cập theo gói"): nếu tài khoản Free
+# bấm vào đề Pro, app KHÔNG vào màn làm bài mà hiện sheet nâng cấp - helper này KHÔNG dismiss sheet
+# đó (khác AI-consent bên dưới), để nguyên cho caller tự assert (xem TEST-CASES.md nhóm III) - CHƯA
+# có copy thật để biết chọn selector nào (xem onThiPageObjects.js#upgradeSheet).
+
+# Consent AI nếu tài khoản chưa đồng ý - CÙNG dialog chung toàn app, không riêng module nào.
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+# Chốt: đã vào màn làm bài (cùng marker exercise_close_button đã verify thật cho module Bài tập).
+- extendedWaitUntil:
+    visible:
+      id: "exercise_close_button"
+    timeout: 40000
+- extendedWaitUntil:
+    visible:
+      text: ".*(Kiểm tra|Tiếp theo|Tiếp tục|Nhấn để nói|Nhập câu trả lời).*"
+    timeout: 90000
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "exercise_connect_left_0"
+    timeout: 90000
+    optional: true

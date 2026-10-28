@@ -1,0 +1,54 @@
+# OT-18_19 — Rule hiển thị đề theo trạng thái Công khai/Chưa công khai trên Web (tab Ôn thi > Đề
+# thầy cô giao)
+#
+# KHÁC OT-20/21/22 (xem TEST-CASES.md Ghi chú #3, chưa viết code): 2 case này KHÔNG cần thao tác Web
+# XEN GIỮA lúc App đang chạy - trạng thái Công khai/Chưa công khai được set up THỦ CÔNG TRƯỚC khi
+# chạy flow này (giáo viên publish/unpublish đề trên Web, xong rồi mới mở app) nên vẫn là 1 lượt
+# assertion thuần phía App, tự động hoá được bình thường.
+#
+# Tham số: PHONE, OTP, DE_PUBLISHED_NAME (tên 1 đề ĐANG Công khai), DE_UNPUBLISHED_NAME (tên 1 đề
+# ĐANG Chưa công khai, do giáo viên set up thủ công trước - KHÔNG tự early-exit nếu thiếu tham số,
+# throw rõ qua assertVisible/FAIL để QA biết cần truyền gì).
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT.
+appId: ${APP_ID}
+tags:
+  - regression
+name: OT-18_19 Rule hien thi de theo trang thai cong khai tren Web
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-on-thi.yaml
+
+# --- OT-18: đề Công khai hiển thị trong danh sách ---
+- scrollUntilVisible:
+    element:
+      text: '.*${DE_PUBLISHED_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+    direction: DOWN
+    timeout: 90000
+    speed: 70
+    waitToSettleTimeoutMs: 500
+- assertVisible:
+    text: '.*${DE_PUBLISHED_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+- takeScreenshot: artifacts/OT-18-de-cong-khai-hien-thi
+
+# --- OT-19: đề Chưa công khai KHÔNG hiển thị ---
+# "Cuộn N lần cố định rồi assertNotVisible" chỉ là bằng chứng YẾU (giống hạn chế đã ghi nhận ở
+# `flows/app/helpers/locate-assignment-card.yaml`, DEPRECATED - không có cách chắc chắn "đã cuộn hết
+# danh sách" bằng Maestro thuần). Đủ dùng cho case này vì mục tiêu là PHỦ ĐỊNH (không tồn tại), khác
+# `findDeThi()`/`findAssignment()` (cần định vị CHÍNH XÁC 1 card) - nếu sau này cần chắc chắn tuyệt
+# đối, đổi sang gọi `automation/on_thi/discovery/findDeThi.js` qua Node (trả NOT_FOUND có
+# `diagnostics` đầy đủ số lượt cuộn đã thử, đáng tin hơn).
+- repeat:
+    times: 15
+    commands:
+      - swipe:
+          direction: DOWN
+          duration: 250
+      - assertNotVisible:
+          text: '.*${DE_UNPUBLISHED_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+- takeScreenshot: artifacts/OT-19-de-chua-cong-khai-an

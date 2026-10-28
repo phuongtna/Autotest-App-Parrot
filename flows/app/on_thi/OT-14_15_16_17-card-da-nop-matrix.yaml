@@ -1,0 +1,52 @@
+# OT-14_17 — Ma trận hiển thị Card đề ĐÃ nộp (tab Ôn thi > Đề thầy cô giao)
+# Gộp OT-14 (đủ field: khối điểm/Tên đề/x-y/điểm cao nhất), OT-17 (tap "Xem bài đã làm" mở đúng
+# Lịch sử làm bài). KHÔNG gộp OT-15 (màu thanh tỉ lệ - Maestro không đọc được màu qua text selector,
+# chỉ chụp screenshot cho QA xem bằng mắt, đã note trong TEST-CASES.md) và OT-16 (điểm = cao nhất
+# qua nhiều lần làm - cần setup ≥2 lần làm trước, không phải assertion đơn giản trên 1 lượt đọc).
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT - SCORE_PATTERN ("Điểm N") ở onThiUiList.js là suy đoán theo quy
+# ước module Bài tập, CHƯA capture được text thật của card đã nộp cho module Ôn thi.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: OT-14_17 Ma tran hien thi Card de da nop
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-on-thi.yaml
+
+# --- OT-14: Card đã nộp - khối điểm minh hoạ + Tên đề + x/y + điểm cao nhất ---
+- scrollUntilVisible:
+    element:
+      text: ".*(Xem bài đã làm).*"
+    direction: DOWN
+    timeout: 60000
+    speed: 70
+- assertVisible:
+    text: ".*(Xem bài đã làm).*"
+- assertVisible:
+    text: "Điểm.*"
+- takeScreenshot: artifacts/OT-14-card-da-nop
+
+# --- OT-15 (CHỈ chụp màn hình cho QA xem màu bằng mắt - không tự assert được màu) ---
+- takeScreenshot: artifacts/OT-15-ti-le-dung-sai-mau-xem-bang-mat
+
+# --- OT-17: tap "Xem bài đã làm" của 1 đề CỤ THỂ (DE_NAME truyền vào) -> mở đúng Lịch sử làm bài ---
+- runFlow:
+    when:
+      true: ${DE_NAME != null && DE_NAME != 'undefined'}
+    commands:
+      - tapOn:
+          text: ".*(Xem bài đã làm).*"
+          below:
+            text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - assertVisible:
+          text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/OT-17-attempt-history

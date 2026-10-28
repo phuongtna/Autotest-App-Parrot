@@ -1,0 +1,40 @@
+# Helper: mở tab "Ôn thi" > sub-tab "Đề thầy cô giao" và chờ danh sách render xong.
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT (khác open-tab-homework.yaml, file đó đã verify thật) - nhái lại
+# ĐÚNG cấu trúc/kỹ thuật của open-tab-homework.yaml (full-match text, dismiss popup, scroll-về-đầu
+# khi DEVICE_MODE=true, extendedWaitUntil chờ nội dung thật thay vì sleep cố định) vì chưa có bằng
+# chứng nào cho thấy on_thi cần cách khác - CẦN CHẠY THẬT 1 LẦN rồi cập nhật lại comment này theo
+# đúng quy ước "ĐÃ VERIFY THẬT (ngày, thiết bị, tài khoản)" như các helper khác.
+#
+# CẦN XÁC MINH (xem automation/on_thi/navigation/onThiPageObjects.js để biết đầy đủ): tên tab gốc
+# "Ôn thi" có thật là 1 tab trên bottom bar hay là màn con mở từ nơi khác (vd từ "Vui học" hoặc 1
+# banner riêng) - nếu KHÔNG phải tab bottom-bar, bước `tapOn: text: "Ôn thi"` bên dưới sẽ cần thay
+# bằng đường điều hướng khác (chưa biết) trước khi chạy thật lần đầu.
+appId: ${APP_ID}
+---
+- tapOn:
+    text: "Ôn thi"
+
+- runFlow:
+    when:
+      true: ${DEVICE_MODE == 'true'}
+    commands:
+      - repeat:
+          times: 5
+          commands:
+            - swipe:
+                direction: DOWN
+                duration: 250
+
+# Đảm bảo đang ở ĐÚNG sub-tab "Đề thầy cô giao" (không phải "Kho đề Parrot", tab còn lại trong ảnh
+# mockup màn Danh sách đề) - tap lại cho idempotent, không gây lỗi nếu đã đang chọn sẵn.
+- tapOn:
+    text: "Đề thầy cô giao"
+
+- extendedWaitUntil:
+    visible:
+      # CẦN XÁC MINH text rỗng-danh-sách thật ("Bạn chưa có đề nào..." hay tương tự) - để trống
+      # trong cụm OR bên dưới cho tới khi capture được, tạm chấp nhận filter label làm tín hiệu
+      # "màn đã load xong" (luôn có mặt theo spec.json kể cả khi danh sách rỗng - "0 đề").
+      text: ".*(Đề thầy cô giao|2 tuần gần nhất|1 tháng gần nhất).*"
+    timeout: 30000

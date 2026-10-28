@@ -1,0 +1,66 @@
+# OT-34_35 — Rule hạn nộp: đề quá hạn vẫn cho làm + nộp bình thường, Card chuyển đã nộp với điểm
+# đúng (tab Ôn thi > Đề thầy cô giao)
+#
+# Full luồng mở -> làm hết -> nộp -> quay lại danh sách verify card đổi trạng thái, CÙNG CẤU TRÚC đã
+# verify thật ở `flows/app/bai_tap/ktra_fullluong_lambai.yaml` (module Bài tập) - TÁI SỬ DỤNG NGUYÊN
+# VẸN `open-de.yaml` (CTA "Làm bài", card đã QUÁ HẠN vẫn hiện CTA này theo đúng ảnh mockup đính kèm
+# yêu cầu gốc) + `answer-current-exercise-generic.yaml` + `answer-and-wait-result.yaml` - không viết
+# lại cơ chế trả lời câu hỏi.
+#
+# Tham số: PHONE, OTP, DE_NAME (1 đề ĐANG QUÁ HẠN, HS chưa làm - do QA set up/chọn trước), DE_DUE_DATE_DM
+# (optional, "DD/MM" của đề đó, dùng khi DE_NAME trùng nhiều card).
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT - đặc biệt: marker đóng màn kết quả để quay về danh sách
+# ("Hoàn thành"/`onthi_screen` hay tên khác) CHƯA xác nhận - tạm dùng regex rộng
+# ".*(Hoàn thành|Đóng).*" đã dùng chung ở module Bài tập (DEVICE_MODE branch của open-exercise.yaml),
+# CẦN đối chiếu lại khi chạy thật lần đầu.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: OT-34_35 De qua han van cho lam va nop binh thuong
+---
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      DE_NAME: ${DE_NAME}
+      DE_DUE_DATE_DM: ${DE_DUE_DATE_DM}
+
+# --- OT-34: vào làm bài bình thường dù đề đã quá hạn (open-de.yaml không chặn, tới được màn làm bài
+# là đã verify được phần "cho vào làm" của rule) ---
+- takeScreenshot: artifacts/OT-34-vao-lam-de-qua-han
+
+- runFlow: ../helpers/answer-current-exercise-generic.yaml
+- runFlow: ../helpers/answer-and-wait-result.yaml
+
+- takeScreenshot: artifacts/OT-34-ket-qua-sau-khi-nop-tre-han
+
+# Đóng màn kết quả, quay về danh sách
+- tapOn:
+    text: ".*(Hoàn thành|Đóng).*"
+- runFlow: ../helpers/open-tab-on-thi.yaml
+
+# --- OT-35: Card đã chuyển sang nhóm "đã nộp" (khối điểm + "Xem bài đã làm"), không còn CTA
+# "Làm bài"/Hạn nộp nữa ---
+- runFlow:
+    when:
+      true: ${DE_NAME != null && DE_NAME != 'undefined'}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 90000
+          speed: 70
+          waitToSettleTimeoutMs: 500
+      - assertVisible:
+          text: ".*(Xem bài đã làm).*"
+          below:
+            text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - assertVisible:
+          text: "Điểm.*"
+          below:
+            text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/OT-35-card-da-nop-tre-han

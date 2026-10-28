@@ -104,9 +104,31 @@ export class MaestroBridge {
       try {
         return execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
       } catch {
-        throw err; // Báo lỗi gốc (lượt nhanh) - lượt reinstall chỉ để tự hồi phục, không che lỗi thật.
+        throw this._augmentMaestroError(err); // Báo lỗi gốc (lượt nhanh) - lượt reinstall chỉ để tự hồi phục, không che lỗi thật.
       }
     }
+  }
+
+  /**
+   * ROOT CAUSE (xác nhận thật 2026-10-23, cùng lớp bug đã ghi nhận trong memory
+   * feedback_navigationengine_requires_vuihoc_tab_active): `execFileSync()` khi `maestro` thoát
+   * khác 0 chỉ tự gắn STDERR vào `err.message` (hành vi mặc định của Node, xem child_process docs)
+   * - nhưng lý do FAILED THẬT của Maestro (vd "Element not found: Text matching regex: ...") được
+   * CLI in ra STDOUT (phần report "✗ <step>... FAILED"), không phải stderr. Kết quả: MỌI lỗi
+   * điều hướng/thao tác qua `runSteps()`/`tap()`/... đều chỉ còn lại dòng chung chung "Command
+   * failed: maestro test <file> ..." - không phân biệt được lỗi tạm thời (driver/timeout) với lỗi
+   * logic thật (sai selector, sai màn hình) như yêu cầu, và caller (vd runVuiHocRandomExercise.mjs)
+   * phải random lại/resetToVuiHocHome() MÙ mà không biết lý do thật. SỬA: nối thêm vài dòng CUỐI
+   * của `err.stdout` thật (nơi Maestro in lý do FAILED) vào `err.message` - KHÔNG đổi error object
+   * gốc hay {success,error} contract của `_runFlow()`/caller, chỉ làm `error` mang thông tin thật.
+   */
+  _augmentMaestroError(err) {
+    const stdout = typeof err.stdout === "string" ? err.stdout.trim() : "";
+    if (stdout) {
+      const tail = stdout.split("\n").slice(-15).join("\n");
+      err.message = `${err.message}\n--- maestro stdout (tail) ---\n${tail}`;
+    }
+    return err;
   }
 
   _runFlow(steps) {

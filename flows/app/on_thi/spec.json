@@ -1,0 +1,489 @@
+{
+  "project": "Parrot App - Ôn thi",
+  "feature": "Danh sách đề (Đề thầy cô giao)",
+  "tc_prefix": "TC_APP_OnThi_DanhSachDe",
+  "author": "QA Team",
+  "account_info": "Tài khoản HS Free/Pro/Dùng thử có lớp được giáo viên giao đề ôn thi",
+  "groups": [
+    {
+      "level": 1,
+      "title": "I. Màn hình Danh sách đề thầy cô giao",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Label Số lượng đề & Dropdown Thời gian giao đề",
+          "testcases": [
+            {
+              "name": "Kiểm tra mặc định Dropdown Thời gian giao đề chọn '2 tuần gần nhất' khi vào màn lần đầu",
+              "precondition": "1. Tài khoản HS đã đăng nhập, lớp đang tham gia đã được giáo viên giao ít nhất 1 đề ôn thi\n2. Chưa từng vào màn Danh sách đề thầy cô giao trong phiên này",
+              "steps": "1. Vào tab Ôn thi\n2. Chọn tab 'Đề thầy cô giao'",
+              "test_data": "",
+              "expected": "2. Dropdown Thời gian giao đề hiển thị mặc định '2 tuần gần nhất'; danh sách đề hiển thị đúng các đề được giao trong 2 tuần gần nhất",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Label Số lượng đề hiển thị đúng tổng số đề theo bộ lọc thời gian đang chọn",
+              "precondition": "1. Lớp HS đang tham gia có 6 đề được giao trong 2 tuần gần nhất và 9 đề trong 1 tháng gần nhất",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao (bộ lọc mặc định '2 tuần gần nhất')\n2. Quan sát Label số lượng đề\n3. Đổi bộ lọc sang '1 tháng gần nhất'\n4. Quan sát lại Label số lượng đề",
+              "test_data": "",
+              "expected": "2. Label hiển thị '6 đề'\n4. Label cập nhật thành '9 đề'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đổi bộ lọc sang '1 tháng gần nhất' cập nhật đúng danh sách đề hiển thị",
+              "precondition": "1. Lớp HS đang tham gia có đề được giao cách đây 3 tuần (nằm ngoài '2 tuần gần nhất' nhưng trong '1 tháng gần nhất')",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Xác nhận đề giao cách đây 3 tuần không hiển thị ở bộ lọc mặc định\n3. Mở Dropdown Thời gian giao đề, chọn '1 tháng gần nhất'",
+              "test_data": "",
+              "expected": "2. Đề giao cách đây 3 tuần không xuất hiện trong danh sách\n3. Danh sách cập nhật ngay, hiển thị thêm đề giao cách đây 3 tuần",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra hiển thị khi không có đề nào trong khoảng thời gian đang lọc",
+              "precondition": "1. Lớp HS đang tham gia không có đề nào được giao trong 2 tuần gần nhất (nhưng có đề nằm ngoài khoảng, ví dụ trong 1 tháng gần nhất)",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao với bộ lọc mặc định '2 tuần gần nhất'",
+              "test_data": "",
+              "expected": "1. Label hiển thị '0 đề' và khu vực danh sách hiển thị text thông báo trạng thái rỗng (vd: 'Không có đề nào trong khoảng thời gian này'), không hiển thị card đề nào",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra hiển thị text thông báo khi lớp chưa từng được giáo viên giao đề nào",
+              "precondition": "1. Lớp HS đang tham gia chưa từng được giáo viên giao bất kỳ đề ôn thi nào (không có đề ở cả 2 mốc thời gian lọc)",
+              "steps": "1. Vào tab Ôn thi\n2. Chọn tab 'Đề thầy cô giao'",
+              "test_data": "",
+              "expected": "2. Label hiển thị '0 đề', màn hình hiển thị text thông báo danh sách rỗng (vd: 'Chưa có đề nào được giao') kèm hình minh hoạ (nếu có), không hiển thị lỗi tải dữ liệu và không có card đề nào",
+              "priority": "Medium",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra Dropdown Thời gian giao đề chỉ có đúng 2 lựa chọn",
+              "precondition": "1. Đang ở màn Danh sách đề thầy cô giao",
+              "steps": "1. Bấm mở Dropdown Thời gian giao đề",
+              "test_data": "",
+              "expected": "1. Dropdown hiển thị đúng 2 lựa chọn: '2 tuần gần nhất' và '1 tháng gần nhất', không có lựa chọn khác",
+              "priority": "Low",
+              "tc_type": "GUI"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "2. Card đề chưa nộp",
+          "testcases": [
+            {
+              "name": "Kiểm tra Card đề chưa nộp hiển thị đầy đủ Tên đề, tiến độ x/y, thanh tiến độ và hạn nộp",
+              "precondition": "1. HS được giao đề 'Đề kiểm tra giữa kỳ I - Unit 1-5' gồm 30 câu, đã làm dở 8/30 câu, hạn nộp 12/10",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Quan sát Card của đề 'Đề kiểm tra giữa kỳ I - Unit 1-5'",
+              "test_data": "",
+              "expected": "2. Card hiển thị đúng Tên đề 'Đề kiểm tra giữa kỳ I - Unit 1-5', tiến độ '8/30', thanh tiến độ tương ứng ~27%, hạn nộp '12/10', nút 'Làm tiếp'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra danh sách Card đề chưa nộp sắp xếp theo Ngày cô giao mới nhất lên đầu",
+              "precondition": "1. Lớp HS đang tham gia có 3 đề chưa nộp, được giao vào 3 ngày khác nhau trong 2 tuần gần nhất",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Quan sát thứ tự các Card trong danh sách",
+              "test_data": "",
+              "expected": "2. Các Card được sắp xếp theo thứ tự Ngày giáo viên giao đề giảm dần (đề giao mới nhất hiển thị trên cùng)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra hiển thị nhãn '(QUÁ HẠN)' màu đỏ khi đề đã quá hạn nộp mà HS chưa nộp bài",
+              "precondition": "1. HS được giao đề 'Đề kiểm tra 15 phút - Unit 4' có hạn nộp 09/10, ngày hiện tại sau 09/10 và HS chưa nộp bài",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Quan sát dòng hạn nộp của Card đề 'Đề kiểm tra 15 phút - Unit 4'",
+              "test_data": "",
+              "expected": "2. Dòng hạn nộp hiển thị '09/10 (QUÁ HẠN)' với màu đỏ, nút hành động hiển thị 'Làm bài'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra hiển thị nhãn '(Hôm nay)' khi hạn nộp đề đúng bằng ngày hiện tại",
+              "precondition": "1. HS được giao 1 đề có hạn nộp trùng với ngày hệ thống hiện tại và HS chưa nộp bài",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Quan sát dòng hạn nộp của đề có hạn nộp là hôm nay",
+              "test_data": "",
+              "expected": "2. Dòng hạn nộp hiển thị 'dd/mm (Hôm nay)' đúng định dạng, chưa hiển thị trạng thái quá hạn",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Card hiển thị nút 'Làm bài' khi HS chưa từng bắt đầu làm đề (0/y)",
+              "precondition": "1. HS được giao 1 đề mới, chưa mở làm lần nào (tiến độ 0/10)",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Quan sát Card của đề chưa từng làm",
+              "test_data": "",
+              "expected": "2. Card hiển thị tiến độ '0/10', thanh tiến độ rỗng, nút hành động hiển thị 'Làm bài'",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Card hiển thị nút 'Làm tiếp' khi HS đã làm dở ít nhất 1 câu trong đề",
+              "precondition": "1. HS được giao 1 đề, đã làm dở ít nhất 1 câu (vd 8/30), chưa nộp bài",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Quan sát Card của đề đang làm dở",
+              "test_data": "",
+              "expected": "2. Card hiển thị nút hành động 'Làm tiếp' thay vì 'Làm bài'",
+              "priority": "Medium",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra bấm nút 'Làm bài'/'Làm tiếp' chuyển đến màn Chi tiết đề tương ứng",
+              "precondition": "1. Đang ở màn Danh sách đề thầy cô giao, có ít nhất 1 Card đề chưa nộp",
+              "steps": "1. Bấm nút 'Làm bài' (hoặc 'Làm tiếp') trên 1 Card đề bất kỳ",
+              "test_data": "",
+              "expected": "1. Hệ thống điều hướng đến màn Chi tiết đề đúng với đề vừa chọn",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "3. Card đề đã nộp",
+          "testcases": [
+            {
+              "name": "Kiểm tra Card đề đã nộp hiển thị đầy đủ khối điểm minh hoạ, Tên đề, x/y và điểm cao nhất",
+              "precondition": "1. HS đã nộp đề 'Đề kiểm tra 15 phút - Unit 3' với kết quả 8/10 câu đúng, điểm cao nhất đạt được là 8.0",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Cuộn đến khu vực các đề đã nộp (mục 'Điểm')\n3. Quan sát Card của đề 'Đề kiểm tra 15 phút - Unit 3'",
+              "test_data": "",
+              "expected": "3. Card hiển thị khối điểm minh hoạ, Tên đề 'Đề kiểm tra 15 phút - Unit 3', tỉ lệ '8/10', thanh tỉ lệ đúng/sai tương ứng, điểm cao nhất '8.0'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra thanh tỉ lệ đúng (xanh)/sai (đỏ) hiển thị đúng màu theo số câu đúng và sai",
+              "precondition": "1. HS đã nộp 1 đề với kết quả 7 câu đúng, 3 câu sai trên tổng 10 câu",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao, mục đề đã nộp\n2. Quan sát thanh tỉ lệ trên Card",
+              "test_data": "",
+              "expected": "2. Thanh tỉ lệ hiển thị đoạn xanh tương ứng 7/10 và đoạn đỏ tương ứng 3/10",
+              "priority": "Medium",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra điểm hiển thị trên Card là điểm của lần làm bài cao nhất khi HS làm lại nhiều lần",
+              "precondition": "1. HS đã làm đề 3 lần với điểm số lần lượt 6.0, 9.0, 7.5",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao, mục đề đã nộp\n2. Quan sát điểm hiển thị trên Card của đề đã làm 3 lần",
+              "test_data": "",
+              "expected": "2. Card hiển thị điểm '9.0' (điểm cao nhất trong 3 lần làm), không phải điểm của lần làm gần nhất",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm 'Xem bài đã làm' mở đúng màn Lịch sử làm bài của đề tương ứng",
+              "precondition": "1. Đang ở màn Danh sách đề thầy cô giao, có ít nhất 1 Card đề đã nộp",
+              "steps": "1. Bấm 'Xem bài đã làm' trên Card đề đã nộp",
+              "test_data": "",
+              "expected": "1. Hệ thống mở màn Lịch sử làm bài đúng với đề vừa chọn, hiển thị danh sách các lần làm bài",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "II. Rule hiển thị đề theo trạng thái công khai trên CMS",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Công khai / Chưa công khai / Ẩn / Xoá đề",
+          "testcases": [
+            {
+              "name": "Kiểm tra đề ở trạng thái Công khai trên CMS hiển thị trong danh sách đề",
+              "precondition": "1. Giáo viên đã giao 1 đề cho lớp HS, đề đang ở trạng thái Công khai trên CMS",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao",
+              "test_data": "",
+              "expected": "1. Đề Công khai hiển thị bình thường trong danh sách",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề ở trạng thái Chưa công khai trên CMS không hiển thị trong danh sách đề",
+              "precondition": "1. Giáo viên đã giao 1 đề cho lớp HS nhưng đề đang ở trạng thái Chưa công khai trên CMS",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao",
+              "test_data": "",
+              "expected": "1. Đề Chưa công khai không xuất hiện trong danh sách đề trên App/Web, kể cả khi đã nằm trong khoảng thời gian lọc",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra HS đang làm dở đề mà giáo viên Ẩn đề giữa chừng vẫn tiếp tục làm và nhận được kết quả",
+              "precondition": "1. HS đang trong màn làm bài của 1 đề (đã trả lời một số câu, chưa nộp)\n2. Giáo viên chuyển đề này sang trạng thái Chưa công khai trên CMS ngay trong lúc HS đang làm",
+              "steps": "1. HS tiếp tục làm hết các câu còn lại trong đề\n2. HS bấm Nộp bài",
+              "test_data": "",
+              "expected": "1. HS làm bài bình thường, không bị gián đoạn hay chặn\n2. Hệ thống chấm và trả kết quả bình thường cho lần làm này",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề bị Ẩn giữa chừng sau khi HS đã nộp bài vẫn hiển thị trên App nếu Web vẫn đang hiển thị đề đó",
+              "precondition": "1. HS vừa hoàn thành và nộp bài một đề đã bị giáo viên Ẩn (chuyển Chưa công khai) trong lúc đang làm\n2. Trên Web, đề này vẫn đang hiển thị trong danh sách đề đã giao (giáo viên chưa ẩn hẳn khỏi Web)",
+              "steps": "1. Kiểm tra danh sách đề đã giao trên Web đối với đề vừa bị Ẩn\n2. Quay lại màn Danh sách đề thầy cô giao trên App",
+              "test_data": "",
+              "expected": "1. Web vẫn hiển thị đề đã bị Ẩn trong danh sách đề đã giao\n2. App cũng vẫn hiển thị đề vừa nộp ở mục đề đã nộp, đồng bộ đúng với trạng thái đang hiển thị trên Web, kèm điểm số/kết quả của lần làm vừa nộp",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra giáo viên Xoá đề thi trên CMS làm biến mất toàn bộ hiển thị và lịch sử làm bài phía HS",
+              "precondition": "1. HS đã từng làm và nộp bài 1 đề, đề này sau đó bị giáo viên Xoá khỏi CMS",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Kiểm tra màn Lịch sử làm bài liên quan đến đề đã bị xoá (nếu còn truy cập được từ nơi khác)",
+              "test_data": "",
+              "expected": "1. Đề đã bị xoá không còn xuất hiện trong danh sách đề\n2. Toàn bộ lịch sử làm bài của đề đã xoá cũng không còn truy cập được",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "III. Rule quyền truy cập theo gói dịch vụ",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Đề Free",
+          "testcases": [
+            {
+              "name": "Kiểm tra mọi loại tài khoản (Free/Pro/Dùng thử) đều làm được đề Free",
+              "precondition": "1. Lớp HS được giao 1 đề Free\n2. Lần lượt kiểm tra với tài khoản Free, Pro, Dùng thử",
+              "steps": "1. Bấm 'Làm bài' trên Card đề Free với từng loại tài khoản",
+              "test_data": "",
+              "expected": "1. Cả 3 loại tài khoản đều vào được màn làm bài và làm đề Free bình thường, không bị chặn",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản Free bị chặn chức năng Làm lại đối với đề Free đã nộp",
+              "precondition": "1. Tài khoản Free đã nộp bài 1 đề Free",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao, mục đề đã nộp\n2. Mở Card đề Free vừa nộp\n3. Tìm và bấm chức năng Làm lại (nếu có hiển thị)",
+              "test_data": "",
+              "expected": "3. Chức năng Làm lại không khả dụng hoặc bị chặn với tài khoản Free (không cho làm lại đề Free)",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản Free bị chặn yêu cầu AI giải thích/dịch đối với đề Free",
+              "precondition": "1. Tài khoản Free đang xem đáp án hoặc đang làm 1 câu trong đề Free",
+              "steps": "1. Bấm vào chức năng AI giải thích hoặc AI dịch trên câu hỏi/đáp án",
+              "test_data": "",
+              "expected": "1. Hệ thống chặn/không cho sử dụng AI giải thích, dịch với tài khoản Free, hoặc hiển thị bottom sheet nâng cấp",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "2. Đề Pro",
+          "testcases": [
+            {
+              "name": "Kiểm tra tài khoản Pro làm đề Pro và sử dụng không giới hạn tính năng",
+              "precondition": "1. Tài khoản đang ở gói Pro, lớp HS được giao 1 đề Pro",
+              "steps": "1. Bấm 'Làm bài' trên Card đề Pro\n2. Trong lúc làm bài, sử dụng các tính năng AI giải thích/dịch",
+              "test_data": "",
+              "expected": "1. Tài khoản Pro vào làm bài bình thường\n2. Các tính năng AI giải thích/dịch hoạt động không giới hạn",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản Dùng thử làm đề Pro với đầy đủ tính năng tương tự Pro",
+              "precondition": "1. Tài khoản đang ở gói Dùng thử (Trial), lớp HS được giao 1 đề Pro",
+              "steps": "1. Bấm 'Làm bài' trên Card đề Pro\n2. Sử dụng chức năng Làm lại và AI giải thích sau khi nộp bài",
+              "test_data": "",
+              "expected": "1. Tài khoản Dùng thử vào làm bài bình thường như tài khoản Pro\n2. Chức năng Làm lại và AI giải thích hoạt động không giới hạn",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản Free xem được Thông tin đề Pro nhưng bị chặn khi bấm Bắt đầu làm bài",
+              "precondition": "1. Tài khoản đang ở gói Free, lớp HS được giao 1 đề Pro, HS chưa từng làm đề này",
+              "steps": "1. Bấm vào Card đề Pro để xem Thông tin đề\n2. Bấm nút 'Bắt đầu làm bài'",
+              "test_data": "",
+              "expected": "1. Tài khoản Free xem được đầy đủ Thông tin đề Pro (tên đề, số câu, thời gian làm...)\n2. Hệ thống hiển thị bottom sheet nâng cấp gói thay vì cho vào làm bài",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản đã hết hạn Pro/Dùng thử vẫn xem được Kết quả và đáp án đúng/sai của đề Pro đã làm trước đó",
+              "precondition": "1. Tài khoản từng là Pro/Dùng thử và đã nộp bài 1 đề Pro khi còn hiệu lực gói\n2. Gói Pro/Dùng thử của tài khoản hiện đã hết hạn",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao, mục đề đã nộp\n2. Bấm 'Xem bài đã làm' trên đề Pro đã nộp trước đó",
+              "test_data": "",
+              "expected": "2. Hệ thống vẫn hiển thị đầy đủ Kết quả, điểm số và đáp án đúng/sai của lần làm bài đó",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản đã hết hạn Pro/Dùng thử bị chặn Làm lại và AI giải thích đối với đề Pro đã làm trước đó",
+              "precondition": "1. Tài khoản từng là Pro/Dùng thử và đã nộp bài 1 đề Pro khi còn hiệu lực gói\n2. Gói Pro/Dùng thử của tài khoản hiện đã hết hạn",
+              "steps": "1. Vào màn Kết quả/đáp án của đề Pro đã làm trước đó\n2. Thử bấm chức năng Làm lại\n3. Thử bấm chức năng AI giải thích",
+              "test_data": "",
+              "expected": "2. Chức năng Làm lại không khả dụng/bị chặn\n3. Chức năng AI giải thích không khả dụng/bị chặn",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "IV. Rule trạng thái đề",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Đã hoàn thành / Đang làm dở / Tự động nộp",
+          "testcases": [
+            {
+              "name": "Kiểm tra đề đã hoàn thành và không có phiên làm dở hiển thị đúng trạng thái 'Đã hoàn thành'",
+              "precondition": "1. HS đã làm và nộp bài 1 đề, không còn phiên làm dở nào khác của đề đó",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Quan sát Card của đề đã hoàn thành",
+              "test_data": "",
+              "expected": "2. Card hiển thị ở mục đề đã nộp với trạng thái 'Đã hoàn thành'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề từng hoàn thành nhưng đang có phiên Làm lại dở dang hiển thị trạng thái 'Đang làm dở'",
+              "precondition": "1. HS đã từng hoàn thành 1 đề\n2. HS bấm Làm lại đề đó và đang làm dở (chưa nộp) phiên Làm lại này",
+              "steps": "1. Thoát giữa chừng phiên Làm lại\n2. Vào lại màn Danh sách đề thầy cô giao\n3. Quan sát Card của đề đang có phiên Làm lại dở dang",
+              "test_data": "",
+              "expected": "3. Card hiển thị trạng thái 'Đang làm dở' thay vì 'Đã hoàn thành', dù trước đó đề này đã từng hoàn thành",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề đang làm dở hết thời gian làm bài, hệ thống tự động nộp và chuyển trạng thái 'Đã hoàn thành' sau khi load lại menu",
+              "precondition": "1. Đề có giới hạn thời gian làm bài, HS đang làm dở đề và để hết thời gian mà không chủ động nộp bài",
+              "steps": "1. Để hết thời gian làm bài của đề (hệ thống tự động nộp)\n2. Quay lại/load lại màn Danh sách đề thầy cô giao",
+              "test_data": "",
+              "expected": "2. Đề chuyển sang trạng thái 'Đã hoàn thành' ở mục đề đã nộp, với kết quả theo bài tự động nộp",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "V. Rule hạn nộp đề",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Quá hạn nộp",
+          "testcases": [
+            {
+              "name": "Kiểm tra đề đã quá hạn nộp mà HS chưa làm vẫn cho phép làm bài và nộp bài bình thường",
+              "precondition": "1. HS được giao 1 đề đã quá hạn nộp (ngày hiện tại sau hạn nộp) và chưa làm",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao\n2. Bấm 'Làm bài' trên Card đề quá hạn\n3. Hoàn thành các câu hỏi và bấm Nộp bài",
+              "test_data": "",
+              "expected": "2. Hệ thống cho vào làm bài bình thường, không chặn\n3. Hệ thống nhận nộp bài thành công và chấm điểm bình thường",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra sau khi nộp bài một đề quá hạn, Card chuyển sang trạng thái đã nộp với điểm số hiển thị đúng",
+              "precondition": "1. HS vừa nộp bài thành công 1 đề đã quá hạn nộp",
+              "steps": "1. Quay lại màn Danh sách đề thầy cô giao\n2. Quan sát Card của đề vừa nộp ở mục đề đã nộp",
+              "test_data": "",
+              "expected": "2. Card hiển thị ở mục đã nộp với x/y và điểm số đúng theo kết quả bài làm, không bị đánh dấu lỗi vì nộp trễ hạn",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "VI. Rule thông báo giao đề & HS vào lớp sau khi được giao đề",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Thông báo giao đề mới",
+          "testcases": [
+            {
+              "name": "Kiểm tra HS nhận được thông báo trong app khi được giáo viên giao đề mới",
+              "precondition": "1. HS đang là thành viên của lớp, giáo viên vừa giao 1 đề mới cho lớp đó",
+              "steps": "1. Giáo viên giao đề mới cho lớp\n2. Kiểm tra mục Thông báo trong app của HS",
+              "test_data": "",
+              "expected": "2. HS nhận được thông báo giao đề mới tương ứng trong app",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm vào thông báo giao đề mới chuyển thẳng đến màn Chi tiết đề tương ứng",
+              "precondition": "1. HS đang có thông báo giao đề mới chưa đọc trong app",
+              "steps": "1. Mở mục Thông báo\n2. Bấm vào thông báo giao đề mới",
+              "test_data": "",
+              "expected": "2. Hệ thống điều hướng thẳng đến màn Chi tiết đề đúng với đề vừa được giao",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "2. HS vào lớp sau khi giáo viên đã giao đề",
+          "testcases": [
+            {
+              "name": "Kiểm tra HS vào lớp sau khi giáo viên đã giao đề vẫn thấy những đề còn hạn nộp trong danh sách",
+              "precondition": "1. Giáo viên đã giao 1 đề cho lớp trước khi HS tham gia lớp, đề vẫn còn hạn nộp\n2. HS vừa được thêm vào lớp này",
+              "steps": "1. HS vào tab Ôn thi > Đề thầy cô giao của lớp vừa tham gia",
+              "test_data": "",
+              "expected": "1. Đề còn hạn nộp được giao trước đó vẫn hiển thị bình thường trong danh sách đề của HS",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra HS vào lớp sau khi giáo viên đã giao đề không nhận được thông báo giao đề của đề đã giao trước đó",
+              "precondition": "1. Giáo viên đã giao 1 đề cho lớp trước khi HS tham gia lớp\n2. HS vừa được thêm vào lớp này",
+              "steps": "1. Kiểm tra mục Thông báo của HS ngay sau khi vào lớp",
+              "test_data": "",
+              "expected": "1. HS không nhận được thông báo giao đề mới cho đề đã được giao trước thời điểm HS vào lớp",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề đã hết hạn nộp trước khi HS vào lớp vẫn hiển thị trong danh sách nếu nằm trong khoảng thời gian lọc",
+              "precondition": "1. Giáo viên đã giao 1 đề cho lớp và đề đã hết hạn nộp trước khi HS tham gia lớp\n2. Thời điểm giao đề vẫn nằm trong khoảng thời gian bộ lọc đang chọn",
+              "steps": "1. HS vào tab Ôn thi > Đề thầy cô giao của lớp vừa tham gia",
+              "test_data": "",
+              "expected": "1. Đề đã quá hạn vẫn hiển thị trong danh sách với nhãn '(QUÁ HẠN)', HS vẫn làm được bài bình thường theo Rule hạn nộp",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "3. Phạm vi hiển thị đề theo lớp",
+          "testcases": [
+            {
+              "name": "Kiểm tra danh sách đề chỉ hiển thị đề được giao cho đúng lớp HS đang tham gia",
+              "precondition": "1. HS tham gia lớp 7A, giáo viên giao 1 đề riêng cho lớp 7A",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao của lớp 7A",
+              "test_data": "",
+              "expected": "1. Đề được giao cho lớp 7A hiển thị đầy đủ trong danh sách",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề giao cho lớp khác không hiển thị trong danh sách đề của lớp HS đang tham gia",
+              "precondition": "1. HS chỉ tham gia lớp 7A, giáo viên giao 1 đề riêng cho lớp 7B (HS không tham gia lớp này)",
+              "steps": "1. Vào màn Danh sách đề thầy cô giao của lớp 7A",
+              "test_data": "",
+              "expected": "1. Đề giao cho lớp 7B không xuất hiện trong danh sách đề của HS",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -97,6 +97,14 @@ const REDO_SCORE_MAX = Number(process.env.REDO_SCORE_MAX ?? 7);
 const ASSIGN_DUE_DATE_DAYS_AHEAD = Number(process.env.ASSIGN_DUE_DATE_DAYS_AHEAD || 7);
 const MAX_CANDIDATE_PRESCAN_ATTEMPTS = Number(process.env.MAX_CANDIDATE_PRESCAN_ATTEMPTS || 40);
 const MAX_LOCATE_SCROLLS = 60;
+// Recovery-in-place: dùng khi bước [1] (prescan+assign+resolve room_id) đã chạy thành công ở 1
+// lần trước (room THẬT đã tồn tại) nhưng lần đó crash SAU bước assign (vd findRoomIdByLessonItem
+// ambiguous vì trùng lessonItemId+classId+hạn nộp với 1 room CŨ khác, xem
+// RoomNotFoundError docblock) - set đủ 3 biến dưới để bỏ qua HẲN prescan/assign/resolve, dùng
+// thẳng room_id đã biết (xác định đúng room MỚI qua kiểm tra thủ công, không đoán).
+const RESUME_ROOM_ID = process.env.RESUME_ROOM_ID || "";
+const RESUME_ITEM_NAME = process.env.RESUME_ITEM_NAME || "";
+const RESUME_DUE_DATE_DDMMYYYY = process.env.RESUME_DUE_DATE_DDMMYYYY || "";
 
 function log(...args) {
   console.log(...args);
@@ -414,50 +422,65 @@ async function main() {
   log(`  [PASS] exam_session.json đã ghi.`);
 
   // ===== [1] ASSIGN (Web GV, Playwright) =====
-  log(`[1] Quét cây assignment eligible thật của lớp "${TARGET_CLASS_NAME}"...`);
-  const { eligibleTree, classId, stats } = await fetchEligibleAssignmentTree(TARGET_CLASS_NAME);
-  log(`  [PASS] class_id=${classId}`);
-  log(`  [EXERCISE_DISCOVERY] total items: ${stats.totalItems} | items with exam: ${stats.itemsWithExam} | items without exam: ${stats.itemsWithoutExam}`);
-  const pool = flattenNonSpeak(eligibleTree);
-  if (pool.length === 0) {
-    return finish({ status: "BLOCKED", phase: "ASSIGN_PRESCAN", error: `Lớp "${TARGET_CLASS_NAME}" không có item eligible non-SPEAK nào.`, evidence });
-  }
+  let picked, room, dueDateDdMmYyyy;
+  if (RESUME_ROOM_ID) {
+    if (!RESUME_ITEM_NAME || !RESUME_DUE_DATE_DDMMYYYY) {
+      throw new Error("RESUME_ROOM_ID yêu cầu truyền kèm RESUME_ITEM_NAME và RESUME_DUE_DATE_DDMMYYYY.");
+    }
+    log(`[1] RESUME: bỏ qua prescan/assign, dùng thẳng room_id=${RESUME_ROOM_ID} đã biết trước (đã xác định đúng room MỚI thủ công)...`);
+    picked = { itemName: RESUME_ITEM_NAME };
+    room = { id: RESUME_ROOM_ID };
+    dueDateDdMmYyyy = RESUME_DUE_DATE_DDMMYYYY;
+    evidence.picked = { itemName: picked.itemName, resumed: true };
+    evidence.roomId = room.id;
+    log(`  [PASS] room_id=${room.id} (resume, không assign lại).`);
+  } else {
+    log(`[1] Quét cây assignment eligible thật của lớp "${TARGET_CLASS_NAME}"...`);
+    const { eligibleTree, classId, stats } = await fetchEligibleAssignmentTree(TARGET_CLASS_NAME);
+    log(`  [PASS] class_id=${classId}`);
+    log(`  [EXERCISE_DISCOVERY] total items: ${stats.totalItems} | items with exam: ${stats.itemsWithExam} | items without exam: ${stats.itemsWithoutExam}`);
+    const pool = flattenNonSpeak(eligibleTree);
+    if (pool.length === 0) {
+      return finish({ status: "BLOCKED", phase: "ASSIGN_PRESCAN", error: `Lớp "${TARGET_CLASS_NAME}" không có item eligible non-SPEAK nào.`, evidence });
+    }
 
-  log(`[1] Prescan candidate mà CẢ range [${FIRST_SCORE_MIN},${FIRST_SCORE_MAX}] và [${REDO_SCORE_MIN},${REDO_SCORE_MAX}] đều có điểm khả thi (budget ${MAX_CANDIDATE_PRESCAN_ATTEMPTS})...`);
-  const { picked, attempts } = await pickCandidateAchievingBothRanges(pool, { maxAttempts: MAX_CANDIDATE_PRESCAN_ATTEMPTS });
-  evidence.prescanAttempts = attempts.length;
-  if (!picked) {
-    return finish({
-      status: "BLOCKED",
-      phase: "ASSIGN_PRESCAN",
-      error: `Đã thử ${attempts.length}/${pool.length} candidate - không candidate nào vừa text-choice-compatible vừa có điểm khả thi trong CẢ 2 range ([${FIRST_SCORE_MIN},${FIRST_SCORE_MAX}], [${REDO_SCORE_MIN},${REDO_SCORE_MAX}]) trên cùng 1 room.`,
-      evidence,
+    log(`[1] Prescan candidate mà CẢ range [${FIRST_SCORE_MIN},${FIRST_SCORE_MAX}] và [${REDO_SCORE_MIN},${REDO_SCORE_MAX}] đều có điểm khả thi (budget ${MAX_CANDIDATE_PRESCAN_ATTEMPTS})...`);
+    const { picked: pickedCandidate, attempts } = await pickCandidateAchievingBothRanges(pool, { maxAttempts: MAX_CANDIDATE_PRESCAN_ATTEMPTS });
+    evidence.prescanAttempts = attempts.length;
+    if (!pickedCandidate) {
+      return finish({
+        status: "BLOCKED",
+        phase: "ASSIGN_PRESCAN",
+        error: `Đã thử ${attempts.length}/${pool.length} candidate - không candidate nào vừa text-choice-compatible vừa có điểm khả thi trong CẢ 2 range ([${FIRST_SCORE_MIN},${FIRST_SCORE_MAX}], [${REDO_SCORE_MIN},${REDO_SCORE_MAX}]) trên cùng 1 room.`,
+        evidence,
+      });
+    }
+    picked = pickedCandidate;
+    evidence.picked = { itemName: picked.itemName, unitName: picked.unitName, lessonName: picked.lessonName };
+    log(`  [PASS] Chọn "${picked.itemName}" (unit=${picked.unitName}, lesson=${picked.lessonName}).`);
+
+    dueDateDdMmYyyy = addDaysDdMmYyyy(ASSIGN_DUE_DATE_DAYS_AHEAD);
+    log(`[1] Giao bài "${picked.itemName}" cho lớp "${TARGET_CLASS_NAME}", hạn nộp ${dueDateDdMmYyyy}...`);
+    const assignResult = await assignHomeworkFlow({
+      primaryClass: TARGET_CLASS_NAME,
+      dueDate: dueDateDdMmYyyy,
+      unitName: picked.unitName,
+      lessonName: picked.lessonTag,
+      homeworkItemId: picked.itemId,
+      homeworkItemName: picked.itemName,
+      headless: true,
     });
-  }
-  evidence.picked = { itemName: picked.itemName, unitName: picked.unitName, lessonName: picked.lessonName };
-  log(`  [PASS] Chọn "${picked.itemName}" (unit=${picked.unitName}, lesson=${picked.lessonName}).`);
+    evidence.assignResult = { status: assignResult.status, steps: assignResult.steps?.map((s) => ({ name: s.name, status: s.status })) };
+    if (assignResult.status !== "PASS") {
+      return finish({ status: "FAIL", phase: "ASSIGN", error: `assignHomeworkFlow() FAIL: ${assignResult.error}`, evidence });
+    }
+    log(`  [PASS] Đã giao bài qua Web GV.`);
 
-  const dueDateDdMmYyyy = addDaysDdMmYyyy(ASSIGN_DUE_DATE_DAYS_AHEAD);
-  log(`[1] Giao bài "${picked.itemName}" cho lớp "${TARGET_CLASS_NAME}", hạn nộp ${dueDateDdMmYyyy}...`);
-  const assignResult = await assignHomeworkFlow({
-    primaryClass: TARGET_CLASS_NAME,
-    dueDate: dueDateDdMmYyyy,
-    unitName: picked.unitName,
-    lessonName: picked.lessonTag,
-    homeworkItemId: picked.itemId,
-    homeworkItemName: picked.itemName,
-    headless: true,
-  });
-  evidence.assignResult = { status: assignResult.status, steps: assignResult.steps?.map((s) => ({ name: s.name, status: s.status })) };
-  if (assignResult.status !== "PASS") {
-    return finish({ status: "FAIL", phase: "ASSIGN", error: `assignHomeworkFlow() FAIL: ${assignResult.error}`, evidence });
+    log(`[1] Resolve room_id thật của bài vừa giao (lessonItemId=${picked.itemId})...`);
+    room = await findRoomIdByLessonItem({ lessonItemId: picked.itemId, classId, endTimeDatePrefix: toIsoDatePrefix(dueDateDdMmYyyy) });
+    evidence.roomId = room.id;
+    log(`  [PASS] room_id=${room.id}`);
   }
-  log(`  [PASS] Đã giao bài qua Web GV.`);
-
-  log(`[1] Resolve room_id thật của bài vừa giao (lessonItemId=${picked.itemId})...`);
-  const room = await findRoomIdByLessonItem({ lessonItemId: picked.itemId, classId, endTimeDatePrefix: toIsoDatePrefix(dueDateDdMmYyyy) });
-  evidence.roomId = room.id;
-  log(`  [PASS] room_id=${room.id}`);
 
   log(`[1] Resolve câu hỏi/đáp án thật qua CMS cho room_id=${room.id}...`);
   const resolved = await resolveHomeworkExamQuestionsForRoomId(room.id);

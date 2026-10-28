@@ -1,0 +1,25 @@
+# Helper: chọn 1 lựa chọn trong Filter Sheet "Thời gian giao đề" (tab Ôn thi > Đề thầy cô giao),
+# bấm áp dụng, chờ nhãn filter đổi + danh sách reload - CÙNG CẤU TRÚC
+# `flows/app/helpers/homework-select-month-filter.yaml` (module Bài tập), vì spec.json dùng ĐÚNG 2
+# nhãn "2 tuần gần nhất"/"1 tháng gần nhất" y hệt module đó.
+#
+# Tham số: RANGE_LABEL ("2 tuần gần nhất" | "1 tháng gần nhất") - KHÔNG hardcode 1 lựa chọn cố định
+# như bản gốc Bài tập (bản đó hardcode "1 tháng gần nhất" vì chỉ cần 1 chiều cho HW-03) - on_thi cần
+# test cả 2 chiều (mặc định "2 tuần" + đổi sang "1 tháng") nên tham số hoá RANGE_LABEL.
+#
+# Tiền đề: Filter Sheet ĐANG MỞ SẴN (helper này không tự mở sheet).
+# Kết thúc: sheet đóng, nhãn filter = RANGE_LABEL, danh sách đã reload xong.
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT - xem ghi chú CẦN XÁC MINH ở
+# automation/on_thi/navigation/onThiPageObjects.js#filterSheet (tiêu đề sheet/nút áp dụng suy đoán
+# theo quy ước module Bài tập, CHƯA capture thật).
+appId: ${APP_ID}
+---
+- tapOn:
+    text: ".*(${RANGE_LABEL}).*"
+- tapOn:
+    text: "Xem"
+
+- extendedWaitUntil:
+    visible: ".*(${RANGE_LABEL}).*"
+    timeout: 20000

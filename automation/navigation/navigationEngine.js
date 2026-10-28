@@ -155,6 +155,32 @@ export class NavigationEngine {
    * "Review 2" (nằm sau nhiều Unit hơn) -> FAILED sai "not found" dù Unit có thật, chỉ do timeout
    * quá ngắn cho danh sách dài - CÙNG NGUYÊN NHÂN đã từng sửa cho
    * flows/app/helpers/open-exercise.yaml (tăng 30000 -> 90000/150000, xem docblock file đó).
+   *
+   * STATE-AWARE FIX CHO "Tất cả units" (2026-10-23, xác nhận thật qua live debug thiết bị
+   * 3201d866d40a1681): TRƯỚC ĐÂY nhánh `when: notVisible: unitName` giả định ĐÚNG 1 trạng thái
+   * duy nhất khi chưa thấy unitName - đang ở màn Book-home (có banner + link "Tất cả units") -
+   * rồi tap thẳng link đó KHÔNG `optional`. Giả định này SAI với ÍT NHẤT 2 trạng thái thật khác đã
+   * tái hiện được:
+   *   (1) App đã ở SẴN màn "Danh sách Units.*" (vd 1 lượt `navigateTo()`/tiến trình khác trước đó
+   *       dừng lại ngay sau khi mở "Tất cả units" nhưng trước khi tap xong Unit) - "Tất cả units"
+   *       THẬT SỰ không còn trên hierarchy (đã rời khỏi Book-home) nên tap thẳng báo cứng "Element
+   *       not found: Text matching regex: Tất cả units", dù đáng lẽ chỉ cần scroll tìm unitName
+   *       NGAY trên màn đang có, không cần mở lại gì cả.
+   *   (2) App ở màn SÂU HƠN/không xác định khác (cả unitName LẪN "Tất cả units" LẪN "Danh sách
+   *       Units.*" đều không thấy) - xác nhận thật: màn "Danh sách Units.*" vẫn hiển thị tab bar
+   *       dưới cùng (còn thấy text "Vui học") nên `backIfNeeded()`-style (`notVisible: "Vui học"`)
+   *       không tự thoát được màn này - phải tự dò thêm, không có cách tổng quát chắc chắn; best-
+   *       effort hiện tại: thử back-tối-đa-3-lần + tap lại tab `tab_happy_learning` (tái dùng
+   *       NGUYÊN idiom đã verify ở `resetToVuiHocHome()`/`backIfNeeded()` trong
+   *       runVuiHocRandomExercise.mjs) rồi thử lại - cải thiện so với fail cứng 100% trước đây dù
+   *       không đảm bảo phục hồi được MỌI màn sâu.
+   * SỬA: thêm state-check theo ĐÚNG thứ tự ưu tiên trên - (1) nếu ĐÃ ở "Danh sách Units.*", SKIP
+   * HẲN việc mở "Tất cả units" (không tap lại), rơi thẳng xuống bước scroll tìm unitName hiện có;
+   * (2) nếu CHƯA, mới xét tiếp "Tất cả units" có hiển thị không (nhánh cũ) hay cần phục hồi trước
+   * (nhánh mới). KHÔNG ảnh hưởng nhánh đã verify (khi app đúng ở Book-home, cả 2 `when` mới đều
+   * evaluate theo đúng hướng bỏ qua nhánh phục hồi, hành vi/số bước giống hệt trước khi sửa) - chỉ
+   * kích hoạt ở các trường hợp TRƯỚC ĐÂY luôn fail cứng, không thể gây regression cho flow đang chạy
+   * đúng.
    * @param {string} unitName
    */
   _ensureUnitOpenSteps(unitName) {
@@ -163,8 +189,34 @@ export class NavigationEngine {
         runFlow: {
           when: { notVisible: unitName },
           commands: [
-            { tapOn: "Tất cả units" },
-            { extendedWaitUntil: { visible: { text: "Danh sách Units.*" }, timeout: 10000 } },
+            // STATE-AWARE: chỉ cần mở "Tất cả units" khi CHƯA ở màn "Danh sách Units.*" (xem
+            // comment lớn ở trên) - nếu app đã ở ĐÚNG màn này rồi (vd lượt navigate trước đó dừng
+            // lại giữa chừng ngay sau khi mở "Tất cả units" nhưng trước khi scroll xong), khối dưới
+            // đây bị SKIP hoàn toàn (không tap lại "Tất cả units" lần 2 - phần tử đó không còn trên
+            // màn hình nữa vì đã rời khỏi Book-home), rơi thẳng xuống bước scroll tìm unitName NGAY
+            // TRÊN màn hình hiện tại.
+            {
+              runFlow: {
+                when: { notVisible: "Danh sách Units.*" },
+                commands: [
+                  {
+                    runFlow: {
+                      when: { notVisible: "Tất cả units" },
+                      commands: [
+                        { runFlow: { when: { notVisible: "Vui học" }, commands: ["back", { waitForAnimationToEnd: { timeout: 1000 } }] } },
+                        { runFlow: { when: { notVisible: "Vui học" }, commands: ["back", { waitForAnimationToEnd: { timeout: 1000 } }] } },
+                        { runFlow: { when: { notVisible: "Vui học" }, commands: ["back", { waitForAnimationToEnd: { timeout: 1000 } }] } },
+                        { tapOn: { id: "tab_happy_learning" } },
+                        { waitForAnimationToEnd: { timeout: 1500 } },
+                      ],
+                    },
+                  },
+                  { extendedWaitUntil: { visible: "Tất cả units", timeout: 10000 } },
+                  { tapOn: "Tất cả units" },
+                  { extendedWaitUntil: { visible: { text: "Danh sách Units.*" }, timeout: 10000 } },
+                ],
+              },
+            },
             // FIX (2026-08-06, xem ghi chú "SỰ CỐ SETTLE" ở đầu file): danh sách Units vừa mở
             // còn đang load/layout - scrollUntilVisible bắt đầu quét NGAY có thể đọc hierarchy
             // chưa settle và báo "not found" sai (đã xác nhận thật với Unit "Review 4" - hierarchy

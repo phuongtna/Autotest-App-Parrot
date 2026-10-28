@@ -1,0 +1,71 @@
+# OT-01_02_03_04_06 — Label số lượng đề + Dropdown Thời gian giao đề (tab Ôn thi > Đề thầy cô giao)
+# Gộp từ OT-01 (mặc định "2 tuần gần nhất"), OT-02 (label "N đề" đúng ĐỊNH DẠNG - không tự verify
+# được đúng SỐ vì chưa có API model, xem TEST-CASES.md Ghi chú #1), OT-03 (đổi sang "1 tháng gần
+# nhất"), OT-04 (rỗng do lọc hẹp - optional, chỉ chạy nếu tài khoản test đang rơi đúng trường hợp
+# này), OT-06 (dropdown đúng 2 lựa chọn). KHÔNG gộp OT-05 (rỗng tuyệt đối - cần hồ sơ riêng chưa
+# từng nhận đề, xem TEST-CASES.md).
+#
+# CÙNG KỸ THUẬT gộp nhiều case/1 lượt login như `flows/app/bai_tap/HW-07_08_09_10_11-card-matrix.yaml`.
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT (xem automation/on_thi/navigation/onThiPageObjects.js) - selector
+# filterSheet.title/applyButton là PLACEHOLDER suy đoán theo quy ước module Bài tập, CẦN đối chiếu
+# `maestro hierarchy` thật trước khi tin tưởng kết quả FAIL ở bước đó là lỗi app thật (có thể chỉ là
+# sai selector).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: OT-01_02_03_04_06 Label so luong de va Dropdown thoi gian giao
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-tab-on-thi.yaml
+
+# --- OT-01: mặc định Dropdown = "2 tuần gần nhất" khi vào màn lần đầu ---
+- assertVisible:
+    text: ".*(2 tuần gần nhất).*"
+- assertNotVisible:
+    text: ".*(1 tháng gần nhất).*"
+
+# --- OT-02: Label "N đề" đúng ĐỊNH DẠNG (không verify đúng số - xem docblock) ---
+- assertVisible:
+    text: "\\d+ đề"
+- takeScreenshot: artifacts/OT-02-count-label
+
+# --- OT-06: Dropdown chỉ có đúng 2 lựa chọn ---
+- tapOn:
+    text: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
+- assertVisible:
+    text: "2 tuần gần nhất"
+- assertVisible:
+    text: "1 tháng gần nhất"
+- takeScreenshot: artifacts/OT-06-filter-sheet-2-options
+
+# --- OT-03: đổi bộ lọc sang "1 tháng gần nhất" -> danh sách cập nhật ---
+- runFlow:
+    file: ../helpers/onthi-select-period-filter.yaml
+    env:
+      RANGE_LABEL: "1 tháng gần nhất"
+- assertVisible:
+    text: ".*(1 tháng gần nhất).*"
+- assertNotVisible:
+    text: ".*(2 tuần gần nhất).*"
+- assertVisible:
+    text: "\\d+ đề"
+- takeScreenshot: artifacts/OT-03-filter-one-month
+
+# --- OT-04: rỗng do lọc hẹp (OPTIONAL - chỉ đúng nếu tài khoản test đang có "0 đề" ở khoảng hẹp
+# hơn; không ép buộc trạng thái dữ liệu, chỉ chụp lại để QA đối chiếu bằng mắt) ---
+- runFlow:
+    file: ../helpers/onthi-select-period-filter.yaml
+    env:
+      RANGE_LABEL: "2 tuần gần nhất"
+- runFlow:
+    when:
+      visible: "0 đề"
+    commands:
+      - takeScreenshot: artifacts/OT-04-empty-filtered-state

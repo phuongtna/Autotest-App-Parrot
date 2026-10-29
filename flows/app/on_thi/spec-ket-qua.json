@@ -1,0 +1,528 @@
+{
+  "project": "Parrot App - Ôn thi",
+  "feature": "Màn hình Kết quả bài thi (dùng chung Đề thầy cô giao & Kho đề Parrot)",
+  "tc_prefix": "TC_APP_OnThi_KetQua",
+  "author": "QA Team",
+  "account_info": "Tài khoản HS Free/Pro/Dùng thử; đề thuộc 2 nguồn: Đề thầy cô giao (CMS On thi) và Kho đề Parrot; đề gắn Bảng điểm dạng Phổ thông hoặc dạng quy đổi khác trên CMS",
+  "groups": [
+    {
+      "level": 1,
+      "title": "I. Màn hình Kết quả bài thi",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Icon button Đóng",
+          "testcases": [
+            {
+              "name": "Kiểm tra bấm Đóng từ màn Kết quả của đề nguồn Đề thầy cô giao quay về đúng màn Danh sách đề, giữ nguyên bộ lọc đang chọn",
+              "precondition": "1. Tại màn Danh sách đề thầy cô giao đang chọn bộ lọc Thời gian giao đề = '1 tháng gần nhất'\n2. HS vừa làm xong và nộp 1 đề, đang ở màn Kết quả",
+              "steps": "1. Tại màn Kết quả, bấm icon Đóng",
+              "test_data": "",
+              "expected": "1. Hệ thống quay về màn Danh sách đề thầy cô giao, Dropdown Thời gian giao đề vẫn giữ giá trị '1 tháng gần nhất', không bị reset bộ lọc",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm Đóng từ màn Kết quả của đề nguồn Kho đề Parrot quay về đúng màn Kho đề và giữ nguyên bộ lọc/tab đang chọn",
+              "precondition": "1. Tại màn Kho đề Parrot đang chọn 1 bộ lọc/tab cụ thể (vd: Khối lớp, môn học)\n2. HS vừa làm xong và nộp 1 đề trong Kho đề, đang ở màn Kết quả",
+              "steps": "1. Tại màn Kết quả, bấm icon Đóng",
+              "test_data": "",
+              "expected": "1. Hệ thống quay về đúng màn Kho đề Parrot, bộ lọc/tab vẫn giữ nguyên giá trị đã chọn trước đó, không bị reset",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm Đóng không quay lại màn Làm bài của đề vừa nộp",
+              "precondition": "1. HS vừa nộp bài, đang ở màn Kết quả",
+              "steps": "1. Bấm icon Đóng\n2. Quan sát màn hình đích",
+              "test_data": "",
+              "expected": "2. Hệ thống điều hướng thẳng về màn Danh sách đề/Kho đề tương ứng nguồn đề, không quay lại màn Làm bài hay mở lại đề vừa nộp",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra dùng nút back hệ thống (Android)/thao tác vuốt back (iOS) tại màn Kết quả có hành vi tương tự icon Đóng",
+              "precondition": "1. Đang ở màn Kết quả bài thi (bất kỳ nguồn đề nào)",
+              "steps": "1. Bấm nút back vật lý/hệ thống (Android) hoặc vuốt từ cạnh trái màn hình (iOS) thay vì bấm icon Đóng",
+              "test_data": "",
+              "expected": "1. Hệ thống điều hướng về đúng màn nguồn đề tương ứng (Danh sách đề/Kho đề Parrot) giống hệt hành vi bấm icon Đóng, không bị kẹt lại màn Kết quả hoặc văng về màn làm bài",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra sau khi bấm Đóng, Card đề vừa nộp ở màn Danh sách đề cập nhật đúng trạng thái 'Đã nộp' và điểm mới nhất",
+              "precondition": "1. HS vừa nộp bài lần đầu của 1 đề đang ở trạng thái 'Chưa nộp' trên Card tại màn Danh sách đề",
+              "steps": "1. Tại màn Kết quả, bấm icon Đóng\n2. Quan sát lại Card của đề vừa nộp tại màn Danh sách đề",
+              "test_data": "",
+              "expected": "2. Card đề đã chuyển trạng thái 'Đã nộp', hiển thị đúng điểm vừa đạt được của lượt vừa nộp, không còn hiển thị trạng thái 'Chưa nộp' cũ",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "2. Label Điểm",
+          "testcases": [
+            {
+              "name": "Kiểm tra Điểm hiển thị đúng với điểm số thực tế của lượt làm vừa nộp",
+              "precondition": "1. HS vừa nộp bài và trả lời đúng số câu tương ứng điểm 8/10",
+              "steps": "1. Quan sát khối 'Điểm của bạn' tại màn Kết quả",
+              "test_data": "",
+              "expected": "1. Giá trị điểm hiển thị đúng bằng 8, khớp với số câu đúng đã trả lời",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Điểm hiển thị đúng định dạng số nguyên (không thừa '.0') khi kết quả là điểm tròn",
+              "precondition": "1. HS nộp bài đạt điểm tròn 8 (không có phần thập phân)",
+              "steps": "1. Quan sát giá trị Điểm hiển thị",
+              "test_data": "",
+              "expected": "1. Hiển thị '8', không hiển thị '8.0' hoặc '8.00'",
+              "priority": "Low",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra Điểm hiển thị đúng khi kết quả là điểm lẻ thập phân",
+              "precondition": "1. Đề gắn Bảng điểm dạng quy đổi khiến tổng điểm là số lẻ, vd 7.5",
+              "steps": "1. HS nộp bài đạt điểm 7.5\n2. Quan sát giá trị Điểm hiển thị",
+              "test_data": "",
+              "expected": "2. Hiển thị đúng '7.5', không bị làm tròn sai lệch thành 7 hoặc 8",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Điểm hiển thị đúng giá trị 0 khi HS không trả lời đúng câu nào",
+              "precondition": "1. HS nộp bài không trả lời đúng câu nào (toàn bộ sai hoặc bỏ qua)",
+              "steps": "1. Quan sát giá trị Điểm hiển thị",
+              "test_data": "",
+              "expected": "1. Hiển thị đúng '0', không để trống hoặc hiển thị giá trị âm",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Điểm hiển thị đúng điểm tối đa khi HS trả lời đúng toàn bộ câu hỏi",
+              "precondition": "1. HS nộp bài trả lời đúng toàn bộ câu hỏi của đề",
+              "steps": "1. Quan sát giá trị Điểm hiển thị",
+              "test_data": "",
+              "expected": "1. Hiển thị đúng điểm tối đa theo thang điểm của Bảng điểm gắn với đề (vd 10/10)",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra mở màn Kết quả từ 1 lượt làm cũ trong Lịch sử làm bài hiển thị đúng Điểm của đúng lượt đó, không phải lượt mới nhất",
+              "precondition": "1. Đề đã có 2 lượt làm với điểm khác nhau (vd lượt 1 = 6, lượt 2 = 8)\n2. HS mở lại Lịch sử làm bài và bấm vào lượt 1",
+              "steps": "1. Bấm vào lượt làm thứ 1 trong Lịch sử làm bài để mở màn Kết quả",
+              "test_data": "",
+              "expected": "1. Màn Kết quả hiển thị đúng Điểm = 6 của lượt 1, không hiển thị nhầm Điểm = 8 của lượt mới nhất",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "3. Label Số câu đúng",
+          "testcases": [
+            {
+              "name": "Kiểm tra Số câu đúng hiển thị đúng định dạng 'x/y câu đúng'",
+              "precondition": "1. HS vừa nộp bài đề có 40 câu hỏi, trả lời đúng 32 câu",
+              "steps": "1. Quan sát khối Số câu đúng tại màn Kết quả",
+              "test_data": "",
+              "expected": "1. Hiển thị đúng định dạng '32/40 câu đúng'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra giá trị 'y' (tổng số câu) bằng đúng tổng số câu hỏi con của toàn đề, không phải số section",
+              "precondition": "1. Đề có 3 section, mỗi section gồm nhiều câu hỏi con, tổng cộng 40 câu hỏi",
+              "steps": "1. Nộp bài và quan sát giá trị 'y' trong Số câu đúng",
+              "test_data": "",
+              "expected": "1. Giá trị 'y' = 40 (tổng số câu hỏi con), không phải 3 (số section)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Số câu đúng hiển thị '0/y câu đúng' khi HS không trả lời đúng câu nào",
+              "precondition": "1. HS nộp bài không trả lời đúng câu nào",
+              "steps": "1. Quan sát khối Số câu đúng",
+              "test_data": "",
+              "expected": "1. Hiển thị '0/y câu đúng' với y là tổng số câu của đề",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Số câu đúng hiển thị 'y/y câu đúng' khi HS trả lời đúng toàn bộ",
+              "precondition": "1. HS nộp bài trả lời đúng toàn bộ câu hỏi",
+              "steps": "1. Quan sát khối Số câu đúng",
+              "test_data": "",
+              "expected": "1. Hiển thị 'y/y câu đúng', số câu đúng bằng đúng tổng số câu của đề",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Số câu đúng tại màn Kết quả khớp với dữ liệu chi tiết từng câu tại màn Xem lại bài đã làm",
+              "precondition": "1. HS vừa nộp bài, màn Kết quả hiển thị '32/40 câu đúng'",
+              "steps": "1. Bấm 'Xem lại bài đã làm'\n2. Đếm thủ công số câu được đánh dấu đúng trong màn Chi tiết bài đã làm",
+              "test_data": "",
+              "expected": "2. Số câu được đánh dấu đúng trong Chi tiết bài đã làm bằng đúng 32, khớp với số liệu đã hiển thị ở màn Kết quả",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "4. Label Thời gian làm bài",
+          "testcases": [
+            {
+              "name": "Kiểm tra Thời gian làm bài hiển thị đúng định dạng mm:ss",
+              "precondition": "1. HS làm bài và nộp sau 1 phút 22 giây kể từ lúc Bắt đầu",
+              "steps": "1. Quan sát khối Thời gian làm bài tại màn Kết quả",
+              "test_data": "",
+              "expected": "1. Hiển thị đúng định dạng '01:22'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Thời gian làm bài tính đúng khoảng thời gian thực tế từ lúc bấm Bắt đầu tới lúc Nộp bài",
+              "precondition": "1. HS bấm 'Bắt đầu' lúc 9:00:00 và bấm Nộp bài lúc 9:22:30",
+              "steps": "1. Quan sát giá trị Thời gian làm bài hiển thị tại màn Kết quả",
+              "test_data": "",
+              "expected": "1. Hiển thị đúng '22:30', đúng bằng khoảng thời gian thực tế đã trôi qua giữa 2 mốc Bắt đầu và Nộp bài",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Thời gian làm bài vẫn tính đúng tổng thời gian đã trôi qua kể cả khi HS thoát ra giữa chừng rồi quay lại tiếp tục làm trước khi nộp",
+              "precondition": "1. HS bấm Bắt đầu, làm được 2 phút rồi thoát app, 3 phút sau quay lại 'Tiếp tục làm bài' và nộp bài ngay sau 1 phút làm tiếp",
+              "steps": "1. Nộp bài\n2. Quan sát Thời gian làm bài hiển thị tại màn Kết quả",
+              "test_data": "",
+              "expected": "2. Hiển thị '06:00' (2 phút trước khi thoát + 3 phút thoát ra ngoài + 1 phút làm tiếp), đồng hồ không bị dừng khi HS không ở trong màn làm bài",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Thời gian làm bài hiển thị đúng định dạng khi vượt quá 99 phút",
+              "precondition": "1. Đề có thời lượng giới hạn lớn, HS làm bài hết 125 phút 30 giây mới nộp",
+              "steps": "1. Nộp bài sau 125 phút 30 giây\n2. Quan sát Thời gian làm bài hiển thị",
+              "test_data": "",
+              "expected": "2. Hiển thị đúng '125:30', không bị tràn số/cắt ngắn định dạng mm",
+              "priority": "Low",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra giá trị Thời gian làm bài của 1 lượt đã nộp không đổi dù mở lại màn Kết quả nhiều lần",
+              "precondition": "1. Lượt làm đã nộp, màn Kết quả hiển thị Thời gian làm bài = '22:30'",
+              "steps": "1. Thoát khỏi màn Kết quả (bấm Đóng)\n2. Mở lại đúng lượt làm này từ Lịch sử làm bài",
+              "test_data": "",
+              "expected": "2. Thời gian làm bài vẫn hiển thị đúng '22:30' như lần xem trước, giá trị đã chốt không thay đổi theo thời gian hiện tại",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Thời gian làm bài hiển thị đúng bằng thời lượng giới hạn của đề khi hệ thống tự động nộp bài do hết giờ",
+              "precondition": "1. Đề có thời lượng giới hạn 60 phút, HS không chủ động bấm Nộp bài, để hệ thống tự động nộp khi hết giờ",
+              "steps": "1. Để hệ thống tự động nộp bài khi hết 60 phút\n2. Quan sát Thời gian làm bài hiển thị tại màn Kết quả",
+              "test_data": "",
+              "expected": "2. Hiển thị đúng '60:00', đúng bằng thời lượng giới hạn của đề, không vượt quá hoặc hụt thời gian",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "5. List Kết quả theo kỹ năng",
+          "testcases": [
+            {
+              "name": "Kiểm tra số dòng kỹ năng hiển thị đúng bằng số kỹ năng khác nhau được gắn cho đề, không phải số section",
+              "precondition": "1. Đề có 3 section: Listening, Reading, Reading (2 section cùng gắn kỹ năng Reading)",
+              "steps": "1. Nộp bài và quan sát khối 'Kết quả theo kỹ năng'",
+              "test_data": "",
+              "expected": "1. Hiển thị đúng 2 dòng kỹ năng (Listening, Reading), không hiển thị 3 dòng theo số section",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra từng dòng kỹ năng hiển thị đúng 'số câu đúng/tổng số câu' của riêng kỹ năng đó",
+              "precondition": "1. Đề có section Listening gồm 20 câu (đúng 8 câu) và section Reading gồm 30 câu (đúng 18 câu)",
+              "steps": "1. Nộp bài và quan sát 2 dòng kỹ năng Listening, Reading",
+              "test_data": "",
+              "expected": "1. Dòng Listening hiển thị '8/20', dòng Reading hiển thị '18/30', đúng khớp với số liệu đề bài ví dụ trên ảnh mẫu",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề có nhiều section cùng gắn 1 kỹ năng được gộp hiển thị theo tổng số, không tách thành nhiều dòng riêng",
+              "precondition": "1. Đề có 2 section cùng gắn kỹ năng Reading: section A 15 câu (đúng 10 câu), section B 15 câu (đúng 8 câu)",
+              "steps": "1. Nộp bài và quan sát dòng kỹ năng Reading",
+              "test_data": "",
+              "expected": "1. Chỉ có 1 dòng Reading duy nhất, hiển thị tổng gộp '18/30' (10+8 câu đúng trên 15+15 câu), không hiển thị 2 dòng Reading riêng biệt",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tổng số câu đúng cộng dồn của tất cả các dòng kỹ năng bằng đúng Số câu đúng tổng ở control Số câu đúng",
+              "precondition": "1. Màn Kết quả hiển thị Số câu đúng tổng = '32/40 câu đúng', khối Kết quả theo kỹ năng gồm Listening 8/20 và Reading 18/30... (ví dụ minh hoạ, tổng số câu kỹ năng có thể trùng lặp câu dùng chung)",
+              "steps": "1. Cộng dồn số câu đúng của từng dòng kỹ năng hiển thị trong khối Kết quả theo kỹ năng",
+              "test_data": "",
+              "expected": "1. Tổng số câu đúng cộng dồn từ các dòng kỹ năng bằng đúng 32 (khớp với Số câu đúng tổng đã hiển thị ở control 3)",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra dòng kỹ năng vẫn hiển thị khi HS trả lời đúng 0 câu của kỹ năng đó",
+              "precondition": "1. Đề có section Writing 10 câu, HS trả lời sai toàn bộ 10 câu của section này",
+              "steps": "1. Nộp bài và quan sát dòng kỹ năng Writing",
+              "test_data": "",
+              "expected": "1. Dòng Writing vẫn hiển thị đầy đủ với giá trị '0/10', không bị ẩn khỏi danh sách kỹ năng",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra thứ tự các dòng kỹ năng hiển thị đúng theo thứ tự section được cấu hình trên CMS",
+              "precondition": "1. Đề cấu hình thứ tự section trên CMS lần lượt là Listening rồi Reading",
+              "steps": "1. Nộp bài và quan sát thứ tự các dòng trong khối Kết quả theo kỹ năng",
+              "test_data": "",
+              "expected": "1. Dòng Listening hiển thị phía trên, dòng Reading hiển thị phía dưới, đúng theo thứ tự section đã cấu hình trên CMS",
+              "priority": "Low",
+              "tc_type": "GUI"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "6. Button Xem lại bài đã làm",
+          "testcases": [
+            {
+              "name": "Kiểm tra bấm 'Xem lại bài đã làm' mở đúng màn Chi tiết bài đã làm của lượt đang xem kết quả",
+              "precondition": "1. HS vừa nộp bài, đang ở màn Kết quả của lượt vừa nộp",
+              "steps": "1. Bấm nút 'Xem lại bài đã làm'",
+              "test_data": "",
+              "expected": "1. Hệ thống mở đúng màn Chi tiết bài đã làm, hiển thị đầy đủ các câu hỏi/đáp án đã làm đúng với lượt vừa nộp",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra xem lại 1 lượt làm cũ từ Lịch sử làm bài, bấm 'Xem lại bài đã làm' mở đúng chi tiết của lượt cũ đó, không phải lượt mới nhất",
+              "precondition": "1. Đề đã có 2 lượt làm (lượt 1 và lượt 2), HS đang mở màn Kết quả của lượt 1 từ Lịch sử làm bài",
+              "steps": "1. Tại màn Kết quả của lượt 1, bấm 'Xem lại bài đã làm'",
+              "test_data": "",
+              "expected": "1. Hệ thống mở đúng Chi tiết bài đã làm của lượt 1, hiển thị đáp án đã chọn và kết quả đúng/sai của đúng lượt 1, không lẫn dữ liệu của lượt 2",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm nút back/Quay lại tại màn Chi tiết bài đã làm trở về đúng màn Kết quả vừa mở",
+              "precondition": "1. Đã bấm 'Xem lại bài đã làm' và đang ở màn Chi tiết bài đã làm",
+              "steps": "1. Bấm nút back/Quay lại tại màn Chi tiết bài đã làm",
+              "test_data": "",
+              "expected": "1. Hệ thống quay về đúng màn Kết quả vừa mở trước đó, không bị thoát hẳn về Danh sách đề/Kho đề",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "7. Button Làm lại",
+          "testcases": [
+            {
+              "name": "Kiểm tra bấm 'Làm lại' chuyển vào màn Làm bài của đề, bắt đầu 1 lượt làm mới",
+              "precondition": "1. HS đang ở màn Kết quả của 1 lượt đã nộp",
+              "steps": "1. Bấm nút 'Làm lại'",
+              "test_data": "",
+              "expected": "1. Hệ thống chuyển vào màn Làm bài của đề, bắt đầu lượt làm mới từ câu đầu tiên",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đồng hồ của lượt 'Làm lại' chạy lại từ 0, không giữ thời gian của lượt trước",
+              "precondition": "1. Lượt làm trước có Thời gian làm bài = '22:30'",
+              "steps": "1. Tại màn Kết quả, bấm 'Làm lại'\n2. Quan sát đồng hồ đếm giờ tại màn Làm bài mới",
+              "test_data": "",
+              "expected": "2. Đồng hồ bắt đầu chạy lại từ 00:00, không kế thừa thời gian 22:30 của lượt trước",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm 'Làm lại' tạo lượt làm mới độc lập, không ghi đè hay ảnh hưởng tới điểm/kết quả của lượt vừa xem",
+              "precondition": "1. Lượt làm vừa xem có Điểm = 8, Số câu đúng = 32/40",
+              "steps": "1. Bấm 'Làm lại'\n2. Thoát làm bài giữa chừng, quay lại Chi tiết đề xem Lịch sử làm bài",
+              "test_data": "",
+              "expected": "2. Lượt làm cũ vẫn giữ nguyên Điểm = 8, Số câu đúng = 32/40 trong Lịch sử làm bài, không bị ghi đè hay xóa bởi lượt 'Làm lại' mới đang làm dở",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra sau khi 'Làm lại' và nộp bài, màn Kết quả mới hiển thị đúng dữ liệu của lượt vừa làm lại, không lẫn dữ liệu lượt cũ",
+              "precondition": "1. Lượt cũ có Điểm = 8\n2. HS bấm 'Làm lại' và lần này trả lời đúng ít câu hơn, đạt Điểm = 5",
+              "steps": "1. Hoàn thành và nộp bài lượt 'Làm lại'\n2. Quan sát màn Kết quả hiển thị",
+              "test_data": "",
+              "expected": "2. Màn Kết quả hiển thị đúng Điểm = 5 của lượt vừa làm lại, không hiển thị nhầm Điểm = 8 của lượt cũ",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản Free bấm 'Làm lại' với đề Pro (đã có lượt làm cũ từ lúc còn Pro/Dùng thử) bị chặn và hiển thị bottom sheet nâng cấp tài khoản",
+              "precondition": "1. Đề thuộc gói Pro, đã có 1 lượt làm cũ được tạo khi tài khoản còn Pro/Dùng thử\n2. Tài khoản hiện tại đã về gói Free",
+              "steps": "1. Tại màn Kết quả của lượt cũ, bấm 'Làm lại'",
+              "test_data": "",
+              "expected": "1. Hệ thống hiển thị bottom sheet nâng cấp tài khoản, không cho vào màn Làm bài, đồng nhất với rule quyền truy cập theo gói dịch vụ đã áp dụng ở màn Chi tiết đề",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "8. Button Chọn đề khác",
+          "testcases": [
+            {
+              "name": "Kiểm tra bấm 'Chọn đề khác' từ đề nguồn Đề thầy cô giao quay về đúng màn Danh sách đề và giữ nguyên bộ lọc đang chọn",
+              "precondition": "1. Tại màn Danh sách đề thầy cô giao đang chọn bộ lọc Thời gian giao đề = '1 tháng gần nhất'\n2. HS vừa nộp bài, đang ở màn Kết quả",
+              "steps": "1. Bấm nút 'Chọn đề khác'",
+              "test_data": "",
+              "expected": "1. Hệ thống quay về màn Danh sách đề thầy cô giao, Dropdown Thời gian giao đề vẫn giữ giá trị '1 tháng gần nhất', không bị reset bộ lọc",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm 'Chọn đề khác' từ đề nguồn Kho đề Parrot quay về đúng màn Kho đề và giữ nguyên bộ lọc/tab đang chọn",
+              "precondition": "1. Tại màn Kho đề Parrot đang chọn 1 bộ lọc/tab cụ thể\n2. HS vừa nộp bài đề trong Kho đề, đang ở màn Kết quả",
+              "steps": "1. Bấm nút 'Chọn đề khác'",
+              "test_data": "",
+              "expected": "1. Hệ thống quay về đúng màn Kho đề Parrot, bộ lọc/tab vẫn giữ nguyên giá trị đã chọn, không bị reset",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra sau khi bấm 'Chọn đề khác', Card đề vừa làm cập nhật đúng trạng thái 'Đã nộp' và điểm mới nhất tại màn Danh sách đề",
+              "precondition": "1. HS vừa nộp bài lần đầu của 1 đề đang ở trạng thái 'Chưa nộp' trên Card",
+              "steps": "1. Tại màn Kết quả, bấm 'Chọn đề khác'\n2. Quan sát lại Card của đề vừa nộp",
+              "test_data": "",
+              "expected": "2. Card đề đã chuyển trạng thái 'Đã nộp', hiển thị đúng điểm vừa đạt được, không còn hiển thị trạng thái 'Chưa nộp' cũ",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra 'Đóng' và 'Chọn đề khác' có cùng hành vi điều hướng về đúng màn nguồn đề và giữ nguyên bộ lọc, dù là 2 control riêng biệt",
+              "precondition": "1. Mở 2 lượt làm riêng biệt của cùng 1 đề, kết thúc lần 1 bấm 'Đóng', kết thúc lần 2 bấm 'Chọn đề khác'",
+              "steps": "1. Nộp bài lần 1, tại màn Kết quả bấm icon 'Đóng', ghi nhận màn đích và trạng thái bộ lọc\n2. Làm lại và nộp bài lần 2, tại màn Kết quả bấm 'Chọn đề khác', ghi nhận màn đích và trạng thái bộ lọc",
+              "test_data": "",
+              "expected": "1. Bấm 'Đóng' về đúng màn Danh sách đề/Kho đề, giữ nguyên bộ lọc\n2. Bấm 'Chọn đề khác' cũng về đúng màn Danh sách đề/Kho đề, giữ nguyên bộ lọc giống hệt trường hợp 1, không có khác biệt hành vi giữa 2 control",
+              "priority": "Low",
+              "tc_type": "GUI"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "II. Rule tính điểm màn Kết quả",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Rule tính điểm theo Dạng quy đổi của Bảng điểm gắn với đề",
+          "testcases": [
+            {
+              "name": "Kiểm tra đề gắn Bảng điểm dạng Phổ thông, Điểm hiển thị bằng đúng tổng điểm của các câu hỏi con",
+              "precondition": "1. Đề gắn Bảng điểm dạng Phổ thông trên CMS, mỗi câu hỏi con được cấu hình điểm riêng (vd mỗi câu 0.25đ, 40 câu = 10đ)\n2. HS trả lời đúng 32/40 câu",
+              "steps": "1. Nộp bài và quan sát Điểm hiển thị tại màn Kết quả",
+              "test_data": "",
+              "expected": "1. Điểm hiển thị = 8 (= 32 câu đúng x 0.25đ/câu), đúng bằng tổng điểm cộng dồn của các câu hỏi con trả lời đúng theo cấu hình CMS",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề gắn Bảng điểm dạng quy đổi khác (không phải Phổ thông) tính điểm theo đúng công thức quy đổi riêng, không phải tổng điểm thô của câu hỏi con",
+              "precondition": "1. Đề gắn Bảng điểm dạng quy đổi khác trên CMS (vd quy đổi theo thang điểm riêng không phải cộng dồn trực tiếp)\n2. HS trả lời đúng 32/40 câu",
+              "steps": "1. Nộp bài và quan sát Điểm hiển thị tại màn Kết quả",
+              "test_data": "",
+              "expected": "1. Điểm hiển thị đúng theo kết quả quy đổi đã cấu hình trên CMS cho đúng 32/40 câu, khác với cách tính tổng điểm thô của dạng Phổ thông",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra thay đổi Dạng quy đổi của Bảng điểm gắn với đề trên CMS chỉ áp dụng cho lượt làm mới, không ảnh hưởng lượt làm cũ đã có kết quả",
+              "precondition": "1. Đề đang gắn Bảng điểm dạng Phổ thông, đã có 1 lượt làm cũ với Điểm = 8\n2. CMS đổi Bảng điểm của đề sang dạng quy đổi khác",
+              "steps": "1. Mở lại màn Kết quả của lượt làm cũ, quan sát Điểm\n2. Làm 1 lượt mới với cùng số câu đúng 32/40, nộp bài và quan sát Điểm của lượt mới",
+              "test_data": "",
+              "expected": "1. Lượt làm cũ vẫn hiển thị đúng Điểm = 8 theo dạng Phổ thông đã chốt trước đó, không bị tính lại\n2. Lượt làm mới hiển thị Điểm được tính theo dạng quy đổi mới hiện tại trên CMS, khác với cách tính Phổ thông của lượt cũ",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "2. Rule mỗi câu chỉ trả lời 1 lần, không áp dụng trừ 50% như bài tập thường",
+          "testcases": [
+            {
+              "name": "Kiểm tra trong lúc làm đề On thi, mỗi câu hỏi chỉ cho chọn/nhập đáp án 1 lần duy nhất theo đúng luồng làm bài của module Bài tập",
+              "precondition": "1. HS đang làm 1 câu hỏi trắc nghiệm trong đề On thi, chưa chuyển sang câu tiếp theo",
+              "steps": "1. Chọn 1 đáp án cho câu hỏi hiện tại\n2. Thử chọn lại đáp án khác cho cùng câu hỏi đó trước khi chuyển câu",
+              "test_data": "",
+              "expected": "2. Hệ thống không cho đổi lại đáp án đã chọn (theo đúng luồng làm bài một lần của module Bài tập), đáp án đầu tiên đã chọn được giữ lại để tính điểm",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra câu trả lời đúng ngay từ lần đầu được tính đủ 100% điểm câu đó, không bị trừ 50% như rule của bài tập thường",
+              "precondition": "1. Đề On thi có câu hỏi trị giá 0.25đ, HS trả lời đúng ngay từ lần đầu (và duy nhất)",
+              "steps": "1. Trả lời đúng câu hỏi\n2. Nộp bài và quan sát điểm cộng dồn cho câu này tại màn Kết quả/Xem lại bài đã làm",
+              "test_data": "",
+              "expected": "2. Câu trả lời đúng được tính đủ 0.25đ (100% điểm câu), không bị trừ còn 50% như cơ chế áp dụng cho bài tập thường",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra câu trả lời sai hoặc bỏ qua không được làm lại hay tính lại điểm trong cùng 1 lượt làm đề On thi",
+              "precondition": "1. HS trả lời sai hoặc bỏ qua không chọn đáp án cho 1 câu hỏi trong đề On thi",
+              "steps": "1. Bỏ qua/trả lời sai câu hỏi, chuyển sang câu tiếp theo\n2. Nộp bài và kiểm tra câu này tại màn Xem lại bài đã làm",
+              "test_data": "",
+              "expected": "2. Câu hỏi được ghi nhận là sai/chưa trả lời, không được tính điểm, và không có cơ chế cho làm lại riêng câu này trong cùng lượt đã nộp",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "3. Rule đề được sửa trên CMS ảnh hưởng tới lượt làm mới nhưng không ảnh hưởng lượt làm cũ",
+          "testcases": [
+            {
+              "name": "Kiểm tra lượt làm mới (bắt đầu sau khi CMS sửa đề) hiển thị nội dung và tính điểm theo đúng nội dung câu hỏi/đáp án đã sửa",
+              "precondition": "1. Đề đang có 1 câu hỏi với đáp án đúng là A\n2. CMS sửa lại đáp án đúng của câu đó thành B",
+              "steps": "1. HS bắt đầu 1 lượt làm mới sau khi CMS đã lưu thay đổi\n2. Chọn đáp án B cho câu hỏi đó và nộp bài",
+              "test_data": "",
+              "expected": "2. Câu hỏi được tính đúng vì đáp án B là đáp án đúng mới theo nội dung đã sửa trên CMS, màn Kết quả/Xem lại bài đã làm hiển thị đúng nội dung câu hỏi đã sửa",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra lượt làm cũ đã có kết quả trước khi CMS sửa đề vẫn giữ nguyên nội dung câu hỏi/đáp án và điểm đã chốt, không bị thay đổi theo bản sửa mới",
+              "precondition": "1. HS đã nộp 1 lượt làm trước khi CMS sửa đề, với đáp án đúng cũ là A và đã đạt Điểm = 8\n2. Sau đó CMS sửa đáp án đúng của 1 câu trong đề từ A thành B",
+              "steps": "1. Mở lại màn Kết quả của lượt làm cũ từ Lịch sử làm bài\n2. Bấm 'Xem lại bài đã làm' để xem chi tiết câu hỏi đã sửa",
+              "test_data": "",
+              "expected": "1. Màn Kết quả của lượt cũ vẫn hiển thị nguyên Điểm = 8 như lúc nộp, không bị tính lại theo nội dung mới\n2. Màn Chi tiết bài đã làm vẫn hiển thị đúng nội dung câu hỏi/đáp án đúng cũ (A) tại thời điểm làm bài, không hiển thị đáp án mới (B) vừa sửa",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra trường hợp CMS sửa đề làm thay đổi cấu trúc kỹ năng (thêm section mới gắn kỹ năng mới), lượt làm cũ vẫn giữ nguyên đúng cấu trúc kỹ năng cũ tại màn Kết quả",
+              "precondition": "1. HS đã nộp 1 lượt làm khi đề chỉ có 2 kỹ năng Listening, Reading\n2. Sau đó CMS thêm 1 section mới gắn kỹ năng Writing vào đề",
+              "steps": "1. Mở lại màn Kết quả của lượt làm cũ từ Lịch sử làm bài\n2. Quan sát khối 'Kết quả theo kỹ năng'",
+              "test_data": "",
+              "expected": "2. Khối Kết quả theo kỹ năng của lượt cũ chỉ hiển thị đúng 2 dòng Listening, Reading như cấu trúc tại thời điểm làm bài, không xuất hiện thêm dòng Writing mới được CMS thêm vào sau đó",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

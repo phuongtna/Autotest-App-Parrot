@@ -1,0 +1,441 @@
+{
+  "project": "Parrot App - Ôn thi",
+  "feature": "Chi tiết đề (dùng chung Đề thầy cô giao & Kho đề Parrot)",
+  "tc_prefix": "TC_APP_OnThi_ChiTietDe",
+  "author": "QA Team",
+  "account_info": "Tài khoản HS Free/Pro/Dùng thử; đề thuộc 2 nguồn: Đề thầy cô giao (CMS On thi) và Kho đề Parrot",
+  "groups": [
+    {
+      "level": 1,
+      "title": "I. Màn hình Chi tiết đề (Thông tin đề)",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Icon button Quay lại",
+          "testcases": [
+            {
+              "name": "Kiểm tra bấm Quay lại từ đề nguồn Đề thầy cô giao trở về màn Danh sách đề và giữ nguyên bộ lọc đang chọn",
+              "precondition": "1. Tại màn Danh sách đề thầy cô giao đang chọn bộ lọc Thời gian giao đề = '1 tháng gần nhất'\n2. Đã bấm vào 1 Card đề để mở màn Chi tiết đề",
+              "steps": "1. Tại màn Chi tiết đề, bấm icon Quay lại",
+              "test_data": "",
+              "expected": "1. Hệ thống quay về màn Danh sách đề thầy cô giao, Dropdown Thời gian giao đề vẫn đang giữ giá trị '1 tháng gần nhất', danh sách không bị reset về mặc định",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm Quay lại từ đề nguồn Kho đề Parrot trở về đúng màn Kho đề và giữ nguyên bộ lọc/tab đang chọn",
+              "precondition": "1. Tại màn Kho đề Parrot đang chọn 1 bộ lọc/tab cụ thể (vd: Khối lớp, môn học)\n2. Đã bấm vào 1 đề trong Kho đề để mở màn Chi tiết đề",
+              "steps": "1. Tại màn Chi tiết đề, bấm icon Quay lại",
+              "test_data": "",
+              "expected": "1. Hệ thống quay về đúng màn Kho đề Parrot, bộ lọc/tab vẫn giữ nguyên giá trị đã chọn trước đó, không bị reset",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm Quay lại khi mở Chi tiết đề từ kết quả tìm kiếm vẫn giữ nguyên từ khóa và kết quả tìm kiếm",
+              "precondition": "1. Đã nhập từ khóa tìm kiếm đề tại màn tìm kiếm (Danh sách đề hoặc Kho đề Parrot) và đang hiển thị kết quả tìm kiếm\n2. Đã bấm vào 1 đề trong kết quả tìm kiếm để mở màn Chi tiết đề",
+              "steps": "1. Tại màn Chi tiết đề, bấm icon Quay lại",
+              "test_data": "",
+              "expected": "1. Hệ thống quay về đúng màn tìm kiếm, vẫn giữ nguyên từ khóa đã nhập và danh sách kết quả tìm kiếm trước đó, không bị thoát khỏi chế độ tìm kiếm",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra dùng nút back hệ thống (Android)/thao tác vuốt back (iOS) có hành vi tương tự icon Quay lại",
+              "precondition": "1. Đang ở màn Chi tiết đề (bất kỳ nguồn đề nào)",
+              "steps": "1. Bấm nút back vật lý/hệ thống (Android) hoặc vuốt từ cạnh trái màn hình (iOS) thay vì bấm icon Quay lại",
+              "test_data": "",
+              "expected": "1. Hệ thống điều hướng về đúng màn trước đó (Danh sách đề/Kho đề/kết quả tìm kiếm), hành vi giữ nguyên bộ lọc/trạng thái tương tự khi bấm icon Quay lại",
+              "priority": "Medium",
+              "tc_type": "GUI"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "2. Khối Thông tin chung",
+          "testcases": [
+            {
+              "name": "Kiểm tra hiển thị đúng Tên đề theo đúng cấu hình trên CMS",
+              "precondition": "1. Đề 'Đề thi thử vào 10 Sở GDĐT TP Hà Nội (năm 2025)' đã được cấu hình trên CMS",
+              "steps": "1. Mở màn Chi tiết đề của đề trên",
+              "test_data": "",
+              "expected": "1. Khối Thông tin chung hiển thị đúng Tên đề 'Đề thi thử vào 10 Sở GDĐT TP Hà Nội (năm 2025)' khớp với cấu hình trên CMS, không bị cắt sai/sai ký tự",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra hiển thị đúng Thời lượng tối đa theo cấu hình trên CMS",
+              "precondition": "1. Đề đã cấu hình Thời lượng tối đa = 90 phút trên CMS",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát ô 'Thời lượng tối đa'",
+              "test_data": "",
+              "expected": "2. Ô 'Thời lượng tối đa' hiển thị đúng '90 phút'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra hiển thị đúng Tổng số câu = tổng số câu hỏi con của tất cả section trong đề",
+              "precondition": "1. Đề gồm 2 section, section 1 có 20 câu, section 2 có 20 câu (tổng 40 câu)",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát ô 'Tổng số câu'",
+              "test_data": "",
+              "expected": "2. Ô 'Tổng số câu' hiển thị đúng '40 câu', đúng bằng tổng số câu hỏi con của tất cả section cộng lại",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra hiển thị Tên đề quá dài không làm vỡ layout khối Thông tin chung",
+              "precondition": "1. Đề có Tên đề dài (≥60 ký tự) được cấu hình trên CMS",
+              "steps": "1. Mở màn Chi tiết đề của đề có tên dài",
+              "test_data": "Tên đề: chuỗi 60+ ký tự",
+              "expected": "1. Tên đề tự xuống dòng (wrap) hiển thị đầy đủ, không bị tràn ra ngoài khối, không che các control khác bên dưới",
+              "priority": "Low",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra cập nhật giao diện khi đề không cấu hình Thời lượng tối đa (không giới hạn thời gian)",
+              "precondition": "1. Đề được cấu hình trên CMS không giới hạn thời gian làm bài (không nhập Thời lượng tối đa)",
+              "steps": "1. Mở màn Chi tiết đề của đề không giới hạn thời gian\n2. Quan sát ô 'Thời lượng tối đa'",
+              "test_data": "",
+              "expected": "2. Ô 'Thời lượng tối đa' hiển thị 'Không giới hạn' (hoặc tương đương), không hiển thị số phút sai/trống trắng gây hiểu lầm lỗi tải dữ liệu",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "3. List Lịch sử làm bài",
+          "testcases": [
+            {
+              "name": "Kiểm tra khối Lịch sử làm bài không hiển thị khi HS chưa từng nộp bài đề này lần nào",
+              "precondition": "1. HS chưa từng làm/nộp bài đề đang xem Chi tiết đề",
+              "steps": "1. Mở màn Chi tiết đề",
+              "test_data": "",
+              "expected": "1. Khối 'Lịch sử làm bài' không xuất hiện trên màn hình",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra khối Lịch sử làm bài hiển thị đúng 1 dòng 'Lần 1' kèm điểm khi HS đã nộp bài đúng 1 lần, không có nút Xem tất cả",
+              "precondition": "1. HS đã nộp bài đề này đúng 1 lần với điểm 7.25",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát khối Lịch sử làm bài",
+              "test_data": "",
+              "expected": "2. Khối hiển thị đúng 1 dòng 'Lần 1' với điểm '7.25', không hiển thị text button 'Xem tất cả' (vì chưa đủ 3 lượt)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra khối Lịch sử làm bài hiển thị tối đa 2 lượt gần nhất theo thứ tự Lần N giảm dần khi đã nộp đúng 2 lần",
+              "precondition": "1. HS đã nộp bài đề này 2 lần: Lần 1 = 7.25 điểm, Lần 2 = 7.75 điểm",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát khối Lịch sử làm bài",
+              "test_data": "",
+              "expected": "2. Khối hiển thị đúng 2 dòng theo thứ tự 'Lần 2 - 7.75' ở trên, 'Lần 1 - 7.25' ở dưới; không hiển thị nút 'Xem tất cả' (chưa đủ 3 lượt)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra khối Lịch sử làm bài hiển thị nút 'Xem tất cả' và chỉ 2 lượt gần nhất khi đã nộp bài từ 3 lần trở lên",
+              "precondition": "1. HS đã nộp bài đề này 4 lần với điểm khác nhau cho mỗi lần",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát khối Lịch sử làm bài",
+              "test_data": "",
+              "expected": "2. Khối hiển thị text button 'Xem tất cả' ở góc phải, phần danh sách chỉ hiển thị đúng 2 dòng gần nhất là 'Lần 4' và 'Lần 3' (không hiển thị Lần 1, Lần 2)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm 'Xem tất cả' mở đúng màn Lịch sử làm bài đầy đủ của đề đang xem",
+              "precondition": "1. Đang ở màn Chi tiết đề có ≥3 lượt làm bài, nút 'Xem tất cả' đang hiển thị",
+              "steps": "1. Bấm text button 'Xem tất cả'",
+              "test_data": "",
+              "expected": "1. Hệ thống mở màn Lịch sử làm bài, hiển thị đầy đủ tất cả các lượt làm bài của đề đang xem (không chỉ 2 lượt gần nhất)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm vào 1 dòng lượt làm bài trong Lịch sử làm bài mở đúng màn Chi tiết bài đã làm của lượt đó",
+              "precondition": "1. Đang ở màn Chi tiết đề có hiển thị dòng 'Lần 2 - 7.75'",
+              "steps": "1. Bấm vào dòng 'Lần 2 - 7.75'",
+              "test_data": "",
+              "expected": "1. Hệ thống mở đúng màn Chi tiết bài đã làm của Lần 2, hiển thị đúng điểm 7.75 và chi tiết đáp án của lượt làm đó",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra điểm hiển thị trên từng dòng Lịch sử làm bài đúng là điểm của chính lượt đó, không phải điểm cao nhất",
+              "precondition": "1. HS đã nộp bài đề này 2 lần: Lần 1 = 9.0 điểm (cao hơn), Lần 2 = 7.5 điểm (thấp hơn)",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát điểm của từng dòng trong khối Lịch sử làm bài",
+              "test_data": "",
+              "expected": "2. Dòng 'Lần 2' hiển thị đúng '7.5' và dòng 'Lần 1' hiển thị đúng '9.0', mỗi dòng hiển thị điểm thật của lượt đó, không bị gán nhầm điểm cao nhất cho cả 2 dòng",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "4. List Cấu trúc đề",
+          "testcases": [
+            {
+              "name": "Kiểm tra danh sách Section trong Cấu trúc đề hiển thị đúng thứ tự đã cấu hình trên CMS",
+              "precondition": "1. Đề được cấu hình trên CMS gồm 2 section theo thứ tự: 'Phần 1 - Listening' rồi đến 'Phần 2 - Reading'",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát khối Cấu trúc đề",
+              "test_data": "",
+              "expected": "2. Danh sách hiển thị đúng thứ tự 'Phần 1 - Listening' ở trên, 'Phần 2 - Reading' ở dưới, khớp với thứ tự cấu hình trên CMS",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Section có cấu hình thời lượng hiển thị đúng thời lượng tương ứng",
+              "precondition": "1. 'Phần 1 - Listening' được cấu hình thời lượng 45 phút trên CMS",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát dòng 'Phần 1 - Listening' trong Cấu trúc đề",
+              "test_data": "",
+              "expected": "2. Dòng 'Phần 1 - Listening' hiển thị đúng thời lượng '45 phút' bên phải",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Section không nhập thời lượng thì ẩn phần thời lượng, chỉ hiển thị Tên section",
+              "precondition": "1. 'Phần 3 - Writing' trong đề không được cấu hình thời lượng trên CMS",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát dòng 'Phần 3 - Writing' trong Cấu trúc đề",
+              "test_data": "",
+              "expected": "2. Dòng 'Phần 3 - Writing' chỉ hiển thị Tên section, không hiển thị bất kỳ giá trị thời lượng nào (kể cả '0 phút' hay khoảng trống gây hiểu lầm)",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Cấu trúc đề vẫn hiển thị đúng khi đề chỉ có 1 section duy nhất",
+              "precondition": "1. Đề chỉ được cấu hình đúng 1 section trên CMS",
+              "steps": "1. Mở màn Chi tiết đề\n2. Quan sát khối Cấu trúc đề",
+              "test_data": "",
+              "expected": "2. Khối Cấu trúc đề hiển thị đúng 1 dòng tương ứng section đó, không hiển thị dòng trống hay lỗi do chỉ có 1 phần tử",
+              "priority": "Medium",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra cuộn xem đầy đủ danh sách Section khi đề có nhiều section vượt quá 1 màn hình",
+              "precondition": "1. Đề được cấu hình nhiều section (≥6 section) khiến danh sách vượt quá chiều cao hiển thị mặc định",
+              "steps": "1. Mở màn Chi tiết đề\n2. Cuộn xuống khối Cấu trúc đề",
+              "test_data": "",
+              "expected": "2. Có thể cuộn để xem đầy đủ tất cả section đã cấu hình, không bị cắt mất section cuối cùng và không che khuất nút 'Bắt đầu làm bài'",
+              "priority": "Low",
+              "tc_type": "GUI"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "5. Nút Bắt đầu làm bài / Tiếp tục làm bài",
+          "testcases": [
+            {
+              "name": "Kiểm tra nút hiển thị 'Bắt đầu làm bài' khi HS chưa có lượt làm dở của đề",
+              "precondition": "1. HS chưa từng mở làm đề này, hoặc đã nộp xong và không còn phiên làm dở nào",
+              "steps": "1. Mở màn Chi tiết đề",
+              "test_data": "",
+              "expected": "1. Nút action chính ở cuối màn hình hiển thị text 'Bắt đầu làm bài'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm 'Bắt đầu làm bài' mở đúng Popup xác nhận 'Bắt đầu làm bài?'",
+              "precondition": "1. Đang ở màn Chi tiết đề, nút hiển thị 'Bắt đầu làm bài', đề không bị giới hạn gói dịch vụ",
+              "steps": "1. Bấm nút 'Bắt đầu làm bài'",
+              "test_data": "",
+              "expected": "1. Hệ thống hiển thị Popup xác nhận với tiêu đề 'Bắt đầu làm bài?', nội dung nhắc hệ thống sẽ tính thời gian và không dừng lại tới khi Nộp bài, cùng 2 nút 'Để sau' và 'Bắt đầu'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Popup xác nhận - bấm 'Để sau' chỉ đóng popup, chưa bắt đầu tính giờ làm bài",
+              "precondition": "1. Popup xác nhận 'Bắt đầu làm bài?' đang hiển thị",
+              "steps": "1. Bấm nút 'Để sau'",
+              "test_data": "",
+              "expected": "1. Popup đóng lại, hệ thống ở lại màn Chi tiết đề, nút vẫn hiển thị 'Bắt đầu làm bài' (chưa tạo phiên làm dở, đồng hồ chưa chạy)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Popup xác nhận - bấm 'Bắt đầu' chuyển vào màn làm bài và đồng hồ bắt đầu chạy ngay",
+              "precondition": "1. Popup xác nhận 'Bắt đầu làm bài?' đang hiển thị",
+              "steps": "1. Bấm nút 'Bắt đầu'",
+              "test_data": "",
+              "expected": "1. Hệ thống chuyển vào màn làm bài của đề, đồng hồ đếm thời gian bắt đầu chạy ngay lập tức",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đồng hồ làm bài tiếp tục chạy (không dừng, không reset) khi thoát ra giữa chừng rồi quay lại",
+              "precondition": "1. HS vừa bấm 'Bắt đầu' và đồng hồ đang chạy được 2 phút",
+              "steps": "1. Thoát khỏi màn làm bài giữa chừng (về Danh sách đề/Kho đề hoặc thoát app)\n2. Chờ 3 phút rồi quay lại mở đề đang làm dở",
+              "test_data": "",
+              "expected": "2. Thời gian làm bài đã trôi qua tổng cộng ~5 phút tính từ lúc 'Bắt đầu' (2 phút trước khi thoát + 3 phút trong lúc thoát), đồng hồ không bị dừng/tạm ngưng khi HS không ở trong màn làm bài",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra nút hiển thị 'Tiếp tục làm bài' khi HS đang có phiên làm dở của đề",
+              "precondition": "1. HS đã bấm Bắt đầu làm đề này và thoát ra giữa chừng, chưa nộp bài",
+              "steps": "1. Mở lại màn Chi tiết đề của đề đang làm dở",
+              "test_data": "",
+              "expected": "1. Nút action chính hiển thị text 'Tiếp tục làm bài' thay vì 'Bắt đầu làm bài'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm 'Tiếp tục làm bài' mở đúng Popup 'Bài làm chưa hoàn thành' với 2 lựa chọn Làm lại/Tiếp tục",
+              "precondition": "1. Nút đang hiển thị 'Tiếp tục làm bài' (đề đang có phiên làm dở)",
+              "steps": "1. Bấm nút 'Tiếp tục làm bài'",
+              "test_data": "",
+              "expected": "1. Hệ thống hiển thị Popup 'Bài làm chưa hoàn thành' với nội dung 'Bạn chưa hoàn thành đề thi này. Bạn muốn tiếp tục làm hay bắt đầu lại?' cùng 2 nút 'Làm lại' và 'Tiếp tục'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Popup 'Bài làm chưa hoàn thành' - bấm 'Tiếp tục' vào đúng màn làm dở, giữ nguyên các câu đã trả lời và thời gian đã trôi qua",
+              "precondition": "1. Popup 'Bài làm chưa hoàn thành' đang hiển thị, phiên làm dở đã trả lời 10/40 câu",
+              "steps": "1. Bấm nút 'Tiếp tục'",
+              "test_data": "",
+              "expected": "1. Hệ thống vào đúng màn làm bài tại vị trí đang làm dở, vẫn giữ nguyên 10/40 câu đã trả lời trước đó và đồng hồ tiếp tục tính từ thời gian đã trôi qua (không reset về 0)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Popup 'Bài làm chưa hoàn thành' - bấm 'Làm lại' xóa phiên làm dở và bắt đầu lại từ đầu",
+              "precondition": "1. Popup 'Bài làm chưa hoàn thành' đang hiển thị, phiên làm dở đã trả lời 10/40 câu",
+              "steps": "1. Bấm nút 'Làm lại'",
+              "test_data": "",
+              "expected": "1. Hệ thống xóa phiên làm dở cũ (10/40 câu đã trả lời không còn), vào màn làm bài mới bắt đầu lại từ câu 1 với đồng hồ chạy lại từ 0",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra sau khi 'Làm lại' xóa phiên làm dở cũ, quay lại màn Chi tiết đề giữa chừng phiên mới vẫn chỉ hiển thị đúng 1 phiên làm dở hiện tại",
+              "precondition": "1. HS vừa bấm 'Làm lại' ở Popup 'Bài làm chưa hoàn thành' và thoát ra giữa chừng phiên làm lại mới",
+              "steps": "1. Mở lại màn Chi tiết đề của đề vừa 'Làm lại'",
+              "test_data": "",
+              "expected": "1. Nút action hiển thị 'Tiếp tục làm bài' tương ứng đúng phiên làm lại mới nhất, không tồn tại song song phiên làm dở cũ đã bị xóa, khối Lịch sử làm bài không phát sinh thêm dòng nào từ phiên đã bị xóa",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "6. Rule quyền truy cập theo gói dịch vụ (đề Pro)",
+          "testcases": [
+            {
+              "name": "Kiểm tra tài khoản Free xem được đầy đủ Thông tin đề Pro nhưng bị chặn khi bấm 'Bắt đầu làm bài'",
+              "precondition": "1. Đề đang xem thuộc gói Pro\n2. Tài khoản đang đăng nhập ở gói Free, chưa từng làm đề này",
+              "steps": "1. Mở màn Chi tiết đề của đề Pro\n2. Bấm nút 'Bắt đầu làm bài'",
+              "test_data": "",
+              "expected": "1. Màn Chi tiết đề vẫn hiển thị đầy đủ Thông tin chung, Cấu trúc đề như bình thường\n2. Hệ thống hiển thị bottom sheet nâng cấp tài khoản thay vì mở Popup xác nhận 'Bắt đầu làm bài?'",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản Free đang có phiên làm dở của đề Pro vẫn bị chặn và hiển thị bottom sheet nâng cấp khi bấm 'Tiếp tục làm bài'",
+              "precondition": "1. Đề Pro đang có phiên làm dở được tạo từ lúc tài khoản còn hiệu lực Pro/Dùng thử, nay tài khoản đã về Free\n2. Nút đang hiển thị 'Tiếp tục làm bài'",
+              "steps": "1. Bấm nút 'Tiếp tục làm bài'",
+              "test_data": "",
+              "expected": "1. Hệ thống hiển thị bottom sheet nâng cấp tài khoản, không mở Popup 'Bài làm chưa hoàn thành', không cho tiếp tục phiên làm dở",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản Pro/Dùng thử bấm 'Bắt đầu làm bài' với đề Pro vào thẳng Popup xác nhận bình thường, không bị chặn",
+              "precondition": "1. Đề đang xem thuộc gói Pro\n2. Tài khoản đang đăng nhập ở gói Pro hoặc Dùng thử",
+              "steps": "1. Mở màn Chi tiết đề của đề Pro\n2. Bấm nút 'Bắt đầu làm bài'",
+              "test_data": "",
+              "expected": "2. Hệ thống mở Popup xác nhận 'Bắt đầu làm bài?' bình thường, không hiển thị bottom sheet nâng cấp",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra tài khoản Free làm đề Free bình thường, không bị chặn ở nút Bắt đầu làm bài",
+              "precondition": "1. Đề đang xem thuộc gói Free\n2. Tài khoản đang đăng nhập ở gói Free",
+              "steps": "1. Mở màn Chi tiết đề của đề Free\n2. Bấm nút 'Bắt đầu làm bài'",
+              "test_data": "",
+              "expected": "2. Hệ thống mở Popup xác nhận 'Bắt đầu làm bài?' bình thường, không hiển thị bottom sheet nâng cấp",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "II. Rule dùng chung giữa 2 nguồn đề: Đề thầy cô giao & Kho đề Parrot",
+      "children": [
+        {
+          "level": 2,
+          "title": "1. Đồng nhất và khác biệt hiển thị/hành vi theo nguồn đề",
+          "testcases": [
+            {
+              "name": "Kiểm tra màn Chi tiết đề hiển thị đồng nhất bố cục và đầy đủ 5 khối control cho cả đề nguồn Đề thầy cô giao và đề nguồn Kho đề Parrot",
+              "precondition": "1. Có sẵn 1 đề nguồn Đề thầy cô giao và 1 đề nguồn Kho đề Parrot với cấu hình CMS tương đương (cùng số section, cùng thời lượng)",
+              "steps": "1. Mở màn Chi tiết đề của đề nguồn Đề thầy cô giao, đối chiếu đủ 5 khối: Quay lại, Thông tin chung, Lịch sử làm bài, Cấu trúc đề, nút action\n2. Mở màn Chi tiết đề của đề nguồn Kho đề Parrot, đối chiếu tương tự",
+              "test_data": "",
+              "expected": "1. Màn Chi tiết đề của đề thầy cô giao hiển thị đầy đủ và đúng 5 khối theo đúng cấu hình CMS\n2. Màn Chi tiết đề của đề Kho đề Parrot hiển thị đầy đủ và đúng 5 khối với cùng bố cục, không thiếu/thừa control nào so với đề nguồn thầy cô giao",
+              "priority": "Medium",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra Lịch sử làm bài của đề trong Kho đề Parrot được tính và hiển thị riêng theo đúng đề đó, không gộp lẫn với đề khác trùng tên do thầy cô giao",
+              "precondition": "1. Tồn tại 1 đề trong Kho đề Parrot và 1 đề do thầy cô giao có cùng Tên đề nhưng là 2 bản ghi đề khác nhau trên CMS\n2. HS đã nộp bài đề trong Kho đề Parrot 2 lần, chưa từng làm đề do thầy cô giao",
+              "steps": "1. Mở màn Chi tiết đề của đề trong Kho đề Parrot, quan sát Lịch sử làm bài\n2. Mở màn Chi tiết đề của đề do thầy cô giao (trùng tên), quan sát Lịch sử làm bài",
+              "test_data": "",
+              "expected": "1. Đề trong Kho đề Parrot hiển thị đúng 2 lượt làm bài đã nộp\n2. Đề do thầy cô giao (dù trùng tên) không hiển thị khối Lịch sử làm bài vì HS chưa từng làm đề này, chứng tỏ 2 đề không bị gộp lịch sử làm bài với nhau",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra bấm Quay lại từ Chi tiết đề luôn trả về đúng màn nguồn tương ứng, không bị lẫn giữa Danh sách đề thầy cô giao và Kho đề Parrot",
+              "precondition": "1. Lần lượt mở Chi tiết đề từ màn Danh sách đề thầy cô giao, rồi mở Chi tiết đề từ màn Kho đề Parrot (2 lượt mở riêng biệt, không lồng nhau)",
+              "steps": "1. Từ Chi tiết đề (nguồn thầy cô giao), bấm Quay lại, xác nhận màn đích\n2. Từ Chi tiết đề (nguồn Kho đề Parrot), bấm Quay lại, xác nhận màn đích",
+              "test_data": "",
+              "expected": "1. Trường hợp 1 quay đúng về màn Danh sách đề thầy cô giao\n2. Trường hợp 2 quay đúng về màn Kho đề Parrot, không bị điều hướng nhầm sang màn còn lại trong cả 2 trường hợp",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề nguồn Đề thầy cô giao đã quá hạn nộp vẫn cho Bắt đầu/Tiếp tục làm bài bình thường tại màn Chi tiết đề, đồng nhất với rule hạn nộp ở màn Danh sách đề",
+              "precondition": "1. HS được giao 1 đề đã quá hạn nộp (ngày hiện tại sau hạn nộp) và chưa nộp bài",
+              "steps": "1. Mở màn Chi tiết đề của đề đã quá hạn\n2. Bấm nút 'Bắt đầu làm bài' (hoặc 'Tiếp tục làm bài')",
+              "test_data": "",
+              "expected": "2. Hệ thống cho vào làm bài bình thường, không hiển thị thông báo chặn vì quá hạn, đúng theo rule hạn nộp đã áp dụng ở màn Danh sách đề thầy cô giao",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra đề nguồn Kho đề Parrot (không gắn hạn nộp) không hiển thị bất kỳ thông tin hạn nộp nào tại màn Chi tiết đề",
+              "precondition": "1. Đang xem Chi tiết đề của 1 đề thuộc Kho đề Parrot (không được giáo viên giao, không có khái niệm hạn nộp)",
+              "steps": "1. Mở màn Chi tiết đề của đề Kho đề Parrot\n2. Quan sát toàn bộ màn hình",
+              "test_data": "",
+              "expected": "2. Màn hình không hiển thị bất kỳ nhãn/label hạn nộp nào (khác với đề nguồn thầy cô giao vốn có thể hiển thị hạn nộp ở màn danh sách), chỉ hiển thị đúng 5 khối control chung đã mô tả",
+              "priority": "Medium",
+              "tc_type": "GUI"
+            },
+            {
+              "name": "Kiểm tra rule quyền truy cập theo gói dịch vụ (Pro/Free) áp dụng giống nhau cho đề Pro ở cả 2 nguồn Đề thầy cô giao và Kho đề Parrot",
+              "precondition": "1. Tài khoản Free\n2. Có 1 đề Pro nguồn thầy cô giao và 1 đề Pro nguồn Kho đề Parrot, cả 2 đều chưa từng làm",
+              "steps": "1. Mở Chi tiết đề Pro nguồn thầy cô giao, bấm 'Bắt đầu làm bài'\n2. Mở Chi tiết đề Pro nguồn Kho đề Parrot, bấm 'Bắt đầu làm bài'",
+              "test_data": "",
+              "expected": "1. Hệ thống hiển thị bottom sheet nâng cấp tài khoản cho đề Pro nguồn thầy cô giao\n2. Hệ thống cũng hiển thị bottom sheet nâng cấp tài khoản tương tự cho đề Pro nguồn Kho đề Parrot, rule áp dụng nhất quán giữa 2 nguồn",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "name": "Kiểm tra Cấu trúc đề hiển thị đúng và nhất quán bất kể đề thuộc nguồn nào, miễn cấu hình section trên CMS giống nhau",
+              "precondition": "1. Đề nguồn thầy cô giao và đề nguồn Kho đề Parrot được cấu hình cùng số lượng section, cùng tên section và cùng thời lượng section trên CMS",
+              "steps": "1. Mở Chi tiết đề nguồn thầy cô giao, quan sát khối Cấu trúc đề\n2. Mở Chi tiết đề nguồn Kho đề Parrot, quan sát khối Cấu trúc đề",
+              "test_data": "",
+              "expected": "1. Khối Cấu trúc đề của đề thầy cô giao hiển thị đúng danh sách section theo cấu hình\n2. Khối Cấu trúc đề của đề Kho đề Parrot hiển thị đúng và giống hệt về nội dung/thứ tự/định dạng so với đề thầy cô giao, không có sai khác do nguồn đề",
+              "priority": "Low",
+              "tc_type": "GUI"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

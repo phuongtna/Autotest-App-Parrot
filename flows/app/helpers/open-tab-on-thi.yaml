@@ -1,15 +1,14 @@
-# Helper: mở tab "Ôn thi" > sub-tab "Đề thầy cô giao" và chờ danh sách render xong.
+# Helper: mở tab "Ôn thi" > sub-tab ${ON_THI_TAB} ("Đề thầy cô giao" MẶC ĐỊNH, hoặc "Kho đề
+# Parrot" nếu truyền ON_THI_TAB="Kho đề Parrot") và chờ danh sách render xong.
 #
-# CHƯA VERIFY TRÊN THIẾT BỊ THẬT (khác open-tab-homework.yaml, file đó đã verify thật) - nhái lại
-# ĐÚNG cấu trúc/kỹ thuật của open-tab-homework.yaml (full-match text, dismiss popup, scroll-về-đầu
-# khi DEVICE_MODE=true, extendedWaitUntil chờ nội dung thật thay vì sleep cố định) vì chưa có bằng
-# chứng nào cho thấy on_thi cần cách khác - CẦN CHẠY THẬT 1 LẦN rồi cập nhật lại comment này theo
-# đúng quy ước "ĐÃ VERIFY THẬT (ngày, thiết bị, tài khoản)" như các helper khác.
-#
-# CẦN XÁC MINH (xem automation/on_thi/navigation/onThiPageObjects.js để biết đầy đủ): tên tab gốc
-# "Ôn thi" có thật là 1 tab trên bottom bar hay là màn con mở từ nơi khác (vd từ "Vui học" hoặc 1
-# banner riêng) - nếu KHÔNG phải tab bottom-bar, bước `tapOn: text: "Ôn thi"` bên dưới sẽ cần thay
-# bằng đường điều hướng khác (chưa biết) trước khi chạy thật lần đầu.
+# ĐÃ XÁC NHẬN THẬT (2026-10-30, thao tác tay qua `adb shell input tap` + screenshot, thiết bị
+# 3201d866d40a1681, app com.inet.parrotedu, tài khoản/profile "Phương" lớp 11A2): "Ôn thi" ĐÚNG LÀ
+# 1 tab điều hướng được bằng text trực tiếp (không cần mở từ "Vui học"/banner nào khác), và màn
+# Danh sách đề CÓ ĐÚNG 2 sub-tab "Đề thầy cô giao"/"Kho đề Parrot" như ảnh mockup gốc - xoá cảnh báo
+# "CẦN XÁC MINH tên tab gốc" trước đây. CHƯA chạy qua `maestro test`/MaestroBridge thật lần nào
+# (toàn bộ xác nhận trên đến từ `adb shell input tap` thô, không phải qua chính file YAML này) -
+# tham số hoá ON_THI_TAB thêm MỚI (2026-10-30) để tái sử dụng helper này cho cả 2 tab khi viết
+# `onThiExamEngine.js`, CHƯA tự chạy thử nhánh "Kho đề Parrot" qua Maestro.
 appId: ${APP_ID}
 ---
 - tapOn:
@@ -26,15 +25,16 @@ appId: ${APP_ID}
                 direction: DOWN
                 duration: 250
 
-# Đảm bảo đang ở ĐÚNG sub-tab "Đề thầy cô giao" (không phải "Kho đề Parrot", tab còn lại trong ảnh
-# mockup màn Danh sách đề) - tap lại cho idempotent, không gây lỗi nếu đã đang chọn sẵn.
+# Chọn ĐÚNG sub-tab mong muốn (mặc định "Đề thầy cô giao" nếu không truyền ON_THI_TAB) - tap lại
+# cho idempotent, không gây lỗi nếu đã đang chọn sẵn.
 - tapOn:
-    text: "Đề thầy cô giao"
+    text: ${ON_THI_TAB == null || ON_THI_TAB == 'undefined' ? 'Đề thầy cô giao' : ON_THI_TAB}
 
 - extendedWaitUntil:
     visible:
       # CẦN XÁC MINH text rỗng-danh-sách thật ("Bạn chưa có đề nào..." hay tương tự) - để trống
       # trong cụm OR bên dưới cho tới khi capture được, tạm chấp nhận filter label làm tín hiệu
-      # "màn đã load xong" (luôn có mặt theo spec.json kể cả khi danh sách rỗng - "0 đề").
-      text: ".*(Đề thầy cô giao|2 tuần gần nhất|1 tháng gần nhất).*"
+      # "màn đã load xong" (luôn có mặt theo spec.json kể cả khi danh sách rỗng - "0 đề"). "N đề"
+      # (ĐÃ XÁC NHẬN THẬT - nhãn "3 đề"/"4 đề") thêm vào cụm OR cho cả 2 sub-tab.
+      text: ".*(Đề thầy cô giao|Kho đề Parrot|\\d+ đề|2 tuần gần nhất|1 tháng gần nhất).*"
     timeout: 30000

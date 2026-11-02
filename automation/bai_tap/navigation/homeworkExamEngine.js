@@ -253,8 +253,13 @@ export function resolveDragDropCorrectValues(questionModel) {
 // viết lại. Import ở đầu file.
 
 /** FILL_WORD: cuon (neu can) toi khi doc du SO O TRONG mong doi (theo CMS) - merge index qua cac
- * lan doc (Set, idempotent). */
-async function ensureAllBlanksVisible(bridge, initialTree, expectedCount) {
+ * lan doc (Set, idempotent).
+ * export (2026-10-30, thêm cho automation/on_thi/navigation/onThiExamEngine.js tái sử dụng NGUYÊN
+ * VẸN 3 helper cuộn FILL_WORD/DRAG_DROP/TEXT_CHOICE bên dưới - màn "làm đề" Ôn thi dùng chung đúng
+ * engine câu hỏi exercise/doing.tsx với Bài tập, chỉ khác lớp điều hướng section/timer/popup bọc
+ * ngoài - KHÔNG copy-paste lại thuật toán cuộn, chỉ thêm từ khoá `export`, KHÔNG đổi 1 dòng logic
+ * nào, KHÔNG ảnh hưởng caller nội bộ hiện có trong chính file này). */
+export async function ensureAllBlanksVisible(bridge, initialTree, expectedCount) {
   return collectByScrollingIfNeeded(bridge, initialTree, {
     collect: (tree, acc) => {
       const next = new Set(acc);
@@ -268,8 +273,9 @@ async function ensureAllBlanksVisible(bridge, initialTree, expectedCount) {
 }
 
 /** DRAG_DROP: cuon (neu can) toi khi doc du SO Ô TRỐNG mong doi (theo CMS) - CUNG ky thuat
- * ensureAllBlanksVisible() cua FILL_WORD, chi khac id pattern (zone thay vi blank). */
-async function ensureAllDragDropZonesVisible(bridge, initialTree, expectedCount) {
+ * ensureAllBlanksVisible() cua FILL_WORD, chi khac id pattern (zone thay vi blank).
+ * export - cùng lý do ensureAllBlanksVisible() ở trên (tái sử dụng cho on_thi). */
+export async function ensureAllDragDropZonesVisible(bridge, initialTree, expectedCount) {
   return collectByScrollingIfNeeded(bridge, initialTree, {
     collect: (tree, acc) => {
       const next = new Set(acc);
@@ -375,8 +381,10 @@ async function tapConnectSlotWithRecovery(bridge, id, questionId, label) {
 /** TEXT_CHOICE/IMAGE_CHOICE_GRID: cuon (neu can) toi khi TOAN BO answers[] (tu CMS) da hien thi DAY
  * DU trong khung nhin (bounds nam hoan toan trong "exercise_doing_screen" - khong chi "ton tai
  * trong cay"). IMAGE_CHOICE_GRID khong co text dap an (answers[] rong/toan chuoi rong sau
- * stripHtml) -> `wanted` rong -> tra ve ngay, KHONG cuon gi (giu nguyen hanh vi cu cho dang nay). */
-async function ensureAllAnswersVisible(bridge, initialTree, questionModel) {
+ * stripHtml) -> `wanted` rong -> tra ve ngay, KHONG cuon gi (giu nguyen hanh vi cu cho dang nay).
+ * export - cùng lý do ensureAllBlanksVisible()/ensureAllDragDropZonesVisible() ở trên (tái sử dụng
+ * cho on_thi). */
+export async function ensureAllAnswersVisible(bridge, initialTree, questionModel) {
   const wanted = (questionModel?.answers ?? []).filter((a) => a && a.trim());
   if (wanted.length === 0) return { tree: initialTree, scrollCount: 0 };
   // resolveContentViewport() (KHÔNG PHẢI raw exercise_doing_screen bounds) - loại trừ vùng bị

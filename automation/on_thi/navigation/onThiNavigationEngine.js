@@ -56,10 +56,16 @@ export class OnThiNavigationEngine {
   }
 
   /**
-   * Mở tab "Ôn thi" > sub-tab "Đề thầy cô giao" (idempotent - bỏ qua nếu đã ở đó). CHƯA VERIFY -
-   * xem ghi chú CẦN XÁC MINH ở onThiPageObjects.js#bottomTab/list.subTabAssignedByTeacher.
+   * Mở tab "Ôn thi" > 1 trong 2 sub-tab (idempotent - bỏ qua nếu đã ở đó). ĐÃ XÁC NHẬN THẬT
+   * (2026-10-30, thao tác tay qua `adb shell input tap` + screenshot, thiết bị 3201d866d40a1681):
+   * "Ôn thi" đúng là tên tab điều hướng được trực tiếp bằng text, và 2 nhãn sub-tab
+   * ("Đề thầy cô giao"/"Kho đề Parrot") đều tap được - xoá cảnh báo "CHƯA VERIFY tên tab gốc"
+   * trước đây (xem `onThiPageObjects.js`). CHƯA chạy qua chính đoạn code Maestro này (chưa gọi qua
+   * MaestroBridge thật) - chỉ xác nhận hành vi UI/text thật, không xác nhận cú pháp `runFlow`/
+   * `tapOn` bên dưới.
+   * @param {string} subTabLabel - `po.list.subTabAssignedByTeacher` hoặc `po.list.subTabParrotBank`.
    */
-  async openDeThayCoGiaoTab() {
+  async _openSubTab(subTabLabel) {
     const steps = [
       {
         runFlow: {
@@ -73,16 +79,27 @@ export class OnThiNavigationEngine {
       },
       { waitForAnimationToEnd: { timeout: 2000 } },
       { assertVisible: { text: po.screenTitleSelector ?? po.list.screenTitle } },
-      // Đảm bảo đang ở ĐÚNG sub-tab "Đề thầy cô giao" (không phải "Kho đề Parrot") - tap vào label
-      // sub-tab luôn an toàn kể cả khi đã đang chọn sẵn (idempotent, giống cách openHomeworkTab()
-      // tap lại label tab dù có thể đã ở đó).
-      { tapOn: { text: po.list.subTabAssignedByTeacher } },
+      // Tap vào ĐÚNG label sub-tab mong muốn - an toàn kể cả khi đã đang chọn sẵn (idempotent,
+      // giống cách openHomeworkTab() tap lại label tab dù có thể đã ở đó).
+      { tapOn: { text: subTabLabel } },
       { waitForAnimationToEnd: { timeout: 1500 } },
     ];
     const result = await this.bridge.runSteps(steps);
     if (!result.success) {
-      throw new Error(`OnThiNavigationEngine: không mở được tab "Ôn thi > ${po.list.subTabAssignedByTeacher}": ${result.error}`);
+      throw new Error(`OnThiNavigationEngine: không mở được tab "Ôn thi > ${subTabLabel}": ${result.error}`);
     }
+  }
+
+  /** Mở tab "Ôn thi" > sub-tab "Đề thầy cô giao". */
+  async openDeThayCoGiaoTab() {
+    return this._openSubTab(po.list.subTabAssignedByTeacher);
+  }
+
+  /** Mở tab "Ôn thi" > sub-tab "Kho đề Parrot" - THÊM MỚI 2026-10-30 (cùng đợt viết
+   * `onThiExamEngine.js`, phục vụ yêu cầu "chạy cả 2 tab" - trước đây module chỉ có
+   * `openDeThayCoGiaoTab()`). CÙNG mức độ verify với tab kia (xem docblock `_openSubTab()`). */
+  async openKhoDeParrotTab() {
+    return this._openSubTab(po.list.subTabParrotBank);
   }
 
   /** Mở bottom sheet lọc theo khoảng thời gian giao đề. */

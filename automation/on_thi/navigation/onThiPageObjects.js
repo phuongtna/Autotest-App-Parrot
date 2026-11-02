@@ -76,4 +76,105 @@ export const onThiPageObjects = {
     // vd (placeholder, CHƯA xác nhận): "Nâng cấp để con làm đề Pro không giới hạn"
     knownCopyPatterns: [],
   },
+
+  /**
+   * Màn "Thông tin đề" (trước khi bắt đầu 1 lượt làm) - CÙNG màn cho cả 2 tab (Đề thầy cô giao/Kho
+   * đề Parrot), chỉ khác đường vào. ĐÃ QUAN SÁT THẬT qua thao tác tay bằng `adb shell input tap` +
+   * screenshot (2026-10-30, thiết bị 3201d866d40a1681, app com.inet.parrotedu) trên 3 đề: "Đề
+   * 2810" (2 section, mỗi section có thời gian riêng), "Đề thi thử vào 10 Sở DGĐT TP Hà Nội" (2
+   * section có thời gian riêng), "Đề thi 14" (2 section KHÔNG gắn thời gian riêng, chỉ 1 "Thời
+   * lượng tối đa" chung) - CHƯA chạy qua `maestro test`/MaestroBridge thật lần nào, chỉ xác nhận
+   * đúng NGUYÊN VĂN text hiển thị, KHÔNG xác nhận resource-id nào (không dump `maestro hierarchy`
+   * trong phiên quan sát đó, chỉ chụp ảnh màn hình).
+   */
+  examInfo: {
+    maxDurationLabel: "Thời lượng tối đa",
+    totalQuestionsLabel: "Tổng số câu",
+    structureSectionTitle: "Cấu trúc đề",
+    historySectionTitle: "Lịch sử làm bài",
+    historyViewAllLink: "Xem tất cả",
+    startButton: "Bắt đầu làm bài",
+    // Mỗi dòng "Cấu trúc đề" là 1 tên section, CÓ THỂ kèm theo nhãn thời lượng dạng "N phút" ngay
+    // sau tên (đề có thời gian theo Section) hoặc KHÔNG kèm gì (đề không gắn thời gian theo
+    // Section, chỉ dùng `maxDurationLabel` ở trên) - xem detectSectionTimerMode() trong
+    // onThiExamEngine.js, KHÔNG suy đoán theo tên section cụ thể.
+    sectionDurationPattern: "\\d+ phút",
+    // Popup xác nhận khi bấm "Bắt đầu làm bài" - ĐÃ QUAN SÁT THẬT.
+    startConfirmPopup: {
+      title: "Bắt đầu làm bài?",
+      confirmButton: "Bắt đầu",
+      cancelButton: "Để sau",
+    },
+  },
+
+  /**
+   * Màn "Doing" (đang làm 1 lượt đề) - DÙNG CHUNG `exercise/doing.tsx` với module Bài tập (testID
+   * `exercise_*` y hệt, xem docblock đầu `automation/on_thi/navigation/onThiExamEngine.js`), CHỈ
+   * phần khung bọc ngoài (header/toolbar/thanh tiến độ/đồng hồ/bottom sheet câu hỏi/popup) là RIÊNG
+   * của Ôn thi - khác hẳn Bài tập (không có section, không có đồng hồ, không có bottom sheet danh
+   * sách câu hỏi). ĐÃ QUAN SÁT THẬT qua `adb shell input tap` + screenshot (2026-10-30, thiết bị
+   * 3201d866d40a1681) - CHƯA xác nhận qua Maestro/MaestroBridge thật, CHƯA có resource-id nào (chỉ
+   * có text/toạ độ quan sát qua ảnh chụp màn hình, không dump `maestro hierarchy`).
+   */
+  doing: {
+    // Nút "Nộp bài" trên thanh công cụ (góc phải header) - LUÔN hiển thị suốt quá trình làm bài,
+    // KHÁC nút CTA cuối màn (đổi nhãn Tiếp theo/Chuyển phần/Nộp bài tuỳ vị trí câu).
+    toolbarSubmitButton: "Nộp bài",
+    // 3 nhãn CTA cuối màn - ĐÃ QUAN SÁT THẬT cả 3 trạng thái chuyển đổi đúng lúc:
+    // "Tiếp theo" (còn câu trong section hiện tại/đề không gắn thời gian section còn câu),
+    // "Chuyển phần" (câu cuối 1 section, chưa phải section cuối đề - CHỈ xuất hiện ở đề có thời
+    // gian theo Section, đề không gắn thời gian theo Section KHÔNG có nhãn này - xem TC_38/TC_49),
+    // "Nộp bài" (câu cuối cùng của toàn bộ đề, bất kể loại đề).
+    ctaNext: "Tiếp theo",
+    ctaSwitchSection: "Chuyển phần",
+    ctaSubmitAtLastQuestion: "Nộp bài",
+    ctaRegex: "Tiếp theo|Chuyển phần|Nộp bài",
+    // Icon cờ "Đánh dấu xem lại" - KHÔNG có text đi kèm (chỉ icon), KHÔNG dùng được text selector,
+    // caller phải tap theo vị trí tương đối (góc phải cùng hàng "Câu N") - xem onThiExamEngine.js.
+    markForReviewIconHint: "flag-icon-no-text-selector",
+    questionListButtonPattern: "\\d+/\\d+",
+    questionListSheetTitle: "Danh sách câu hỏi",
+    // popup khi tap icon Thoát (góc trái header) - ĐÃ QUAN SÁT THẬT. LƯU Ý: text nút thực tế là "Ở
+    // lại" (KHÔNG PHẢI "Ở lại làm bài" như mô tả gốc trong 1 số tài liệu spec cũ - xem Note
+    // TC_PAR_OnThiLamBai_3 trong TestCase_PAR-3172_OnThi_LamBai.xlsx, phiên 2026-10-30).
+    exitConfirmPopup: {
+      title: "Ngừng làm bài?",
+      bodyPattern: "Thời gian tiếp tục đếm khi bạn thoát",
+      stayButton: "Ở lại",
+      confirmExitButton: "Thoát",
+    },
+    // popup khi tap "Nộp bài" (toolbar HOẶC CTA cuối màn) - CÙNG 1 popup cho cả 2 lối vào, ĐÃ QUAN
+    // SÁT THẬT.
+    submitConfirmPopup: {
+      title: "Nộp bài ngay?",
+      continueButton: "Làm tiếp",
+      confirmSubmitButton: "Nộp bài",
+    },
+    // popup CHỈ xuất hiện khi tap "Chuyển phần" lúc section hiện tại VẪN CÒN thời gian (đề có thời
+    // gian theo Section) - ĐÃ QUAN SÁT THẬT. Đề không gắn thời gian theo Section KHÔNG BAO GIỜ hiện
+    // popup này (không có khái niệm "còn thời gian ở phần này") - xem TC_38/TC_49 (chuyển thẳng
+    // không cần xác nhận).
+    switchSectionConfirmPopup: {
+      title: "Bạn muốn chuyển phần khác?",
+      stayButton: "Ở lại",
+      confirmSwitchButton: "Chuyển phần",
+    },
+  },
+
+  /**
+   * Màn "Kết quả bài thi" - KHÁC HẲN nhãn của Bài tập (`RESULT_SCORE_LABEL`="ĐIỂM SỐ"/
+   * `RESULT_CORRECT_LABEL`="CHÍNH XÁC" trong homeworkExamEngine.js) - Ôn thi dùng bộ nhãn RIÊNG,
+   * KHÔNG tái sử dụng được `readResult()`/`isResultScreen()` của HomeworkExamEngine, phải viết lại
+   * (xem onThiExamEngine.js#isExamResultScreen()/readExamResult()). ĐÃ QUAN SÁT THẬT 2026-10-30.
+   */
+  resultScreen: {
+    screenTitle: "Kết quả bài thi",
+    scoreLabel: "Điểm của bạn",
+    correctCountLabel: "Số câu đúng",
+    durationLabel: "Thời gian làm bài",
+    skillBreakdownTitle: "Kết quả theo kỹ năng",
+    reviewLink: "Xem lại bài đã làm",
+    chooseAnotherButton: "Chọn đề khác",
+    retryButton: "Làm lại",
+  },
 };

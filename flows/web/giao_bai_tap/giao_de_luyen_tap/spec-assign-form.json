@@ -1,0 +1,737 @@
+{
+  "project": "Parrot Web GV - Giao bài tập",
+  "feature": "Giao đề luyện tập - Màn Giao đề luyện tập (tạo mới / chỉnh sửa / xóa)",
+  "tc_prefix": "TC_WEB_GV_GiaoDeLuyenTap_AssignForm",
+  "author": "QA Team",
+  "account_info": "Tài khoản GV trên môi trường DEV có tính năng \"Giao đề luyện tập\" (xem automation/giao_bai_tap/giao_de_luyen_tap/navigation/practiceTestListPageObjects.js#resolvePracticeTestDevCredentials)",
+  "groups": [
+    {
+      "level": 1,
+      "title": "1. Thông tin đề (Nguồn đề / Giao tới lớp / Thời gian giao / Hạn nộp)",
+      "children": [
+        {
+          "level": 2,
+          "title": "Nguồn đề luyện tập",
+          "testcases": [
+            {
+              "id": "ASSIGN-SOURCE-01",
+              "name": "Giá trị mặc định \"Nguồn đề luyện tập\" = \"Kho đề ParrotEdu\"",
+              "precondition": "",
+              "steps": "Bấm \"+ Giao đề luyện tập\" từ màn danh sách để mở màn \"Giao đề luyện tập\".",
+              "test_data": "",
+              "expected": "Radio \"Kho đề ParrotEdu\" được chọn mặc định (chấm xanh); vùng \"Chọn đề luyện tập\" hiển thị dữ liệu đề lấy từ Kho đề ParrotEdu.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-SOURCE-02",
+              "name": "Radio \"Nguồn đề luyện tập\" luôn có đúng 1 lựa chọn, không để trống",
+              "precondition": "",
+              "steps": "Quan sát hành vi radio \"Nguồn đề luyện tập\", thử các thao tác bấm qua lại giữa 2 lựa chọn.",
+              "test_data": "",
+              "expected": "1. Luôn tồn tại đúng 1 lựa chọn được chọn tại mọi thời điểm; không có trạng thái cả 2 cùng chọn hoặc cả 2 cùng không chọn.\n2. Kho đề cá nhân pending - disable",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-SOURCE-03",
+              "name": "[PENDING] Chọn \"Kho đề cá nhân\" hiển thị đúng dữ liệu nguồn cá nhân",
+              "precondition": "",
+              "steps": "Chọn radio \"Kho đề cá nhân\".",
+              "test_data": "",
+              "expected": "Spec đánh dấu nguồn này là \"Pending, chưa làm\" tại thời điểm viết test case — case này chỉ là khung, cần bổ sung bước/kỳ vọng chi tiết khi tính năng được triển khai thực tế (xem Ghi chú & Giả định). Tạm thời verify tối thiểu: thao tác không gây crash màn hình.",
+              "priority": "Low",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "Giao tới lớp",
+          "testcases": [
+            {
+              "id": "ASSIGN-CLASS-01",
+              "name": "Hiển thị đủ tất cả các lớp GV đã tạo trong năm học hiện tại",
+              "precondition": "",
+              "steps": "Quan sát danh sách nút lớp ở mục \"Giao tới lớp\".",
+              "test_data": "",
+              "expected": "Hiển thị đầy đủ, đúng tên tất cả các lớp GV đã tạo trong năm học hiện tại — không thiếu, không thừa, không hiển thị lớp của năm học cũ.",
+              "priority": "High",
+              "tc_type": "GUI"
+            },
+            {
+              "id": "ASSIGN-CLASS-02",
+              "name": "Chọn 1 lớp → disable các lớp thuộc khối khác",
+              "precondition": "",
+              "steps": "GV có các lớp 7A, 7B, 8A, 9A. Bấm chọn \"Lớp 7A\".",
+              "test_data": "",
+              "expected": "\"Lớp 7A\" chuyển trạng thái đã chọn (viền/màu xanh); \"Lớp 8A\" và \"Lớp 9A\" (khác khối 7) chuyển sang trạng thái disable, không bấm chọn được; \"Lớp 7B\" (cùng khối 7) vẫn chọn được bình thường.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-CLASS-03",
+              "name": "Chọn nhiều lớp cùng khối trong 1 lần giao",
+              "precondition": "",
+              "steps": "Từ ASSIGN-CLASS-02, bấm chọn thêm \"Lớp 7B\".",
+              "test_data": "",
+              "expected": "Cả \"Lớp 7A\" và \"Lớp 7B\" đều ở trạng thái đã chọn cùng lúc; \"Lớp 8A\", \"Lớp 9A\" vẫn giữ trạng thái disable.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-CLASS-04",
+              "name": "Bỏ chọn hết các lớp đã chọn → mở lại được tất cả các khối",
+              "precondition": "",
+              "steps": "Từ ASSIGN-CLASS-03, bấm bỏ chọn lần lượt cả \"Lớp 7A\" và \"Lớp 7B\".",
+              "test_data": "",
+              "expected": "Tất cả các lớp (kể cả 8A, 9A) trở lại trạng thái có thể chọn được, không còn lớp nào bị disable.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-CLASS-05",
+              "name": "Không chọn lớp nào → chặn giao, báo lỗi field bắt buộc",
+              "precondition": "",
+              "steps": "Không chọn bất kỳ lớp nào, điền đầy đủ các trường khác và tích chọn đề, bấm \"Giao đề đã chọn\".",
+              "test_data": "",
+              "expected": "Hệ thống chặn thao tác, không tạo dữ liệu giao đề.",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "Thời gian giao",
+          "testcases": [
+            {
+              "id": "ASSIGN-TIME-01",
+              "name": "Giá trị mặc định \"Thời gian giao\" = ngày hiện tại",
+              "precondition": "",
+              "steps": "Mở màn \"Giao đề luyện tập\", quan sát ô \"Thời gian giao\".",
+              "test_data": "",
+              "expected": "Mặc định hiển thị đúng ngày hiện tại.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-TIME-02",
+              "name": "Không cho chọn \"Thời gian giao\" là ngày trong quá khứ",
+              "precondition": "",
+              "steps": "Mở date picker \"Thời gian giao\", thử chọn 1 ngày trước ngày hiện tại.",
+              "test_data": "",
+              "expected": "Các ngày trong quá khứ bị disable trên lịch (không chọn được)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-TIME-03",
+              "name": "Chọn \"Thời gian giao\" là ngày hiện tại hoặc tương lai hợp lệ",
+              "precondition": "",
+              "steps": "Chọn 1 ngày trong tương lai (vd. +5 ngày so với hôm nay) làm \"Thời gian giao\".",
+              "test_data": "",
+              "expected": "Chọn thành công, ô hiển thị đúng ngày vừa chọn.",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "Hạn nộp",
+          "testcases": [
+            {
+              "id": "ASSIGN-DUE-01",
+              "name": "Giá trị mặc định \"Hạn nộp\" = Thời gian giao (mặc định) + 2 ngày",
+              "precondition": "",
+              "steps": "Mở màn \"Giao đề luyện tập\" lần đầu (chưa đổi \"Thời gian giao\"), quan sát ô \"Hạn nộp\".",
+              "test_data": "",
+              "expected": "\"Hạn nộp\" mặc định = \"Thời gian giao\" mặc định (hôm nay) + 2 ngày.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-DUE-02",
+              "name": "[CẦN XÁC NHẬN] Đổi \"Thời gian giao\" có cập nhật lại mặc định \"Hạn nộp\" không",
+              "precondition": "",
+              "steps": "Đổi \"Thời gian giao\" sang 1 ngày khác (vd. +5 ngày so với hiện tại) khi \"Hạn nộp\" vẫn đang ở giá trị mặc định (chưa bị GV tự sửa tay).",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: \"Hạn nộp\" có tự tính lại = ngày giao mới + 2, hay vẫn giữ nguyên giá trị cũ (xem Ghi chú & Giả định).",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-DUE-03",
+              "name": "Không cho chọn \"Hạn nộp\" trước \"Thời gian giao\"",
+              "precondition": "",
+              "steps": "Mở date picker \"Hạn nộp\", thử chọn 1 ngày trước ngày đã chọn ở \"Thời gian giao\".",
+              "test_data": "",
+              "expected": "Các ngày trước \"Thời gian giao\" bị disable trên lịch (không chọn được)",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-DUE-04",
+              "name": "[CẦN XÁC NHẬN] \"Hạn nộp\" trùng đúng ngày với \"Thời gian giao\"",
+              "precondition": "",
+              "steps": "Chọn \"Hạn nộp\" = đúng ngày đã chọn ở \"Thời gian giao\".",
+              "test_data": "",
+              "expected": "Cho phép chọn hạn nộp TRÙNG thời gian giao ",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "2. Chọn loại kỳ thi & Danh sách đề",
+      "children": [
+        {
+          "level": 2,
+          "title": "Chọn loại kỳ thi",
+          "testcases": [
+            {
+              "id": "ASSIGN-EXAMTYPE-01",
+              "name": "Thứ tự hiển thị loại kỳ thi đúng theo CMS",
+              "precondition": "",
+              "steps": "Đối chiếu thứ tự các nút loại kỳ thi (THI HỌC KỲ, THI CHUYỂN CẤP, THI THPT QG) hiển thị trên UI với thứ tự được tạo trong CMS.",
+              "test_data": "",
+              "expected": "Thứ tự hiển thị trên UI khớp đúng thứ tự tạo trong CMS.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EXAMTYPE-02",
+              "name": "Mặc định chọn loại kỳ thi đầu tiên sau khi chọn lớp",
+              "precondition": "",
+              "steps": "Chọn xong ít nhất 1 lớp ở \"Giao tới lớp\", quan sát trạng thái mặc định của các nút \"Chọn loại kỳ thi\".",
+              "test_data": "",
+              "expected": "Nút đầu tiên theo đúng thứ tự CMS được chọn mặc định (highlight xanh); danh sách đề hiển thị tương ứng với loại kỳ thi này.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EXAMTYPE-03",
+              "name": "Chọn loại kỳ thi khác hiển thị đúng danh sách đề tương ứng",
+              "precondition": "",
+              "steps": "Bấm chọn \"THI CHUYỂN CẤP\" (khác lựa chọn mặc định).",
+              "test_data": "",
+              "expected": "Danh sách đề cập nhật lại, chỉ hiển thị các đề vừa thuộc đúng loại kỳ thi \"THI CHUYỂN CẤP\" vừa thuộc đúng khối lớp đã chọn ở \"Giao tới lớp\".",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EXAMTYPE-04",
+              "name": "[CẦN XÁC NHẬN] Bỏ chọn loại kỳ thi đang active",
+              "precondition": "",
+              "steps": "Bấm lại vào loại kỳ thi đang được chọn để bỏ chọn.",
+              "test_data": "",
+              "expected": "Nút chuyển về trạng thái không chọn (hết highlight)",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EXAMTYPE-05",
+              "name": "Đổi \"Giao tới lớp\" sang khối khác cập nhật đúng danh sách đề theo khối mới",
+              "precondition": "",
+              "steps": "Sau khi đã chọn loại kỳ thi + lớp khối 7, bỏ hết lớp khối 7 và chọn sang lớp khối 8.",
+              "test_data": "",
+              "expected": "Danh sách đề cập nhật lại đúng theo khối 8 (giữ nguyên loại kỳ thi đang chọn), không còn hiển thị đề của khối 7.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EXAMTYPE-06",
+              "name": "Loại kỳ thi không có đề phù hợp hiển thị đúng text trống",
+              "precondition": "",
+              "steps": "Chọn 1 loại kỳ thi không có đề nào thuộc khối lớp đã chọn.",
+              "test_data": "",
+              "expected": "Hiển thị đúng text \"Kho đề hiện chưa có đề bạn cần\"; không có checkbox/danh sách nào hiển thị, không lỗi hệ thống.",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        },
+        {
+          "level": 2,
+          "title": "Danh sách đề luyện tập",
+          "testcases": [
+            {
+              "id": "ASSIGN-LIST-01",
+              "name": "Số lượng đề trong label \"Danh sách đề luyện tập (n)\" hiển thị đúng",
+              "precondition": "",
+              "steps": "Đếm số item thực tế trong danh sách đề, đối chiếu với n trong label.",
+              "test_data": "",
+              "expected": "n = đúng số đề đang hiển thị theo loại kỳ thi + khối lớp đã chọn.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-LIST-02",
+              "name": "Mỗi dòng đề hiển thị đủ: checkbox, tên đề, số câu hỏi, thời lượng, nút Xem chi tiết",
+              "precondition": "",
+              "steps": "Quan sát 1 dòng đề bất kỳ trong danh sách (vd. \"Đề thi giữa học kỳ 1 - Tiếng Anh lớp 7\").",
+              "test_data": "",
+              "expected": "Hiển thị đủ: checkbox (mặc định chưa tick), tên đề, số câu hỏi (vd. \"40 câu hỏi\"), tổng thời lượng (vd. \"45 phút\"), nút \"Xem chi tiết\".",
+              "priority": "High",
+              "tc_type": "GUI"
+            },
+            {
+              "id": "ASSIGN-LIST-03",
+              "name": "Icon Pro hiển thị đúng với đề thuộc gói Pro",
+              "precondition": "",
+              "steps": "Quan sát dòng đề có gắn icon vương miện (vd. \"Đề thi cuối học kỳ 2 - Tiếng Anh lớp 7 (nâng cao)\") và 1 dòng đề thường (free).",
+              "test_data": "",
+              "expected": "Icon Pro chỉ hiển thị đúng ở các đề thuộc gói Pro; đề free không hiển thị icon này.",
+              "priority": "High",
+              "tc_type": "GUI"
+            },
+            {
+              "id": "ASSIGN-LIST-04",
+              "name": "Tích chọn 1 đề",
+              "precondition": "",
+              "steps": "Tích checkbox ở 1 dòng đề.",
+              "test_data": "",
+              "expected": "Checkbox chuyển trạng thái đã chọn, dòng được highlight; nút \"Giao đề đã chọn\" cập nhật đúng số đếm (vd. \"Giao đề đã chọn (1)\").",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-LIST-05",
+              "name": "Tích chọn nhiều đề cùng lúc",
+              "precondition": "",
+              "steps": "Tích chọn liên tiếp từ 2 đề trở lên trong cùng danh sách.",
+              "test_data": "",
+              "expected": "Tất cả các đề đã tích đều ở trạng thái chọn; số đếm trên \"Giao đề đã chọn\" tăng đúng theo số đề đã chọn (vd. \"(2)\").",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-LIST-06",
+              "name": "Bỏ tích 1 đề đã chọn",
+              "precondition": "",
+              "steps": "Từ ASSIGN-LIST-05, bỏ tích 1 trong các đề đã chọn.",
+              "test_data": "",
+              "expected": "Đề đó quay về trạng thái chưa chọn; số đếm trên \"Giao đề đã chọn\" giảm đúng tương ứng.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-LIST-07",
+              "name": "[CẦN XÁC NHẬN] Giữ trạng thái tích chọn khi chuyển qua lại giữa các loại kỳ thi",
+              "precondition": "",
+              "steps": "Tích chọn 1 đề ở \"THI HỌC KỲ\" → chuyển sang \"THI CHUYỂN CẤP\", tích thêm 1 đề ở đây → quay lại \"THI HỌC KỲ\".",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: đề đã tích trước đó ở \"THI HỌC KỲ\" có còn giữ trạng thái tick hay bị reset; tổng số đếm trên \"Giao đề đã chọn\" có cộng dồn đúng qua nhiều loại kỳ thi hay không — xem Ghi chú & Giả định.",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "3. Popup xem chi tiết đề (Preview)",
+      "children": [
+        {
+          "level": 2,
+          "title": "Popup xem chi tiết đề (Preview)",
+          "testcases": [
+            {
+              "id": "ASSIGN-PREVIEW-01",
+              "name": "Mở đúng popup xem chi tiết khi bấm \"Xem chi tiết\"",
+              "precondition": "",
+              "steps": "Bấm \"Xem chi tiết\" tại 1 dòng đề bất kỳ (vd. \"Đề thi giữa học kỳ 1 - Tiếng Anh lớp 7\").",
+              "test_data": "",
+              "expected": "Mở popup preview hiển thị đúng tên đề, tổng số câu hỏi + thời lượng (vd. \"40 câu hỏi\", \"45 phút\") khớp đúng với dòng vừa bấm.",
+              "priority": "High",
+              "tc_type": "GUI"
+            },
+            {
+              "id": "ASSIGN-PREVIEW-02",
+              "name": "Câu hỏi được nhóm đúng theo Section, đúng số câu mỗi section",
+              "precondition": "",
+              "steps": "Trong popup preview, quan sát các section (vd. \"Section 1: Vocabulary - 3 câu\").",
+              "test_data": "",
+              "expected": "Mỗi section hiển thị đúng tên và số câu thuộc section đó; tổng số câu của tất cả section = tổng số câu hỏi hiển thị ở đầu popup.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-PREVIEW-03",
+              "name": "Nội dung từng câu hỏi hiển thị đủ: đề bài, 4 đáp án, đáp án đúng, giải thích",
+              "precondition": "",
+              "steps": "Quan sát chi tiết 1 câu hỏi trong popup (vd. Câu 1: \"The ___ near my house is quiet and peaceful.\").",
+              "test_data": "",
+              "expected": "Hiển thị đủ đề bài, 4 phương án A/B/C/D, đáp án đúng được highlight (viền/nền xanh + tick); có phần \"Giải thích\" đi kèm nếu đề có cấu hình giải thích.",
+              "priority": "High",
+              "tc_type": "GUI"
+            },
+            {
+              "id": "ASSIGN-PREVIEW-04",
+              "name": "Popup chỉ ở chế độ xem (read-only), không cho sửa đáp án",
+              "precondition": "",
+              "steps": "Thử bấm vào các phương án đáp án hiển thị trong popup preview.",
+              "test_data": "",
+              "expected": "Không có thao tác chỉnh sửa nào được thực hiện; đáp án đúng luôn giữ nguyên trạng thái highlight ban đầu, không đổi khi click vào phương án khác.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-PREVIEW-05",
+              "name": "Cuộn xem hết toàn bộ câu hỏi trong đề dài",
+              "precondition": "",
+              "steps": "Với đề có nhiều câu hỏi (vd. 40 câu), cuộn popup xuống hết.",
+              "test_data": "",
+              "expected": "Xem được đầy đủ toàn bộ câu hỏi của mọi section, không bị giới hạn/cắt bớt nội dung.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-PREVIEW-06",
+              "name": "Đóng popup bằng \"X\" không ảnh hưởng trạng thái tích chọn ngoài danh sách",
+              "precondition": "",
+              "steps": "Từ danh sách, tích chọn 1 đề → bấm \"Xem chi tiết\" đề đó → bấm \"X\" đóng popup.",
+              "test_data": "",
+              "expected": "Đóng popup, quay về màn danh sách đề; checkbox của đề đó vẫn giữ nguyên trạng thái đã tích trước khi mở popup.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-PREVIEW-07",
+              "name": "Xem chi tiết 1 đề CHƯA tích chọn",
+              "precondition": "",
+              "steps": "Bấm \"Xem chi tiết\" ở 1 dòng đề chưa tích checkbox.",
+              "test_data": "",
+              "expected": "Vẫn mở được popup xem chi tiết bình thường; đóng popup xong đề vẫn ở trạng thái chưa chọn (xem chi tiết không yêu cầu phải tích chọn trước).",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "4. Hủy / Giao đề đã chọn",
+      "children": [
+        {
+          "level": 2,
+          "title": "Hủy / Giao đề đã chọn",
+          "testcases": [
+            {
+              "id": "ASSIGN-SUBMIT-01",
+              "name": "Nút \"Giao đề đã chọn\" hiển thị đúng số lượng đề đang chọn",
+              "precondition": "",
+              "steps": "Tích chọn 2 đề, quan sát text trên nút.",
+              "test_data": "",
+              "expected": "Nút hiển thị đúng \"Giao đề đã chọn (2)\".",
+              "priority": "High",
+              "tc_type": "GUI"
+            },
+            {
+              "id": "ASSIGN-SUBMIT-02",
+              "name": "Chưa chọn đề nào → chặn giao, báo lỗi tương ứng",
+              "precondition": "",
+              "steps": "Điền đủ Nguồn đề, Giao tới lớp, Thời gian giao, Hạn nộp, loại kỳ thi nhưng KHÔNG tích chọn đề nào. Bấm \"Giao đề đã chọn\".",
+              "test_data": "",
+              "expected": "Hệ thống chặn thao tác, hiển thị thông báo lỗi yêu cầu chọn ít nhất 1 đề luyện tập; không điều hướng màn hình, không tạo dữ liệu giao đề.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-SUBMIT-03",
+              "name": "Giao thành công với đầy đủ dữ liệu hợp lệ",
+              "precondition": "",
+              "steps": "Chọn nguồn \"Kho đề ParrotEdu\", chọn 1 lớp (vd. 7B), Thời gian giao = hôm nay, Hạn nộp = hôm nay + 2, chọn loại kỳ thi \"THI HỌC KỲ\", tích chọn 2 đề → bấm \"Giao đề đã chọn (2)\".",
+              "test_data": "",
+              "expected": "Giao thành công (có thể kèm toast thông báo); hệ thống điều hướng quay về màn \"Danh sách đề luyện tập đã giao\"; danh sách xuất hiện đúng các dòng mới tương ứng (đúng lớp, đúng hạn nộp, đúng tên đề đã chọn).",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-SUBMIT-04",
+              "name": "Giao cho nhiều lớp cùng lúc → mỗi lớp 1 dòng tương ứng mỗi đề",
+              "precondition": "",
+              "steps": "Chọn 2 lớp (vd. 7A, 7B) + tích chọn 2 đề → bấm \"Giao đề đã chọn (2)\".",
+              "test_data": "",
+              "expected": "Sau khi giao, danh sách \"đã giao\" xuất hiện đủ 4 dòng (2 lớp × 2 đề), mỗi dòng là tổ hợp lớp-đề riêng biệt, không gộp.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-SUBMIT-05",
+              "name": "Nút \"Hủy\" quay về danh sách, KHÔNG lưu dữ liệu đã nhập",
+              "precondition": "",
+              "steps": "Điền một phần dữ liệu (chọn lớp, đổi hạn nộp, tích chọn 1 đề) nhưng chưa bấm \"Giao đề đã chọn\" → bấm \"Hủy\".",
+              "test_data": "",
+              "expected": "Quay về màn \"Danh sách đề luyện tập đã giao\", không có dòng dữ liệu mới nào được tạo; mở lại màn \"Giao đề luyện tập\" lần sau, các field trở về giá trị mặc định ban đầu (không giữ dữ liệu nhập dở).",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-SUBMIT-06",
+              "name": "Validate trường bắt buộc \"Giao tới lớp\" khi bấm \"Giao đề đã chọn\"",
+              "precondition": "",
+              "steps": "Tích chọn đề đầy đủ nhưng để trống/không chọn \"Giao tới lớp\".",
+              "test_data": "",
+              "expected": "Hệ thống chặn không hiển thị danh sách đề khi không chọn lớp ",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "5. Acceptance Criteria (đa đề / HS vào lớp sau / thông báo)",
+      "children": [
+        {
+          "level": 2,
+          "title": "Acceptance Criteria",
+          "testcases": [
+            {
+              "id": "AC-01",
+              "name": "Giao nhiều đề 1 lần → hiển thị riêng từng đề trong danh sách đã giao, không gộp",
+              "precondition": "",
+              "steps": "Tích chọn 3 đề khác nhau cho cùng 1 lớp → bấm \"Giao đề đã chọn\".",
+              "test_data": "",
+              "expected": "Danh sách \"đã giao\" xuất hiện đúng 3 dòng riêng biệt (1 dòng/đề), không có dòng nào gộp nhiều đề làm 1; \"HS đã làm\"/\"Điểm TB\" tính độc lập theo từng đề.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "AC-02",
+              "name": "HS vào lớp SAU khi GV đã giao đề → tự động được gán đề còn hạn",
+              "precondition": "",
+              "steps": "GV giao đề luyện tập cho lớp 7B (hạn nộp còn hiệu lực) → sau đó thêm 1 HS mới vào lớp 7B (HS chưa có trong lớp tại thời điểm giao đề).",
+              "test_data": "",
+              "expected": "HS mới ngay sau khi vào lớp được hệ thống tự động gán đề luyện tập đó (đề vẫn còn hạn nộp); HS thấy đề trong danh sách bài của mình trên app; tổng số HS (mẫu số \"y\") ở màn danh sách GV tăng thêm 1.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "AC-03",
+              "name": "HS vào lớp sau khi đề ĐÃ quá hạn → KHÔNG được gán đề đó",
+              "precondition": "",
+              "steps": "GV giao đề có hạn nộp trong quá khứ (đã quá hạn) cho lớp 7B → thêm 1 HS mới vào lớp 7B sau thời điểm quá hạn.",
+              "test_data": "",
+              "expected": "HS mới KHÔNG được tự động gán đề đã quá hạn này; đề không xuất hiện trong danh sách bài của HS mới.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "AC-04",
+              "name": "[CẦN XÁC NHẬN] HS rời lớp trước khi đề hết hạn — đề có bị thu hồi khỏi HS đó không",
+              "precondition": "",
+              "steps": "Cho 1 HS rời khỏi lớp 7B sau khi đã được gán 1 đề luyện tập còn hạn.",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: đề có bị gỡ khỏi danh sách bài của HS đã rời lớp hay không — Acceptance Criteria gốc chỉ nêu rule khi HS VÀO lớp, không nêu rule khi HS RỜI lớp (xem Ghi chú & Giả định).",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "AC-05",
+              "name": "Thông báo \"giao đề\" có mốc kích hoạt đã qua → không gửi bù",
+              "precondition": "",
+              "steps": "Giả lập/kiểm tra trường hợp hệ thống xử lý giao đề trễ (vd. do lỗi hệ thống, cron job chạy trễ) khiến mốc gửi thông báo \"giao đề mới\" đã qua thời điểm dự kiến.",
+              "test_data": "",
+              "expected": "Hệ thống KHÔNG gửi bù thông báo \"giao đề mới\" cho mốc đã qua; không có thông báo trễ xuất hiện trên app HS cho mốc này.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "AC-06",
+              "name": "Thông báo \"nhắc hạn nộp\" có mốc đã qua → không gửi bù, chỉ gửi mốc còn ở tương lai",
+              "precondition": "",
+              "steps": "Giả lập 1 đề luyện tập có nhiều mốc nhắc hạn nộp (vd. nhắc trước 1 ngày, nhắc trong ngày hạn), trong đó có mốc đã trôi qua tại thời điểm hệ thống xử lý (vd. do hạn nộp rất gần ngày giao, hoặc job xử lý trễ).",
+              "test_data": "",
+              "expected": "Chỉ các mốc nhắc nhở còn nằm ở tương lai (tính từ thời điểm xử lý) mới được lên lịch gửi; các mốc đã qua bị bỏ qua, không gửi bù dồn.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "AC-07",
+              "name": "Giao đề thành công kích hoạt đúng thông báo cho các mốc còn hiệu lực",
+              "precondition": "",
+              "steps": "Giao 1 đề luyện tập mới, hạn nộp đủ xa (vd. +7 ngày) để còn đủ các mốc nhắc nhở trong tương lai.",
+              "test_data": "",
+              "expected": "HS trong lớp nhận được thông báo \"giao đề\" ngay sau khi giao; các mốc nhắc hạn nộp trong tương lai (chưa qua) vẫn được lên lịch gửi đúng bình thường (không bị rule \"bỏ qua\" ở AC-05/06 ảnh hưởng vì các mốc này vẫn ở tương lai).",
+              "priority": "High",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "6. Chỉnh sửa đề luyện tập đã giao",
+      "children": [
+        {
+          "level": 2,
+          "title": "Chỉnh sửa đề luyện tập đã giao",
+          "testcases": [
+            {
+              "id": "ASSIGN-EDIT-01",
+              "name": "Mở đúng màn \"Chỉnh sửa đề luyện tập\" từ danh sách đã giao",
+              "precondition": "",
+              "steps": "Tại \"Danh sách để luyện tập đã giao\", bấm vào 1 dòng đề luyện tập bất kỳ đã giao cho lớp.",
+              "test_data": "",
+              "expected": "Điều hướng đến màn \"Chỉnh sửa đề luyện tập\" (breadcrumb: Giao bài / Danh sách để luyện tập đã giao / Chỉnh sửa đề luyện tập); các field \"Thông tin đề luyện tập\" (Nguồn đề, Giao tới lớp, Thời gian giao, Hạn nộp) hiển thị đúng dữ liệu đã giao trước đó.",
+              "priority": "High",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EDIT-02",
+              "name": "[BUG] \"Danh sách để luyện tập\" trong màn Chỉnh sửa chỉ hiển thị đúng 1 đề đã giao, không hiển thị đầy đủ các đề khác cùng loại kỳ thi",
+              "precondition": "",
+              "steps": "Từ màn \"Chỉnh sửa đề luyện tập\" (ASSIGN-EDIT-01), tại \"Chọn loại kỳ thi\" đang active đúng loại kỳ thi của đề đã giao, quan sát \"Danh sách để luyện tập\". Đối chiếu số lượng với màn \"Giao đề luyện tập\" (tạo mới) ở cùng loại kỳ thi, cùng lớp.",
+              "test_data": "",
+              "expected": "Phải hiển thị đầy đủ toàn bộ đề thuộc loại kỳ thi đang chọn (giống số lượng ở màn tạo mới), đề đã giao được tick sẵn, các đề khác vẫn hiện để GV có thể đổi lựa chọn — nhất quán với hành vi đúng của màn \"Chỉnh sửa bài tập\" bên Giao bài tập (đã log bug riêng: màn Chỉnh sửa đề luyện tập chỉ hiện \"Danh sách để luyện tập (1)\" thay vì đủ số đề cùng loại kỳ thi).",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EDIT-03",
+              "name": "[CẦN XÁC NHẬN] Sửa \"Giao tới lớp\" trong màn Chỉnh sửa đề luyện tập",
+              "precondition": "",
+              "steps": "Từ màn Chỉnh sửa, thử đổi sang 1 lớp khác (cùng khối) ở \"Giao tới lớp\" → bấm \"Giao đề đã chọn\".",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: hệ thống disable/khoá (đối chiếu rule Giao bài tập: hầu hết field bị khoá khi sửa, chỉ Hạn nộp được phép sửa)",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EDIT-04",
+              "name": "[CẦN XÁC NHẬN] Sửa \"Thời gian giao\"/\"Hạn nộp\" trong màn Chỉnh sửa, lưu thành công",
+              "precondition": "",
+              "steps": "Từ màn Chỉnh sửa, đổi \"Hạn nộp\" sang 1 ngày hợp lệ khác (còn tương lai so với Thời gian giao) → bấm \"Giao đề đã chọn\".",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: có thông báo sửa thành công hay không; \"Hạn nộp\" ở \"Danh sách để luyện tập đã giao\" có cập nhật đúng giá trị mới hay không.",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EDIT-05",
+              "name": "[CẦN XÁC NHẬN] Đổi \"Chọn loại kỳ thi\" và chọn đề khác trong màn Chỉnh sửa, lưu thành công",
+              "precondition": "",
+              "steps": "Từ màn Chỉnh sửa, chuyển \"Chọn loại kỳ thi\" sang loại khác với đề đang giao, tích chọn 1 đề mới ở loại đó (lưu ý: bug ASSIGN-EDIT-02 có thể khiến không quay lại tick được đề cũ) → bấm \"Giao đề đã chọn\".",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: hệ thống không cho phép đổi hẳn sang đề thuộc loại kỳ thi khác",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EDIT-06",
+              "name": "[CẦN XÁC NHẬN] Bấm \"Hủy\" trong màn Chỉnh sửa, không lưu thay đổi",
+              "precondition": "",
+              "steps": "Từ màn Chỉnh sửa, đổi thử 1 vài field (vd. Hạn nộp) nhưng chưa bấm \"Giao đề đã chọn\" → bấm \"Hủy\".",
+              "test_data": "",
+              "expected": "Quay về \"Danh sách để luyện tập đã giao\"; dữ liệu đề đã giao giữ nguyên như trước khi sửa, không có thay đổi nào được lưu lại.",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EDIT-07",
+              "name": "[CẦN XÁC NHẬN] Sửa đề luyện tập đã có học sinh làm bài/nộp bài",
+              "precondition": "",
+              "steps": "Chọn 1 đề đã giao mà đã có HS làm bài/nộp bài → mở màn Chỉnh sửa, thử đổi \"Hạn nộp\" → bấm \"Giao đề đã chọn\".",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: hệ thống có cho sửa bình thường hay chặn/disable field do đề đã có HS làm bài (đối chiếu rule Giao bài tập: field thời gian giao bị khoá khi bài tập đã đến/qua thời gian giao).",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-EDIT-08",
+              "name": "[BUG] Đề thi đã bị xóa ở CMS (Ngân hàng đề thi) vẫn hiển thị và xem được chi tiết trong \"Danh sách đề luyện tập\" ở màn Chỉnh sửa",
+              "precondition": "",
+              "steps": "1. Trên CMS (parotedu-cms.codeinet.com/exam-prep/papers), xóa một đề thi đã từng được giao luyện tập cho lớp trên web (vd. \"Đề thi I\").\n2. Trên web Teacher Portal, vào Giao bài tập > Giao bài luyện tập > mở lại đề luyện tập đã giao có chứa đề thi vừa xóa (màn \"Chỉnh sửa đề luyện tập\").\n3. Quan sát mục \"Danh sách đề luyện tập\" và bấm \"Xem chi tiết\" ở đề thi đã bị xóa.",
+              "test_data": "",
+              "expected": "1. Đề thi \"Đề thi I\" đã bị xóa khỏi Ngân hàng đề thi trên CMS (không còn trong danh sách đề thi) nhưng vẫn hiển thị trong \"Danh sách đề luyện tập\" ở màn Chỉnh sửa đề luyện tập trên web.\n2. Bấm \"Xem chi tiết\" của đề thi đã xóa vẫn xem được câu hỏi/nội dung thay vì bị loại khỏi danh sách.\nKỳ vọng: khi đề thi bị xóa ở CMS, đề đó phải mất khỏi \"Danh sách đề luyện tập\" trên web (và không xem được chi tiết), nhất quán với cách xử lý ở tab Giao bài tập (bài tập bị xóa sẽ không còn hiển thị trong danh sách đã giao).",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "7. Xóa đề luyện tập đã giao",
+      "children": [
+        {
+          "level": 2,
+          "title": "Xóa đề luyện tập đã giao",
+          "testcases": [
+            {
+              "id": "ASSIGN-DELETE-01",
+              "name": "Hiển thị nút xóa (icon thùng rác) trong màn Chỉnh sửa đề luyện tập",
+              "precondition": "",
+              "steps": "Mở màn \"Chỉnh sửa đề luyện tập\" của 1 đề bất kỳ đã giao, quan sát khu vực cạnh nút \"Hủy\"/\"Giao đề đã chọn\".",
+              "test_data": "",
+              "expected": "Hiển thị icon thùng rác (nút xóa) cạnh nút \"Hủy\", tách biệt với nút \"Giao đề đã chọn\".",
+              "priority": "High",
+              "tc_type": "GUI"
+            },
+            {
+              "id": "ASSIGN-DELETE-02",
+              "name": "[CẦN XÁC NHẬN] Bấm icon xóa hiển thị popup xác nhận trước khi xóa thật",
+              "precondition": "",
+              "steps": "Từ màn Chỉnh sửa đề luyện tập, bấm icon thùng rác.",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: hệ thống có hiển thị popup/hộp thoại xác nhận xóa (nội dung cảnh báo + 2 lựa chọn Hủy/Xác nhận xóa) hay xóa ngay lập tức không cần xác nhận.",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-DELETE-03",
+              "name": "[CẦN XÁC NHẬN] Xóa đề luyện tập chưa có học sinh làm bài, xóa thành công",
+              "precondition": "",
+              "steps": "Chọn 1 đề đã giao cho lớp mà chưa có HS nào làm bài → mở Chỉnh sửa → bấm icon xóa → xác nhận xóa (nếu có popup).",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: có thông báo xóa thành công; dòng tương ứng biến mất khỏi \"Danh sách để luyện tập đã giao\"; đề cũng biến mất khỏi danh sách bài của HS trong lớp đó trên app.",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-DELETE-04",
+              "name": "[CẦN XÁC NHẬN] Xóa đề luyện tập đã có học sinh làm bài và có điểm",
+              "precondition": "",
+              "steps": "Chọn 1 đề đã giao mà đã có ít nhất 1 HS làm bài và có điểm → mở Chỉnh sửa → bấm icon xóa → xác nhận xóa.",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: có thông báo xóa thành công; dữ liệu điểm/kết quả làm bài của HS đã nộp có được giữ lại ở phía HS hay bị xóa theo (đối chiếu rule Giao bài tập: giữ lại dữ liệu điểm bên HS khi xóa bài đã giao).",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-DELETE-05",
+              "name": "[CẦN XÁC NHẬN] Xóa đề luyện tập đang có học sinh làm dở, chưa nộp bài",
+              "precondition": "",
+              "steps": "Chọn 1 đề đã giao đang có HS làm dở (chưa nộp) → mở Chỉnh sửa → bấm icon xóa → xác nhận xóa.",
+              "test_data": "",
+              "expected": "Ghi lại hành vi thực tế: xóa thành công bình thường (bài làm dở của HS mất theo) hay hệ thống chặn/cảnh báo riêng khi đang có HS làm dở.",
+              "priority": "Medium",
+              "tc_type": "Function"
+            },
+            {
+              "id": "ASSIGN-DELETE-06",
+              "name": "[CẦN XÁC NHẬN] Hủy thao tác xóa giữa chừng ở popup xác nhận",
+              "precondition": "",
+              "steps": "Từ màn Chỉnh sửa đề luyện tập, bấm icon xóa để mở popup xác nhận (nếu có) → bấm \"Hủy\"/đóng popup thay vì xác nhận xóa.",
+              "test_data": "",
+              "expected": "Đóng popup, không xóa dữ liệu; đề luyện tập vẫn còn nguyên trong \"Danh sách để luyện tập đã giao\".",
+              "priority": "Medium",
+              "tc_type": "Function"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

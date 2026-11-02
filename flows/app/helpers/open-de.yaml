@@ -16,13 +16,24 @@
 # regex vì đã có trong ảnh mockup gốc, nhưng CHƯA tự verify text/id riêng.
 #
 # Tham số: PHONE, OTP, DE_NAME (mặc định dùng tên đặt chỗ, LUÔN truyền thật khi chạy có ý nghĩa),
-# DE_DUE_DATE_DM (optional, "DD/MM" - dùng khi DE_NAME có thể trùng ≥2 card).
+# DE_DUE_DATE_DM (optional, "DD/MM" - dùng khi DE_NAME có thể trùng ≥2 card), ON_THI_TAB (optional,
+# mặc định "Đề thầy cô giao" - truyền "Kho đề Parrot" để mở đề từ tab kia, xem
+# open-tab-on-thi.yaml - THÊM MỚI 2026-10-30, cùng đợt viết `onThiExamEngine.js`).
 #
 # DEVICE_MODE=true -> bỏ qua launchApp + login (xem open-exercise.yaml để biết lý do đầy đủ).
 #
 # CHƯA VERIFY HẾT TRÊN THIẾT BỊ THẬT - đã verify nhánh "Làm bài"/"Làm lại" (trên), CHƯA verify
 # nhánh EXERCISE_DUE_DATE_DM (due-date làm anchor lồng 2 cấp) + bottom sheet nâng cấp Pro/Free (xem
 # ghi chú CẦN XÁC MINH ở automation/on_thi/navigation/onThiPageObjects.js).
+#
+# MÀN "Thông tin đề" TRUNG GIAN (THÊM MỚI 2026-10-30, phát hiện qua thao tác tay `adb shell input
+# tap` cùng phiên viết `onThiExamEngine.js` - xem TestCase_PAR-3172_OnThi_LamBai.xlsx): tap CTA
+# "Làm bài"/"Làm tiếp"/"Làm lại" trên card ở danh sách KHÔNG vào thẳng màn Doing - dừng lại ở màn
+# "Thông tin đề" (hiển thị Thời lượng tối đa/Tổng số câu/Cấu trúc đề/Lịch sử làm bài), cần bấm thêm
+# "Bắt đầu làm bài" rồi xác nhận popup "Bắt đầu làm bài?" ("Bắt đầu"/"Để sau") mới thật sự vào màn
+# Doing. CHƯA chắc chắn 100% MỌI trường hợp đều qua màn trung gian này (vd "Làm tiếp" một lượt đang
+# dở CÓ THỂ vào thẳng Doing, KHÔNG qua lại Info - chưa tự verify nhánh đó) - xử lý BEST-EFFORT
+# (`when: visible`) bên dưới, không throw nếu không thấy màn Info (coi như đã vào thẳng Doing).
 appId: ${APP_ID}
 ---
 - runFlow:
@@ -49,7 +60,10 @@ appId: ${APP_ID}
           text: ".*(Hoàn thành|Đóng).*"
           optional: true
 
-- runFlow: open-tab-on-thi.yaml
+- runFlow:
+    file: open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
 
 - runFlow:
     when:
@@ -92,6 +106,18 @@ appId: ${APP_ID}
 # bấm vào đề Pro, app KHÔNG vào màn làm bài mà hiện sheet nâng cấp - helper này KHÔNG dismiss sheet
 # đó (khác AI-consent bên dưới), để nguyên cho caller tự assert (xem TEST-CASES.md nhóm III) - CHƯA
 # có copy thật để biết chọn selector nào (xem onThiPageObjects.js#upgradeSheet).
+
+# Màn "Thông tin đề" trung gian (xem ghi chú đầu file) - best-effort, bỏ qua nếu đã vào thẳng Doing.
+- runFlow:
+    when:
+      visible: "Bắt đầu làm bài"
+    commands:
+      - tapOn: "Bắt đầu làm bài"
+      - runFlow:
+          when:
+            visible: "Bắt đầu làm bài?"
+          commands:
+            - tapOn: "Bắt đầu"
 
 # Consent AI nếu tài khoản chưa đồng ý - CÙNG dialog chung toàn app, không riêng module nào.
 - runFlow:

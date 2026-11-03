@@ -42,7 +42,11 @@
     "test-goi-dich-vu-pw": "playwright test",
     "test-bao-cao-hoc-tap-pw": "playwright test --config=playwright.report.config.js",
     "test-speaking-report-pw": "playwright test --config=playwright.speaking-report.config.js",
-    "test-them-bai-thuc-hanh-pw": "playwright test --config=playwright.them-bai-thuc-hanh.config.js"
+    "test-them-bai-thuc-hanh-pw": "playwright test --config=playwright.them-bai-thuc-hanh.config.js",
+    "test-quan-ly-section-pw": "playwright test --config=playwright.quan-ly-section.config.js",
+    "cleanup-quan-ly-section": "node quan_ly_section/cleanupCli.js",
+    "test-cau-hinh-bang-diem-pw": "playwright test --config=playwright.cau-hinh-bang-diem.config.js",
+    "cleanup-cau-hinh-bang-diem": "node cau_hinh_bang_diem/cleanupCli.js"
   },
   "dependencies": {
     "js-yaml": "^5.2.3",

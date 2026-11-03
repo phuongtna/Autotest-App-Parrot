@@ -88,6 +88,21 @@ export const config = {
     staging: readVar("CMS_ADMIN_URL_STAGING").replace(/\/+$/, ""),
     production: readVar("CMS_ADMIN_URL_PRODUCTION").replace(/\/+$/, ""),
   },
+  // Override tài khoản đăng nhập RIÊNG cho 1 môi trường cụ thể - để trống thì dùng chung
+  // CMS_USERNAME/CMS_PASSWORD ở trên (xem resolveCmsAdminCredentials()). THÊM (2026-11-03): môi
+  // trường dev (`quan_ly_section/` - CMS host parotedu-cms.codeinet.com) dùng tài khoản admin khác
+  // hẳn staging/production (mật khẩu khác) - KHÔNG còn đúng giả định cũ "cùng 1 tài khoản cho cả 3
+  // môi trường" (xác nhận 2026-09-07, chỉ đúng cho staging/production).
+  cmsAdminUsernamesByEnv: {
+    dev: readVar("CMS_USERNAME_DEV"),
+    staging: readVar("CMS_USERNAME_STAGING"),
+    production: readVar("CMS_USERNAME_PRODUCTION"),
+  },
+  cmsAdminPasswordsByEnv: {
+    dev: readVar("CMS_PASSWORD_DEV"),
+    staging: readVar("CMS_PASSWORD_STAGING"),
+    production: readVar("CMS_PASSWORD_PRODUCTION"),
+  },
   // Số điện thoại 1 học sinh CÓ THẬT trên môi trường đang test - dùng bởi
   // quan_ly_goi_dich_vu/runtime/grantCasesFlow.js (nhóm case GRANT-*/DEACT-05, tạo đơn hàng thật
   // gán cho profile này). PHẢI đổi giá trị khi đổi CMS_ADMIN_ENV - mỗi môi trường có dữ liệu học
@@ -124,6 +139,21 @@ export function resolveCmsAdminBaseUrl(envOverride) {
     );
   }
   return url;
+}
+
+/**
+ * Trả về {username, password} đăng nhập CMS Admin ứng với 1 môi trường - ưu tiên override riêng
+ * (CMS_USERNAME_<ENV>/CMS_PASSWORD_<ENV>) nếu có điền, rơi về CMS_USERNAME/CMS_PASSWORD dùng
+ * chung nếu không. KHÔNG throw nếu thiếu - để `requireCmsAdminConfig()` (dùng chung username/
+ * password chưa override) xử lý thông báo lỗi như cũ, tránh phá hành vi hiện tại của
+ * staging/production (đang chạy ổn, không override).
+ */
+export function resolveCmsAdminCredentials(envOverride) {
+  const env = (envOverride || config.cmsAdminEnv || "staging").trim().toLowerCase();
+  return {
+    username: config.cmsAdminUsernamesByEnv[env] || config.cmsUsername,
+    password: config.cmsAdminPasswordsByEnv[env] || config.cmsPassword,
+  };
 }
 
 /**

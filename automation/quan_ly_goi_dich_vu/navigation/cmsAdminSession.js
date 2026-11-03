@@ -1,5 +1,9 @@
 import { chromium } from "playwright";
-import { config, resolveCmsAdminBaseUrl, requireCmsAdminConfig } from "../../src/config.js";
+import {
+  resolveCmsAdminBaseUrl,
+  resolveCmsAdminCredentials,
+  requireCmsAdminConfig,
+} from "../../src/config.js";
 import { cmsAdminPageObjects as po } from "./cmsAdminPageObjects.js";
 
 export class CmsAdminAuthError extends Error {}
@@ -18,6 +22,7 @@ export class CmsAdminAuthError extends Error {}
 export async function loginCmsAdmin({ headless = true, envOverride } = {}) {
   requireCmsAdminConfig();
   const baseUrl = resolveCmsAdminBaseUrl(envOverride);
+  const { username, password } = resolveCmsAdminCredentials(envOverride);
 
   const browser = await chromium.launch({ headless });
   try {
@@ -26,8 +31,8 @@ export async function loginCmsAdmin({ headless = true, envOverride } = {}) {
 
     await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 30000 });
 
-    await page.locator(po.login.usernameInput).fill(config.cmsUsername);
-    await page.locator(po.login.passwordInput).fill(config.cmsPassword);
+    await page.locator(po.login.usernameInput).fill(username);
+    await page.locator(po.login.passwordInput).fill(password);
     await page.getByRole("button", { name: po.login.submitButton }).click();
 
     const stillOnLoginPage = await page

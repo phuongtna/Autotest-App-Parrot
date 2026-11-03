@@ -231,9 +231,18 @@ export async function fillExamName(page, name) {
   await page.locator(po.nameInput).fill(name);
 }
 
-/** Field "Loại kỳ thi" là `n-select` ĐẦU TIÊN trong cột phải "Thông tin đề thi". */
+/** Field "Loại kỳ thi" là `n-select` ĐẦU TIÊN trong cột phải "Thông tin đề thi".
+ *
+ * BUG ĐÃ XÁC NHẬN THẬT (2026-11-03): `hasText` so khớp SUBSTRING không phân biệt hoa/thường trên
+ * TOÀN BỘ text bên trong `.n-form-item` - khi field "Bảng điểm quy đổi" CHƯA chọn Loại kỳ thi,
+ * placeholder của nó là "Chọn loại kỳ thi trước" (chính nó cũng chứa substring "loại kỳ thi") nên
+ * `{ hasText: "Loại kỳ thi" }` (không neo) khớp NHẦM cả 2 form-item -> strict mode violation khi
+ * click. Neo `^` (regex) để chỉ khớp form-item có TÊN NHÃN bắt đầu đúng bằng "Loại kỳ thi" (nhãn
+ * "Bảng điểm quy đổi" đứng trước nên không khớp `^`). */
+const examTypeFieldLocator = (page) => page.locator('[class*="n-form-item"]', { hasText: /^Loại kỳ thi/ }).locator(".n-base-selection");
+
 export async function selectExamType(page, examTypeName) {
-  await page.locator('[class*="n-form-item"]', { hasText: "Loại kỳ thi" }).locator(".n-base-selection").click();
+  await examTypeFieldLocator(page).click();
   const option = page.locator('.n-base-select-option:visible, [role="option"]:visible', { hasText: examTypeName }).first();
   await option.waitFor({ state: "visible", timeout: 10000 });
   await option.click();
@@ -241,7 +250,7 @@ export async function selectExamType(page, examTypeName) {
 }
 
 export async function readSelectedExamType(page) {
-  return page.locator('[class*="n-form-item"]', { hasText: "Loại kỳ thi" }).locator(".n-base-selection").innerText();
+  return examTypeFieldLocator(page).innerText();
 }
 
 export async function fillExamDuration(page, minutes) {
@@ -294,9 +303,23 @@ export async function readScoreTableConversionNote(page) {
   return page.locator("text=/Dạng quy đổi của kỳ thi:/").innerText();
 }
 
+/** ĐÃ GẶP THẬT (2026-11-03): môi trường tích luỹ NHIỀU bảng điểm (dữ liệu thật + AUTO- của các lượt
+ * chạy test khác) khiến dropdown chỉ RENDER 1 lô đầu (virtual scroll Naive UI) - bảng điểm cần chọn
+ * có thể KHÔNG nằm trong lô đó, click+chờ hiển thị TIMEOUT dù bảng điểm có tồn tại thật. KHÁC select
+ * "Chọn section để thêm vào đề" (filter-by-typing được) - select này ĐÃ XÁC NHẬN THẬT (chụp màn
+ * hình) KHÔNG hỗ trợ gõ tìm (gõ vào không có ô input nào nhận, danh sách không đổi) nên phải CUỘN
+ * (`mouse.wheel`) qua từng lô tới khi option cần tìm render ra. */
 export async function selectScoreTable(page, scoreTableName) {
-  await scoreTableSelectLocator(page).click();
+  const selectLocator = scoreTableSelectLocator(page);
+  await selectLocator.click();
   const option = page.locator('.n-base-select-option:visible, [role="option"]:visible', { hasText: scoreTableName }).first();
+  const box = await selectLocator.boundingBox();
+  for (let i = 0; i < 60; i += 1) {
+    if (await option.count()) break;
+    if (box) await page.mouse.move(box.x + box.width / 2, box.y + box.height + 150);
+    await page.mouse.wheel(0, 240);
+    await page.waitForTimeout(120);
+  }
   await option.waitFor({ state: "visible", timeout: 10000 });
   await option.click();
 }
@@ -364,8 +387,17 @@ export async function readAddableSectionOptionTexts(page) {
   return texts;
 }
 
+/** ĐÃ GẶP THẬT (2026-11-03): môi trường tích luỹ NHIỀU Section (70+, dữ liệu thật + AUTO- của các
+ * lượt chạy test khác trong ngày) khiến dropdown chỉ RENDER 1 lô đầu (virtual scroll Naive UI) -
+ * Section cần chọn (nhất là Section VỪA TẠO) có thể KHÔNG nằm trong lô đó, click+chờ hiển thị
+ * TIMEOUT dù Section có tồn tại thật. Select này ĐÃ XÁC NHẬN THẬT hỗ trợ filter-by-typing (xem
+ * `readAddableSectionOptionTextsFiltered()` ở `section-perm-sync.spec.js`) nên gõ tìm trước khi chờ
+ * option - tránh timeout do virtual-scroll, KHÔNG liên quan gì tới việc Section có tồn tại hay
+ * không. */
 export async function selectSectionToAddToStructure(page, optionText) {
   await structureAddSelectLocator(page).click();
+  await page.keyboard.type(optionText, { delay: 20 });
+  await page.waitForTimeout(500);
   const option = page.locator('.n-base-select-option:visible, [role="option"]:visible', { hasText: optionText }).first();
   await option.waitFor({ state: "visible", timeout: 10000 });
   await option.click();

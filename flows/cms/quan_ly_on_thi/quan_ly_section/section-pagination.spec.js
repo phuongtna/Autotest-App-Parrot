@@ -5,7 +5,6 @@ import {
   gotoSections,
   createSection,
   searchSections,
-  clearSearch,
   filterBySkill,
   resetSkillFilter,
   readAllSectionNamesInOrder,
@@ -26,9 +25,12 @@ import {
  * AUTO-) tại `section-list.spec.js`.
  *
  * Toàn bộ case trong file này chạy TRONG PHẠM VI kết quả tìm kiếm theo `runId` (toàn bộ dữ liệu
- * tự tạo, tiền tố `AUTO-<runId>-`) - KHÔNG dựa vào số bản ghi "thật" có sẵn trên dev (có thể thay
- * đổi theo thời gian) để không bao giờ cần đụng/xóa dữ liệu thật khi test phân trang (đặc biệt
- * PAGE-11 - xóa hết bản ghi ở trang cuối). Mặc định 10/trang (quan sát thật trên dev, 2026-11-03).
+ * tự tạo, tiền tố `AUTOPG<runId>-`) - KHÔNG dựa vào số bản ghi "thật" có sẵn trên môi trường đang
+ * test (có thể thay đổi theo thời gian) để không bao giờ cần đụng/xóa dữ liệu thật khi test phân
+ * trang (đặc biệt PAGE-11 - xóa hết bản ghi ở trang cuối, đây là HÀNH VI DƯỚI TEST chứ không phải
+ * dọn dẹp). Mặc định 10/trang (quan sát thật trên dev, 2026-11-03). THEO YÊU CẦU (2026-11-03):
+ * KHÔNG tự xóa dữ liệu test CÒN LẠI sau khi chạy xong (10/14 bản ghi sống sót qua PAGE-11) - giữ
+ * nguyên để xem lại, chỉ xóa khi được yêu cầu rõ ràng (`npm run cleanup-quan-ly-section`).
  */
 const SECTION_ENV = process.env.QUAN_LY_SECTION_ENV || "dev";
 const runId = `AUTOPG${Date.now().toString(36)}`;
@@ -57,17 +59,9 @@ test.describe.serial("Quản lý Section - 7. Phân trang danh sách Section (PA
   });
 
   test.afterAll(async () => {
-    await gotoSections(page, baseUrl);
-    await clearSearch(page);
-    await searchSections(page, runId);
-    await setPageSize(page, 100);
-    for (let guard = 0; guard < 30; guard += 1) {
-      const names = await readAllSectionNamesInOrder(page);
-      const target = names.find((n) => n.includes(runId));
-      if (!target) break;
-      await deleteSectionByName(page, target).catch(() => {});
-      await page.waitForTimeout(400);
-    }
+    // KHÔNG dọn dẹp bulk toàn bộ dữ liệu `AUTO-` tạo trong file này - theo yêu cầu, giữ lại để xem
+    // sau khi chạy (PAGE-11 ở trên đã xóa 4/14 bản ghi NHƯ MỘT PHẦN CỦA TEST, không phải dọn dẹp -
+    // 10 bản ghi còn lại CỐ Ý giữ nguyên).
     await context.close();
   });
 

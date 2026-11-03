@@ -4,7 +4,6 @@ import {
   cmsSectionPageObjects as po,
   gotoSections,
   createSection,
-  deleteSectionByName,
   readAllSectionNamesInOrder,
   readRowDuration,
   readRowSkill,
@@ -30,7 +29,9 @@ import {
  * xem `resolveCmsAdminCredentials()`).
  *
  * TẤT CẢ dữ liệu test tự tạo đều mang tiền tố `AUTO-<runId>-` để không đụng dữ liệu có sẵn trên
- * môi trường đang test - dọn dẹp lại bằng `afterAll`.
+ * môi trường đang test. THEO YÊU CẦU (2026-11-03): KHÔNG tự xóa dữ liệu test sau khi chạy xong -
+ * giữ nguyên trên CMS để xem lại, chỉ xóa khi được yêu cầu rõ ràng (`npm run
+ * cleanup-quan-ly-section`).
  *
  * LIST-11 (danh sách trống khi KHÔNG còn Section nào) CHỦ ĐỘNG BỎ QUA (`test.skip`) - để tạo đúng
  * điều kiện này phải XÓA SẠCH toàn bộ Section thật đang có trên dev, một thao tác phá dữ liệu khó
@@ -64,9 +65,7 @@ test.describe.serial("Quản lý Section - 1. Danh sách Section (LIST-01..11)",
   });
 
   test.afterAll(async () => {
-    for (const name of [A, B, NO_DURATION]) {
-      await deleteSectionByName(page, name).catch(() => {});
-    }
+    // KHÔNG xóa dữ liệu test (A/B/NO_DURATION) - theo yêu cầu, giữ lại để xem sau khi chạy.
     await context.close();
   });
 

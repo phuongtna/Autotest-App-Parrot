@@ -13,6 +13,10 @@ import { defineConfig } from "@playwright/test";
  * song nhiều file dễ đụng dữ liệu nhau (vd 1 file đang lọc/phân trang trong khi file khác vừa
  * tạo/xóa dòng). Chạy: `npx playwright test --config=playwright.quan-ly-section.config.js` (từ
  * thư mục `automation/`), hoặc `npm run test-quan-ly-section-pw`.
+ *
+ * `CMS_ADMIN_CHANNEL` (vd "chrome") - chạy bằng Google Chrome thật thay vì Chromium mặc định của
+ * Playwright. `CMS_ADMIN_SLOWMO` (ms) - làm chậm mọi thao tác Playwright để quan sát bằng mắt khi
+ * chạy headed (`CMS_ADMIN_HEADLESS=false`). Cả hai đều để trống thì giữ hành vi mặc định cũ.
  */
 export default defineConfig({
   testDir: "../flows/cms/quan_ly_on_thi/quan_ly_section",
@@ -24,6 +28,10 @@ export default defineConfig({
   reporter: [["list"], ["html", { outputFolder: "output/playwright-report-quan-ly-section", open: "never" }]],
   use: {
     headless: process.env.CMS_ADMIN_HEADLESS !== "false",
+    channel: process.env.CMS_ADMIN_CHANNEL || undefined,
+    launchOptions: {
+      slowMo: Number(process.env.CMS_ADMIN_SLOWMO) || 0,
+    },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

@@ -11,7 +11,6 @@ import {
   readDialogText,
   readRowDuration,
   readRowSkill,
-  deleteSectionByName,
   sectionRow,
 } from "../../../../automation/quan_ly_section/navigation/cmsSectionPageObjects.js";
 
@@ -28,9 +27,9 @@ import {
  */
 const SECTION_ENV = process.env.QUAN_LY_SECTION_ENV || "dev";
 const runId = `AUTO-${Date.now().toString(36)}`;
-const createdNames = [];
+// KHÔNG tự xóa dữ liệu test sau khi chạy (theo yêu cầu 2026-11-03) - `trackName()` chỉ còn mang
+// tính đặt tên rõ ràng (đánh dấu section này DO automation tạo), không còn dùng để dọn dẹp.
 function trackName(name) {
-  createdNames.push(name);
   return name;
 }
 
@@ -56,9 +55,7 @@ test.describe.serial("Quản lý Section - 2. Thêm mới Section (ADD-01..13)",
   });
 
   test.afterAll(async () => {
-    for (const name of createdNames) {
-      await deleteSectionByName(page, name).catch(() => {});
-    }
+    // KHÔNG xóa dữ liệu test - theo yêu cầu, giữ lại để xem sau khi chạy.
     await context.close();
   });
 

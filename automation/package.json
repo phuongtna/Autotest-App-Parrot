@@ -46,7 +46,9 @@
     "test-quan-ly-section-pw": "playwright test --config=playwright.quan-ly-section.config.js",
     "cleanup-quan-ly-section": "node quan_ly_section/cleanupCli.js",
     "test-cau-hinh-bang-diem-pw": "playwright test --config=playwright.cau-hinh-bang-diem.config.js",
-    "cleanup-cau-hinh-bang-diem": "node cau_hinh_bang_diem/cleanupCli.js"
+    "cleanup-cau-hinh-bang-diem": "node cau_hinh_bang_diem/cleanupCli.js",
+    "test-quan-ly-ky-thi-pw": "playwright test --config=playwright.quan-ly-ky-thi.config.js",
+    "cleanup-quan-ly-ky-thi": "node quan_ly_ky_thi/cleanupCli.js"
   },
   "dependencies": {
     "js-yaml": "^5.2.3",

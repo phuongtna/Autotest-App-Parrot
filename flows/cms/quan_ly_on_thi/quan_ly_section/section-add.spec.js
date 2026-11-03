@@ -26,6 +26,7 @@ import {
  *   - Gõ số thập phân (vd "12.5") -> làm tròn thành số nguyên khi blur (không kiểm tra trong file
  *     này, chỉ ADD-06/08 cần).
  */
+const SECTION_ENV = process.env.QUAN_LY_SECTION_ENV || "dev";
 const runId = `AUTO-${Date.now().toString(36)}`;
 const createdNames = [];
 function trackName(name) {
@@ -40,8 +41,8 @@ test.describe.serial("Quản lý Section - 2. Thêm mới Section (ADD-01..13)",
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl(SECTION_ENV);
+    const { username, password } = resolveCmsAdminCredentials(SECTION_ENV);
     context = await browser.newContext();
     page = await context.newPage();
 

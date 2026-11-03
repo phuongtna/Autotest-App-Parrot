@@ -21,6 +21,7 @@ import {
  * thi"/"Quản lý kỳ thi", ngoài phạm vi `/exam-prep/sections`) để tạo đúng tiền điều kiện rule chặn
  * xóa khi "Đề thi đã Công khai". `TESTCASES.md` ghi nhận các case này đã chạy tay Pass (2026-10-19).
  */
+const SECTION_ENV = process.env.QUAN_LY_SECTION_ENV || "dev";
 const runId = `AUTO-${Date.now().toString(36)}`;
 
 test.describe.serial("Quản lý Section - 4. Xóa Section (DEL-01..07)", () => {
@@ -30,8 +31,8 @@ test.describe.serial("Quản lý Section - 4. Xóa Section (DEL-01..07)", () => 
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl(SECTION_ENV);
+    const { username, password } = resolveCmsAdminCredentials(SECTION_ENV);
     context = await browser.newContext();
     page = await context.newPage();
 

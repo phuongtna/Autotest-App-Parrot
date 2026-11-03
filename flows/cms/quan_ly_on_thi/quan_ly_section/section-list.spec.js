@@ -22,19 +22,21 @@ import {
  * Section" (LIST-01..11) trong `flows/cms/quan_ly_on_thi/quan_ly_section/TESTCASES.md` (gốc:
  * `flows/cms/quan_ly_on_thi/quan_ly_section/qlysection.xlsx`, đã chạy tay Pass toàn bộ 2026-10-19).
  *
- * Chạy trên môi trường DEV (`CMS_ADMIN_URL_DEV`/`CMS_USERNAME_DEV`/`CMS_PASSWORD_DEV` trong
- * `.env` - host `parotedu-cms.codeinet.com` do người dùng cung cấp trực tiếp 2026-11-03) - hardcode
- * `envOverride: "dev"` vì module này VIẾT CHO đúng host đó, không phụ thuộc `CMS_ADMIN_ENV` mặc
- * định (đang là "staging", dùng bởi `quan_ly_goi_dich_vu`).
+ * Môi trường chọn qua `QUAN_LY_SECTION_ENV` (mặc định "dev" - host `parotedu-cms.codeinet.com`,
+ * admin/123456, do người dùng cung cấp trực tiếp 2026-11-03) - TÁCH RIÊNG khỏi `CMS_ADMIN_ENV`
+ * (mặc định "staging", dùng bởi `quan_ly_goi_dich_vu`) để 2 bộ test không ảnh hưởng nhau. Chạy
+ * `QUAN_LY_SECTION_ENV=staging npm run test-quan-ly-section-pw` để chạy trên staging
+ * (`https://cms-staging.parrotedu.vn`, cùng tài khoản `CMS_USERNAME`/`CMS_PASSWORD` dùng chung -
+ * xem `resolveCmsAdminCredentials()`).
  *
  * TẤT CẢ dữ liệu test tự tạo đều mang tiền tố `AUTO-<runId>-` để không đụng dữ liệu có sẵn trên
- * dev (`Writing`, `Listening`, `Reading 01`, `QA-TC-Section-SYNC01`, `Toeic Speaking`, `Section 04`,
- * `Section 01`) - dọn dẹp lại bằng `afterAll`.
+ * môi trường đang test - dọn dẹp lại bằng `afterAll`.
  *
  * LIST-11 (danh sách trống khi KHÔNG còn Section nào) CHỦ ĐỘNG BỎ QUA (`test.skip`) - để tạo đúng
  * điều kiện này phải XÓA SẠCH toàn bộ Section thật đang có trên dev, một thao tác phá dữ liệu khó
  * hoàn tác trên môi trường dùng chung - KHÔNG an toàn để automation tự làm.
  */
+const SECTION_ENV = process.env.QUAN_LY_SECTION_ENV || "dev";
 const runId = `AUTO-${Date.now().toString(36)}`;
 const A = `${runId}-A`;
 const B = `${runId}-B`;
@@ -47,8 +49,8 @@ test.describe.serial("Quản lý Section - 1. Danh sách Section (LIST-01..11)",
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl(SECTION_ENV);
+    const { username, password } = resolveCmsAdminCredentials(SECTION_ENV);
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -114,12 +116,16 @@ test.describe.serial("Quản lý Section - 1. Danh sách Section (LIST-01..11)",
   });
 
   test("LIST-07: lọc theo Kỹ năng -> chỉ hiện Section đúng kỹ năng đã chọn", async () => {
-    await filterBySkill(page, "Đọc");
+    // Lọc "Nghe" (không phải "Đọc") - ĐẢM BẢO count>0 bằng chính dữ liệu TỰ TẠO ở LIST-02/03
+    // (A/B/NO_DURATION đều skill "Nghe"), KHÔNG phụ thuộc môi trường đang test có sẵn Section nào
+    // skill "Đọc" hay không (dev có "Reading 01"/"QA-TC-Section-SYNC01" nhưng staging/production có
+    // thể không có - assertion phải đúng trên MỌI môi trường, không riêng dev).
+    await filterBySkill(page, "Nghe");
     const rows = page.locator(po.tableRowSelector);
     const count = await rows.count();
     expect(count).toBeGreaterThan(0);
     for (let i = 0; i < count; i += 1) {
-      await expect(rows.nth(i).locator("td").nth(2)).toContainText("Đọc");
+      await expect(rows.nth(i).locator("td").nth(2)).toContainText("Nghe");
     }
   });
 

@@ -30,6 +30,7 @@ import {
  * đổi theo thời gian) để không bao giờ cần đụng/xóa dữ liệu thật khi test phân trang (đặc biệt
  * PAGE-11 - xóa hết bản ghi ở trang cuối). Mặc định 10/trang (quan sát thật trên dev, 2026-11-03).
  */
+const SECTION_ENV = process.env.QUAN_LY_SECTION_ENV || "dev";
 const runId = `AUTOPG${Date.now().toString(36)}`;
 const listenNames = Array.from({ length: 11 }, (_, i) => `${runId}-listen${String(i + 1).padStart(2, "0")}`);
 const readNames = Array.from({ length: 3 }, (_, i) => `${runId}-read${i + 1}`);
@@ -41,8 +42,8 @@ test.describe.serial("Quản lý Section - 7. Phân trang danh sách Section (PA
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl(SECTION_ENV);
+    const { username, password } = resolveCmsAdminCredentials(SECTION_ENV);
     context = await browser.newContext();
     page = await context.newPage();
 

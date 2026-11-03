@@ -31,6 +31,7 @@ import {
  * hover nhưng bấm vào KHÔNG xoá được giá trị đang chọn (hệ thống không cho phép bỏ trống Kỹ năng ở
  * form Sửa) - khác hành vi "chặn khi Lưu" như ADD, ở đây select tự giữ nguyên giá trị.
  */
+const SECTION_ENV = process.env.QUAN_LY_SECTION_ENV || "dev";
 const runId = `AUTO-${Date.now().toString(36)}`;
 const BASE = `${runId}-base`;
 const ORDER_A = `${runId}-ord-A`;
@@ -45,8 +46,8 @@ test.describe.serial("Quản lý Section - 3. Chỉnh sửa Section (EDIT-01..14
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl(SECTION_ENV);
+    const { username, password } = resolveCmsAdminCredentials(SECTION_ENV);
     context = await browser.newContext();
     page = await context.newPage();
 

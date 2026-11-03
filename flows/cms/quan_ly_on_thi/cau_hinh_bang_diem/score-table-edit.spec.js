@@ -41,8 +41,8 @@ test.describe.serial("Cấu hình bảng điểm - 3. Chỉnh sửa Bảng đi�
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 

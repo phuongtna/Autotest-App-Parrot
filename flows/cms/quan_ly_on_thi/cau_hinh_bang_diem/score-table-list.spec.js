@@ -47,8 +47,8 @@ test.describe.serial("Cấu hình bảng điểm - 1. Danh sách Bảng điểm 
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 

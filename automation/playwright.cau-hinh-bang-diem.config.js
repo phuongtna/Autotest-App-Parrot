@@ -13,6 +13,9 @@ import { defineConfig } from "@playwright/test";
  * song song nhiều file dễ đụng dữ liệu nhau. Chạy:
  * `npx playwright test --config=playwright.cau-hinh-bang-diem.config.js` (từ thư mục
  * `automation/`), hoặc `npm run test-cau-hinh-bang-diem-pw`.
+ *
+ * `CMS_ADMIN_SLOWMO` (ms) - làm chậm mọi thao tác Playwright để quan sát bằng mắt khi chạy headed
+ * (`CMS_ADMIN_HEADLESS=false`). Cùng quy ước với `playwright.quan-ly-section.config.js`.
  */
 export default defineConfig({
   testDir: "../flows/cms/quan_ly_on_thi/cau_hinh_bang_diem",
@@ -24,6 +27,9 @@ export default defineConfig({
   reporter: [["list"], ["html", { outputFolder: "output/playwright-report-cau-hinh-bang-diem", open: "never" }]],
   use: {
     headless: process.env.CMS_ADMIN_HEADLESS !== "false",
+    launchOptions: {
+      slowMo: Number(process.env.CMS_ADMIN_SLOWMO) || 0,
+    },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

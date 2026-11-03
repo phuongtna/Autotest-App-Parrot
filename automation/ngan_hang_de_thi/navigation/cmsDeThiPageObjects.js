@@ -312,6 +312,10 @@ export async function readScoreTableConversionNote(page) {
 export async function selectScoreTable(page, scoreTableName) {
   const selectLocator = scoreTableSelectLocator(page);
   await selectLocator.click();
+  // ĐÃ GẶP THẬT (2026-11-03, staging): bounding box lấy ngay sau click đôi lúc sai (panel dropdown
+  // còn đang định vị/animate) khiến vòng lặp cuộn bên dưới dùng toạ độ chuột sai, không bao giờ
+  // tới được option cần tìm dù nó tồn tại thật - chờ ngắn cho panel ổn định trước khi đo box.
+  await page.waitForTimeout(300);
   const option = page.locator('.n-base-select-option:visible, [role="option"]:visible', { hasText: scoreTableName }).first();
   const box = await selectLocator.boundingBox();
   for (let i = 0; i < 60; i += 1) {

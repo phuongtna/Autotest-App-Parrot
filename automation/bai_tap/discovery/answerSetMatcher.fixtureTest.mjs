@@ -292,8 +292,10 @@ async function main() {
   {
     report("normalizeAnswerText chuẩn hoá khoảng trắng + hoa/thường", normalizeAnswerText("  Cycling  ") === normalizeAnswerText("cycling"));
     report(
+      // FIX 2026-11-04: "it" không còn bị lọc (xem SHORT_MEANINGFUL_WORDS/case [O] - "he"/"it" là
+      // chủ ngữ 2 ký tự có thể là tín hiệu phân biệt DUY NHẤT giữa các câu dùng chung answer-set).
       "normalizeQuestionTokens loại placeholder + stopword + token quá ngắn",
-      JSON.stringify(normalizeQuestionTokens("Don't ___ your pimples, it will get worse.")) === JSON.stringify(["don", "pimples", "will", "get", "worse"]),
+      JSON.stringify(normalizeQuestionTokens("Don't ___ your pimples, it will get worse.")) === JSON.stringify(["don", "pimples", "it", "will", "get", "worse"]),
       JSON.stringify(normalizeQuestionTokens("Don't ___ your pimples, it will get worse.")),
     );
     const set = buildNormalizedVisibleSet(["  Cat ", "DOG"]);
@@ -314,9 +316,13 @@ async function main() {
     const pool = [j2, j1, j3]; // thứ tự xáo trộn - không được phụ thuộc index.
 
     report(
+      // FIX 2026-11-04: "she"/"they" không còn bị lọc khỏi STOPWORDS (xem root-cause mới trong
+      // answerSetMatcher.js) - j1/j2 giờ giữ thêm đúng chủ ngữ của chính câu đó, KHÔNG đổi hành vi
+      // MATCHED ở J1/J2/J3 bên dưới (vẫn PASS y hệt, "she"/"they" ở đây không trùng answer-set nên
+      // không bị buildSharedAnswerTokenSet() loại).
       "[J0] normalizeQuestionTokens xác nhận đúng short-token scenario thật",
-      JSON.stringify(normalizeQuestionTokens(j1.question)) === JSON.stringify(["telling"]) &&
-        JSON.stringify(normalizeQuestionTokens(j2.question)) === JSON.stringify(["dancing", "around"]) &&
+      JSON.stringify(normalizeQuestionTokens(j1.question)) === JSON.stringify(["she", "telling"]) &&
+        JSON.stringify(normalizeQuestionTokens(j2.question)) === JSON.stringify(["they", "dancing", "around"]) &&
         JSON.stringify(normalizeQuestionTokens(j3.question)) === JSON.stringify(["nam", "building"]),
     );
 
@@ -472,6 +478,34 @@ async function main() {
       actionBlocked === null,
       JSON.stringify(actionBlocked),
     );
+  }
+
+  console.log('=== [O] regression THẬT 2026-11-04 (room 51b4451d-507d-43c2-b93a-217e4dc3ca5b, lớp 4D, "Choose the best response (A, B, C or D) to complete each conversation." Unit 20) - 4 câu con dùng CHUNG đúng 1 answer-set {"She\'s telling a story."/"He\'s taking a photo."/"They\'re playing card games."/"They\'re at the campsite."}, câu dẫn đề của 3 trong 4 câu CHỈ khác nhau đúng 1 CHỦ NGỮ ("What\'s he/she doing?"/"What are they doing?") - trước fix, buildSharedAnswerTokenSet() coi "he"/"she"/"they" là answer-token dùng chung (vì MỌI đáp án trong nhóm đều mở đầu bằng 1 trong 3 chủ ngữ đó) nên xoá mất tín hiệu phân biệt DUY NHẤT khỏi nội dung câu dẫn đề của cả 3, dù cửa sổ hẹp nhất (đúng 1 dòng dẫn đề, không chứa text đáp án) đã đủ phân biệt thật ===');
+  {
+    const bank = ["She's telling a story.", "He's taking a photo.", "They're playing card games.", "They're at the campsite."];
+    const o1 = q("o1_60a05e2b", { answers: bank, correctAnswer: "They're at the campsite.", question: "\"What are they doing?\" – \"______\"" });
+    const o2 = q("o2_683723a0", { answers: bank, correctAnswer: "He's taking a photo.", question: "\"What's he doing?\" – \"______\"" });
+    const o3 = q("o3_6d878e47", { answers: bank, correctAnswer: "She's telling a story.", question: "\"What's she doing?\" – \"______\"" });
+    const o4 = q("o4_ac92f307", { answers: [...bank].reverse(), correctAnswer: "They're at the campsite.", question: "\"Where are Mai and Linh?\" – \"______\"" });
+    const pool = [o2, o4, o1, o3]; // thứ tự xáo trộn - không được phụ thuộc index.
+
+    // Màn hình đang hiển thị ĐÚNG câu o3 ("What's she doing?") - dòng dẫn đề + 4 option, giống hệt
+    // cấu trúc UI thật (xem screenshot thật trong test_data/historical_activity_log.md).
+    const textsO3 = ['"What\'s she doing?" – "______"', ...bank];
+    const rO3 = await findMatchingQuestion(staticBridge(textsO3), pool, undefined, 1, null);
+    report(
+      '[O1] chọn đúng o3 ("What\'s she doing?") dù "she" trùng answer-token dùng chung (trước fix: AMBIGUOUS sai, winnerScore=runnerUpScore=1.0)',
+      rO3.status === "MATCHED" && rO3.question.id === "o3_6d878e47",
+      JSON.stringify(rO3.status),
+    );
+
+    const textsO1 = ['"What are they doing?" – "______"', ...bank];
+    const rO1 = await findMatchingQuestion(staticBridge(textsO1), pool, undefined, 1, null);
+    report('[O2] chọn đúng o1 ("What are they doing?")', rO1.status === "MATCHED" && rO1.question.id === "o1_60a05e2b", JSON.stringify(rO1.status));
+
+    const textsO2 = ['"What\'s he doing?" – "______"', ...bank];
+    const rO2 = await findMatchingQuestion(staticBridge(textsO2), pool, undefined, 1, null);
+    report('[O3] chọn đúng o2 ("What\'s he doing?")', rO2.status === "MATCHED" && rO2.question.id === "o2_683723a0", JSON.stringify(rO2.status));
   }
 
   console.log(`\n${passes} passed, ${failures} failed.`);

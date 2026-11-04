@@ -60,10 +60,21 @@ export function findFullAnswerSetMatches(pool, normalizedVisibleSet) {
 // Stopword tối giản (tiếng Anh, đủ để lọc từ boilerplate hay lặp lại giữa các câu VD "choose the
 // correct answer") - KHÔNG cần đầy đủ ngôn ngữ học, chỉ cần loại các từ không mang tính phân biệt
 // giữa các câu hỏi trong CÙNG 1 exercise (đó là toàn bộ mục đích của bộ lọc này).
+//
+// FIX (2026-11-04, root cause thật của AMBIGUOUS_MATCH sai trên room 51b4451d-... lớp 4D, "Choose
+// the best response..." Unit 20): 3 câu con dùng chung ĐÚNG 1 answer-set {"She's telling a
+// story."/"He's taking a photo."/"They're playing card games."/"They're at the campsite."} có câu
+// dẫn đề CHỈ khác nhau đúng 1 CHỦ NGỮ ("What's he doing?"/"What's she doing?"/"What are they
+// doing?") - nhưng "he"/"she"/"they" nằm trong STOPWORDS cũ nên bị xoá mất, chỉ còn lại từ chung
+// "doing" cho cả 3 -> winnerScore=runnerUpScore=1.0 -> AMBIGUOUS sai (CÙNG lớp bug với fix
+// 2026-10-07 cho token số thứ tự "Number 1".."Number 9" - tín hiệu phân biệt DUY NHẤT bị tokenizer
+// tự xoá, không phải thiếu dữ liệu thật). Bỏ "he"/"she"/"they"/"it" khỏi STOPWORDS - đây đúng là
+// nhóm từ ngắn, thường vô nghĩa khi TRÙNG giữa winner/runner-up (vẫn bị coverage-tie như cũ nếu
+// trùng), nhưng khi KHÁC nhau là tín hiệu phân biệt hợp lệ duy nhất còn lại.
 const STOPWORDS = new Set([
   "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "to", "of", "in", "on", "at",
-  "for", "and", "or", "but", "with", "as", "by", "from", "that", "this", "these", "those", "it", "its",
-  "you", "your", "i", "he", "she", "they", "we", "do", "does", "did", "not", "no", "yes", "which",
+  "for", "and", "or", "but", "with", "as", "by", "from", "that", "this", "these", "those", "its",
+  "you", "your", "i", "we", "do", "does", "did", "not", "no", "yes", "which",
   "what", "who", "whom", "choose", "complete", "correct", "answer", "answers", "sentence", "sentences",
   "question", "questions", "best", "fill", "blank", "each", "following", "word", "words", "read", "text",
 ]);
@@ -85,6 +96,16 @@ const STOPWORDS = new Set([
  * dù chỉ 1 ký tự (khác hẳn chữ cái ngắn như "a"/"to" thường là nhiễu) - xem answerSetMatcher.fixtureTest.mjs
  * case [M].
  */
+// FIX (2026-11-04, cùng lớp bug với exception số thứ tự bên trên, phát hiện khi sửa room
+// 51b4451d-... lớp 4D): chủ ngữ "he"/"it" chỉ có 2 ký tự nên bị ngưỡng `length>=3` xoá mất y hệt
+// cách "Number 1".."Number 9" từng bị xoá - khi 1 nhóm câu con dùng chung answer-set chỉ khác nhau
+// đúng chủ ngữ ("What's he doing?" vs "What's she doing?" vs "What are they doing?"), mất "he" khiến
+// 2 candidate còn lại cùng tie ở coverage dựa trên mỗi "doing" dùng chung. "she"/"they" đã đủ dài
+// (>=3) nên không cần exception riêng - CHỈ "he"/"it" (2 ký tự) cần liệt kê tường minh, KHÔNG hạ
+// ngưỡng chung xuống 2 (sẽ cho lọt lại nhiễu 2 ký tự khác như "to"/"of"/"is" vốn đã nằm trong
+// STOPWORDS).
+const SHORT_MEANINGFUL_WORDS = new Set(["he", "it"]);
+
 export function normalizeQuestionTokens(text) {
   const cleaned = stripHtmlLite(text)
     .toLowerCase()
@@ -93,7 +114,9 @@ export function normalizeQuestionTokens(text) {
     .replace(/\s+/g, " ")
     .trim();
   if (!cleaned) return [];
-  return cleaned.split(" ").filter((w) => !STOPWORDS.has(w) && (w.length >= 3 || /^\p{N}+$/u.test(w)));
+  return cleaned
+    .split(" ")
+    .filter((w) => !STOPWORDS.has(w) && (w.length >= 3 || /^\p{N}+$/u.test(w) || SHORT_MEANINGFUL_WORDS.has(w)));
 }
 
 // (2026-10-02, fix real AMBIGUOUS_MATCH 2 lần sống - room 80b88e7a-.../3f119f63-...): HẠ từ 3
@@ -146,15 +169,17 @@ export function buildSharedAnswerTokenSet(candidates) {
  * hiện tại - xem answerSetMatcher.fixtureTest.mjs case [B]/[C]/[F] vẫn phải PASS y hệt).
  * @param {Array<{id:string, question:string}>} candidates - fullMatches (đã qua findFullAnswerSetMatches)
  * @param {string[]} visibleTexts - toàn bộ text đang hiển thị (collectAllTexts(tree))
+ * @param {{applySharedTokenFilter?: boolean}} [opts] - xem FIX 2026-11-04 trong
+ *   `disambiguateByQuestionText()` (lý do tắt filter này cho các lượt so khớp theo CỬA SỔ hẹp).
  * @returns {{status:"MATCHED", winner:object, scores:Array<{question:object, coverage:number, tokenCount:number, tier:string}>}
  *         | {status:"AMBIGUOUS", scores:Array<{question:object, coverage:number, tokenCount:number, tier:string}>, reasonCode:string, winnerScore:number, runnerUpScore:?number}}
  */
-function scoreAgainstTexts(candidates, sourceTexts) {
+function scoreAgainstTexts(candidates, sourceTexts, { applySharedTokenFilter = true } = {}) {
   const visibleTokenSet = new Set();
   for (const t of sourceTexts) {
     for (const tok of normalizeQuestionTokens(t)) visibleTokenSet.add(tok);
   }
-  const sharedAnswerTokens = buildSharedAnswerTokenSet(candidates);
+  const sharedAnswerTokens = applySharedTokenFilter ? buildSharedAnswerTokenSet(candidates) : new Set();
   const scored = candidates.map((question) => {
     const tokens = [...new Set(normalizeQuestionTokens(question.question))].filter((tok) => !sharedAnswerTokens.has(tok));
     if (tokens.length < MIN_CONTENT_TOKENS) {
@@ -201,9 +226,23 @@ export function disambiguateByQuestionText(candidates, visibleTexts) {
     }
   }
   if (optionsStartIdx > 0) {
+    // FIX (2026-11-04, root cause thật room 51b4451d-... lớp 4D, "Choose the best response..." Unit
+    // 20): 3 câu con dùng chung ĐÚNG 1 answer-set {"She's telling a story."/"He's taking a
+    // photo."/"They're playing card games."/"They're at the campsite."} chỉ khác nhau đúng 1 CHỦ
+    // NGỮ trong câu dẫn đề ("What's he/she doing?"/"What are they doing?") - nhưng buildSharedAnswerTokenSet()
+    // coi "he"/"she"/"they" là "answer token dùng chung" (vì MỌI đáp án trong nhóm này đều MỞ ĐẦU
+    // bằng 1 trong 3 chủ ngữ đó) nên xoá mất đúng tín hiệu phân biệt duy nhất còn lại khỏi NỘI DUNG
+    // câu dẫn đề của MỌI candidate -> winnerScore=runnerUpScore=1.0 (chỉ còn từ chung "doing") dù cửa
+    // sổ hẹp NHẤT (đúng 1 dòng dẫn đề, KHÔNG chứa text đáp án nào - slice luôn DỪNG TRƯỚC
+    // optionsStartIdx) đã đủ sức phân biệt thật. Lý do loại "answer token dùng chung" (tránh 1
+    // candidate "ăn điểm" giả chỉ vì trùng 1 từ LUÔN hiển thị qua chính các nút đáp án, xem fixture
+    // [L]) CHỈ áp dụng khi corpus đang so (`sourceTexts`) CÓ THỂ chứa chính các text đáp án đó (full-
+    // page fallback bên dưới) - trong 1 CỬA SỔ đã loại hẳn các dòng đáp án ra khỏi slice, rủi ro đó
+    // không tồn tại, nên tắt filter này CHỈ cho scoring theo cửa sổ (fixture [L1] vẫn PASS y hệt vì
+    // "garden" vốn dĩ không nằm trong window của chính fixture đó - xem answerSetMatcher.fixtureTest.mjs).
     for (let windowSize = 1; windowSize <= optionsStartIdx; windowSize++) {
       const windowTexts = visibleTexts.slice(Math.max(0, optionsStartIdx - windowSize), optionsStartIdx);
-      const windowResult = scoreAgainstTexts(candidates, windowTexts);
+      const windowResult = scoreAgainstTexts(candidates, windowTexts, { applySharedTokenFilter: false });
       if (windowResult.status === "MATCHED") return windowResult;
     }
   }

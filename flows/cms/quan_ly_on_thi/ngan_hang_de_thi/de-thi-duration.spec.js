@@ -37,8 +37,8 @@ test.describe.serial("Ngân hàng đề thi - 4. Quy tắc Thời lượng đề
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 

@@ -39,8 +39,8 @@ test.describe.serial("Ngân hàng đề thi - 10. Phân trang (PAGE-01..10)", ()
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -71,7 +71,7 @@ test.describe.serial("Ngân hàng đề thi - 10. Phân trang (PAGE-01..10)", ()
   });
 
   test("PAGE-01: control phân trang hiển thị đúng khi danh sách có dữ liệu", async () => {
-    await createExam(page, { name: names[0], examType: fixtures.examTypeEmpty, grades: ["Lớp 1"] });
+    await createExam(page, { name: names[0], examType: fixtures.examTypeEmpty, grades: ["Lớp 1"], scoreTable: fixtures.scoreTable });
     await gotoDeThi(page, baseUrl);
     await searchDeThi(page, runId);
     expect(await readPageNumbersAvailable(page)).toEqual([1]);
@@ -86,7 +86,7 @@ test.describe.serial("Ngân hàng đề thi - 10. Phân trang (PAGE-01..10)", ()
 
   test("PAGE-03: số bản ghi > page size -> xuất hiện trang kế tiếp, nút ▶ khả dụng", async () => {
     for (let i = 1; i < names.length; i += 1) {
-      await createExam(page, { name: names[i], examType: fixtures.examTypeEmpty, grades: ["Lớp 1"] });
+      await createExam(page, { name: names[i], examType: fixtures.examTypeEmpty, grades: ["Lớp 1"], scoreTable: fixtures.scoreTable });
       await gotoDeThi(page, baseUrl);
     }
     await searchDeThi(page, runId);

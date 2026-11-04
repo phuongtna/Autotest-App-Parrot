@@ -109,6 +109,16 @@ export const config = {
   // sinh khác nhau, KHÔNG dùng chung số điện thoại giữa dev/staging/production được. Để trống thì
   // nhóm case đó tự SKIP (không giả định Pass/Fail).
   cmsAdminTestStudentPhone: readVar("CMS_ADMIN_TEST_STUDENT_PHONE"),
+
+  // Tài khoản CMS KHÔNG có quyền Admin ("CTV") theo môi trường - dùng riêng cho các case PERM-*
+  // (vd PERM-01 của score-table-perm-sync.spec.js) để xác nhận hệ thống chặn/ẩn menu với tài
+  // khoản không phải Admin. Xem resolveCmsNonAdminCredentials() bên dưới.
+  cmsAdminNonAdminUsernamesByEnv: {
+    staging: readVar("CMS_USERNAME_STAGING_NONADMIN"),
+  },
+  cmsAdminNonAdminPasswordsByEnv: {
+    staging: readVar("CMS_PASSWORD_STAGING_NONADMIN"),
+  },
   // Tên profile con CỤ THỂ cần chọn khi 1 số điện thoại có nhiều profile con - để trống thì
   // grantCasesFlow.js tự chọn profile ĐẦU TIÊN trong dropdown (selectFirstOrderProfileOption).
   cmsAdminTestStudentProfileName: readVar("CMS_ADMIN_TEST_STUDENT_PROFILE_NAME"),
@@ -154,6 +164,21 @@ export function resolveCmsAdminCredentials(envOverride) {
     username: config.cmsAdminUsernamesByEnv[env] || config.cmsUsername,
     password: config.cmsAdminPasswordsByEnv[env] || config.cmsPassword,
   };
+}
+
+/**
+ * Trả về {username, password} của 1 tài khoản CMS KHÔNG có quyền Admin ("CTV") trên 1 môi trường -
+ * dùng riêng cho các case PERM-* (vd PERM-01 của score-table-perm-sync.spec.js) để test hành vi hệ
+ * thống chặn/ẩn menu khi tài khoản không phải Admin. Trả về `null` nếu môi trường đó chưa cấu hình
+ * (CMS_USERNAME_<ENV>_NONADMIN/CMS_PASSWORD_<ENV>_NONADMIN trống) - case gọi hàm này PHẢI tự
+ * `test.skip()` khi gặp `null`, KHÔNG giả định Pass/Fail.
+ */
+export function resolveCmsNonAdminCredentials(envOverride) {
+  const env = (envOverride || config.cmsAdminEnv || "staging").trim().toLowerCase();
+  const username = config.cmsAdminNonAdminUsernamesByEnv[env];
+  const password = config.cmsAdminNonAdminPasswordsByEnv[env];
+  if (!username || !password) return null;
+  return { username, password };
 }
 
 /**

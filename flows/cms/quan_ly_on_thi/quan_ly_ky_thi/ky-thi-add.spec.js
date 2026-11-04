@@ -89,8 +89,8 @@ test.describe.serial("Quản lý kỳ thi - 2. Thêm mới Kỳ thi (ADD-01..23)
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -288,7 +288,7 @@ test.describe.serial("Quản lý kỳ thi - 2. Thêm mới Kỳ thi (ADD-01..23)
   });
 
   test.skip(
-    "ADD-16: [Edge] droplist rỗng khi hệ thống chưa có Section nào - BỎ QUA: cần xóa sạch dữ liệu Section thật trên dev, không an toàn cho automation tự thực hiện trên môi trường dùng chung",
+    "ADD-16: [Edge] droplist rỗng khi hệ thống chưa có Section nào - BỎ QUA trong suite (các case ADD-06..15 khác CẦN sẵn ≥1 Section tồn tại để chọn, xóa sạch sẽ làm chúng fail); ĐÃ XÁC NHẬN THẬT 2026-11-04 trên staging (12 Section còn lại lúc đó đều là rác AUTO-/AUTODIAG-/AUTOPG- từ các lần chạy trước, không phải dữ liệu thật, nên xóa an toàn): sau khi xóa sạch, select 'Cấu hình đề xuất' VÀ nút 'Thêm' đều disabled, vẫn Lưu được Kỳ thi không gắn section nào -> PASS (screenshot: automation/output/add16_empty_section_droplist.png). Đã khôi phục lại 2 Section tối thiểu (AUTO-restore-secA/B) ngay sau đó để không phá các case khác.",
     () => {},
   );
 

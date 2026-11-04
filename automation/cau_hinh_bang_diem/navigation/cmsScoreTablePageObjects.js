@@ -65,6 +65,11 @@ export const cmsScoreTablePageObjects = {
   deleteConfirmButton: "Xóa",
   deleteConfirmText: (name) =>
     `Bạn có chắc chắn muốn xóa bảng điểm "${name}"? Hành động này không thể hoàn tác.`,
+  // ĐÃ XÁC NHẬN THẬT (2026-11-04, staging, sau khi dọn sạch toàn bộ bảng điểm cho LIST-11) - toast
+  // lỗi khi xóa bị chặn vì còn gắn Đề thi:
+  deleteBlockedToastText: "Bảng điểm đang được gắn với 1 đề thi. Chỉ xóa được bảng điểm chưa được gắn vào đề thi nào.",
+  emptyStateTitle: "Chưa có bảng điểm nào",
+  emptyStateHint: 'Nhấn "Thêm mới" để tạo bảng điểm đầu tiên.',
 };
 
 const po = cmsScoreTablePageObjects;

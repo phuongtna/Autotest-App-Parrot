@@ -18,8 +18,9 @@ import {
  * Kỳ thi" (LIST-01..08) trong `flows/cms/quan_ly_on_thi/quan_ly_ky_thi/TESTCASES.md` (gốc:
  * `qlykythi.xlsx`, đã chạy tay Pass toàn bộ, kết quả cập nhật 2026-11-03).
  *
- * Chạy trên môi trường DEV (`CMS_ADMIN_URL_DEV`/`CMS_USERNAME_DEV`/`CMS_PASSWORD_DEV` trong
- * `.env`) - hardcode `envOverride: "dev"` vì module này VIẾT CHO đúng host đó, cùng quy ước với
+ * Chạy trên môi trường STAGING (`CMS_ADMIN_URL_STAGING`/`CMS_USERNAME_STAGING`/
+ * `CMS_PASSWORD_STAGING` trong `.env`) - hardcode `envOverride: "staging"` (ĐỔI từ "dev"
+ * 2026-11-04 theo yêu cầu chạy trên https://cms-staging.parrotedu.vn), cùng quy ước với
  * `quan_ly_section`/`cau_hinh_bang_diem`.
  *
  * TẤT CẢ dữ liệu test tự tạo đều mang tiền tố `AUTO-<runId>-` để không đụng dữ liệu có sẵn trên
@@ -42,8 +43,8 @@ test.describe.serial("Quản lý kỳ thi - 1. Danh sách Kỳ thi (LIST-01..08)
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -117,7 +118,7 @@ test.describe.serial("Quản lý kỳ thi - 1. Danh sách Kỳ thi (LIST-01..08)
   });
 
   test.skip(
-    "LIST-08: danh sách trống khi hệ thống chưa có Kỳ thi nào - BỎ QUA: cần xóa sạch dữ liệu thật trên dev để tạo điều kiện này, không an toàn cho automation tự thực hiện trên môi trường dùng chung",
+    "LIST-08: danh sách trống khi hệ thống chưa có Kỳ thi nào - BỎ QUA trong suite (các file spec khác chạy cùng serial sẽ tạo lại AUTO- data nên không giữ được điều kiện rỗng); ĐÃ XÁC NHẬN THẬT 2026-11-04 trên staging (toàn bộ 5 bản ghi còn lại lúc đó là rác AUTO- từ lần chạy trước, không phải dữ liệu thật, nên xóa an toàn): sau khi xóa sạch, UI hiển thị đúng '0 kỳ thi' / 'Chưa có kỳ thi nào' / 'Nhấn \"Thêm mới\" để tạo kỳ thi đầu tiên.' / 'Tổng 0 bản ghi', không lỗi -> PASS (screenshot: automation/output/list08_empty_state.png)",
     () => {},
   );
 });

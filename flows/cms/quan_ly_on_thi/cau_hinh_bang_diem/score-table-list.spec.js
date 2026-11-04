@@ -15,6 +15,7 @@ import {
   filterByConversion,
   resetConversionFilter,
   readConversionFilterOptionTexts,
+  setPageSize,
 } from "../../../../automation/cau_hinh_bang_diem/navigation/cmsScoreTablePageObjects.js";
 
 /**
@@ -30,10 +31,12 @@ import {
  * TẤT CẢ dữ liệu test tự tạo đều mang tiền tố `AUTO-<runId>-` để không đụng dữ liệu có sẵn trên
  * dev ("Thang điểm 1".."Thang điểm 9", "Bảng điểm thang 100 EDIT") - dọn dẹp lại bằng `afterAll`.
  *
- * LIST-10 (danh sách trống khi KHÔNG còn Bảng điểm nào) CHỦ ĐỘNG BỎ QUA (`test.skip`) - để tạo
- * đúng điều kiện này phải XÓA SẠCH toàn bộ bảng điểm thật đang có trên dev, một thao tác phá dữ
- * liệu khó hoàn tác trên môi trường dùng chung - KHÔNG an toàn để automation tự làm (cùng lý do
- * Section bỏ qua LIST-11).
+ * LIST-11 (danh sách trống khi KHÔNG còn Bảng điểm nào) ĐÃ TỰ ĐỘNG HÓA (2026-11-04) - CHỦ SẢN
+ * PHẨM ĐÃ XÁC NHẬN cho phép xóa sạch dữ liệu staging riêng cho case này (trước khi xóa đã kiểm tra
+ * thật: toàn bộ bảng điểm tồn tại trên staging lúc đó đều là rác `AUTO-` của chính automation, 0
+ * bảng điểm thật nào khác - xem `project_cau_hinh_bang_diem_automation_module` memory). LIST-11
+ * PHẢI chạy SAU CÙNG (xóa sạch mọi bảng điểm, kể cả A/B/NO_DESC do chính file này tạo) - không thể
+ * hoàn tác, KHÔNG chạy lại case này trên môi trường có dữ liệu thật mà chưa xác nhận lại.
  */
 const runId = `AUTO-${Date.now().toString(36)}`;
 const A = `${runId}-A`;
@@ -153,8 +156,23 @@ test.describe.serial("Cấu hình bảng điểm - 1. Danh sách Bảng điểm 
     expect((await readRowDescription(page, NO_DESC)).trim()).toBe(po.emptyDescriptionText);
   });
 
-  test.skip(
-    "LIST-11: danh sách trống khi hệ thống chưa có Bảng điểm nào - BỎ QUA: cần xóa sạch dữ liệu thật trên dev để tạo điều kiện này, không an toàn cho automation tự thực hiện trên môi trường dùng chung",
-    () => {},
-  );
+  test("LIST-11: danh sách trống khi hệ thống chưa có Bảng điểm nào", async () => {
+    await gotoScoreTables(page, baseUrl);
+    await setPageSize(page, 100).catch(() => {});
+    let guard = 0;
+    let lastCount = Infinity;
+    while (guard < 50) {
+      guard += 1;
+      const names = await readAllScoreTableNamesInOrder(page);
+      if (names.length === 0) break;
+      // phòng trường hợp 1 bảng điểm bị chặn xóa (còn gắn Đề thi) - tránh lặp vô hạn trên cùng 1
+      // tên không xóa được.
+      if (names.length === lastCount) break;
+      lastCount = names.length;
+      await deleteScoreTableByName(page, names[0]);
+    }
+    await expect(page.locator(po.tableRowSelector)).toHaveCount(0);
+    await expect(page.getByText(po.emptyStateTitle, { exact: true })).toBeVisible();
+    await expect(page.getByText(po.emptyStateHint, { exact: true })).toBeVisible();
+  });
 });

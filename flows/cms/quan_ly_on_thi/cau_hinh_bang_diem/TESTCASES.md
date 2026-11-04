@@ -13,18 +13,21 @@ Cùng module với [`../quan_ly_section/TESTCASES.md`](../quan_ly_section/TESTCA
 trúc màn hình rất giống nhau (danh sách + tìm kiếm + lọc droplist + popup CRUD), nhưng **rule Xóa
 khác hẳn** (xem mục 4 và phần Giả định bên dưới).
 
-**Cập nhật (2026-11-03)**: đã có automation Playwright tại
+**Cập nhật (2026-11-04)**: đã có automation Playwright tại
 `flows/cms/quan_ly_on_thi/cau_hinh_bang_diem/*.spec.js` (chạy `cd automation && npm run
-test-cau-hinh-bang-diem-pw`), môi trường dev (`CMS_ADMIN_URL_DEV=https://parotedu-cms.codeinet.com`,
-tài khoản `CMS_USERNAME_DEV`/`CMS_PASSWORD_DEV` trong `.env`). 41/57 case đã chạy thật PASS trên dev
-(2026-11-03); 16 case còn lại `test.skip()` kèm lý do cụ thể — chủ yếu cần thao tác trên màn Ngân
-hàng đề thi (gắn Bảng điểm vào 1 Đề thi công khai/chưa công khai) hoặc tài khoản phân quyền khác, cả
-2 đều NGOÀI PHẠM VI `/exam-prep/score-tables` mà automation module này bao phủ — xem cột
-"Automation" ở từng dòng và `score-table-perm-sync.spec.js`. ADD-03/ADD-04 không áp dụng được (field
-Dạng quy đổi không có cách nào để trống). LIST-11 bị skip vì cần xóa sạch dữ liệu thật trên dev —
-không an toàn cho automation trên môi trường dùng chung. Một số giả định bên dưới đã được xác nhận
-THẬT qua chạy tay (xlsx) và qua script dò hành vi bằng Playwright thật trước khi viết code — xem chú
-thích "ĐÃ XÁC NHẬN THẬT" ở từng dòng.
+test-cau-hinh-bang-diem-pw`), môi trường **staging** (`CMS_ADMIN_URL_STAGING`, tài khoản
+`CMS_USERNAME_STAGING`/`CMS_PASSWORD_STAGING` trong `.env`). **50/57 case đã chạy thật PASS trên
+staging** (2026-11-04); 7 case còn lại `test.skip()` kèm lý do cụ thể (ADD-03/ADD-04 không áp dụng
+được — field Dạng quy đổi không có cách nào để trống; EDIT-10 — chỉ có 1 giá trị Dạng quy đổi, chưa
+có giá trị thứ 2 để đổi sang; SYNC-01..04 — cần thao tác trên màn Ngân hàng đề thi, NGOÀI PHẠM VI
+`/exam-prep/score-tables` mà automation module này bao phủ; SYNC-05 — Pending, màn làm bài học sinh
+qua web chưa sẵn sàng). EDIT-03/04/09 và DEL-02/03/06 (trước đây skip vì cần gắn Bảng điểm vào Đề
+thi) nay ĐÃ TỰ ĐỘNG HÓA bằng cách tự dựng fixture Đề thi/Kỳ thi/Section riêng qua page object của
+"Ngân hàng đề thi", không còn phụ thuộc màn hình ngoài phạm vi. LIST-10 (danh sách trống) và PERM-01
+(tài khoản CTV) cũng ĐÃ TỰ ĐỘNG HÓA (2026-11-04) — xem chú thích "ĐÃ XÁC NHẬN THẬT"/"CHỦ SẢN PHẨM xác
+nhận" ở từng dòng tương ứng. Một số giả định bên dưới đã được xác nhận THẬT qua chạy tay (xlsx) và
+qua script dò hành vi bằng Playwright thật trước khi viết code — xem chú thích "ĐÃ XÁC NHẬN THẬT" ở
+từng dòng.
 
 **Giả định cần xác nhận với BA/Dev trước khi chạy** (spec chưa nêu rõ):
 - Rule tính điểm được spec dẫn chiếu "mục 13.4.4" nhưng nội dung đầy đủ của mục đó không có trong
@@ -76,7 +79,7 @@ mặt.
 | LIST-07 | Bỏ lọc dạng quy đổi | Sau khi đã lọc, chọn lại "Tất cả dạng quy đổi" | Hiển thị lại đầy đủ toàn bộ Bảng điểm | Pass (automated, live-run dev 2026-11-03) | [score-table-list.spec.js](score-table-list.spec.js) `LIST-07` |
 | LIST-08 | Kết hợp tìm kiếm + lọc dạng quy đổi | Nhập từ khóa tìm kiếm VÀ chọn 1 Dạng quy đổi cùng lúc | Kết quả thỏa đồng thời cả 2 điều kiện (AND) | Pass (automated, live-run dev 2026-11-03) | [score-table-list.spec.js](score-table-list.spec.js) `LIST-08` |
 | LIST-09 | Danh sách dạng quy đổi trong dropdown lọc đúng với hard-code | Mở dropdown "Tất cả dạng quy đổi", đối chiếu với danh sách dev cung cấp | Danh sách khớp đầy đủ — hiện tại chỉ có "Tất cả dạng quy đổi" + "Phổ thông", không thiếu/thừa | Pass (automated, live-run dev 2026-11-03) | [score-table-list.spec.js](score-table-list.spec.js) `LIST-09` |
-| LIST-10 | Danh sách trống khi hệ thống chưa có Bảng điểm nào | Vào màn Cấu hình bảng điểm khi thực sự không còn bản ghi nào (không phải do lọc/tìm kiếm) | Hiển thị trạng thái rỗng rõ ràng (vd. "Chưa có bảng điểm nào"), không lỗi hệ thống; số đếm hiển thị "0 bảng điểm" | Chưa test | Skip (automated) - cần xóa sạch dữ liệu thật trên dev, không an toàn cho automation trên môi trường dùng chung |
+| LIST-10 | Danh sách trống khi hệ thống chưa có Bảng điểm nào | Vào màn Cấu hình bảng điểm khi thực sự không còn bản ghi nào (không phải do lọc/tìm kiếm) | Hiển thị trạng thái rỗng rõ ràng — **ĐÃ XÁC NHẬN THẬT (2026-11-04, staging)**: "Chưa có bảng điểm nào" + `Nhấn "Thêm mới" để tạo bảng điểm đầu tiên.`, không lỗi hệ thống | Pass (automated, live-run staging 2026-11-04 — CHỦ SẢN PHẨM xác nhận cho phép xóa sạch dữ liệu staging riêng cho case này, đã kiểm tra trước: toàn bộ chỉ là rác `AUTO-` của automation, không có bảng điểm thật nào khác) | [score-table-list.spec.js](score-table-list.spec.js) `LIST-11` |
 | LIST-11 | Cột Mô tả khi không nhập Mô tả lúc tạo | Tạo 1 Bảng điểm để trống Mô tả, quan sát dòng tương ứng trong bảng | Cột Mô tả hiển thị ký tự "—" | Pass (automated, live-run dev 2026-11-03) | [score-table-list.spec.js](score-table-list.spec.js) `LIST-10` |
 
 ## 2. Thêm mới Bảng điểm
@@ -121,17 +124,17 @@ hoàn toàn chưa gắn đề thi nào mới xóa được.
 | ID | Tên case | Bước thực hiện | Kỳ vọng | Trạng thái | Automation |
 |----|----------|-----------------|---------|------------|------------|
 | DEL-01 | Xóa Bảng điểm chưa gắn vào Đề thi nào | Bấm icon "Xóa" trên 1 Bảng điểm chưa được dùng ở Đề thi nào → popup xác nhận → Đồng ý | Popup xác nhận xóa hiển thị; sau khi đồng ý, Bảng điểm biến mất khỏi danh sách, xóa thành công | Pass (automated, live-run dev 2026-11-03) | [score-table-delete.spec.js](score-table-delete.spec.js) `DEL-01` |
-| DEL-02 | Xóa Bảng điểm đã gắn Đề thi CHƯA công khai | Gắn Bảng điểm vào 1 Đề thi chưa công khai, sau đó thử xóa Bảng điểm đó | KHÔNG cho phép xóa (khác với rule Xóa Section); nút Xóa bị ẩn/disable, hoặc hệ thống báo lỗi chặn xóa khi xác nhận | Pass (manual, xlsx 2026-11-03) | Skip (automated) - cần màn Ngân hàng đề thi (ngoài phạm vi) |
-| DEL-03 | Xóa Bảng điểm đã gắn Đề thi ĐÃ công khai | Gắn Bảng điểm vào 1 Đề thi đã Công khai, sau đó thử xóa Bảng điểm đó | KHÔNG cho phép xóa — nút Xóa bị ẩn/disable, hoặc hệ thống báo lỗi chặn xóa khi xác nhận; Bảng điểm vẫn còn trong danh sách | Pass (manual, xlsx 2026-11-03) | Skip (automated) - cần màn Ngân hàng đề thi (ngoài phạm vi) |
+| DEL-02 | Xóa Bảng điểm đã gắn Đề thi CHƯA công khai | Gắn Bảng điểm vào 1 Đề thi chưa công khai, sau đó thử xóa Bảng điểm đó | KHÔNG cho phép xóa (khác với rule Xóa Section); nút Xóa bị ẩn/disable, hoặc hệ thống báo lỗi chặn xóa khi xác nhận | Pass (automated, live-run staging 2026-11-04) | [score-table-delete.spec.js](score-table-delete.spec.js) `DEL-02` |
+| DEL-03 | Xóa Bảng điểm đã gắn Đề thi ĐÃ công khai | Gắn Bảng điểm vào 1 Đề thi đã Công khai, sau đó thử xóa Bảng điểm đó | KHÔNG cho phép xóa — nút Xóa bị ẩn/disable, hoặc hệ thống báo lỗi chặn xóa khi xác nhận; Bảng điểm vẫn còn trong danh sách | Pass (automated, live-run staging 2026-11-04) | [score-table-delete.spec.js](score-table-delete.spec.js) `DEL-03` |
 | DEL-04 | Hủy ở popup xác nhận xóa | Bấm icon "Xóa" trên 1 Bảng điểm hợp lệ để xóa → popup xác nhận hiện ra → bấm Hủy/đóng popup | Bảng điểm KHÔNG bị xóa, vẫn còn nguyên trong danh sách | Pass (automated, live-run dev 2026-11-03) | [score-table-delete.spec.js](score-table-delete.spec.js) `DEL-04` |
 | DEL-05 | Số đếm "X bảng điểm" giảm đúng sau khi xóa thành công | Ghi nhận số "Tổng X bản ghi" trước khi xóa, thực hiện DEL-01 (xóa 1 Bảng điểm hợp lệ) | Số đếm giảm đúng 1 đơn vị so với trước khi xóa, không cần tải lại trang | Pass (automated, live-run dev 2026-11-03) | [score-table-delete.spec.js](score-table-delete.spec.js) `DEL-05` |
-| DEL-06 | [Edge] Bảng điểm đã từng gắn Đề thi nhưng Đề thi đó sau đó bị xóa/gỡ gắn | Gắn Bảng điểm vào 1 Đề thi, sau đó gỡ Bảng điểm ra khỏi Đề thi đó (hoặc xóa hẳn Đề thi), thử xóa lại Bảng điểm | Vì không còn gắn vào Đề thi nào nữa, hệ thống cho phép xóa bình thường | Pass (manual, xlsx 2026-11-03) | Skip (automated) - cần màn Ngân hàng đề thi (ngoài phạm vi) |
+| DEL-06 | [Edge] Bảng điểm đã từng gắn Đề thi nhưng Đề thi đó sau đó bị xóa/gỡ gắn | Gắn Bảng điểm vào 1 Đề thi, sau đó gỡ Bảng điểm ra khỏi Đề thi đó (hoặc xóa hẳn Đề thi), thử xóa lại Bảng điểm | Vì không còn gắn vào Đề thi nào nữa, hệ thống cho phép xóa bình thường | Pass (automated, live-run staging 2026-11-04) | [score-table-delete.spec.js](score-table-delete.spec.js) `DEL-06` |
 
 ## 5. Phân quyền truy cập
 
 | ID | Tên case | Bước thực hiện | Kỳ vọng | Trạng thái | Automation |
 |----|----------|-----------------|---------|------------|------------|
-| PERM-01 | [Exploratory] Tài khoản không có quyền Admin truy cập menu Cấu hình bảng điểm | Đăng nhập bằng tài khoản CMS không có quyền Admin (nếu hệ thống có phân quyền theo vai trò), thử truy cập menu `Quản lý ôn thi / Cấu hình bảng điểm` | Theo Statement ("Là quản trị viên, tôi muốn..."), menu/chức năng này nên giới hạn cho vai trò quản trị viên | Pass (manual, xlsx 2026-11-03) | Skip (automated) - cần tài khoản CMS phân quyền khác, automation không tự tạo được |
+| PERM-01 | [Exploratory] Tài khoản không có quyền Admin truy cập menu Cấu hình bảng điểm | Đăng nhập bằng tài khoản CMS không có quyền Admin (tài khoản CTV do chủ sản phẩm cung cấp trên staging), thử truy cập menu `Quản lý ôn thi / Cấu hình bảng điểm` | **ĐÃ XÁC NHẬN THẬT (2026-11-04, staging)**: menu "Cấu hình bảng điểm" KHÔNG hiển thị trong sidebar với tài khoản CTV; truy cập thẳng URL cũng không vào được màn danh sách | Pass (automated, live-run staging 2026-11-04) | [score-table-perm-sync.spec.js](score-table-perm-sync.spec.js) `PERM-01` |
 
 ## 6. Đồng bộ dữ liệu Bảng điểm sang Đề thi
 
@@ -141,10 +144,10 @@ của Kỳ thi mà đề thuộc về**, và dữ liệu Bảng điểm sau khi 
 
 | ID | Tên case | Bước thực hiện | Kỳ vọng | Trạng thái | Automation |
 |----|----------|-----------------|---------|------------|------------|
-| SYNC-01 | Bảng điểm mới tạo hiển thị ngay trong dropdown chọn Bảng điểm ở Đề thi | Tạo mới 1 Bảng điểm ở màn Cấu hình bảng điểm, không tải lại trang, sang Ngân hàng đề thi → mở 1 Đề thi (hoặc Tạo mới) → mở dropdown chọn Bảng điểm | Bảng điểm vừa tạo xuất hiện ngay trong danh sách để chọn, không cần F5/tải lại trang | Pass (manual, xlsx 2026-11-03) | Skip (automated) - cần màn Ngân hàng đề thi (ngoài phạm vi) |
-| SYNC-02 | Đề thi chỉ cho chọn Bảng điểm có Dạng quy đổi KHỚP với Dạng quy đổi của Kỳ thi | Mở 1 Đề thi thuộc Kỳ thi có Dạng quy đổi = "Phổ thông", mở dropdown chọn Bảng điểm | Dropdown chỉ liệt kê các Bảng điểm có Dạng quy đổi = "Phổ thông" (khớp với Kỳ thi) | Pass (manual, xlsx 2026-11-03) | Skip (automated) - cần màn Ngân hàng đề thi (ngoài phạm vi) |
-| SYNC-03 | Sửa Tên Bảng điểm (trường hợp được phép sửa) → Đề thi hiển thị đúng tên mới | Gắn Bảng điểm X (chưa công khai đề) vào 1 Đề thi (Lưu), sang Cấu hình bảng điểm đổi Tên bảng điểm của X (Lưu), quay lại mở Đề thi đã gắn | Đề thi hiển thị NGAY tên mới của Bảng điểm X, không giữ tên cũ | Pass (manual, xlsx 2026-11-03) | Skip (automated) - cần màn Ngân hàng đề thi (ngoài phạm vi) |
-| SYNC-04 | Bảng điểm bị xóa không còn xuất hiện trong dropdown chọn ở Đề thi | Sau khi xóa thành công 1 Bảng điểm chưa từng gắn đề thi nào (DEL-01), mở dropdown chọn Bảng điểm ở màn Đề thi | Bảng điểm đã xóa không còn xuất hiện trong danh sách để chọn | Pass (manual, xlsx 2026-11-03) | Skip (automated) - cần màn Ngân hàng đề thi (ngoài phạm vi) |
+| SYNC-01 | Bảng điểm mới tạo hiển thị ngay trong dropdown chọn Bảng điểm ở Đề thi | Tạo mới 1 Bảng điểm ở màn Cấu hình bảng điểm, không tải lại trang, sang Ngân hàng đề thi → mở 1 Đề thi (hoặc Tạo mới) → mở dropdown chọn Bảng điểm | Bảng điểm vừa tạo xuất hiện ngay trong danh sách để chọn, không cần F5/tải lại trang | Pass (automated, live-run staging 2026-11-04) | [score-table-perm-sync.spec.js](score-table-perm-sync.spec.js) `SYNC-01` |
+| SYNC-02 | Đề thi chỉ cho chọn Bảng điểm có Dạng quy đổi KHỚP với Dạng quy đổi của Kỳ thi | — | **KHÔNG áp dụng được**: hệ thống hiện chỉ có đúng 1 giá trị Dạng quy đổi ("Phổ thông") cho cả Bảng điểm lẫn Kỳ thi, không có cách nào tạo tình huống "không khớp" để test (cùng lý do ADD-03/EDIT-10) | N/A | Skip (automated) - field Dạng quy đổi chỉ có 1 giá trị, không có dạng thứ 2 để tạo tình huống không khớp |
+| SYNC-03 | Sửa Tên Bảng điểm (trường hợp được phép sửa) → Đề thi hiển thị đúng tên mới | Gắn Bảng điểm X (chưa công khai đề) vào 1 Đề thi (Lưu), sang Cấu hình bảng điểm đổi Tên bảng điểm của X (Lưu), quay lại mở Đề thi đã gắn | Đề thi hiển thị NGAY tên mới của Bảng điểm X, không giữ tên cũ | Pass (automated, live-run staging 2026-11-04) | [score-table-perm-sync.spec.js](score-table-perm-sync.spec.js) `SYNC-03` |
+| SYNC-04 | Bảng điểm bị xóa không còn xuất hiện trong dropdown chọn ở Đề thi | Sau khi xóa thành công 1 Bảng điểm chưa từng gắn đề thi nào (DEL-01), mở dropdown chọn Bảng điểm ở màn Đề thi | Bảng điểm đã xóa không còn xuất hiện trong danh sách để chọn | Pass (automated, live-run staging 2026-11-04) | [score-table-perm-sync.spec.js](score-table-perm-sync.spec.js) `SYNC-04` |
 | SYNC-05 | Điểm cuối cùng của học sinh được tính đúng theo rule "Phổ thông" khi làm đề | Gắn 1 Bảng điểm "Phổ thông" vào 1 Đề thi, cho học sinh làm đề và trả lời đúng/sai 1 số câu có điểm khác nhau, xem điểm kết quả cuối cùng | Điểm cuối cùng hiển thị đúng = tổng điểm (thô) của các câu hỏi con trong đề mà học sinh làm đúng | Pending ("Web chưa có để check" - xlsx) | Skip (automated) - cần màn làm bài học sinh qua web, chưa sẵn sàng tại thời điểm chạy |
 
 ## 7. Phân trang danh sách Bảng điểm

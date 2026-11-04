@@ -60,6 +60,12 @@ name: OT-01_02_03_04_06 Label so luong de va Dropdown thoi gian giao
 
 # --- OT-04: rỗng do lọc hẹp (OPTIONAL - chỉ đúng nếu tài khoản test đang có "0 đề" ở khoảng hẹp
 # hơn; không ép buộc trạng thái dữ liệu, chỉ chụp lại để QA đối chiếu bằng mắt) ---
+# LƯU Ý (xác nhận thật 2026-11-04): `onthi-select-period-filter.yaml` cần Filter Sheet ĐANG MỞ SẴN
+# (xem docblock file đó) - phải tự mở lại dropdown (nhãn hiện tại đang là "1 tháng gần nhất" sau
+# bước OT-03) trước khi gọi helper, nếu không helper tìm text "2 tuần gần nhất" sẽ FAIL vì sheet
+# đã đóng từ sau OT-03.
+- tapOn:
+    text: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
 - runFlow:
     file: ../helpers/onthi-select-period-filter.yaml
     env:

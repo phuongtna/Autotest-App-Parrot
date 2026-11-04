@@ -14,7 +14,7 @@ import {
   readPracticePopupSectionLabel,
   searchInPracticePopup,
   readPracticePopupOptionTexts,
-  selectPracticeInPopup,
+  selectFirstPracticeInPopup,
   clickPracticePopupSave,
   clickPracticePopupCancel,
   practiceRow,
@@ -37,11 +37,13 @@ test.describe.serial("Ngân hàng đề thi - 8. Popup Thêm mới Bài thực h
   let page;
   let baseUrl;
   let fixtures;
+  let anyPracticeText;
+  let addedPracticeName;
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -69,13 +71,19 @@ test.describe.serial("Ngân hàng đề thi - 8. Popup Thêm mới Bài thực h
     await clickAddPracticeButton(page, fixtures.sectionA);
     const texts = await readPracticePopupOptionTexts(page);
     expect(texts.length).toBeGreaterThan(0);
+    // Chỉ lấy dòng đầu (tên bài) - `innerText()` của cả thẻ <li> có thể gộp cả label nút ẩn
+    // (Xem/Sửa) nối ở dòng sau, dùng nguyên chuỗi đó làm từ khóa tìm kiếm sẽ không khớp item nào.
+    anyPracticeText = texts[0].split("\n")[0].trim();
   });
 
   test("POPUP-03: tìm kiếm theo tên trong popup", async () => {
-    await searchInPracticePopup(page, "vocabulary");
+    // Dùng chính tên 1 bài đã đọc được ở POPUP-02 làm từ khóa - KHÔNG hard-code "vocabulary" vì
+    // kho bài thực hành core exam khác nhau giữa các môi trường (dev/staging), không đảm bảo luôn
+    // có từ khóa cố định.
+    await searchInPracticePopup(page, anyPracticeText);
     const texts = await readPracticePopupOptionTexts(page);
     expect(texts.length).toBeGreaterThan(0);
-    expect(texts.every((t) => t.toLowerCase().includes("vocabulary"))).toBe(true);
+    expect(texts.every((t) => t.toLowerCase().includes(anyPracticeText.toLowerCase()))).toBe(true);
   });
 
   test("POPUP-04: tìm kiếm không có kết quả trong popup", async () => {
@@ -85,16 +93,16 @@ test.describe.serial("Ngân hàng đề thi - 8. Popup Thêm mới Bài thực h
   });
 
   test("POPUP-08: chọn 1 bài thực hành rồi bấm Lưu -> xuất hiện ở cuối danh sách của đúng Section", async () => {
-    await searchInPracticePopup(page, "AI vocabulary");
-    await selectPracticeInPopup(page, "AI vocabulary");
+    await searchInPracticePopup(page, "");
+    addedPracticeName = await selectFirstPracticeInPopup(page);
     await clickPracticePopupSave(page);
-    await expect(practiceRow(page, fixtures.sectionA, "AI vocabulary")).toBeVisible();
+    await expect(practiceRow(page, fixtures.sectionA, addedPracticeName)).toBeVisible();
   });
 
   test("POPUP-05/06: Bài thực hành đã gắn vào section này bị ẩn khỏi danh sách chọn ở lần mở popup kế tiếp", async () => {
     await clickAddPracticeButton(page, fixtures.sectionA);
     const texts = await readPracticePopupOptionTexts(page);
-    expect(texts.some((t) => t.includes("AI vocabulary"))).toBe(false);
+    expect(texts.some((t) => t.includes(addedPracticeName))).toBe(false);
     // Dòng ghi chú số lượng đề đã ẩn (POPUP-06) - đọc khách quan nếu tồn tại, không ép cứng số vì
     // phụ thuộc đúng 1 bài đã gắn (khác với kịch bản mẫu "2 đề" trong TESTCASES.xlsx).
     const hiddenNote = page.getByText(/Đã ẩn\s*\d+\s*đề/, { exact: false });
@@ -107,11 +115,11 @@ test.describe.serial("Ngân hàng đề thi - 8. Popup Thêm mới Bài thực h
   test("POPUP-07: [Edge - cần xác nhận BA] 1 Bài thực hành được chọn cho Section khác trong cùng đề", async () => {
     await clickAddPracticeButton(page, fixtures.sectionB);
     const texts = await readPracticePopupOptionTexts(page);
-    const stillVisible = texts.some((t) => t.includes("AI vocabulary"));
+    const stillVisible = texts.some((t) => t.includes(addedPracticeName));
     // Quan sát khách quan, KHÔNG assert cứng đúng/sai - ghi log để người đọc report tự đối chiếu
     // với kỳ vọng "vẫn hiển thị" trong TESTCASES.xlsx, cần BA xác nhận đây có phải hành vi mong
     // muốn hay không trước khi coi là Pass/Fail chính thức.
-    console.log(`POPUP-07 [Exploratory]: bài "AI vocabulary" đã gắn ở Section A, mở popup Section B -> ${stillVisible ? "VẪN hiển thị" : "BỊ ẨN"} (kỳ vọng trong xlsx: vẫn hiển thị)`);
+    console.log(`POPUP-07 [Exploratory]: bài "${addedPracticeName}" đã gắn ở Section A, mở popup Section B -> ${stillVisible ? "VẪN hiển thị" : "BỊ ẨN"} (kỳ vọng trong xlsx: vẫn hiển thị)`);
     await clickPracticePopupCancel(page);
   });
 
@@ -132,9 +140,9 @@ test.describe.serial("Ngân hàng đề thi - 8. Popup Thêm mới Bài thực h
 
   test("POPUP-10: bấm Hủy đóng popup không thêm gì dù đã chọn 1 bài", async () => {
     await clickAddPracticeButton(page, fixtures.sectionB);
-    await selectPracticeInPopup(page, "Reading 01");
+    const pickedName = await selectFirstPracticeInPopup(page);
     await clickPracticePopupCancel(page);
     const card = page.locator("div", { hasText: fixtures.sectionB }).filter({ hasText: po.addContentToSectionButton }).last();
-    await expect(card.getByText("Reading 01", { exact: false })).toHaveCount(0);
+    await expect(card.getByText(pickedName, { exact: false })).toHaveCount(0);
   });
 });

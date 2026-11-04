@@ -21,7 +21,7 @@ import {
   clearSectionDurationInStructure,
   removeSectionFromStructure,
   clickAddPracticeButton,
-  selectPracticeInPopup,
+  selectFirstPracticeInPopup,
   searchInPracticePopup,
   clickPracticePopupSave,
   readPracticePopupSectionLabel,
@@ -29,6 +29,7 @@ import {
   clickPracticeDelete,
   clickSave,
   selectTrangThai,
+  selectScoreTable,
 } from "../../../../automation/ngan_hang_de_thi/navigation/cmsDeThiPageObjects.js";
 
 /**
@@ -55,8 +56,8 @@ test.describe.serial("Ngân hàng đề thi - 3. Cấu trúc đề - Section & B
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -149,16 +150,16 @@ test.describe.serial("Ngân hàng đề thi - 3. Cấu trúc đề - Section & B
 
   test("STRUCT-12/13/14: icon mắt/sửa/xóa trên Bài thực hành", async () => {
     await searchInPracticePopup(page, "");
-    await selectPracticeInPopup(page, "AI vocabulary");
+    const practiceName = await selectFirstPracticeInPopup(page);
     await clickPracticePopupSave(page);
 
-    await clickPracticeView(page, fixtures.sectionA, "AI vocabulary");
-    await expect(page.getByRole("dialog").getByText("AI vocabulary", { exact: false })).toBeVisible();
+    await clickPracticeView(page, fixtures.sectionA, practiceName);
+    await expect(page.getByRole("dialog").getByText(practiceName, { exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Đóng", exact: true }).click();
 
-    await clickPracticeDelete(page, fixtures.sectionA, "AI vocabulary");
+    await clickPracticeDelete(page, fixtures.sectionA, practiceName);
     const card = page.locator("div", { hasText: fixtures.sectionA }).filter({ hasText: po.addContentToSectionButton }).last();
-    await expect(card.getByText("AI vocabulary", { exact: false })).toHaveCount(0);
+    await expect(card.getByText(practiceName, { exact: false })).toHaveCount(0);
   });
 
   test("STRUCT-18: đề không có Section nào vẫn cho phép Lưu ở trạng thái Nháp", async () => {
@@ -168,6 +169,7 @@ test.describe.serial("Ngân hàng đề thi - 3. Cấu trúc đề - Section & B
     await selectExamType(page, fixtures.examTypeEmpty);
     await fillExamDuration(page, 30);
     await selectGrades(page, ["Lớp 1"]);
+    await selectScoreTable(page, fixtures.scoreTable);
     await selectTrangThai(page, po.draftRadioLabel);
     await clickSave(page);
     await expect(page).toHaveURL(/\/exam-prep\/papers$/);

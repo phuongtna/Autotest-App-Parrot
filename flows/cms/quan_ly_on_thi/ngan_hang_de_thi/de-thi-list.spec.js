@@ -51,8 +51,8 @@ test.describe.serial("Ngân hàng đề thi - 1. Danh sách đề thi (LIST-01..
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -79,9 +79,9 @@ test.describe.serial("Ngân hàng đề thi - 1. Danh sách đề thi (LIST-01..
   });
 
   test("LIST-02: thứ tự danh sách mới nhất lên đầu", async () => {
-    await createExam(page, { name: A, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"] });
+    await createExam(page, { name: A, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"], scoreTable: fixtures.scoreTable });
     await gotoDeThi(page, baseUrl);
-    await createExam(page, { name: B, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"] });
+    await createExam(page, { name: B, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"], scoreTable: fixtures.scoreTable });
     await gotoDeThi(page, baseUrl);
     await searchDeThi(page, runId);
     const names = await readAllExamNamesInOrder(page);
@@ -96,7 +96,7 @@ test.describe.serial("Ngân hàng đề thi - 1. Danh sách đề thi (LIST-01..
   });
 
   test("LIST-04: cột Khối lớp hiển thị đủ khi đề gắn nhiều Khối lớp", async () => {
-    await createExam(page, { name: MULTI_GRADE, examType: fixtures.examTypeEmpty, grades: ["Lớp 3", "Lớp 4", "Lớp 5"] });
+    await createExam(page, { name: MULTI_GRADE, examType: fixtures.examTypeEmpty, grades: ["Lớp 3", "Lớp 4", "Lớp 5"], scoreTable: fixtures.scoreTable });
     await gotoDeThi(page, baseUrl);
     const gradesText = await readRowGrades(page, MULTI_GRADE);
     expect(gradesText).toContain("Lớp 3");
@@ -159,7 +159,7 @@ test.describe.serial("Ngân hàng đề thi - 1. Danh sách đề thi (LIST-01..
   });
 
   test("LIST-12: cột Hình thức hiển thị đúng badge Free/Pro", async () => {
-    await createExam(page, { name: PRO_EXAM, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"], hinhThuc: po.proRadioLabel });
+    await createExam(page, { name: PRO_EXAM, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"], hinhThuc: po.proRadioLabel, scoreTable: fixtures.scoreTable });
     await gotoDeThi(page, baseUrl);
     expect(await readRowFormatBadge(page, PRO_EXAM)).toContain("Pro");
     expect(await readRowFormatBadge(page, A)).toContain("Free");

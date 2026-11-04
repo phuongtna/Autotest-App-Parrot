@@ -44,8 +44,8 @@ test.describe.serial("Ngân hàng đề thi - 2. Tạo mới đề thi - Thông 
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -163,6 +163,7 @@ test.describe.serial("Ngân hàng đề thi - 2. Tạo mới đề thi - Thông 
     await selectGrades(page, ["Lớp 1"]);
     await expect(page.locator(".n-radio--checked", { hasText: po.freeRadioLabel })).toBeVisible();
     await selectHinhThuc(page, po.proRadioLabel);
+    await selectScoreTable(page, fixtures.scoreTable);
     await clickSave(page);
     await gotoDeThi(page, baseUrl);
     await openEditDeThi(page, EXAM_A);

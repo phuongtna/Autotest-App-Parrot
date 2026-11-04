@@ -1,18 +1,35 @@
 # Helper: mở tab "Ôn thi" > sub-tab ${ON_THI_TAB} ("Đề thầy cô giao" MẶC ĐỊNH, hoặc "Kho đề
 # Parrot" nếu truyền ON_THI_TAB="Kho đề Parrot") và chờ danh sách render xong.
 #
-# ĐÃ XÁC NHẬN THẬT (2026-10-30, thao tác tay qua `adb shell input tap` + screenshot, thiết bị
-# 3201d866d40a1681, app com.inet.parrotedu, tài khoản/profile "Phương" lớp 11A2): "Ôn thi" ĐÚNG LÀ
-# 1 tab điều hướng được bằng text trực tiếp (không cần mở từ "Vui học"/banner nào khác), và màn
-# Danh sách đề CÓ ĐÚNG 2 sub-tab "Đề thầy cô giao"/"Kho đề Parrot" như ảnh mockup gốc - xoá cảnh báo
-# "CẦN XÁC MINH tên tab gốc" trước đây. CHƯA chạy qua `maestro test`/MaestroBridge thật lần nào
-# (toàn bộ xác nhận trên đến từ `adb shell input tap` thô, không phải qua chính file YAML này) -
-# tham số hoá ON_THI_TAB thêm MỚI (2026-10-30) để tái sử dụng helper này cho cả 2 tab khi viết
-# `onThiExamEngine.js`, CHƯA tự chạy thử nhánh "Kho đề Parrot" qua Maestro.
+# SỬA LẠI SAU KHI CHẠY THẬT QUA `maestro test` LẦN ĐẦU (2026-11-04, thiết bị 3201d866d40a1681, app
+# com.inet.parrotedu, tài khoản 84987652170/profile Duy lớp 3C): claim cũ "'Ôn thi' là 1 tab điều
+# hướng trực tiếp bằng text" SAI - "Ôn thi" KHÔNG phải bottom tab (bottom tab bar thật chỉ có đúng 4
+# mục, resource-id tab_happy_learning/tab_homework/tab_chat/tab_report, xác nhận qua
+# `maestro hierarchy` lẫn 2 profile Duy và Hoang Gia Minh). "Ôn thi" là 1 ô quick-nav NẰM BÊN TRONG
+# nội dung tab "Báo cáo" (id tab_report), và CẦN CUỘN XUỐNG mới thấy (ở dưới card báo cáo, không
+# nằm ngay đầu màn) - xác nhận qua `scrollUntilVisible` + `maestro hierarchy` thật. Vì vậy helper
+# này giờ LUÔN chủ động mở "Báo cáo" trước (không phụ thuộc app đang ở tab nào sau
+# launch-keep-session.yaml/login.yaml), bỏ qua bước này nếu đã đang ở sẵn màn danh sách đề (idempotent).
 appId: ${APP_ID}
 ---
-- tapOn:
-    text: "Ôn thi"
+- runFlow:
+    when:
+      notVisible:
+        text: ".*(Đề thầy cô giao|Kho đề Parrot).*"
+    commands:
+      - tapOn:
+          id: "tab_report"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Báo cáo học tập).*"
+          timeout: 15000
+      - scrollUntilVisible:
+          element:
+            text: "Ôn thi"
+          direction: DOWN
+          timeout: 20000
+          speed: 50
+      - tapOn: "Ôn thi"
 
 - runFlow:
     when:
@@ -28,7 +45,7 @@ appId: ${APP_ID}
 # Chọn ĐÚNG sub-tab mong muốn (mặc định "Đề thầy cô giao" nếu không truyền ON_THI_TAB) - tap lại
 # cho idempotent, không gây lỗi nếu đã đang chọn sẵn.
 - tapOn:
-    text: ${ON_THI_TAB == null || ON_THI_TAB == 'undefined' ? 'Đề thầy cô giao' : ON_THI_TAB}
+    text: "${ON_THI_TAB == null || ON_THI_TAB == 'undefined' ? 'Đề thầy cô giao' : ON_THI_TAB}"
 
 - extendedWaitUntil:
     visible:

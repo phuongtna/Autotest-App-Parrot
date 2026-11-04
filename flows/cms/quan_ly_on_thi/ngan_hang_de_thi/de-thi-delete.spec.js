@@ -9,7 +9,7 @@ import {
   openEditDeThi,
   fillSectionDurationInStructure,
   clickAddPracticeButton,
-  selectPracticeInPopup,
+  selectFirstPracticeInPopup,
   clickPracticePopupSave,
   selectTrangThai,
   clickSave,
@@ -45,8 +45,8 @@ test.describe.serial("Ngân hàng đề thi - 6. Xóa đề thi (DEL-01..06)", (
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -58,7 +58,7 @@ test.describe.serial("Ngân hàng đề thi - 6. Xóa đề thi (DEL-01..06)", (
 
     fixtures = await setupDeThiFixtures(page, baseUrl, runId);
     await gotoDeThi(page, baseUrl);
-    await createExam(page, { name: DRAFT_EXAM, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"] });
+    await createExam(page, { name: DRAFT_EXAM, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"], scoreTable: fixtures.scoreTable });
 
     // Dựng 1 đề Công khai thật cho DEL-04.
     await gotoDeThi(page, baseUrl);
@@ -74,7 +74,7 @@ test.describe.serial("Ngân hàng đề thi - 6. Xóa đề thi (DEL-01..06)", (
     await fillSectionDurationInStructure(page, fixtures.sectionB, 15);
     for (const section of [fixtures.sectionA, fixtures.sectionB]) {
       await clickAddPracticeButton(page, section);
-      await selectPracticeInPopup(page, "AI vocabulary");
+      await selectFirstPracticeInPopup(page);
       await clickPracticePopupSave(page);
     }
     await selectTrangThai(page, po.completedRadioLabel);
@@ -121,7 +121,7 @@ test.describe.serial("Ngân hàng đề thi - 6. Xóa đề thi (DEL-01..06)", (
   test("DEL-05: số đếm 'X đề thi' giảm đúng sau khi xóa thành công", async () => {
     await searchDeThi(page, "");
     const before = await readTotalRecordsText(page);
-    await createExam(page, { name: `${runId}-delCount`, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"] });
+    await createExam(page, { name: `${runId}-delCount`, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"], scoreTable: fixtures.scoreTable });
     await gotoDeThi(page, baseUrl);
     const afterCreate = await readTotalRecordsText(page);
     expect(afterCreate).toBe(before + 1);

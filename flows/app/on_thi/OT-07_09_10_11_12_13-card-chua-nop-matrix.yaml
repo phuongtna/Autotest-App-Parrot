@@ -90,6 +90,17 @@ name: OT-07_09_10_11_12_13 Ma tran hien thi Card de chua nop
 
 # --- OT-13: tap CTA của 1 card CỤ THỂ (dùng DE_NAME truyền vào, KHÔNG tap theo index) -> vào đúng
 # màn Chi tiết đề (dùng chung marker exercise_close_button với module Bài tập - xem open-de.yaml) ---
+# LƯU Ý (xác nhận thật 2026-11-04): các block OT-09/10/12 phía trên đã cuộn XUỐNG nhiều lần (repeat
+# swipe + scrollUntilVisible) - `open-de.yaml` chỉ cuộn XUỐNG để tìm DE_NAME, KHÔNG tự quay lại đầu
+# danh sách trước, nên nếu DE_NAME nằm phía TRÊN vị trí hiện tại (vd đã cuộn qua khỏi nó) sẽ FAIL dù
+# card vẫn tồn tại - CÙNG LỚP LỖI "findAssignment() cần scrollToTop() trước" đã biết ở module Bài tập.
+# Cuộn LÊN lại mốc filter label trước khi tìm, cho an toàn bất kể vị trí cuộn hiện tại.
+- scrollUntilVisible:
+    element:
+      text: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
+    direction: UP
+    timeout: 30000
+    speed: 70
 - runFlow:
     when:
       true: ${DE_NAME != null && DE_NAME != 'undefined'}

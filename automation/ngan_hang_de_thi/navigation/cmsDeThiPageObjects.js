@@ -94,7 +94,8 @@ import {
   openEditKyThiPopup as openEditKyThiPopupInner,
   attachSection as attachSectionToKyThi,
   saveKyThiPopup,
-  deleteKyThiByName,
+  kyThiRow,
+  searchKyThi,
 } from "../../quan_ly_ky_thi/navigation/cmsKyThiPageObjects.js";
 
 export const cmsDeThiPageObjects = {
@@ -332,6 +333,27 @@ export async function readSelectedScoreTable(page) {
   return scoreTableSelectLocator(page).innerText();
 }
 
+/** Kiểm tra 1 tên Bảng điểm có xuất hiện trong dropdown "Bảng điểm quy đổi" hay không - dùng cho
+ * SYNC-04 (xác nhận Bảng điểm đã xóa KHÔNG còn trong dropdown). Cùng cơ chế cuộn virtual-scroll
+ * như `selectScoreTable()` ở trên nhưng KHÔNG click (chỉ đọc có/không) - trả về `false` sau khi đã
+ * cuộn hết mà không tìm thấy, KHÔNG throw timeout như `selectScoreTable()`. */
+export async function isScoreTableOptionAvailable(page, scoreTableName) {
+  const selectLocator = scoreTableSelectLocator(page);
+  await selectLocator.click();
+  await page.waitForTimeout(300);
+  const option = page.locator('.n-base-select-option:visible, [role="option"]:visible', { hasText: scoreTableName }).first();
+  const box = await selectLocator.boundingBox();
+  for (let i = 0; i < 60; i += 1) {
+    if (await option.count()) break;
+    if (box) await page.mouse.move(box.x + box.width / 2, box.y + box.height + 150);
+    await page.mouse.wheel(0, 240);
+    await page.waitForTimeout(120);
+  }
+  const found = (await option.count()) > 0;
+  await page.keyboard.press("Escape");
+  return found;
+}
+
 export async function selectTrangThai(page, label) {
   await page.getByText(label, { exact: true }).locator("xpath=ancestor::*[contains(@class,'n-radio')][1]").click();
 }
@@ -452,13 +474,24 @@ export async function readSectionDurationInStructure(page, sectionName) {
 }
 
 /** Đọc đúng thứ tự tên các Section card đang có trong "Cấu trúc đề" (dòng trên = thứ tự nhỏ hơn) -
- * dùng để assert tự fill đúng thứ tự (STRUCT-02) hoặc thứ tự thêm (STRUCT-04). */
+ * dùng để assert tự fill đúng thứ tự (STRUCT-02) hoặc thứ tự thêm (STRUCT-04).
+ *
+ * ĐÃ GẶP THẬT (2026-11-04, staging - `ky-thi-edit.spec.js`/`ky-thi-perm-sync.spec.js` EDIT-03/
+ * SYNC-02): bản cũ định vị card qua nút "Xóa section khỏi đề" (`aria-label`/text) - xác nhận THẬT
+ * trên DEV nhưng SAI trên STAGING: dò trực tiếp DOM (10 nút trong màn, in hết aria-label/text) cho
+ * thấy nút xóa icon-only KHÔNG có aria-label lẫn text accessible nào trên staging (chỉ "Bài thực
+ * hành"/"Thêm Section"/"Hủy"/"Lưu"/"Công khai" có tên) dù Section card build đúng Cấu trúc đề thật
+ * (xác nhận qua screenshot). Đổi sang định vị theo input Thời lượng (`placeholder="--"`, luôn có
+ * trên MỌI card, đã dùng ổn định bởi `fillSectionDurationInStructure()`) rồi lấy `ancestor::div[5]`
+ * (xác nhận đúng qua dò DOM thật: div[1..4] chỉ chứa text "--"/"phút" của riêng ô input, div[5] mới
+ * là card đầy đủ "Tên Section\nKỹ năng\n--\nphút", div[6] lẫn thêm cả khối "Bài thực hành" bên dưới)
+ * - KHÔNG còn phụ thuộc nút Xóa, hoạt động đúng trên CẢ dev và staging. */
 export async function readStructureSectionNamesInOrder(page) {
-  const handles = page.locator(`button[aria-label="${po.removeSectionFromStructureButton}"], button:has-text("${po.removeSectionFromStructureButton}")`);
-  const count = await handles.count();
+  const inputs = page.locator(`input[placeholder="${po.sectionDurationPlaceholder}"]`);
+  const count = await inputs.count();
   const names = [];
   for (let i = 0; i < count; i += 1) {
-    const cardText = await handles.nth(i).locator("xpath=ancestor::*[self::div][1]/parent::div").innerText().catch(() => "");
+    const cardText = await inputs.nth(i).locator("xpath=ancestor::div[5]").first().innerText().catch(() => "");
     names.push(cardText.split("\n")[0]?.trim() || "");
   }
   return names;
@@ -467,7 +500,12 @@ export async function readStructureSectionNamesInOrder(page) {
 export async function clickAddPracticeButton(page, sectionName) {
   const card = page.locator("div", { hasText: sectionName }).filter({ hasText: po.addContentToSectionButton }).last();
   await card.getByRole("button", { name: po.addContentToSectionButton, exact: false }).click();
-  await page.getByRole("dialog").getByText(po.popupAddPracticeTitle, { exact: true }).waitFor({ state: "visible", timeout: 10000 });
+  const dialog = page.getByRole("dialog").filter({ hasText: po.popupAddPracticeTitle });
+  await dialog.getByText(po.popupAddPracticeTitle, { exact: true }).waitFor({ state: "visible", timeout: 10000 });
+  // Danh sách bài thực hành load bất đồng bộ SAU KHI dialog đã hiện (xác nhận thật 2026-11-04,
+  // staging: đọc ngay sau khi dialog visible có lúc trả về 0 item dù list thật sự có dữ liệu) - đợi
+  // item đầu tiên xuất hiện (hoặc hết 3s nếu thật sự rỗng) trước khi trả quyền điều khiển.
+  await dialog.locator("li, [role='listitem']").first().waitFor({ state: "visible", timeout: 3000 }).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -493,6 +531,18 @@ export async function readPracticePopupOptionTexts(page) {
 
 export async function selectPracticeInPopup(page, text) {
   await practicePopupDialog(page).getByText(text, { exact: false }).first().click();
+}
+
+/** Chọn ĐẠI 1 bài thực hành đầu tiên đang hiển thị trong popup (không quan tâm tên cụ thể) - trả
+ * về tên đã chọn để test dùng lại cho các assertion sau. Dùng thay `selectPracticeInPopup()` với
+ * tên hard-code (vd "AI vocabulary") - kho bài thực hành core exam khác nhau giữa các môi trường
+ * (dev/staging), tên cố định không đảm bảo luôn tồn tại. */
+export async function selectFirstPracticeInPopup(page) {
+  const option = practicePopupDialog(page).locator("li, [role='listitem']").first();
+  await option.waitFor({ state: "visible", timeout: 10000 });
+  const text = (await option.innerText()).trim();
+  await option.click();
+  return text;
 }
 
 export async function clickPracticePopupSave(page) {
@@ -731,57 +781,91 @@ export async function readCurrentPageSizeText(page) {
 // Fixture dùng chung - tạo Kỳ thi/Section/Bảng điểm RIÊNG cho module Đề thi (TÁI SỬ DỤNG thẳng
 // helper của 3 module kia thay vì viết lại) để không phụ thuộc dữ liệu thật có sẵn trên dev (có
 // thể bị đổi/xoá bởi phiên khác) - mirror đúng tinh thần "tiền tố AUTO-" đã dùng xuyên suốt.
+//
+// DÙNG CHUNG 1 BỘ TÊN CỐ ĐỊNH (KHÔNG gắn runId nữa) - XÁC NHẬN TỒN TẠI TRƯỚC, CHỈ TẠO MỚI NẾU
+// CHƯA CÓ (2026-11-04): trước đây mỗi lần chạy suite đều tạo mới + xóa sạch Section/Bảng điểm/Kỳ
+// thi riêng theo `runId`, gây tạo/xóa liên tục không cần thiết (những fixture này KHÔNG phải đối
+// tượng đang test, chỉ là điều kiện tiên quyết để tạo Đề thi) - giờ dựng 1 LẦN DUY NHẤT trên môi
+// trường, các lần chạy sau tái sử dụng nguyên bản ghi cũ. CHỈ Đề thi (đối tượng thật sự đang test,
+// vẫn đặt tên theo `runId` ở từng spec file) mới tạo/xóa mỗi lần chạy như cũ.
 // ---------------------------------------------------------------------------------------------
 
-/**
- * Dựng sẵn 2 Section + 1 Bảng điểm + 2 Kỳ thi (1 kỳ thi ĐÃ gắn sẵn 2 section vào "Cấu hình đề
- * xuất" để test STRUCT-02/EDIT-04, 1 kỳ thi HOÀN TOÀN trống để test STRUCT-01/EDIT-05) cho 1 lượt
- * chạy test (gắn `runId` vào mọi tên để cô lập + dễ dọn dẹp). Trả về tên các bản ghi đã tạo.
- */
-export async function setupDeThiFixtures(page, baseUrl, runId) {
-  const sectionA = `${runId}-secA`;
-  const sectionB = `${runId}-secB`;
-  const scoreTable = `${runId}-bd`;
-  const examTypeWithSections = `${runId}-kt-full`;
-  const examTypeEmpty = `${runId}-kt-empty`;
+const SHARED_FIXTURE_PREFIX = "AUTO-shared-ngan-hang-de-thi";
+const SHARED_SECTION_A = `${SHARED_FIXTURE_PREFIX}-secA`;
+const SHARED_SECTION_B = `${SHARED_FIXTURE_PREFIX}-secB`;
+const SHARED_SCORE_TABLE = `${SHARED_FIXTURE_PREFIX}-bd`;
+const SHARED_EXAM_TYPE_WITH_SECTIONS = `${SHARED_FIXTURE_PREFIX}-kt-full`;
+const SHARED_EXAM_TYPE_EMPTY = `${SHARED_FIXTURE_PREFIX}-kt-empty`;
 
+async function ensureSharedSection(page, baseUrl, name, skill, duration) {
+  const { searchSections, sectionRow } = await import("../../quan_ly_section/navigation/cmsSectionPageObjects.js");
   await page.goto(`${baseUrl}/exam-prep/sections`, { waitUntil: "networkidle" });
-  await createSection(page, { name: sectionA, skill: "Nghe", duration: 10 });
-  await createSection(page, { name: sectionB, skill: "Nói", duration: 15 });
-
-  await page.goto(`${baseUrl}/exam-prep/score-tables`, { waitUntil: "networkidle" });
-  await createScoreTable(page, { name: scoreTable, description: `${runId} score table` });
-
-  await gotoKyThi(page, baseUrl);
-  await createKyThi(page, { name: examTypeEmpty });
-  await createKyThi(page, { name: examTypeWithSections });
-  await openEditKyThiPopupInner(page, examTypeWithSections);
-  await attachSectionToKyThi(page, `${sectionA} (Nghe)`);
-  await attachSectionToKyThi(page, `${sectionB} (Nói)`);
-  await saveKyThiPopup(page);
-
-  return { sectionA, sectionB, scoreTable, examTypeWithSections, examTypeEmpty };
+  await searchSections(page, name);
+  if ((await sectionRow(page, name).count()) === 0) {
+    await createSection(page, { name, skill, duration });
+  }
 }
 
-/** Dọn dẹp fixture tạo bởi `setupDeThiFixtures` - PHẢI xóa Đề thi (tham chiếu) trước, sau đó mới
- * xóa được Kỳ thi/Section/Bảng điểm (bị chặn xóa khi còn đang gắn, xem DEL-02/03 ở module Kỳ thi/
- * Bảng điểm). `examNamesToDelete` là danh sách tên Đề thi do từng spec file tự tạo cần dọn trước. */
-export async function teardownDeThiFixtures(page, baseUrl, fixtures, examNamesToDelete = []) {
+async function ensureSharedScoreTable(page, baseUrl, name) {
+  const { searchScoreTables, scoreTableRow } = await import("../../cau_hinh_bang_diem/navigation/cmsScoreTablePageObjects.js");
+  await page.goto(`${baseUrl}/exam-prep/score-tables`, { waitUntil: "networkidle" });
+  await searchScoreTables(page, name);
+  if ((await scoreTableRow(page, name).count()) === 0) {
+    await createScoreTable(page, { name, description: `${name} score table` });
+  }
+}
+
+async function ensureSharedExamTypeEmpty(page, baseUrl, name) {
+  await gotoKyThi(page, baseUrl);
+  await searchKyThi(page, name);
+  if ((await kyThiRow(page, name).count()) === 0) {
+    await createKyThi(page, { name });
+  }
+}
+
+async function ensureSharedExamTypeWithSections(page, baseUrl, name, sectionA, sectionB) {
+  await gotoKyThi(page, baseUrl);
+  await searchKyThi(page, name);
+  if ((await kyThiRow(page, name).count()) === 0) {
+    await createKyThi(page, { name });
+    await openEditKyThiPopupInner(page, name);
+    await attachSectionToKyThi(page, `${sectionA} (Nghe)`);
+    await attachSectionToKyThi(page, `${sectionB} (Nói)`);
+    await saveKyThiPopup(page);
+  }
+}
+
+/**
+ * Đảm bảo có sẵn 2 Section + 1 Bảng điểm + 2 Kỳ thi (1 kỳ thi ĐÃ gắn sẵn 2 section vào "Cấu hình
+ * đề xuất" để test STRUCT-02/EDIT-04, 1 kỳ thi HOÀN TOÀN trống để test STRUCT-01/EDIT-05) - TÁI SỬ
+ * DỤNG nếu đã tồn tại từ lần chạy trước (xem ghi chú "DÙNG CHUNG 1 BỘ TÊN CỐ ĐỊNH" ở trên), chỉ tạo
+ * mới nếu chưa có. `runId` (tham số cũ) KHÔNG còn dùng để đặt tên fixture nữa - giữ lại tham số chỉ
+ * để KHÔNG phải sửa mọi lệnh gọi cũ `setupDeThiFixtures(page, baseUrl, runId)` ở các spec file.
+ */
+export async function setupDeThiFixtures(page, baseUrl, _runIdUnused) {
+  await ensureSharedSection(page, baseUrl, SHARED_SECTION_A, "Nghe", 10);
+  await ensureSharedSection(page, baseUrl, SHARED_SECTION_B, "Nói", 15);
+  await ensureSharedScoreTable(page, baseUrl, SHARED_SCORE_TABLE);
+  await ensureSharedExamTypeEmpty(page, baseUrl, SHARED_EXAM_TYPE_EMPTY);
+  await ensureSharedExamTypeWithSections(page, baseUrl, SHARED_EXAM_TYPE_WITH_SECTIONS, SHARED_SECTION_A, SHARED_SECTION_B);
+
+  return {
+    sectionA: SHARED_SECTION_A,
+    sectionB: SHARED_SECTION_B,
+    scoreTable: SHARED_SCORE_TABLE,
+    examTypeWithSections: SHARED_EXAM_TYPE_WITH_SECTIONS,
+    examTypeEmpty: SHARED_EXAM_TYPE_EMPTY,
+  };
+}
+
+/** Dọn dẹp SAU 1 lượt chạy test - CHỈ xóa Đề thi do spec file tự tạo (đối tượng thật sự đang test,
+ * vẫn đặt tên theo `runId` nên không trùng giữa các lần chạy). KHÔNG còn xóa Kỳ thi/Section/Bảng
+ * điểm dùng chung nữa (xem ghi chú "DÙNG CHUNG 1 BỘ TÊN CỐ ĐỊNH" ở `setupDeThiFixtures`) - những
+ * fixture này được GIỮ LẠI để lần chạy sau tái sử dụng, không tạo/xóa lại mỗi lần. `fixtures` (tham
+ * số cũ) KHÔNG còn dùng nhưng giữ lại để không phải sửa mọi lệnh gọi cũ. */
+export async function teardownDeThiFixtures(page, baseUrl, _fixturesUnused, examNamesToDelete = []) {
   await gotoDeThi(page, baseUrl);
   for (const name of examNamesToDelete) {
     await deleteDeThiByName(page, name).catch(() => {});
   }
-
-  await gotoKyThi(page, baseUrl);
-  await deleteKyThiByName(page, fixtures.examTypeWithSections).catch(() => {});
-  await deleteKyThiByName(page, fixtures.examTypeEmpty).catch(() => {});
-
-  const { deleteSectionByName } = await import("../../quan_ly_section/navigation/cmsSectionPageObjects.js");
-  await page.goto(`${baseUrl}/exam-prep/sections`, { waitUntil: "networkidle" });
-  await deleteSectionByName(page, fixtures.sectionA).catch(() => {});
-  await deleteSectionByName(page, fixtures.sectionB).catch(() => {});
-
-  const { deleteScoreTableByName } = await import("../../cau_hinh_bang_diem/navigation/cmsScoreTablePageObjects.js");
-  await page.goto(`${baseUrl}/exam-prep/score-tables`, { waitUntil: "networkidle" });
-  await deleteScoreTableByName(page, fixtures.scoreTable).catch(() => {});
 }

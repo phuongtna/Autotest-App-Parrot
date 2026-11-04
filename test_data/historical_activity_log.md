@@ -1526,3 +1526,74 @@ Activity
 **REPORT_PROFILE_STATE = PROTECTED / DO_NOT_USE** (từ 2026-09-28 16:32:18 +0700, đi thẳng từ
 REPORT_TESTING_ACTIVE, không dừng ở RELEASED). KHÔNG tự động login lại, KHÔNG tự động chọn
 profile này cho automation tiếp theo cho tới khi có chỉ định Report Testing mới.
+
+## Case: giao bài tập -> làm bài (>2 và <6đ) -> làm lại (>7 và <=10đ), 2026-11-04
+
+Activity
+- Timestamp: 2026-11-04 ~08:11 - 08:58 +0700
+- Profile: "Gia Linh" (Pro, lớp 3B) - xác nhận active live qua screenshot, KHÔNG switch
+  ([[feedback_keep_active_profile_for_giao_bai]]).
+- Session ID: N/A
+- Activity Type: homework_assigned + exercise_completed + exercise_redo_completed
+- Activity Detail: User yêu cầu "chạy luồng GBT, học sinh làm lần 1 với điểm từ >2 và <6. Làm
+  lại với điểm từ >7 và <=10". Chạy `flows/web/giao_bai_tap/e2e-giaobai-range34-lamlai-range67.mjs`
+  (KHÔNG viết engine mới, [[feedback_reuse_first_workflow]]) với FIRST_SCORE_MIN=2.1/MAX=5.9,
+  REDO_SCORE_MIN=7.1/MAX=10 (mô phỏng strict open interval, cùng quy ước epsilon-margin đã dùng ở
+  case 2026-09-28), PROFILE_NAME="Gia Linh", TARGET_CLASS_NAME="3B", TARGET_CLASS_ID=b3336062-
+  cacd-4d1a-a0af-4de44acf33d2. Đã giao bài "Choose the word that matches each description below."
+  (Unit Review 4, Vocabulary), hạn nộp 11/11/2026, room_id `39899ae5-fa3b-40cf-91ba-cee3f088f655`,
+  10 scored items resolved qua CMS.
+  Script chính FAIL ở bước locate mở bài lần đầu: `findAssignment()` NOT_FOUND/PROGRESS_STALLED -
+  xác nhận thủ công (screenshot + adb raw swipe) app KHÔNG freeze, card tồn tại thật nhưng kẹt
+  trong vùng carousel "Kiến thức trong bài" nuốt swipe gesture của Maestro (CÙNG root cause đã ghi
+  nhận ở [[project_3b_carousel_swipe_swallow_locate_bug_2026_09_17]]). KHÔNG re-run script chính
+  (tránh giao thêm 1 room thật thứ 2, [[feedback_recover_inplace_not_retry_after_partial_write]]) -
+  viết script recovery-in-place riêng (`automation/_scratch_resume_gbt_range26_lamlai_710_
+  room39899ae5.mjs`) tái dùng nguyên `resolveScoringPlanForCandidate()`/`answerAllQuestions()`/
+  `HomeworkExamEngine` của script gốc, chỉ thay cơ chế locate bằng **raw `adb shell input swipe`**
+  (KHÔNG qua Maestro `swipe`/`scrollUntilVisible` - cả 2 đều bị carousel nuốt ở đúng room này) +
+  đọc state qua `bridge.hierarchy()`. Lần đầu thử persistent-swipe qua Maestro `swipe` (25 lượt)
+  vẫn FAIL (overshoot vào vùng completed mà không khớp card - do Maestro swipe bước nhảy không đều/
+  bị nuốt từng đoạn). Đổi sang raw adb swipe: tìm thấy card chỉ sau **3 lượt**, xác nhận root cause
+  đúng là transport Maestro, không phải device/app.
+- Result: success
+- Test Case: N/A (case giao bài -> làm bài -> làm lại theo yêu cầu user)
+
+Activity
+- Timestamp: 2026-11-04 ~08:11 - 08:46 +0700 (first open qua raw-adb persistent-swipe) +
+  08:46 - 08:48 +0700 (trả lời)
+- Activity Type: exercise_completed (lần làm đầu)
+- Activity Detail: Room "Choose the word that matches each description below." (room_id
+  39899ae5-...), target range (2.1,5.9) - chọn targetScore=5 (đúng 5/10 câu). ĐIỂM THẬT=5, CHÍNH
+  XÁC=5/10, khớp target 100%. Thời gian làm bài (vào Doing -> màn Kết quả) 124.80s.
+- Result: success
+- Test Case: N/A
+
+Activity
+- Timestamp: 2026-11-04 ~08:48 - 08:58 +0700
+- Activity Type: exercise_redo_completed (làm lại)
+- Activity Detail: Tìm lại card qua `locateCompletedCandidateOrOpenFromNotification()` - list-locate
+  cạn kiệt thật (PROGRESS_STALLED, cùng carousel issue) sau 4 lượt cuộn, fallback thông báo "giao
+  bài" PASS ngay (không cần dùng tới persistent-swipe fallback thứ 2 đã viết sẵn trong script). Room
+  "Choose the word that matches each description below." (room_id 39899ae5-...), target range
+  (7.1,10) - chọn targetScore=8 (đúng 8/10 câu). ĐIỂM THẬT=8, CHÍNH XÁC=8/10, khớp target 100%. Thời
+  gian làm lại 127.90s. CTA thật "Tiếp theo" bấm OK, điều hướng đúng (không dính auto-chain bài khác
+  lần này).
+- Result: success
+- Test Case: N/A
+
+**Tóm tắt case:** giao 1 bài mới ("Choose the word that matches each description below.", hạn
+11/11/2026) → làm bài lần đầu đạt ĐÚNG 5/10 (range (2,6) yêu cầu, mô phỏng qua [2.1,5.9]) → làm lại
+đạt ĐÚNG 8/10 (range (7,10] yêu cầu, mô phỏng qua [7.1,10]) — cả 2 lần khớp target chính xác 100%.
+Tổng thời gian case (bao gồm cả recovery) 589.2s cho phần resume (chưa tính thời gian prescan+assign
+ban đầu của script chính trước khi FAIL). Tổng "Bài tập" xác nhận tăng đúng +1 mẫu số (52/73 ->
+52/74) ngay sau khi giao bài, khớp với việc chỉ giao đúng 1 bài mới.
+
+**Phát hiện kỹ thuật mới (bổ sung [[project_3b_carousel_swipe_swallow_locate_bug_2026_09_17]]):**
+Maestro `swipe`/`scrollUntilVisible` qua MCP bridge bị nuốt hoàn toàn trong vùng carousel "Kiến
+thức trong bài" của lớp 3B - không chỉ "chậm/kém hiệu quả" mà THẬT SỰ không di chuyển được list qua
+khỏi vùng đó dù thử nhiều chiến lược (STRATEGY_A/B, 25 lượt). Raw `adb shell input swipe` (cùng
+device, cùng touch injection layer ở tầng thấp hơn) di chuyển list bình thường xuyên suốt carousel.
+Gợi ý sửa gốc trong tương lai: cân nhắc fallback `adb shell input swipe` ngay trong
+`assignmentSearchEngine.js`/`findAssignment.js` khi phát hiện PROGRESS_STALLED, thay vì chỉ dựa vào
+Maestro's swipe.

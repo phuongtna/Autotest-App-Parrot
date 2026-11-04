@@ -13,7 +13,7 @@ import {
   selectGrades,
   fillSectionDurationInStructure,
   clickAddPracticeButton,
-  selectPracticeInPopup,
+  selectFirstPracticeInPopup,
   clickPracticePopupSave,
   selectTrangThai,
   readSelectedTrangThai,
@@ -53,8 +53,8 @@ test.describe.serial("Ngân hàng đề thi - 5. Lưu / Công khai / Trạng th�
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -78,7 +78,7 @@ test.describe.serial("Ngân hàng đề thi - 5. Lưu / Công khai / Trạng th�
     await fillSectionDurationInStructure(page, fixtures.sectionB, 15);
     for (const section of [fixtures.sectionA, fixtures.sectionB]) {
       await clickAddPracticeButton(page, section);
-      await selectPracticeInPopup(page, "AI vocabulary");
+      await selectFirstPracticeInPopup(page);
       await clickPracticePopupSave(page);
     }
     await selectTrangThai(page, po.completedRadioLabel);

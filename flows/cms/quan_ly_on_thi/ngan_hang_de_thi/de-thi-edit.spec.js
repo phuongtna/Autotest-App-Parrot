@@ -43,8 +43,8 @@ test.describe.serial("Ngân hàng đề thi - 7. Sửa đề & ảnh hưởng t�
 
   test.beforeAll(async ({ browser }) => {
     requireCmsAdminConfig();
-    baseUrl = resolveCmsAdminBaseUrl("dev");
-    const { username, password } = resolveCmsAdminCredentials("dev");
+    baseUrl = resolveCmsAdminBaseUrl("staging");
+    const { username, password } = resolveCmsAdminCredentials("staging");
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -64,7 +64,7 @@ test.describe.serial("Ngân hàng đề thi - 7. Sửa đề & ảnh hưởng t�
     const { clickSave } = await import("../../../../automation/ngan_hang_de_thi/navigation/cmsDeThiPageObjects.js");
     await clickSave(page);
     await gotoDeThi(page, baseUrl);
-    await createExam(page, { name: EXAM_EMPTY, examType: fixtures.examTypeEmpty, duration: 20, grades: ["Lớp 1"] });
+    await createExam(page, { name: EXAM_EMPTY, examType: fixtures.examTypeEmpty, duration: 20, grades: ["Lớp 1"], scoreTable: fixtures.scoreTable });
   });
 
   test.afterAll(async () => {

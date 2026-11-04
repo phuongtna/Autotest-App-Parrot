@@ -154,7 +154,10 @@ test.describe.serial("Ngân hàng đề thi - 3. Cấu trúc đề - Section & B
     await clickPracticePopupSave(page);
 
     await clickPracticeView(page, fixtures.sectionA, practiceName);
-    await expect(page.getByRole("dialog").getByText(practiceName, { exact: false })).toBeVisible();
+    // ĐÃ XÁC NHẬN THẬT (2026-11-04): modal "Xem" này KHÔNG có role="dialog" (xác nhận qua ARIA
+    // snapshot thật của Playwright) - scope theo `getByRole("dialog")` không khớp gì dù nội dung đã
+    // hiển thị thật trên trang. Heading hiển thị đúng tên bài thực hành nên dùng trực tiếp làm mốc.
+    await expect(page.getByRole("heading", { name: practiceName, exact: false })).toBeVisible();
     await page.getByRole("button", { name: "Đóng", exact: true }).click();
 
     await clickPracticeDelete(page, fixtures.sectionA, practiceName);
@@ -163,8 +166,10 @@ test.describe.serial("Ngân hàng đề thi - 3. Cấu trúc đề - Section & B
   });
 
   test("STRUCT-18: đề không có Section nào vẫn cho phép Lưu ở trạng thái Nháp", async () => {
+    // `page.reload()` tự nó đã đưa về 1 form Tạo mới TRỐNG (đang đứng sẵn ở URL `/create` từ các
+    // case STRUCT trước, chưa case nào Lưu/điều hướng đi) - KHÔNG gọi `clickAddNew()` (bấm nút "Thêm
+    // mới" chỉ tồn tại ở trang danh sách) - cùng lỗi/cách sửa đã áp dụng cho FORM-05.
     await page.reload({ waitUntil: "networkidle" });
-    await clickAddNew(page);
     await fillExamName(page, `${runId}-struct18`);
     await selectExamType(page, fixtures.examTypeEmpty);
     await fillExamDuration(page, 30);

@@ -1,0 +1,124 @@
+# CD-31_32_33_34 — Nhóm "6. Rule quyền truy cập theo gói dịch vụ (đề Pro)" (màn Chi tiết đề/Thông
+# tin đề), chuyển thể từ "Ôn thi-Chi tiết đề.xlsx" TC_APP_OnThi_ChiTietDe_31..34 (QA ĐÃ CHẠY THẬT,
+# Pass).
+#
+# TÁI SỬ DỤNG `../helpers/ensure-profile-active.yaml` (chuyển hồ sơ Free/Pro CÙNG 1 tài khoản, ĐÃ
+# VERIFY THẬT ở `flows/app/bai_tap/HW-PROFILE-BASIC-PRO-ADVANCED.yaml`) với cặp hồ sơ CÓ SẴN trong
+# `test_data/accounts.env`: PROFILE_BASIC_NAME="Gia Linh" (BASIC) / PROFILE_PRO_NAME="Ngoc" (PRO) -
+# GIẢ ĐỊNH "BASIC" == "Free" theo đúng nghĩa xlsx dùng (CẦN XÁC MINH lại với BA nếu app phân biệt 3
+# mức Free/Basic/Pro riêng biệt thay vì chỉ 2 mức BASIC/PRO như tên biến hiện có). KHÔNG có tài
+# khoản "Dùng thử" nào xác định trong `accounts.env` - TC_33 chỉ test được nhánh Pro, nhánh "Dùng
+# thử" bỏ ngỏ (Tay) tới khi có tài khoản thật.
+#
+# Dùng `upgradeSheet.genericTitlePattern` (onThiPageObjects.js, tái dùng copy chung "Nâng cấp tài
+# khoản" đã capture THẬT cho module Bài tập - xem CHƯA XÁC MINH riêng cho Ôn thi trong docblock field
+# đó) làm tín hiệu PHÁT HIỆN bottom sheet nâng cấp, phân biệt với popup xác nhận bình thường
+# (`examInfo.startConfirmPopup.title` = "Bắt đầu làm bài?").
+#
+# Tham số:
+#   PHONE, OTP
+#   DE_NAME_PRO (bắt buộc TC_31/33) — 1 đề thuộc gói Pro, CHƯA từng làm bởi hồ sơ Free đang dùng.
+#   DE_NAME_FREE (bắt buộc TC_34) — 1 đề thuộc gói Free.
+#   DE_NAME_PRO_INPROGRESS (optional, TC_32) — 1 đề Pro ĐANG có phiên làm dở được TẠO lúc hồ sơ còn
+#     Pro/Dùng thử, nay hồ sơ đã về Free (kịch bản hiếm, cần QA tự dàn dựng trước - bỏ qua block nếu
+#     không truyền, giống cách OT-04/05 xử lý case cần dữ liệu riêng).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: CD-31_32_33_34 Rule quyen truy cap theo goi Pro-Free
+---
+# --- TC_31: Free xem đủ info đề Pro, bấm "Bắt đầu làm bài" -> bottom sheet nâng cấp (KHÔNG phải popup xác nhận) ---
+- runFlow:
+    file: ../helpers/ensure-profile-active.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      TARGET_PROFILE_NAME: ${PROFILE_BASIC_NAME}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_PRO}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+- assertVisible: "Thời lượng tối đa"
+- assertVisible: "Cấu trúc đề"
+- assertVisible: "Bắt đầu làm bài"
+- tapOn: "Bắt đầu làm bài"
+- extendedWaitUntil:
+    visible: ".*(Nâng cấp).*"
+    timeout: 10000
+- assertVisible: ".*(Nâng cấp).*"
+- assertNotVisible: "Bắt đầu làm bài?"
+- takeScreenshot: artifacts/CD-31-free-bi-chan-bottom-sheet
+
+# --- TC_32 (OPTIONAL - cần DE_NAME_PRO_INPROGRESS): Free + phiên dở đề Pro -> "Tiếp tục làm bài" vẫn bị chặn ---
+- runFlow:
+    when:
+      true: ${DE_NAME_PRO_INPROGRESS != null && DE_NAME_PRO_INPROGRESS != 'undefined' && DE_NAME_PRO_INPROGRESS != ''}
+    commands:
+      - back
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_PRO_INPROGRESS}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Tiếp tục làm bài"
+      - tapOn: "Tiếp tục làm bài"
+      - extendedWaitUntil:
+          visible: ".*(Nâng cấp).*"
+          timeout: 10000
+      - assertVisible: ".*(Nâng cấp).*"
+      - assertNotVisible: "Bài làm chưa hoàn thành"
+      - takeScreenshot: artifacts/CD-32-free-tiep-tuc-phien-do-van-bi-chan
+
+# --- TC_33: Pro bấm "Bắt đầu làm bài" đề Pro -> vào thẳng popup xác nhận bình thường, KHÔNG bị chặn ---
+- runFlow:
+    file: ../helpers/ensure-profile-active.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      TARGET_PROFILE_NAME: ${PROFILE_PRO_NAME}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_PRO}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+- assertVisible: "Bắt đầu làm bài"
+- tapOn: "Bắt đầu làm bài"
+- extendedWaitUntil:
+    visible: "Bắt đầu làm bài?"
+    timeout: 10000
+- assertVisible: "Bắt đầu làm bài?"
+- assertNotVisible: ".*(Nâng cấp).*"
+- takeScreenshot: artifacts/CD-33-pro-khong-bi-chan
+- tapOn: "Để sau"
+
+# --- TC_34: Free làm đề Free bình thường -> popup xác nhận bình thường, KHÔNG bị chặn ---
+- runFlow:
+    file: ../helpers/ensure-profile-active.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+      TARGET_PROFILE_NAME: ${PROFILE_BASIC_NAME}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_FREE}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+- assertVisible: "Bắt đầu làm bài"
+- tapOn: "Bắt đầu làm bài"
+- extendedWaitUntil:
+    visible: "Bắt đầu làm bài?"
+    timeout: 10000
+- assertVisible: "Bắt đầu làm bài?"
+- assertNotVisible: ".*(Nâng cấp).*"
+- takeScreenshot: artifacts/CD-34-free-lam-de-free-binh-thuong
+- tapOn: "Để sau"

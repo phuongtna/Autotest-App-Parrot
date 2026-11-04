@@ -14,6 +14,7 @@ import {
   fillExamDuration,
   typeExamDurationRaw,
   selectGrades,
+  clearGrades,
   readSelectedGrades,
   isScoreTableSelectDisabled,
   readScoreTableConversionNote,
@@ -91,14 +92,19 @@ test.describe.serial("Ngân hàng đề thi - 2. Tạo mới đề thi - Thông 
   });
 
   test("FORM-08: dropdown Loại kỳ thi liệt kê đầy đủ các kỳ thi hiện có", async () => {
-    await page.locator('[class*="n-form-item"]', { hasText: "Loại kỳ thi" }).locator(".n-base-selection").click();
+    // Neo `^` để tránh khớp nhầm "Bảng điểm quy đổi" (placeholder "Chọn loại kỳ thi trước" chứa
+    // substring "loại kỳ thi" không phân biệt hoa/thường) -> strict mode violation nếu không neo.
+    await page.locator('[class*="n-form-item"]', { hasText: /^Loại kỳ thi/ }).locator(".n-base-selection").click();
     await expect(page.locator('.n-base-select-option:visible, [role="option"]:visible', { hasText: fixtures.examTypeEmpty })).toBeVisible();
     await expect(page.locator('.n-base-select-option:visible, [role="option"]:visible', { hasText: fixtures.examTypeWithSections })).toBeVisible();
     await page.keyboard.press("Escape");
   });
 
   test("FORM-09: validate thiếu Thời gian làm bài", async () => {
+    // Chủ động xoá trắng Thời gian làm bài - KHÔNG dựa vào việc field đang trống sẵn, vì FORM-06 đã
+    // điền 30 vào field này và state đó carry-over sang test này (cùng `page` trong describe.serial).
     await selectExamType(page, fixtures.examTypeEmpty);
+    await fillExamDuration(page, "");
     await selectGrades(page, ["Lớp 1"]);
     await clickSave(page);
     await expect(page.getByText(po.durationRequiredError, { exact: true })).toBeVisible();
@@ -112,6 +118,9 @@ test.describe.serial("Ngân hàng đề thi - 2. Tạo mới đề thi - Thông 
   });
 
   test("FORM-11: validate thiếu Khối lớp", async () => {
+    // Chủ động bỏ chọn hết Khối lớp - "Lớp 1" vẫn đang được chọn carry-over từ FORM-06, KHÔNG được
+    // test nào sau đó đụng tới (cùng lý do FORM-09 phải chủ động xoá Thời gian làm bài).
+    await clearGrades(page);
     await fillExamDuration(page, 30);
     await clickSave(page);
     await expect(page.getByText(po.gradeRequiredError, { exact: true })).toBeVisible();
@@ -182,8 +191,18 @@ test.describe.serial("Ngân hàng đề thi - 2. Tạo mới đề thi - Thông 
   });
 
   test("FORM-05: validate trùng tên khi sửa đề đổi tên thành tên đề đã tồn tại (AC)", async () => {
+    // `page.reload()` ở đây tự nó đã đưa về 1 form Tạo mới TRỐNG (đang đứng sẵn ở URL `/create` từ
+    // FORM-04) - KHÔNG gọi `createExam()` (hàm này luôn bắt đầu bằng `clickAddNew()`, bấm nút "Thêm
+    // mới" chỉ tồn tại ở trang danh sách) - cùng lỗi suýt gặp, cùng cách xử lý đúng như FORM-06 phía
+    // trên. Gọi nhầm `createExam()` khiến `clickAddNew()` chờ vô thời hạn 1 nút không tồn tại, treo
+    // tới hết 90s rồi báo nhầm thành "Target page, context or browser has been closed" ở bước sau.
     await page.reload({ waitUntil: "networkidle" });
-    await createExam(page, { name: EXAM_DUP, examType: fixtures.examTypeEmpty, grades: ["Lớp 1"] });
+    await fillExamName(page, EXAM_DUP);
+    await selectExamType(page, fixtures.examTypeEmpty);
+    await fillExamDuration(page, 30);
+    await selectGrades(page, ["Lớp 1"]);
+    await selectScoreTable(page, fixtures.scoreTable);
+    await clickSave(page);
     await gotoDeThi(page, baseUrl);
     await openEditDeThi(page, EXAM_DUP);
     await fillExamName(page, EXAM_A);

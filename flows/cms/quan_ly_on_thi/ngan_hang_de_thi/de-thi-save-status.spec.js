@@ -11,6 +11,7 @@ import {
   selectExamType,
   fillExamDuration,
   selectGrades,
+  selectScoreTable,
   fillSectionDurationInStructure,
   clickAddPracticeButton,
   selectFirstPracticeInPopup,
@@ -74,6 +75,7 @@ test.describe.serial("Ngân hàng đề thi - 5. Lưu / Công khai / Trạng th�
     await selectExamType(page, fixtures.examTypeWithSections);
     await fillExamDuration(page, 25);
     await selectGrades(page, ["Lớp 1"]);
+    await selectScoreTable(page, fixtures.scoreTable);
     await fillSectionDurationInStructure(page, fixtures.sectionA, 10);
     await fillSectionDurationInStructure(page, fixtures.sectionB, 15);
     for (const section of [fixtures.sectionA, fixtures.sectionB]) {
@@ -108,12 +110,16 @@ test.describe.serial("Ngân hàng đề thi - 5. Lưu / Công khai / Trạng th�
     await expect(page.locator(po.durationInput)).not.toHaveValue("999");
   });
 
+  // ĐÃ GẶP THẬT (2026-11-04, staging - xem `_scratch_diag_save03_duration.mjs`): "Thời gian làm bài"
+  // có giới hạn tối đa 600 phút - nhập 888/999 bị TỰ ĐỘNG kẹp về 600 ngay khi nhập (hành vi đúng của
+  // field, không phải bug) nên không thể dùng 888 để test "giá trị tạm chưa lưu vẫn giữ nguyên". Đổi
+  // sang 450 (trong giới hạn hợp lệ, vẫn khác giá trị gốc 25) để test đúng mục đích ban đầu.
   test("SAVE-03: nút Quay lại khi CÓ thay đổi chưa lưu - Hủy popup xác nhận", async () => {
-    await fillExamDuration(page, 888);
+    await fillExamDuration(page, 450);
     await clickBackIcon(page);
     expect(await isDiscardChangesDialogVisible(page)).toBe(true);
     await cancelDiscardChangesDialog(page);
-    await expect(page.locator(po.durationInput)).toHaveValue("888");
+    await expect(page.locator(po.durationInput)).toHaveValue("450");
     await fillExamDuration(page, 25); // trả lại giá trị gốc, KHÔNG lưu (rời trang sẽ tự hỏi lại)
   });
 
@@ -179,6 +185,7 @@ test.describe.serial("Ngân hàng đề thi - 5. Lưu / Công khai / Trạng th�
     await selectExamType(page, fixtures.examTypeEmpty);
     await fillExamDuration(page, 10);
     await selectGrades(page, ["Lớp 2"]);
+    await selectScoreTable(page, fixtures.scoreTable);
     await selectTrangThai(page, po.draftRadioLabel);
     await clickSave(page);
     await expect(page).toHaveURL(/\/exam-prep\/papers$/);
@@ -193,6 +200,7 @@ test.describe.serial("Ngân hàng đề thi - 5. Lưu / Công khai / Trạng th�
     await selectExamType(page, fixtures.examTypeWithSections);
     await fillExamDuration(page, 25);
     await selectGrades(page, ["Lớp 2"]);
+    await selectScoreTable(page, fixtures.scoreTable);
     await fillSectionDurationInStructure(page, fixtures.sectionA, 10);
     await fillSectionDurationInStructure(page, fixtures.sectionB, 15);
     await selectTrangThai(page, po.completedRadioLabel);

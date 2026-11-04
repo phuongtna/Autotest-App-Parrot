@@ -8,6 +8,7 @@ import {
   teardownDeThiFixtures,
   openEditDeThi,
   fillSectionDurationInStructure,
+  selectScoreTable,
   clickAddPracticeButton,
   selectFirstPracticeInPopup,
   clickPracticePopupSave,
@@ -70,6 +71,7 @@ test.describe.serial("Ngân hàng đề thi - 6. Xóa đề thi (DEL-01..06)", (
     await selectExamType(page, fixtures.examTypeWithSections);
     await fillExamDuration(page, 25);
     await selectGrades(page, ["Lớp 1"]);
+    await selectScoreTable(page, fixtures.scoreTable);
     await fillSectionDurationInStructure(page, fixtures.sectionA, 10);
     await fillSectionDurationInStructure(page, fixtures.sectionB, 15);
     for (const section of [fixtures.sectionA, fixtures.sectionB]) {

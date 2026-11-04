@@ -1,0 +1,163 @@
+# CD-09_10_11_12_13_14_15 — Nhóm "3. List Lịch sử làm bài" (màn Chi tiết đề/Thông tin đề), chuyển
+# thể từ "Ôn thi-Chi tiết đề.xlsx" TC_APP_OnThi_ChiTietDe_9..15 (QA ĐÃ CHẠY THẬT, Pass).
+#
+# RẤT DATA-DEPENDENT: mỗi TC cần 1 đề với ĐÚNG số lượt nộp cụ thể (0/1/2/≥3 lần), có TC còn cần
+# điểm cụ thể của từng lần (TC_15: lần thấp điểm làm SAU lần cao điểm, để phân biệt "điểm của chính
+# lượt" với "điểm cao nhất"). KHÔNG set up được tự động trong phạm vi file Maestro thuần (cần làm
+# bài thật nhiều lượt trước, với điểm khác nhau mỗi lần - nằm ngoài khả năng kiểm soát đúng/sai của
+# `OnThiExamEngine` hiện tại, xem giới hạn "CHƯA có exam-resolver" trong docblock
+# `automation/on_thi/navigation/onThiExamEngine.js`). File này giả định SẴN CÓ 4 đề test thoả từng
+# điều kiện (tên qua tham số, KHÔNG hardcode theo ví dụ "7.25/7.75" của xlsx vì dữ liệu đó gắn với 1
+# đề/1 tài khoản QA cụ thể tại thời điểm chạy, không tái lập được) — mỗi khối TC chỉ chạy khi tham
+# số tương ứng được truyền (cùng kỹ thuật "khối OPTIONAL" đã dùng ở OT-04 cho case cần dữ liệu
+# hiếm/riêng), bỏ qua nếu không có.
+#
+# TÁI SỬ DỤNG `../helpers/open-de.yaml` (STOP_AT_INFO_SCREEN=true) + nhãn CONFIRMED thật trong
+# `onThiPageObjects.js#examInfo` (historySectionTitle/historyViewAllLink/historyRowPattern).
+#
+# Tham số (TẤT CẢ OPTIONAL - block tương ứng tự bỏ qua nếu thiếu):
+#   PHONE, OTP
+#   DE_NAME_0_LAN       — đề CHƯA từng nộp bài (TC_9: khối Lịch sử làm bài KHÔNG hiển thị)
+#   DE_NAME_1_LAN       — đề đã nộp ĐÚNG 1 lần (TC_10: đúng 1 dòng "Lần 1", KHÔNG có "Xem tất cả")
+#   DE_NAME_2_LAN       — đề đã nộp ĐÚNG 2 lần (TC_11: 2 dòng "Lần 2" trên/"Lần 1" dưới, KHÔNG có
+#                         "Xem tất cả")
+#   DE_NAME_3PLUS_LAN   — đề đã nộp ≥3 lần (TC_12/13: có "Xem tất cả", chỉ hiện 2 dòng gần nhất;
+#                         TC_14/15: tap vào 1 dòng cụ thể mở đúng Chi tiết bài đã làm với đúng điểm
+#                         của LƯỢT ĐÓ — truyền kèm DE_3PLUS_TAP_ROW_PATTERN, vd "Lần 2 - 7\\.75", để
+#                         chọn đúng dòng cần tap thay vì đoán).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: CD-09_10_11_12_13_14_15 List Lich su lam bai
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# --- TC_9: chưa từng nộp -> khối "Lịch sử làm bài" KHÔNG xuất hiện ---
+- runFlow:
+    when:
+      true: ${DE_NAME_0_LAN != null && DE_NAME_0_LAN != 'undefined' && DE_NAME_0_LAN != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_0_LAN}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertNotVisible: "Lịch sử làm bài"
+      - takeScreenshot: artifacts/CD-09-khong-co-lich-su-lam-bai
+      - back
+
+# --- TC_10: đã nộp ĐÚNG 1 lần -> đúng 1 dòng "Lần 1", KHÔNG có "Xem tất cả" ---
+- runFlow:
+    when:
+      true: ${DE_NAME_1_LAN != null && DE_NAME_1_LAN != 'undefined' && DE_NAME_1_LAN != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_1_LAN}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Lịch sử làm bài"
+      - assertVisible:
+          text: "Lần 1"
+          below: "Lịch sử làm bài"
+      - assertNotVisible:
+          text: "Xem tất cả"
+          below: "Lịch sử làm bài"
+      - takeScreenshot: artifacts/CD-10-dung-1-lan
+      - back
+
+# --- TC_11: đã nộp ĐÚNG 2 lần -> "Lần 2" trên, "Lần 1" dưới, KHÔNG có "Xem tất cả" ---
+- runFlow:
+    when:
+      true: ${DE_NAME_2_LAN != null && DE_NAME_2_LAN != 'undefined' && DE_NAME_2_LAN != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_2_LAN}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible:
+          text: "Lần 2"
+          below: "Lịch sử làm bài"
+      - assertVisible:
+          text: "Lần 1"
+          below:
+            text: "Lần 2"
+            below: "Lịch sử làm bài"
+      - assertNotVisible:
+          text: "Xem tất cả"
+          below: "Lịch sử làm bài"
+      - takeScreenshot: artifacts/CD-11-dung-2-lan-thu-tu-giam-dan
+      - back
+
+# --- TC_12/13: đã nộp ≥3 lần -> có "Xem tất cả", chỉ 2 dòng gần nhất; tap "Xem tất cả" mở đủ lịch sử ---
+- runFlow:
+    when:
+      true: ${DE_NAME_3PLUS_LAN != null && DE_NAME_3PLUS_LAN != 'undefined' && DE_NAME_3PLUS_LAN != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_3PLUS_LAN}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible:
+          text: "Xem tất cả"
+          below: "Lịch sử làm bài"
+      - takeScreenshot: artifacts/CD-12-xem-tat-ca-chi-2-dong-gan-nhat
+      - tapOn:
+          text: "Xem tất cả"
+          below: "Lịch sử làm bài"
+      - extendedWaitUntil:
+          visible: "Lần 1"
+          timeout: 15000
+      - takeScreenshot: artifacts/CD-13-man-lich-su-lam-bai-day-du
+      - back
+
+      # --- TC_14/15: tap vào 1 dòng cụ thể -> mở đúng Chi tiết bài đã làm của ĐÚNG lượt đó, điểm
+      # đúng là điểm của lượt đó (không phải điểm cao nhất) - CHỈ chạy nếu caller truyền
+      # DE_3PLUS_TAP_ROW_PATTERN (vd "Lần 2") vì không đoán được đúng dòng nào có thật.
+      #
+      # SỬA LẠI SAU KHI CHẠY THẬT (2026-11-04): nhãn "Lần N" và điểm là 2 node text RIÊNG (không có
+      # dấu "-" nối) - xem onThiPageObjects.js#historyRowPattern. KHÔNG tự verify được ĐÚNG ĐIỂM của
+      # lượt đã tap chỉ qua `assertVisible` text đơn thuần nữa (field `DE_3PLUS_TAP_ROW_PATTERN` giờ
+      # CHỈ nên truyền đúng nhãn "Lần N", KHÔNG kèm điểm) - việc đối chiếu đúng điểm cần đọc qua
+      # `maestro hierarchy`/bounds, ngoài khả năng của 1 `assertVisible` text thuần, nên bỏ qua phần
+      # verify điểm ở đây, chỉ còn verify đã CHUYỂN MÀN đúng sau khi tap.
+      - runFlow:
+          when:
+            true: ${DE_3PLUS_TAP_ROW_PATTERN != null && DE_3PLUS_TAP_ROW_PATTERN != 'undefined' && DE_3PLUS_TAP_ROW_PATTERN != ''}
+          commands:
+            - runFlow:
+                file: ../helpers/open-de.yaml
+                env:
+                  DEVICE_MODE: "true"
+                  DE_NAME: ${DE_NAME_3PLUS_LAN}
+                  ON_THI_TAB: "Đề thầy cô giao"
+                  STOP_AT_INFO_SCREEN: "true"
+            # CHƯA XÁC MINH tiêu đề màn "Chi tiết bài đã làm" (xlsx không cho nguyên văn tiêu đề
+            # riêng, chỉ mô tả hành vi) - KHÔNG đoán bừa text màn hình, chỉ chờ chuyển màn (đổi nội
+            # dung so với màn Thông tin đề). KHÔNG tự verify được đúng ĐIỂM của lượt vừa tap qua text
+            # thuần (xem ghi chú trên đầu khối này) - TC_15 (điểm đúng lượt, không phải cao nhất)
+            # hiện CHỈ còn "Tay", QA tự đối chiếu bằng mắt qua screenshot.
+            - tapOn:
+                text: ${DE_3PLUS_TAP_ROW_PATTERN}
+                below: "Lịch sử làm bài"
+            - waitForAnimationToEnd:
+                timeout: 2000
+            - assertNotVisible: "Thời lượng tối đa"
+            - takeScreenshot: artifacts/CD-14-15-chi-tiet-dung-lan-dung-diem
+            - back

@@ -1597,3 +1597,52 @@ device, cùng touch injection layer ở tầng thấp hơn) di chuyển list bì
 Gợi ý sửa gốc trong tương lai: cân nhắc fallback `adb shell input swipe` ngay trong
 `assignmentSearchEngine.js`/`findAssignment.js` khi phát hiện PROGRESS_STALLED, thay vì chỉ dựa vào
 Maestro's swipe.
+
+## Case: GBT round 2 (profile Ngoc, lớp 4D), 2026-11-04
+
+**Yêu cầu:** "chạy lại 1 vòng vs profile Ngoc" (lặp lại luồng GBT đã chạy ở case trên, lần này với
+profile Ngoc/lớp 4D). Profile "Ngoc" (Pro, 4D) đã sẵn active trên device, không cần switch. Dùng
+`e2e-giaobai-range34-lamlai-range67.mjs` với range mặc định (3-4 lần đầu, 6-7 làm lại).
+
+**Sự cố 1 - máy/host restart giữa chừng:** script chính PASS bước giao bài THẬT qua Web GV (room_id
+`51b4451d-507d-43c2-b93a-217e4dc3ca5b`, "Choose the best response (A, B, C or D) to complete each
+conversation.", Unit 20: At summer camp, due 11/11/2026, 10 scored items) rồi bị KILL khi `adb`
+daemon/máy restart giữa phiên (không phải lỗi app/logic - toàn bộ tiến trình nền + scratchpad cũ mất
+sạch). KHÔNG re-run script chính (sẽ giao thêm 1 room thật thứ 2) - viết script recovery riêng
+(`automation/_scratch_resume_ngoc_4d_room51b4451d.mjs`) resume thẳng vào room đã có.
+
+**Sự cố 2 - locate list FAIL 2 lần liên tiếp (y hệt [[project_3b_carousel_raw_adb_swipe_fix_2026_11_04]] nhưng lần này trên lớp 4D, không phải 3B):** `scrollToTop()`/`findAssignment()` (Maestro
+scrollUntilVisible/swipe) FAIL với "No visible element found"/0 card đọc được dù screenshot thủ công
+cho thấy card RÕ RÀNG đang hiển thị. Đổi sang raw `adb shell input swipe` (cùng kỹ thuật đã ghi nhận
+trước đó) + lọc thêm theo `dueDate` chứa "11/11" (list có 1 card debris CŨ trùng y hệt title, hạn
+30/10 QUÁ HẠN) - tìm thấy card đúng sau 6 lượt persistent-swipe.
+
+**Sự cố 3 - AMBIGUOUS_MATCH THẬT, KHÔNG PHẢI flaky (bug mới trong `answerSetMatcher.js`):** câu 1/10
+("\"What's she doing?\" – \"______\"") liên tục AMBIGUOUS (winnerScore=runnerUpScore=1.00) dù retry
+nhiều lần (an toàn vì 0/10 câu đã trả lời, chưa có write nào). Root cause THẬT (khác hẳn flakiness
+known trong [[project_ngoc_4d_gbt_lamlai_run_history]]): 4 câu con dùng CHUNG đúng 1 answer-set
+{"She's telling a story."/"He's taking a photo."/"They're playing card games."/"They're at the
+campsite."}, 3 trong 4 câu CHỈ khác nhau đúng 1 CHỦ NGỮ ("What's he/she doing?"/"What are they
+doing?") - nhưng `STOPWORDS` cũ coi "he"/"she"/"they" là stopword, VÀ `buildSharedAnswerTokenSet()`
+coi chúng là "answer token dùng chung" (mọi đáp án trong nhóm đều mở đầu bằng 1 trong 3 chủ ngữ đó),
+VÀ ngưỡng token-length>=3 xoá luôn "he" (2 ký tự) - 3 lớp lọc cộng dồn xoá sạch tín hiệu phân biệt
+duy nhất, chỉ còn "doing" dùng chung cho cả 3. Đã FIX trực tiếp trong
+`automation/bai_tap/discovery/answerSetMatcher.js` (file dùng chung, 9+ caller):
+1. bỏ "he"/"she"/"they"/"it" khỏi `STOPWORDS`;
+2. thêm exception "he"/"it" (2 ký tự) vào bộ lọc độ dài token (`SHORT_MEANINGFUL_WORDS`, cùng lớp
+   với exception số thứ tự đã có từ 2026-10-07);
+3. tắt `buildSharedAnswerTokenSet()` filter CHỈ cho các lượt so khớp theo cửa sổ hẹp
+   (`disambiguateByQuestionText()`'s windowed calls) - cửa sổ đã tự loại hẳn text đáp án khỏi corpus
+   nên rủi ro "ăn điểm giả" mà filter đó chặn không còn áp dụng ở đó; vẫn GIỮ filter cho full-page
+   fallback (không đổi hành vi fixture [L] cũ).
+Thêm fixture regression case [O] (data thật từ room này) + cập nhật 2 fixture cũ ([J0], token-length
+helper test) phản ánh đúng hành vi mới. `node automation/bai_tap/discovery/answerSetMatcher.fixtureTest.mjs`
+42/42 PASS sau fix. Retry live NGAY sau fix (room/state không đổi, câu 1 vẫn 0/10) → MATCHED đúng
+ngay, trả lời hết 10/10 câu bình thường.
+
+**Kết quả cuối:** lần đầu TARGET=4 ĐIỂM THẬT=4 (4/10, 123.11s, khớp range [3,4]); làm lại qua
+notification-fallback (list-locate lại PROGRESS_STALLED lần nữa, fallback PASS ngay) TARGET=6 ĐIỂM
+THẬT=6 (6/10, 122.92s, khớp range [6,7]); CTA "Tiếp theo" bấm OK, điều hướng đúng. OVERALL: PASS.
+Report: `automation/output/resume_ngoc_4d_room51b4451d_report.json`.
+
+- Test Case: N/A

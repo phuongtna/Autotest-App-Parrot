@@ -221,19 +221,17 @@ export class OnThiExamEngine {
 
   /**
    * Tap icon "Thoát" (góc trái header, KHÔNG có text) rồi xử lý popup "Ngừng làm bài?".
-   * CẦN XÁC MINH TOẠ ĐỘ: chưa có resource-id xác nhận (xem docblock đầu file) - truyền
-   * `point` thật (dạng "x,y", lấy từ ảnh chụp màn hình thật, KHÔNG đoán theo tỉ lệ % màn hình vì
-   * chưa xác nhận icon này giữ nguyên vị trí tuyệt đối trên mọi kích thước màn hình) qua tham số
-   * `iconPoint` - KHÔNG có giá trị mặc định cố ý, caller (vd flow Maestro ngoài) phải tự xác định
-   * trước khi gọi, tránh tap mù sai vị trí trên thiết bị khác.
-   * @param {string} iconPoint - vd "78,153" (đã xác nhận đúng trên thiết bị 1080x2340, phiên
-   *   2026-10-30 - CẦN đổi lại nếu chạy trên thiết bị độ phân giải khác).
+   *
+   * SỬA LẠI SAU KHI CHẠY THẬT (2026-11-04, thiết bị 3201d866d40a1681, qua `maestro hierarchy` thật
+   * trong phiên viết/chạy bộ `flows/app/on_thi/CD-*.yaml`): icon này CÓ resource-id thật
+   * (`po.doing.exitIconId` = "exam_prep_doing_header_left") - XOÁ bỏ yêu cầu tham số `iconPoint`
+   * toạ độ đoán theo thiết bị cụ thể, tap thẳng bằng id (ổn định qua mọi độ phân giải).
    * @param {"stay"|"exit"} decision
    */
-  async tapExitIcon(iconPoint, decision) {
-    const tapIcon = await this.bridge.tap({ point: iconPoint });
+  async tapExitIcon(decision) {
+    const tapIcon = await this.bridge.tap({ id: po.doing.exitIconId });
     if (!tapIcon.success) {
-      throw new Error(`OnThiExamEngine.tapExitIcon: không tap được icon Thoát tại "${iconPoint}": ${tapIcon.error}`);
+      throw new Error(`OnThiExamEngine.tapExitIcon: không tap được icon Thoát (id "${po.doing.exitIconId}"): ${tapIcon.error}`);
     }
     const wait = await this.bridge.wait(EXIT_POPUP_TITLE, { timeout: 5000 });
     if (!wait.success) {

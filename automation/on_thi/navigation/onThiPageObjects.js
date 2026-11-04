@@ -68,13 +68,17 @@ export const onThiPageObjects = {
     applyButton: "Xem",
   },
 
-  // CẦN XÁC MINH TOÀN BỘ: spec.json mục "Rule quyền truy cập theo gói" mô tả HÀNH VI (hiện bottom
-  // sheet nâng cấp khi Free bấm "Bắt đầu làm bài" trên đề Pro) nhưng KHÔNG cho nguyên văn copy -
-  // KHÔNG bịa chuỗi text cụ thể (khác hẳn module Bài tập, nơi hw21-22-upgrade-sheets.mjs đã có 4+
-  // biến thể copy THẬT từ device). Để trống, caller/QA phải tự điền sau khi capture thật 1 lần.
+  // Copy CHÍNH XÁC của bottom sheet nâng cấp riêng module Ôn thi VẪN CHƯA capture được (QA xlsx
+  // "Ôn thi-Chi tiết đề.xlsx" TC_31/32/40 chỉ mô tả HÀNH VI "hiển thị bottom sheet nâng cấp tài
+  // khoản", KHÔNG chụp/chép nguyên văn copy riêng cho màn Chi tiết đề) - KHÔNG bịa chuỗi text cụ
+  // thể. TẠM DÙNG `genericTitlePattern` bên dưới (tái dùng 2 biến thể ĐÃ capture THẬT ở module Bài
+  // tập qua `automation/bai_tap/hw21-22-upgrade-sheets.mjs` - cả 2 biến thể đều có tiêu đề chung
+  // "Nâng cấp tài khoản") làm tín hiệu PHÁT HIỆN sheet đã mở (đủ cho mọi TC chỉ cần biết "có hiện
+  // bottom sheet nâng cấp hay không", KHÔNG đủ để khẳng định copy Ôn thi giống hệt Bài tập - CẦN
+  // XÁC MINH lại bằng ảnh chụp thật nếu sau này cần assert đúng nguyên văn riêng của Ôn thi).
   upgradeSheet: {
-    // vd (placeholder, CHƯA xác nhận): "Nâng cấp để con làm đề Pro không giới hạn"
     knownCopyPatterns: [],
+    genericTitlePattern: ".*(Nâng cấp).*",
   },
 
   /**
@@ -88,6 +92,9 @@ export const onThiPageObjects = {
    * trong phiên quan sát đó, chỉ chụp ảnh màn hình).
    */
   examInfo: {
+    // ĐÃ VERIFY THẬT qua `maestro hierarchy` (2026-11-04, thiết bị 3201d866d40a1681, đề "Đề ôn
+    // luyện kỹ năng Nói", profile đang active trên máy lúc đó) - resource-id Tên đề.
+    nameId: "exam_prep_detail_name",
     maxDurationLabel: "Thời lượng tối đa",
     totalQuestionsLabel: "Tổng số câu",
     structureSectionTitle: "Cấu trúc đề",
@@ -105,6 +112,41 @@ export const onThiPageObjects = {
       confirmButton: "Bắt đầu",
       cancelButton: "Để sau",
     },
+
+    // THÊM MỚI (2026-11-04) - nguồn: "Ôn thi-Chi tiết đề.xlsx" (TC_APP_OnThi_ChiTietDe_26..30), bộ
+    // test case QA ĐÃ CHẠY THẬT và Pass trên thiết bị thật (copy đính kèm ảnh chụp màn hình
+    // prnt.sc, không phải suy đoán) - khác mức độ tin cậy "CẦN XÁC MINH" của phần phía trên, các
+    // field dưới đây coi là NGUYÊN VĂN TEXT đã xác nhận qua QA thủ công, nhưng VẪN CHƯA từng chạy
+    // qua `maestro test`/MaestroBridge thật (chưa xác nhận lại resource-id/khớp đúng selector
+    // Maestro), nên vẫn giữ nguyên tắc chung "chạy thật 1 lần trước khi tin tưởng kết quả FAIL ở
+    // bước này là lỗi app chứ không phải sai selector".
+    //
+    // Nút action khi đề đang có phiên làm dở (thay cho `startButton` ở trên).
+    continueButton: "Tiếp tục làm bài",
+    // Popup khi bấm `continueButton` - 2 lựa chọn "Làm lại" (xoá phiên dở, bắt đầu lại từ câu 1) /
+    // "Tiếp tục" (vào đúng vị trí làm dở, giữ nguyên số câu đã trả lời + thời gian đã trôi qua).
+    resumeIncompletePopup: {
+      title: "Bài làm chưa hoàn thành",
+      // SỬA LẠI SAU KHI CHẠY THẬT (2026-11-04, đề "Đề kiểm tra giữa kỳ 1 - Khối 6 sửa 12"): nguyên
+      // văn có XUỐNG DÒNG giữa 2 câu ("...này.\nBạn muốn...") KHÔNG PHẢI dấu cách như đoán ban đầu
+      // từ xlsx (text 1 dòng trong Excel không phản ánh line-break thật trên UI) - title/2 nút
+      // "Làm lại"/"Tiếp tục" khớp ĐÚNG 100% với thiết kế ban đầu, không cần sửa.
+      bodyPattern: "Bạn chưa hoàn thành đề thi này\\.\\s*Bạn muốn tiếp tục làm hay bắt đầu lại\\?",
+      retryButton: "Làm lại",
+      continueButton: "Tiếp tục",
+    },
+    // SỬA LẠI SAU KHI CHẠY THẬT (2026-11-04, thiết bị 3201d866d40a1681, đề "Đề ôn luyện kỹ năng
+    // Nói" - 2 lần làm, Lần 2 = 0 điểm, Lần 1 = 6 điểm): claim cũ "mỗi dòng dạng 1 chuỗi 'Lần N -
+    // X.XX'" SAI - `maestro hierarchy` thật cho thấy nhãn "Lần N" và điểm số là 2 NODE TEXT RIÊNG
+    // BIỆT trên CÙNG 1 hàng (label bên trái, điểm căn phải, KHÔNG có dấu "-" nối 2 phần, điểm cũng
+    // KHÔNG chắc luôn có phần thập phân - ảnh thật chỉ thấy số nguyên "0"/"6", xlsx mô tả "7.25" có
+    // thể là THẬT NHƯNG dạng hiển thị rút gọn khi điểm tròn, CẦN XÁC MINH thêm với 1 đề có điểm lẻ
+    // thật). `historyRowPattern` CHỈ còn dùng để match NHÃN "Lần N" - KHÔNG dùng được để verify
+    // đúng điểm của từng dòng qua text selector đơn thuần (label/điểm không nằm trong cùng 1 chuỗi
+    // để regex gộp) - muốn đối chiếu đúng điểm của ĐÚNG lần (TC_APP_OnThi_ChiTietDe_15) cần đọc qua
+    // `maestro hierarchy`/bounds (so khớp 2 node cùng 1 khoảng y) chứ không phải 1 `assertVisible`
+    // text đơn giản như đã viết ban đầu trong `flows/app/on_thi/CD-09_10_11_12_13_14_15-lich-su-lam-bai.yaml`.
+    historyRowPattern: "Lần \\d+",
   },
 
   /**
@@ -117,29 +159,46 @@ export const onThiPageObjects = {
    * có text/toạ độ quan sát qua ảnh chụp màn hình, không dump `maestro hierarchy`).
    */
   doing: {
+    // THÊM MỚI/SỬA LẠI SAU KHI CHẠY THẬT (2026-11-04, thiết bị 3201d866d40a1681, đề "Đề kiểm tra
+    // giữa kỳ 1 - Khối 6 sửa 12", qua `maestro hierarchy` thật - KHÔNG phải suy đoán): khung Doing
+    // của Ôn thi dùng bộ resource-id RIÊNG `exam_prep_doing_*`, KHÁC HẲN `exercise_*` của Bài tập -
+    // XOÁ bỏ mọi "CHƯA XÁC MINH TOẠ ĐỘ" cho 2 icon Thoát/Đánh dấu xem lại vì giờ đã có id thật, tap
+    // bằng id thay vì điểm toạ độ đoán. Icon flag quan sát được ở trạng thái CHƯA đánh dấu có id
+    // `exam_prep_flag_off` - CHƯA xác nhận id lúc đã đánh dấu (có thể đổi thành `exam_prep_flag_on`
+    // theo quy ước suffix on/off, CHƯA tự verify, chỉ suy luận hợp lý).
+    screenId: "exam_prep_doing_screen",
+    exitIconId: "exam_prep_doing_header_left",
+    toolbarSubmitButtonId: "exam_prep_doing_submit_top",
+    markForReviewIconId: "exam_prep_flag_off",
+    questionNoId: "exam_prep_doing_question_no",
+    timerId: "exam_prep_doing_timer",
+    questionListButtonId: "exam_prep_doing_grid",
+    ctaButtonId: "exam_prep_doing_next",
     // Nút "Nộp bài" trên thanh công cụ (góc phải header) - LUÔN hiển thị suốt quá trình làm bài,
-    // KHÁC nút CTA cuối màn (đổi nhãn Tiếp theo/Chuyển phần/Nộp bài tuỳ vị trí câu).
+    // KHÁC nút CTA cuối màn (đổi nhãn Tiếp theo/Chuyển phần/Nộp bài tuỳ vị trí câu). Giữ lại field
+    // text này song song với `toolbarSubmitButtonId` ở trên (cả 2 đều ĐÃ XÁC NHẬN THẬT, dùng được
+    // cả 2 cách).
     toolbarSubmitButton: "Nộp bài",
     // 3 nhãn CTA cuối màn - ĐÃ QUAN SÁT THẬT cả 3 trạng thái chuyển đổi đúng lúc:
     // "Tiếp theo" (còn câu trong section hiện tại/đề không gắn thời gian section còn câu),
     // "Chuyển phần" (câu cuối 1 section, chưa phải section cuối đề - CHỈ xuất hiện ở đề có thời
     // gian theo Section, đề không gắn thời gian theo Section KHÔNG có nhãn này - xem TC_38/TC_49),
-    // "Nộp bài" (câu cuối cùng của toàn bộ đề, bất kể loại đề).
+    // "Nộp bài" (câu cuối cùng của toàn bộ đề, bất kể loại đề). Mọi nhãn đều dùng CHUNG 1 resource-
+    // id `ctaButtonId` ở trên (ĐÃ XÁC NHẬN THẬT) - ưu tiên tap theo id, text chỉ để assert nhãn.
     ctaNext: "Tiếp theo",
     ctaSwitchSection: "Chuyển phần",
     ctaSubmitAtLastQuestion: "Nộp bài",
     ctaRegex: "Tiếp theo|Chuyển phần|Nộp bài",
-    // Icon cờ "Đánh dấu xem lại" - KHÔNG có text đi kèm (chỉ icon), KHÔNG dùng được text selector,
-    // caller phải tap theo vị trí tương đối (góc phải cùng hàng "Câu N") - xem onThiExamEngine.js.
-    markForReviewIconHint: "flag-icon-no-text-selector",
     questionListButtonPattern: "\\d+/\\d+",
     questionListSheetTitle: "Danh sách câu hỏi",
     // popup khi tap icon Thoát (góc trái header) - ĐÃ QUAN SÁT THẬT. LƯU Ý: text nút thực tế là "Ở
     // lại" (KHÔNG PHẢI "Ở lại làm bài" như mô tả gốc trong 1 số tài liệu spec cũ - xem Note
     // TC_PAR_OnThiLamBai_3 trong TestCase_PAR-3172_OnThi_LamBai.xlsx, phiên 2026-10-30).
+    // ĐÃ VERIFY LẠI THẬT (2026-11-04, cùng lượt đợt chạy CD-21..30 thật): title/2 nút khớp đúng
+    // 100%, icon Thoát giờ tap bằng `exitIconId` (ở trên) thay vì toạ độ đoán.
     exitConfirmPopup: {
       title: "Ngừng làm bài?",
-      bodyPattern: "Thời gian tiếp tục đếm khi bạn thoát",
+      bodyPattern: "Thời gian tiếp tục đếm khi bạn thoát\\.\\s*Bạn xác nhận rời khỏi màn làm bài\\?",
       stayButton: "Ở lại",
       confirmExitButton: "Thoát",
     },

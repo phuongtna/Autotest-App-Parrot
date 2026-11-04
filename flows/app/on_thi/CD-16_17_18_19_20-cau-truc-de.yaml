@@ -1,0 +1,145 @@
+# CD-16_17_18_19_20 — Nhóm "4. List Cấu trúc đề" (màn Chi tiết đề/Thông tin đề), chuyển thể từ
+# "Ôn thi-Chi tiết đề.xlsx" TC_APP_OnThi_ChiTietDe_16..20 (QA ĐÃ CHẠY THẬT, Pass).
+#
+# TÁI SỬ DỤNG `../helpers/open-de.yaml` (STOP_AT_INFO_SCREEN=true) + nhãn CONFIRMED thật
+# `onThiPageObjects.js#examInfo.structureSectionTitle`/`sectionDurationPattern`. Logic phân loại
+# "đề có/không gắn thời gian theo Section" đã có sẵn ở `detectSectionTimerMode()`
+# (`automation/on_thi/navigation/onThiExamEngine.js`) cho phía Node/JS — file Maestro thuần này
+# KHÔNG gọi lại hàm đó (không cần thiết cho việc chỉ assert text hiển thị), chỉ tái dùng ĐÚNG NHÃN
+# đã confirm, giữ logic phân loại làm tài liệu tham khảo khi cần viết thêm case JS.
+#
+# DATA-DEPENDENT: mỗi TC cần 1 đề với cấu hình CMS cụ thể (thứ tự section/có hay không thời lượng
+# riêng/số lượng section) - mỗi khối chỉ chạy khi tham số tương ứng được truyền, bỏ qua nếu thiếu.
+#
+# Tham số (TẤT CẢ OPTIONAL - block tương ứng tự bỏ qua nếu thiếu):
+#   PHONE, OTP
+#   DE_NAME_2_SECTIONS, SECTION_1_NAME, SECTION_2_NAME
+#     — TC_16: đề có 2 section, SECTION_1_NAME phải đứng TRÊN SECTION_2_NAME đúng thứ tự CMS.
+#   DE_NAME_SECTION_WITH_DURATION, SECTION_WITH_DURATION_NAME
+#     — TC_17: 1 section trong đề có cấu hình thời lượng riêng, assert đúng "N phút" bên phải.
+#   DE_NAME_SECTION_NO_DURATION, SECTION_NO_DURATION_NAME
+#     — TC_18: 1 section KHÔNG cấu hình thời lượng, chỉ hiện Tên section, không có "N phút"/"0 phút".
+#   DE_NAME_SINGLE_SECTION
+#     — TC_19: đề chỉ có đúng 1 section, khối Cấu trúc đề vẫn hiển thị đúng không lỗi/dòng trống.
+#   DE_NAME_MANY_SECTIONS, SECTION_LAST_NAME
+#     — TC_20: đề có ≥6 section, cuộn xuống vẫn thấy đủ section cuối (SECTION_LAST_NAME) + nút
+#       "Bắt đầu làm bài" không bị che.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: CD-16_17_18_19_20 List Cau truc de
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# --- TC_16: thứ tự Section đúng cấu hình CMS ---
+- runFlow:
+    when:
+      true: ${DE_NAME_2_SECTIONS != null && DE_NAME_2_SECTIONS != 'undefined' && DE_NAME_2_SECTIONS != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_2_SECTIONS}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible:
+          text: ${SECTION_1_NAME}
+          below: "Cấu trúc đề"
+      - assertVisible:
+          text: ${SECTION_2_NAME}
+          below:
+            text: ${SECTION_1_NAME}
+            below: "Cấu trúc đề"
+      - takeScreenshot: artifacts/CD-16-thu-tu-section-dung-cms
+      - back
+
+# --- TC_17: Section có cấu hình thời lượng hiển thị đúng "N phút" ---
+- runFlow:
+    when:
+      true: ${DE_NAME_SECTION_WITH_DURATION != null && DE_NAME_SECTION_WITH_DURATION != 'undefined' && DE_NAME_SECTION_WITH_DURATION != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_SECTION_WITH_DURATION}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible:
+          text: "\\d+ phút"
+          below: ${SECTION_WITH_DURATION_NAME}
+      - takeScreenshot: artifacts/CD-17-section-co-thoi-luong
+      - back
+
+# --- TC_18: Section KHÔNG cấu hình thời lượng -> chỉ hiện Tên section, KHÔNG có "N phút"/"0 phút" ---
+- runFlow:
+    when:
+      true: ${DE_NAME_SECTION_NO_DURATION != null && DE_NAME_SECTION_NO_DURATION != 'undefined' && DE_NAME_SECTION_NO_DURATION != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_SECTION_NO_DURATION}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: ${SECTION_NO_DURATION_NAME}
+      - assertNotVisible:
+          text: "\\d+ phút"
+          below: ${SECTION_NO_DURATION_NAME}
+      - takeScreenshot: artifacts/CD-18-section-khong-thoi-luong
+      - back
+
+# --- TC_19: Chỉ 1 section duy nhất vẫn hiển thị đúng, không lỗi/dòng trống ---
+- runFlow:
+    when:
+      true: ${DE_NAME_SINGLE_SECTION != null && DE_NAME_SINGLE_SECTION != 'undefined' && DE_NAME_SINGLE_SECTION != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_SINGLE_SECTION}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Cấu trúc đề"
+      - assertVisible: "Bắt đầu làm bài"
+      - takeScreenshot: artifacts/CD-19-chi-1-section
+      - back
+
+# --- TC_20: ≥6 section, cuộn xuống vẫn thấy đủ section cuối + nút action không bị che ---
+- runFlow:
+    when:
+      true: ${DE_NAME_MANY_SECTIONS != null && DE_NAME_MANY_SECTIONS != 'undefined' && DE_NAME_MANY_SECTIONS != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_MANY_SECTIONS}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - scrollUntilVisible:
+          element:
+            text: ${SECTION_LAST_NAME}
+          direction: DOWN
+          timeout: 20000
+          speed: 60
+      - assertVisible: ${SECTION_LAST_NAME}
+      - scrollUntilVisible:
+          element:
+            text: ".*(Bắt đầu làm bài|Tiếp tục làm bài).*"
+          direction: DOWN
+          timeout: 20000
+          speed: 60
+      - assertVisible:
+          text: ".*(Bắt đầu làm bài|Tiếp tục làm bài).*"
+      - takeScreenshot: artifacts/CD-20-cuon-het-section-khong-che-nut
+      - back

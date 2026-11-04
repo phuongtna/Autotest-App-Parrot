@@ -1,0 +1,86 @@
+# CD-05_06_07_08 — Nhóm "2. Khối Thông tin chung" (màn Chi tiết đề/Thông tin đề), chuyển thể từ
+# "Ôn thi-Chi tiết đề.xlsx" TC_APP_OnThi_ChiTietDe_5..8 (QA ĐÃ CHẠY THẬT, Pass cả Android/iOS).
+#
+# TÁI SỬ DỤNG `../helpers/open-de.yaml` với `STOP_AT_INFO_SCREEN=true` (dừng đúng màn cần assert,
+# xem docblock file đó) + nhãn CONFIRMED thật trong `onThiPageObjects.js#examInfo`
+# (maxDurationLabel/totalQuestionsLabel).
+#
+# Mọi giá trị (DE_NAME, thời lượng, tổng câu, tên dài) PHỤ THUỘC DỮ LIỆU THẬT trên CMS tại thời
+# điểm chạy — KHÔNG hardcode theo đúng ví dụ trong xlsx (vd "Đề thi thử vào 10 Sở GDĐT TP Hà Nội")
+# vì đề đó CÓ THỂ không còn tồn tại/bị đổi cấu hình khi QA khác chạy lại sau này — truyền qua tham
+# số, đối chiếu bằng mắt hoặc đối chiếu riêng với CMS nếu cần verify số TUYỆT ĐỐI đúng/sai (cùng
+# giới hạn "KHÔNG tự tính được N đúng/sai vì chưa có network-capture API" đã ghi nhận ở
+# `flows/app/on_thi/TEST-CASES.md` Ghi chú #1 — áp dụng y hệt cho Tổng số câu/Thời lượng ở đây).
+#
+# Tham số:
+#   PHONE, OTP
+#   DE_NAME (bắt buộc, có nghĩa) — đề dùng cho TC_5/6/7.
+#   DE_MAX_DURATION_PATTERN (optional, regex, mặc định "\\d+ phút" — truyền chính xác vd "90 phút"
+#     nếu biết trước cấu hình CMS để verify ĐÚNG SỐ, không chỉ đúng định dạng).
+#   DE_TOTAL_QUESTIONS_PATTERN (optional, regex, mặc định "\\d+ câu" — tương tự, truyền "40 câu" nếu
+#     biết trước).
+#   DE_NAME_LONG (optional — TC_8 CHỈ chạy khi có giá trị, tên đề dài ≥60 ký tự có thật trên CMS;
+#     bỏ qua best-effort nếu không truyền, giống cách OT-04/OT-05 xử lý case cần dữ liệu riêng).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: CD-05_06_07_08 Khoi Thong tin chung
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# --- TC_5/6/7: mở 1 đề CÓ THẬT, đối chiếu Tên đề/Thời lượng tối đa/Tổng số câu ---
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+
+# TC_5: Tên đề hiển thị ĐÚNG NGUYÊN VĂN, không bị cắt/sai ký tự (đã dùng chính DE_NAME làm anchor
+# scroll trong open-de.yaml nên nếu tới được đây là đã match đúng regex escape - assert lại 1 lần
+# nữa KHÔNG qua regex để chắc chắn không có sai khác nhỏ ở cuối chuỗi bị regex ".*" che mất).
+- assertVisible:
+    text: ${DE_NAME}
+- takeScreenshot: artifacts/CD-05-ten-de-dung-cms
+
+# TC_6: Thời lượng tối đa
+- assertVisible: "Thời lượng tối đa"
+- assertVisible:
+    text: "${DE_MAX_DURATION_PATTERN == null || DE_MAX_DURATION_PATTERN == 'undefined' ? '\\\\d+ phút' : DE_MAX_DURATION_PATTERN}"
+    below: "Thời lượng tối đa"
+- takeScreenshot: artifacts/CD-06-thoi-luong-toi-da
+
+# TC_7: Tổng số câu = tổng số câu hỏi con của mọi section cộng lại (chỉ verify ĐÚNG ĐỊNH DẠNG trừ
+# khi caller truyền DE_TOTAL_QUESTIONS_PATTERN chính xác - xem giới hạn ở docblock đầu file).
+- assertVisible: "Tổng số câu"
+- assertVisible:
+    text: "${DE_TOTAL_QUESTIONS_PATTERN == null || DE_TOTAL_QUESTIONS_PATTERN == 'undefined' ? '\\\\d+ câu' : DE_TOTAL_QUESTIONS_PATTERN}"
+    below: "Tổng số câu"
+- takeScreenshot: artifacts/CD-07-tong-so-cau
+
+# --- TC_8 (OPTIONAL - chỉ chạy khi có DE_NAME_LONG): Tên đề dài không vỡ layout ---
+- runFlow:
+    when:
+      true: ${DE_NAME_LONG != null && DE_NAME_LONG != 'undefined' && DE_NAME_LONG != ''}
+    commands:
+      - back
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_LONG}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      # Không có cách assert "không vỡ layout" qua text selector thuần (cùng giới hạn đã ghi nhận
+      # nhiều lần trong repo cho mọi case GUI dạng "không che/không tràn") - chỉ chụp màn hình để QA
+      # đối chiếu bằng mắt, đồng thời assert các khối PHÍA DƯỚI (Thời lượng tối đa) vẫn hiển thị
+      # được (gián tiếp chứng minh Tên đề dài không đẩy/che mất control khác).
+      - assertVisible: "Thời lượng tối đa"
+      - takeScreenshot: artifacts/CD-08-ten-de-dai-khong-vo-layout

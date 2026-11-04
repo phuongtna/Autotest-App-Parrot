@@ -17,6 +17,7 @@ import {
   selectFirstPracticeInPopup,
   clickPracticePopupSave,
   clickPracticePopupCancel,
+  isPracticePopupSaveDisabled,
   practiceRow,
 } from "../../../../automation/ngan_hang_de_thi/navigation/cmsDeThiPageObjects.js";
 
@@ -126,7 +127,11 @@ test.describe.serial("Ngân hàng đề thi - 8. Popup Thêm mới Bài thực h
   test("POPUP-09: bấm Lưu khi chưa chọn bài thực hành nào -> không thêm được gì", async () => {
     await clickAddPracticeButton(page, fixtures.sectionB);
     const before = await readPracticePopupOptionTexts(page);
-    await clickPracticePopupSave(page);
+    // ĐÃ XÁC NHẬN THẬT (2026-11-04): nút "Lưu" bị DISABLE khi chưa chọn gì - Playwright chờ vô thời
+    // hạn cho 1 nút disabled "trở nên enabled" nếu cứ `.click()` thẳng (không có timeout riêng),
+    // treo tới hết test thay vì phản ánh đúng hành vi "Lưu bị chặn" mà case này đang xác nhận.
+    expect(await isPracticePopupSaveDisabled(page)).toBe(true);
+    await clickPracticePopupCancel(page);
     // Popup có thể vẫn mở (chặn Lưu) hoặc đóng mà không thêm gì - chỉ assert KHÔNG có bài nào mới
     // xuất hiện ở Section B.
     await page.waitForTimeout(300);

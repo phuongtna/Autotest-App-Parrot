@@ -10,6 +10,7 @@ import {
   selectExamType,
   fillExamDuration,
   selectGrades,
+  selectScoreTable,
   fillSectionDurationInStructure,
   clearSectionDurationInStructure,
   clickSave,
@@ -55,6 +56,7 @@ test.describe.serial("Ngân hàng đề thi - 4. Quy tắc Thời lượng đề
     await selectExamType(page, fixtures.examTypeWithSections);
     await fillExamDuration(page, 25);
     await selectGrades(page, ["Lớp 1"]);
+    await selectScoreTable(page, fixtures.scoreTable);
   });
 
   test.afterAll(async () => {

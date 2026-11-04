@@ -1,0 +1,121 @@
+# CD-01_02_03_04 — Nhóm "1. Icon button Quay lại" (màn Chi tiết đề / Thông tin đề), chuyển thể từ
+# "Ôn thi-Chi tiết đề.xlsx" TC_APP_OnThi_ChiTietDe_1..4 (bộ 41 TC, ĐÃ CHẠY THẬT bởi QA và Pass cả
+# Android/iOS, có ảnh chụp màn hình đính kèm từng case — nguồn đáng tin hơn hẳn phần lớn module
+# on_thi hiện có, vốn phần nhiều còn "CHƯA VERIFY TRÊN THIẾT BỊ THẬT").
+#
+# TÁI SỬ DỤNG: `../helpers/open-tab-on-thi.yaml` (mở tab + sub-tab), `../helpers/onthi-select-period-filter.yaml`
+# (đổi bộ lọc Thời gian giao đề), `../helpers/open-de.yaml` với `STOP_AT_INFO_SCREEN=true` (THÊM MỚI
+# cùng đợt viết file này — xem docblock file đó) để dừng lại đúng màn Chi tiết đề/Thông tin đề thay
+# vì đi thẳng vào màn Doing như hành vi mặc định (chỉ phù hợp cho các flow làm-bài-đầy-đủ).
+#
+# ICON "Quay lại" CHƯA CÓ resource-id/toạ độ xác nhận thật (ảnh QA đính kèm là link prnt.sc không
+# truy cập được từ đây để soi vị trí icon) — khác các field text do chính QA gõ lại NGUYÊN VĂN
+# (dùng được ngay làm selector text). TẠM DÙNG action `back` (xác nhận hoạt động thật ở nhiều module
+# khác trong repo, vd `flows/app/report/RP-15-menu-children-info.yaml`) làm PROXY cho icon Quay lại,
+# dựa trên chính TC_4 trong bộ này (khẳng định 2 hành vi phải tương đương) — ĐÂY LÀ GIẢ ĐỊNH, CẦN
+# THAY bằng tap đúng toạ độ/resource-id thật khi có ảnh chụp/`maestro hierarchy` thật của màn Chi
+# tiết đề để phân biệt lại "tap icon" khỏi "back hệ thống" nếu sau này phát hiện 2 hành vi khác nhau.
+#
+# TC_3 (Quay lại từ kết quả tìm kiếm) KHÔNG đưa vào file này — module on_thi hiện CHƯA có automation
+# nào cho tính năng tìm kiếm đề (không có page object/helper nào cho ô tìm kiếm), xem TEST-CASES-chi-tiet-de.md
+# mục Ghi chú để biết việc cần làm trước khi tự động hoá case đó.
+#
+# Tham số: PHONE, OTP, DE_NAME (1 đề bất kỳ CÓ THẬT trong tab "Đề thầy cô giao", dùng cho TC_1/TC_4),
+# DE_NAME_KHO (1 đề bất kỳ CÓ THẬT trong tab "Kho đề Parrot", dùng cho TC_2).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: CD-01_02_03_04 Icon Quay lai giu nguyen filter/tab
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# --- TC_1: Quay lại từ đề nguồn "Đề thầy cô giao" (bộ lọc = "1 tháng gần nhất") -> giữ nguyên bộ lọc ---
+- runFlow:
+    file: ../helpers/open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: "Đề thầy cô giao"
+- tapOn:
+    text: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
+- runFlow:
+    file: ../helpers/onthi-select-period-filter.yaml
+    env:
+      RANGE_LABEL: "1 tháng gần nhất"
+- assertVisible:
+    text: ".*(1 tháng gần nhất).*"
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+- back
+# SỬA LẠI SAU KHI CHẠY THẬT (2026-11-04): `back` ĐÚNG THẬT giữ nguyên vị trí cuộn (không tự nhảy về
+# đầu danh sách) - sau khi `open-de.yaml` đã cuộn sâu để tìm DE_NAME, quay lại vẫn đứng ở vị trí cũ
+# (xa phía dưới) nên nhãn filter (nằm TRÊN cùng danh sách) bị cuộn khuất - KHÔNG PHẢI bug app (đây
+# còn là tín hiệu TỐT: scroll position được giữ, đúng tinh thần "danh sách không bị reset" của
+# chính TC_1). Cuộn LÊN lại mốc filter trước khi assert - COPY NGUYÊN idiom đã verify thật ở
+# `flows/app/on_thi/OT-07_09_10_11_12_13-card-chua-nop-matrix.yaml` (dòng 98-103).
+- scrollUntilVisible:
+    element:
+      text: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
+    direction: UP
+    timeout: 30000
+    speed: 70
+- assertVisible:
+    text: ".*(1 tháng gần nhất).*"
+- assertNotVisible:
+    text: ".*(2 tuần gần nhất).*"
+- takeScreenshot: artifacts/CD-01-back-preserves-filter
+
+# --- TC_2: Quay lại từ đề nguồn "Kho đề Parrot" -> về đúng màn Kho đề Parrot ---
+# CHƯA XÁC MINH: `list.sectionBasic`/`list.sectionAdvanced` ("Đề cơ bản"/"Đề nâng cao") có thực sự
+# là tag RIÊNG của Kho đề Parrot hay không (xem CẦN XÁC MINH trong onThiPageObjects.js#list) - dùng
+# tạm `assertVisible: "Kho đề Parrot"` làm tín hiệu CHÍNH (tên sub-tab vẫn hiển thị trên header dù
+# đang active hay không, nhưng ít nhất xác nhận KHÔNG bị văng ra màn khác hẳn như Danh sách Bài tập).
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_KHO}
+      ON_THI_TAB: "Kho đề Parrot"
+      STOP_AT_INFO_SCREEN: "true"
+- back
+- extendedWaitUntil:
+    visible:
+      text: "Kho đề Parrot"
+    timeout: 15000
+- assertVisible: "Kho đề Parrot"
+- takeScreenshot: artifacts/CD-02-back-preserves-kho-de-tab
+
+# --- TC_4: Back hệ thống (Android)/vuốt back (iOS) tương đương icon Quay lại ---
+# Lặp lại ĐÚNG kịch bản TC_1 (dùng chung flow giữ bộ lọc "1 tháng gần nhất" ở trên) - action "back"
+# bên dưới chính là hành vi hệ thống thật (Maestro `back` = nút back vật lý Android/thao tác hệ
+# thống iOS tuỳ platform chạy), nên TC_1 ở trên và TC_4 ở đây hiện ĐANG DÙNG CHUNG 1 action - ĐÂY
+# CHÍNH LÀ GIỚI HẠN đã nêu ở docblock đầu file (chưa phân biệt được "tap icon" thật khỏi "back hệ
+# thống" vì thiếu toạ độ icon) - giữ case này để xác nhận lại hành vi ổn định (không reset state)
+# dù gọi lại thêm 1 lượt, không coi là test case thừa.
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+- back
+# Xem ghi chú "SỬA LẠI SAU KHI CHẠY THẬT" ở khối TC_1 phía trên (cùng file) - cùng lý do cuộn lên lại.
+- scrollUntilVisible:
+    element:
+      text: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
+    direction: UP
+    timeout: 30000
+    speed: 70
+- assertVisible:
+    text: ".*(1 tháng gần nhất).*"
+- takeScreenshot: artifacts/CD-04-system-back-same-as-icon

@@ -98,10 +98,12 @@ test.describe.serial("Ngân hàng đề thi - 1. Danh sách đề thi (LIST-01..
   test("LIST-04: cột Khối lớp hiển thị đủ khi đề gắn nhiều Khối lớp", async () => {
     await createExam(page, { name: MULTI_GRADE, examType: fixtures.examTypeEmpty, grades: ["Lớp 3", "Lớp 4", "Lớp 5"], scoreTable: fixtures.scoreTable });
     await gotoDeThi(page, baseUrl);
+    // Cột "Khối lớp" hiển thị nhãn "Khối N" dù dropdown chọn dùng nhãn "Lớp N" - 2 nhãn khác nhau
+    // cho cùng 1 khối, xác nhận thật qua received text ("Khối 3\nKhối 4\nKhối 5").
     const gradesText = await readRowGrades(page, MULTI_GRADE);
-    expect(gradesText).toContain("Lớp 3");
-    expect(gradesText).toContain("Lớp 4");
-    expect(gradesText).toContain("Lớp 5");
+    expect(gradesText).toContain("Khối 3");
+    expect(gradesText).toContain("Khối 4");
+    expect(gradesText).toContain("Khối 5");
   });
 
   test("LIST-05: tìm kiếm tương đối theo tên đề thi", async () => {

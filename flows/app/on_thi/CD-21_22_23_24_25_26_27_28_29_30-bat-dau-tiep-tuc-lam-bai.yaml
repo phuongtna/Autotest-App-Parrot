@@ -1,0 +1,235 @@
+# CD-21..30 — Nhóm "5. Nút Bắt đầu làm bài / Tiếp tục làm bài" (màn Chi tiết đề/Thông tin đề),
+# chuyển thể từ "Ôn thi-Chi tiết đề.xlsx" TC_APP_OnThi_ChiTietDe_21..30 (QA ĐÃ CHẠY THẬT, Pass).
+#
+# ĐÂY LÀ NHÓM "CASE LÀM BÀI" CHÍNH theo đúng yêu cầu gốc ("tái sử dụng code phần làm bài tập để
+# chạy case làm bài") - TÁI SỬ DỤNG TỐI ĐA:
+#   - `../helpers/open-de.yaml` (STOP_AT_INFO_SCREEN=true để dừng đúng màn Thông tin đề, mặc định
+#     false để đi thẳng Doing khi cần) - bản thân file đó đã tái dùng kỹ thuật escape regex/anchor
+#     `below` đã verify thật ở `open-exercise.yaml` (module Bài tập).
+#   - `../helpers/launch-keep-session.yaml` (giữ nguyên phiên đăng nhập khi "thoát app" ở TC_25).
+#   - Nhãn CONFIRMED thật từ `onThiPageObjects.js#examInfo`: startButton/continueButton/
+#     startConfirmPopup/resumeIncompletePopup (2 field cuối THÊM MỚI cùng đợt viết các file CD-*).
+#   - `pressKey: Home` (lệnh Maestro CHÍNH THỨC đưa app ra NGOÀI foreground thật, ĐÃ VERIFY THẬT ở
+#     `flows/app/thong_bao/TB-07-thong-bao-hoan-thanh-bai-tap-os-shade.yaml`) làm cơ chế "thoát app
+#     giữa chừng" cho TC_25 - tránh phải đoán toạ độ icon "Thoát" (CHƯA XÁC MINH, xem
+#     `onThiExamEngine.js#tapExitIcon()`).
+#
+# GIỚI HẠN ĐÃ BIẾT:
+#   - KHÔNG đọc được GIÁ TRỊ đồng hồ đếm giờ qua text selector thuần (readTimerBadge() trong
+#     `onThiExamEngine.js` chỉ best-effort/diagnostic, CÓ THỂ đọc nhầm thời lượng audio player - xem
+#     docblock file đó) - TC_25 chỉ verify được HÀNH VI (app không bị kick ra khỏi phiên làm dở sau
+#     khi thoát/quay lại), KHÔNG tự verify được ĐÚNG SỐ PHÚT đã trôi qua - chụp màn hình để QA đối
+#     chiếu bằng mắt (ghi nhận như "Tay" 1 phần, xem TEST-CASES-chi-tiet-de.md).
+#   - TC_25 chờ THỜI GIAN THẬT (mặc định 2 phút trước khi thoát + 3 phút trong lúc thoát, ĐÚNG số
+#     liệu xlsx) - RẤT TỐN THỜI GIAN chạy, nên MẶC ĐỊNH BỊ BỎ QUA (gate bởi
+#     RUN_TC25_TIMER_PERSISTENCE="true"), có thể rút ngắn qua WAIT_BEFORE_EXIT_MS/WAIT_WHILE_EXITED_MS
+#     khi chỉ cần verify CƠ CHẾ (không cần đúng số phút thật) cho CI nhanh.
+#   - TC_28 "giữ nguyên số câu đã trả lời" chỉ verify được qua pattern tiến độ "\\d+/\\d+"
+#     (`onThiPageObjects.js#doing.questionListButtonPattern`) VẪN > "0/N" sau khi resume, KHÔNG tự
+#     đối chiếu được ĐÚNG số câu cụ thể (cần biết trước đã trả lời bao nhiêu câu - truyền qua
+#     DE_INPROGRESS_EXPECTED_PROGRESS nếu biết, optional).
+#
+# Tham số:
+#   PHONE, OTP
+#   DE_NAME_FRESH (bắt buộc cho TC_21..25) — đề CHƯA từng mở/không có phiên làm dở nào.
+#   DE_NAME_INPROGRESS (bắt buộc cho TC_26..30) — đề ĐANG có 1 phiên làm dở (đã bấm Bắt đầu, thoát
+#     ra giữa chừng, CHƯA nộp) - QA tự tạo trước khi chạy (vd chạy nhanh TC_21..24 trên 1 đề khác,
+#     rồi KHÔNG làm hết, thoát ra bằng Home - đề đó sẽ thành "đang làm dở" cho lượt chạy sau).
+#   DE_INPROGRESS_EXPECTED_PROGRESS (optional, regex, vd "10/40") — nếu biết trước tiến độ đã làm dở.
+#   RUN_TC25_TIMER_PERSISTENCE (optional, mặc định bỏ qua khối TC_25 - truyền "true" để chạy).
+#   WAIT_BEFORE_EXIT_MS / WAIT_WHILE_EXITED_MS (optional, mặc định 120000/180000 = đúng số liệu
+#     xlsx "2 phút"/"3 phút" - có thể rút ngắn khi chỉ cần verify cơ chế).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: CD-21_22_23_24_25_26_27_28_29_30 Bat dau - Tiep tuc lam bai
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# ======================================================================================
+# TC_21..25 — đề CHƯA có phiên làm dở (DE_NAME_FRESH): Bắt đầu làm bài / popup xác nhận / Doing /
+# đồng hồ không dừng khi thoát-quay lại.
+# ======================================================================================
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_FRESH}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+
+# --- TC_21: nút hiển thị "Bắt đầu làm bài" (KHÔNG phải "Tiếp tục làm bài") khi chưa có phiên dở ---
+- assertVisible: "Bắt đầu làm bài"
+- assertNotVisible: "Tiếp tục làm bài"
+- takeScreenshot: artifacts/CD-21-nut-bat-dau-lam-bai
+
+# --- TC_22: bấm "Bắt đầu làm bài" -> popup xác nhận "Bắt đầu làm bài?" với "Để sau"/"Bắt đầu" ---
+- tapOn: "Bắt đầu làm bài"
+- extendedWaitUntil:
+    visible: "Bắt đầu làm bài?"
+    timeout: 10000
+- assertVisible: "Để sau"
+- assertVisible: "Bắt đầu"
+- takeScreenshot: artifacts/CD-22-popup-xac-nhan-bat-dau
+
+# --- TC_23: bấm "Để sau" -> chỉ đóng popup, VẪN ở màn Thông tin đề, nút vẫn "Bắt đầu làm bài" ---
+- tapOn: "Để sau"
+- assertNotVisible: "Bắt đầu làm bài?"
+- assertVisible: "Bắt đầu làm bài"
+- takeScreenshot: artifacts/CD-23-de-sau-chi-dong-popup
+
+# --- TC_24: bấm lại "Bắt đầu làm bài" -> "Bắt đầu" -> vào màn Doing, đồng hồ chạy ngay ---
+- tapOn: "Bắt đầu làm bài"
+- extendedWaitUntil:
+    visible: "Bắt đầu làm bài?"
+    timeout: 10000
+- tapOn: "Bắt đầu"
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_doing_screen"
+    timeout: 30000
+- assertVisible:
+    text: "Nộp bài"
+- takeScreenshot: artifacts/CD-24-vao-man-doing-dong-ho-chay
+
+# --- TC_25 (OPTIONAL, mặc định BỎ QUA - xem Giới hạn đã biết đầu file) ---
+# KỸ THUẬT "sleep N ms thật" dùng `extendedWaitUntil` với 1 text KHÔNG BAO GIỜ khớp + `optional:
+# true` (chờ hết timeout rồi đi tiếp, không fail) - CHƯA từng dùng idiom này ở nơi khác trong repo
+# (mọi `extendedWaitUntil` khác đều chờ 1 điều kiện THẬT SỰ có thể xảy ra), CHỈ tái dùng ĐÚNG cơ chế
+# `optional: true` đã verify thật (vd `ktra_doan_van_dai_dich_va_dich_tu.yaml`). CẦN XÁC MINH khi
+# chạy thật lần đầu: `timeout:` truyền qua `${...}` (ternary JS, giống kỹ thuật đã verify thật cho
+# field `text:` ở `open-de.yaml`) CHƯA từng thấy dùng cho field numeric nào khác trong repo - nếu
+# Maestro từ chối cú pháp này, thay bằng số nguyên cố định (120000/180000) cho từng lượt chạy.
+- runFlow:
+    when:
+      true: ${RUN_TC25_TIMER_PERSISTENCE == 'true'}
+    commands:
+      - extendedWaitUntil:
+          visible: "zzz_cho_du_thoi_gian_truoc_khi_thoat_zzz"
+          timeout: "${WAIT_BEFORE_EXIT_MS == null || WAIT_BEFORE_EXIT_MS == 'undefined' ? 120000 : WAIT_BEFORE_EXIT_MS}"
+          optional: true
+      - takeScreenshot: artifacts/CD-25-truoc-khi-thoat
+      - pressKey: Home
+      - extendedWaitUntil:
+          visible: "zzz_cho_du_thoi_gian_trong_luc_thoat_zzz"
+          timeout: "${WAIT_WHILE_EXITED_MS == null || WAIT_WHILE_EXITED_MS == 'undefined' ? 180000 : WAIT_WHILE_EXITED_MS}"
+          optional: true
+      - runFlow: ../helpers/launch-keep-session.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 30000
+      - assertVisible:
+          text: "Nộp bài"
+      - takeScreenshot: artifacts/CD-25-sau-khi-quay-lai-doi-chieu-bang-mat
+
+# ======================================================================================
+# TC_26..30 — đề ĐANG có phiên làm dở (DE_NAME_INPROGRESS): Tiếp tục làm bài / popup "Bài làm chưa
+# hoàn thành" / Tiếp tục giữ nguyên tiến độ / Làm lại xoá phiên dở / không phát sinh phiên trùng.
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${DE_NAME_INPROGRESS != null && DE_NAME_INPROGRESS != 'undefined' && DE_NAME_INPROGRESS != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_INPROGRESS}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+
+      # --- TC_26: nút hiển thị "Tiếp tục làm bài" (KHÔNG phải "Bắt đầu làm bài") ---
+      - assertVisible: "Tiếp tục làm bài"
+      - assertNotVisible: "Bắt đầu làm bài"
+      - takeScreenshot: artifacts/CD-26-nut-tiep-tuc-lam-bai
+
+      # --- TC_27: bấm "Tiếp tục làm bài" -> popup "Bài làm chưa hoàn thành" với "Làm lại"/"Tiếp tục" ---
+      - tapOn: "Tiếp tục làm bài"
+      - extendedWaitUntil:
+          visible: "Bài làm chưa hoàn thành"
+          timeout: 10000
+      - assertVisible: "Làm lại"
+      - assertVisible: "Tiếp tục"
+      - takeScreenshot: artifacts/CD-27-popup-bai-lam-chua-hoan-thanh
+
+      # --- TC_28: bấm "Tiếp tục" -> vào đúng vị trí làm dở, giữ nguyên tiến độ đã trả lời ---
+      - tapOn: "Tiếp tục"
+      - runFlow:
+          when:
+            visible: ".*(AI hỗ trợ học tập).*"
+          commands:
+            - tapOn: ".*(Tiếp tục).*"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 30000
+      - runFlow:
+          when:
+            true: ${DE_INPROGRESS_EXPECTED_PROGRESS != null && DE_INPROGRESS_EXPECTED_PROGRESS != 'undefined' && DE_INPROGRESS_EXPECTED_PROGRESS != ''}
+          commands:
+            - assertVisible:
+                text: ${DE_INPROGRESS_EXPECTED_PROGRESS}
+      - assertNotVisible:
+          text: "^0/\\d+$"
+      - takeScreenshot: artifacts/CD-28-resume-dung-vi-tri-giu-tien-do
+
+      # --- TC_29: quay lại Info -> "Tiếp tục làm bài" -> popup -> lần này bấm "Làm lại" -> xoá
+      # phiên dở, bắt đầu lại từ câu 1 (tiến độ "0/N" hoặc "1/N" tuỳ cách app đếm, đồng hồ reset -
+      # KHÔNG tự verify được giá trị đồng hồ, xem Giới hạn đã biết đầu file). Thoát Doing về Info
+      # bằng "pressKey: Home" + relaunch (tránh đoán toạ độ icon Thoát - CHƯA XÁC MINH) rồi mở lại
+      # ĐÚNG đề đó qua open-de.yaml (idempotent, STOP_AT_INFO_SCREEN).
+      - pressKey: Home
+      - runFlow: ../helpers/launch-keep-session.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_INPROGRESS}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Tiếp tục làm bài"
+      - tapOn: "Tiếp tục làm bài"
+      - extendedWaitUntil:
+          visible: "Bài làm chưa hoàn thành"
+          timeout: 10000
+      - tapOn: "Làm lại"
+      - runFlow:
+          when:
+            visible: ".*(AI hỗ trợ học tập).*"
+          commands:
+            - tapOn: ".*(Tiếp tục).*"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 30000
+      - takeScreenshot: artifacts/CD-29-lam-lai-xoa-phien-do-bat-dau-lai
+
+      # --- TC_30: sau khi Làm lại, quay lại Info CHỈ có đúng 1 phiên dở hiện tại (không trùng) ---
+      # CHƯA có cách đếm SỐ LƯỢNG dòng khớp pattern qua Maestro thuần (không có assertion "count=N")
+      # - chỉ assert "Tiếp tục làm bài" hiển thị đúng 1 nút action (không có 2 nút action chồng
+      # nhau, vốn đã là bố cục cố định 1-nút-duy-nhất của màn này) VÀ khối Lịch sử làm bài KHÔNG
+      # phát sinh dòng mới từ phiên đã xoá (so sánh với trạng thái TRƯỚC TC_26, best-effort qua
+      # screenshot vì không có baseline số dòng truyền vào tham số).
+      - pressKey: Home
+      - runFlow: ../helpers/launch-keep-session.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_INPROGRESS}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Tiếp tục làm bài"
+      - takeScreenshot: artifacts/CD-30-khong-phat-sinh-phien-trung

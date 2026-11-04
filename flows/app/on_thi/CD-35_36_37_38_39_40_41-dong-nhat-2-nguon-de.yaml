@@ -1,0 +1,218 @@
+# CD-35..41 — Nhóm "II. Rule dùng chung giữa 2 nguồn đề: Đề thầy cô giao & Kho đề Parrot" (màn Chi
+# tiết đề/Thông tin đề), chuyển thể từ "Ôn thi-Chi tiết đề.xlsx" TC_APP_OnThi_ChiTietDe_35..41 (QA
+# ĐÃ CHẠY THẬT, Pass).
+#
+# TÁI SỬ DỤNG `../helpers/open-de.yaml` (tham số `ON_THI_TAB` đã hỗ trợ sẵn "Đề thầy cô giao"/"Kho
+# đề Parrot" từ trước, xem docblock file đó) + `../helpers/ensure-profile-active.yaml` (TC_40, cùng
+# kỹ thuật CD-31_32_33_34). RẤT DATA-DEPENDENT: cần CẶP đề tương đương giữa 2 nguồn (cùng cấu hình
+# CMS) + 1 cặp đề TRÙNG TÊN khác bản ghi - QA tự dàn dựng trước, mỗi khối chỉ chạy khi đủ tham số.
+#
+# Tham số (TẤT CẢ OPTIONAL theo từng khối - xem comment tại mỗi khối):
+#   PHONE, OTP
+#   DE_NAME_TEACHER, DE_NAME_KHO, SECTION_1_NAME, SECTION_2_NAME
+#     — TC_35/41: cặp đề 2 NGUỒN KHÁC NHAU nhưng CÙNG cấu hình CMS (cùng số section/tên section).
+#   DE_SAME_TITLE (bắt buộc cùng tên hiển thị ở cả 2 nguồn), cần đề Kho đề Parrot ĐÃ làm ≥1 lần,
+#     đề Đề thầy cô giao CHƯA từng làm — TC_36.
+#   DE_NAME_OVERDUE_TEACHER, DE_OVERDUE_DUE_DATE_DM ("DD/MM")
+#     — TC_38: đề nguồn thầy cô giao đã quá hạn nộp.
+#   DE_NAME_KHO_ANY — TC_39: bất kỳ đề nào trong Kho đề Parrot (xác nhận KHÔNG có nhãn hạn nộp).
+#   DE_NAME_PRO_TEACHER, DE_NAME_PRO_KHO, PROFILE_BASIC_NAME
+#     — TC_40: 1 đề Pro ở mỗi nguồn, hồ sơ đang dùng là BASIC/Free.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: CD-35_36_37_38_39_40_41 Dong nhat 2 nguon de
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# --- TC_35/41: 5 khối control + Cấu trúc đề nhất quán giữa 2 nguồn (cùng cấu hình CMS) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_TEACHER != null && DE_NAME_TEACHER != 'undefined' && DE_NAME_TEACHER != '' && DE_NAME_KHO != null && DE_NAME_KHO != 'undefined' && DE_NAME_KHO != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_TEACHER}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Thời lượng tối đa"
+      - assertVisible: "Tổng số câu"
+      - assertVisible: "Cấu trúc đề"
+      - assertVisible:
+          text: ${SECTION_1_NAME}
+          below: "Cấu trúc đề"
+      - assertVisible:
+          text: ".*(Bắt đầu làm bài|Tiếp tục làm bài).*"
+      - takeScreenshot: artifacts/CD-35-5-khoi-nguon-thay-co-giao
+      - back
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_KHO}
+            ON_THI_TAB: "Kho đề Parrot"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Thời lượng tối đa"
+      - assertVisible: "Tổng số câu"
+      - assertVisible: "Cấu trúc đề"
+      - assertVisible:
+          text: ${SECTION_1_NAME}
+          below: "Cấu trúc đề"
+      - assertVisible:
+          text: ".*(Bắt đầu làm bài|Tiếp tục làm bài).*"
+      - takeScreenshot: artifacts/CD-35-41-5-khoi-nguon-kho-de-parrot
+      - runFlow:
+          when:
+            true: ${SECTION_2_NAME != null && SECTION_2_NAME != 'undefined' && SECTION_2_NAME != ''}
+          commands:
+            - assertVisible:
+                text: ${SECTION_2_NAME}
+                below:
+                  text: ${SECTION_1_NAME}
+                  below: "Cấu trúc đề"
+      - back
+
+# --- TC_36: Lịch sử làm bài tính RIÊNG theo từng bản ghi đề, KHÔNG gộp dù trùng Tên đề ---
+- runFlow:
+    when:
+      true: ${DE_SAME_TITLE != null && DE_SAME_TITLE != 'undefined' && DE_SAME_TITLE != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_SAME_TITLE}
+            ON_THI_TAB: "Kho đề Parrot"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Lịch sử làm bài"
+      - takeScreenshot: artifacts/CD-36-kho-de-co-lich-su-rieng
+      - back
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_SAME_TITLE}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertNotVisible: "Lịch sử làm bài"
+      - takeScreenshot: artifacts/CD-36-thay-co-giao-khong-gop-lich-su
+      - back
+
+# --- TC_37: Quay lại luôn trả về ĐÚNG màn nguồn tương ứng, không lẫn giữa 2 nguồn (lặp lại CD_01/02
+# với cả 2 nguồn trong CÙNG 1 lượt chạy liên tiếp, khác file CD-01_02_03_04 chỉ test riêng từng
+# nguồn) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_TEACHER != null && DE_NAME_TEACHER != 'undefined' && DE_NAME_TEACHER != '' && DE_NAME_KHO != null && DE_NAME_KHO != 'undefined' && DE_NAME_KHO != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_TEACHER}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - back
+      - extendedWaitUntil:
+          visible: "Đề thầy cô giao"
+          timeout: 15000
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_KHO}
+            ON_THI_TAB: "Kho đề Parrot"
+            STOP_AT_INFO_SCREEN: "true"
+      - back
+      - extendedWaitUntil:
+          visible: "Kho đề Parrot"
+          timeout: 15000
+      - takeScreenshot: artifacts/CD-37-quay-lai-dung-nguon-khong-lan
+
+# --- TC_38: đề nguồn thầy cô giao QUÁ HẠN vẫn cho Bắt đầu/Tiếp tục bình thường ---
+- runFlow:
+    when:
+      true: ${DE_NAME_OVERDUE_TEACHER != null && DE_NAME_OVERDUE_TEACHER != 'undefined' && DE_NAME_OVERDUE_TEACHER != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_OVERDUE_TEACHER}
+            DE_DUE_DATE_DM: ${DE_OVERDUE_DUE_DATE_DM}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible:
+          text: ".*(Bắt đầu làm bài|Tiếp tục làm bài).*"
+      - assertNotVisible: ".*(quá hạn|Quá hạn|không thể làm).*"
+      - takeScreenshot: artifacts/CD-38-qua-han-van-lam-duoc
+      - back
+
+# --- TC_39: đề nguồn Kho đề Parrot KHÔNG hiển thị bất kỳ nhãn hạn nộp nào ---
+- runFlow:
+    when:
+      true: ${DE_NAME_KHO_ANY != null && DE_NAME_KHO_ANY != 'undefined' && DE_NAME_KHO_ANY != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_KHO_ANY}
+            ON_THI_TAB: "Kho đề Parrot"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertNotVisible: ".*(Hạn nộp).*"
+      - takeScreenshot: artifacts/CD-39-kho-de-khong-co-han-nop
+      - back
+
+# --- TC_40: Rule Pro/Free áp dụng NHẤT QUÁN cho cả 2 nguồn (Free bị chặn ở cả 2) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_PRO_TEACHER != null && DE_NAME_PRO_TEACHER != 'undefined' && DE_NAME_PRO_TEACHER != '' && DE_NAME_PRO_KHO != null && DE_NAME_PRO_KHO != 'undefined' && DE_NAME_PRO_KHO != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/ensure-profile-active.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            TARGET_PROFILE_NAME: ${PROFILE_BASIC_NAME}
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_PRO_TEACHER}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - tapOn: "Bắt đầu làm bài"
+      - extendedWaitUntil:
+          visible: ".*(Nâng cấp).*"
+          timeout: 10000
+      - assertVisible: ".*(Nâng cấp).*"
+      - takeScreenshot: artifacts/CD-40-free-bi-chan-nguon-thay-co-giao
+      # CHƯA XÁC MINH: giả định "back" 2 lần đóng được bottom sheet RỒI thoát khỏi màn Info (chưa có
+      # xác nhận thật sheet này đóng bằng back hệ thống hay bắt buộc phải tap ra ngoài/nút đóng
+      # riêng) - nếu lần "back" đầu không đóng được sheet, lượt "back" thứ 2 có thể thoát nhầm luôn
+      # cả màn Info trong khi sheet vẫn còn hiển thị đè lên - xem lại bằng `maestro hierarchy` thật
+      # trước khi tin tưởng bước này khi FAIL ở khối Kho đề Parrot ngay sau đây.
+      - back
+      - back
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_PRO_KHO}
+            ON_THI_TAB: "Kho đề Parrot"
+            STOP_AT_INFO_SCREEN: "true"
+      - tapOn: "Bắt đầu làm bài"
+      - extendedWaitUntil:
+          visible: ".*(Nâng cấp).*"
+          timeout: 10000
+      - assertVisible: ".*(Nâng cấp).*"
+      - takeScreenshot: artifacts/CD-40-free-bi-chan-nguon-kho-de-parrot

@@ -65,17 +65,42 @@ appId: ${APP_ID}
     env:
       ON_THI_TAB: ${ON_THI_TAB}
 
+#
+# SỬA LẠI HẲN CÁCH CUỘN SAU KHI CHẠY THẬT (2026-11-04, `maestro test` thật - `scrollUntilVisible`
+# FAIL 4/4 lần liên tiếp, kể cả sau 2 lần vá bằng wait/scroll-lại): TÁI SỬ DỤNG đúng kỹ thuật cuối
+# cùng (sau 6 lần sửa) đã ổn định thật cho module Bài tập - xem lịch sử đầy đủ trong docblock
+# `flows/app/helpers/locate-assignment-card.yaml` (file đã deprecated nhưng GIỮ LẠI đúng cho mục
+# đích đối chiếu công thức này). Root cause giống hệt: `scrollUntilVisible` coi Tên đề "đã visible"
+# NGAY KHI nó vừa hé mép dưới màn hình (đúng định nghĩa "visible" của Maestro - có bounds giao màn
+# hình, KHÔNG cần hiện đầy đủ), trong khi nút CTA "Làm bài/Làm tiếp/Làm lại" nằm NGAY SAU title vẫn
+# còn ngoài khung nhìn phía dưới -> dừng cuộn SỚM 1 nhịp, `tapOn...below` ngay sau đó luôn
+# "Element not found" dù title đúng thật đang "visible" theo Maestro. SỬA: bỏ hẳn `scrollUntilVisible`,
+# dùng `repeat.while` + `swipe` thô với ĐIỀU KIỆN DỪNG = ĐÚNG compound selector mà bước `tapOn` cần
+# (CTA below title/due-date), không phải chỉ "title visible" - vòng lặp chỉ dừng khi cả 2 phần tử đã
+# cùng lọt khung nhìn. `waitForAnimationToEnd` sau mỗi swipe để triệt tiêu quán tính trước khi đọc
+# lại hierarchy cho lượt kiểm tra kế - không đọc lúc còn đang trôi. Biên độ/tốc độ swipe + `times`
+# COPY NGUYÊN giá trị cuối cùng đã verify ổn định ở `locate-assignment-card.yaml` (bản sửa lần 5/6),
+# KHÔNG tự chế số mới.
 - runFlow:
     when:
       true: ${DE_DUE_DATE_DM != null && DE_DUE_DATE_DM != 'undefined'}
     commands:
-      - scrollUntilVisible:
-          element:
-            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-          direction: DOWN
-          timeout: 150000
-          speed: 70
-          waitToSettleTimeoutMs: 500
+      - repeat:
+          while:
+            notVisible:
+              text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+              below:
+                text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
+                below:
+                  text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          times: 100
+          commands:
+            - swipe:
+                start: 50%, 85%
+                end: 50%, 35%
+                duration: 600
+            - waitForAnimationToEnd:
+                timeout: 800
       - assertVisible:
           text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
           below:
@@ -90,13 +115,22 @@ appId: ${APP_ID}
     when:
       true: ${DE_DUE_DATE_DM == null || DE_DUE_DATE_DM == 'undefined'}
     commands:
-      - scrollUntilVisible:
-          element:
-            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-          direction: DOWN
-          timeout: 90000
-          speed: 70
-          waitToSettleTimeoutMs: 500
+      # Xem ghi chú "SỬA LẠI HẲN CÁCH CUỘN" ở nhánh DE_DUE_DATE_DM phía trên (cùng file) - cùng 1 bug,
+      # cùng 1 cách sửa, chỉ khác điều kiện dừng (không có "Hạn nộp" để neo nên dừng thẳng ở CTA).
+      - repeat:
+          while:
+            notVisible:
+              text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+              below:
+                text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          times: 100
+          commands:
+            - swipe:
+                start: 50%, 85%
+                end: 50%, 35%
+                duration: 600
+            - waitForAnimationToEnd:
+                timeout: 800
       - tapOn:
           text: ".*(Làm bài|Làm tiếp|Làm lại).*"
           below:
@@ -108,36 +142,79 @@ appId: ${APP_ID}
 # có copy thật để biết chọn selector nào (xem onThiPageObjects.js#upgradeSheet).
 
 # Màn "Thông tin đề" trung gian (xem ghi chú đầu file) - best-effort, bỏ qua nếu đã vào thẳng Doing.
+#
+# STOP_AT_INFO_SCREEN (optional, mặc định "false" - THÊM MỚI 2026-11-04 phục vụ bộ test case
+# `flows/app/on_thi/CD-*.yaml` chuyển thể từ "Ôn thi-Chi tiết đề.xlsx"): truyền "true" để DỪNG LẠI
+# ngay tại màn "Thông tin đề" (KHÔNG tự bấm "Bắt đầu làm bài"/"Bắt đầu") - phần lớn test case của
+# bộ Chi tiết đề cần assert chính màn này (Tên đề/Thời lượng/Cấu trúc đề/nút action/popup xác nhận)
+# TRƯỚC khi vào màn Doing, khác với `open-de.yaml` mặc định (luôn đi thẳng tới màn Doing cho các
+# flow làm-bài-đầy-đủ như OT-34_35).
 - runFlow:
     when:
-      visible: "Bắt đầu làm bài"
+      true: ${STOP_AT_INFO_SCREEN != 'true'}
     commands:
-      - tapOn: "Bắt đầu làm bài"
       - runFlow:
           when:
-            visible: "Bắt đầu làm bài?"
+            visible: "Bắt đầu làm bài"
           commands:
-            - tapOn: "Bắt đầu"
+            - tapOn: "Bắt đầu làm bài"
+            - runFlow:
+                when:
+                  visible: "Bắt đầu làm bài?"
+                commands:
+                  - tapOn: "Bắt đầu"
 
-# Consent AI nếu tài khoản chưa đồng ý - CÙNG dialog chung toàn app, không riêng module nào.
+# Consent AI nếu tài khoản chưa đồng ý - CÙNG dialog chung toàn app, không riêng module nào. BỎ QUA
+# khi STOP_AT_INFO_SCREEN=true (dialog này chỉ xuất hiện ở màn Doing, chưa chắc đã gặp ở màn Info).
 - runFlow:
     when:
-      visible: ".*(AI hỗ trợ học tập).*"
+      true: ${STOP_AT_INFO_SCREEN != 'true'}
     commands:
-      - tapOn: ".*(Tiếp tục).*"
+      - runFlow:
+          when:
+            visible: ".*(AI hỗ trợ học tập).*"
+          commands:
+            - tapOn: ".*(Tiếp tục).*"
 
-# Chốt: đã vào màn làm bài (cùng marker exercise_close_button đã verify thật cho module Bài tập).
-- extendedWaitUntil:
-    visible:
-      id: "exercise_close_button"
-    timeout: 40000
-- extendedWaitUntil:
-    visible:
-      text: ".*(Kiểm tra|Tiếp theo|Tiếp tục|Nhấn để nói|Nhập câu trả lời).*"
-    timeout: 90000
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "exercise_connect_left_0"
-    timeout: 90000
-    optional: true
+# Chốt (STOP_AT_INFO_SCREEN != true - mặc định): đã vào màn làm bài.
+#
+# SỬA LẠI SAU KHI CHẠY THẬT (2026-11-04, thiết bị 3201d866d40a1681, đề "Đề kiểm tra giữa kỳ 1 -
+# Khối 6 sửa 12"): claim cũ "màn Doing dùng chung đúng id exercise_close_button với module Bài tập"
+# SAI cho phần KHUNG BỌC NGOÀI - `maestro hierarchy` thật cho thấy khung Doing của Ôn thi dùng bộ id
+# RIÊNG `exam_prep_doing_*` (root `exam_prep_doing_screen`, không có `exercise_close_button` nào cả)
+# - chỉ phần NỘI DUNG câu hỏi bên trong (`exercise_question_header`/`exercise_answer_N`) mới thật sự
+# dùng chung id `exercise_*` như docblock `onThiExamEngine.js` mô tả. Đổi marker chốt sang
+# `exam_prep_doing_screen` (ĐÃ XÁC NHẬN THẬT) - xem thêm các id RIÊNG khác đã xác nhận cùng lượt này
+# trong `onThiPageObjects.js#doing` (exitIconId/markForReviewIconId/toolbarSubmitButtonId/
+# questionListButtonId/ctaButtonId/timerId).
+- runFlow:
+    when:
+      true: ${STOP_AT_INFO_SCREEN != 'true'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 40000
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Kiểm tra|Tiếp theo|Tiếp tục|Nhấn để nói|Nhập câu trả lời).*"
+          timeout: 90000
+          optional: true
+      - extendedWaitUntil:
+          visible:
+            id: "exercise_connect_left_0"
+          timeout: 90000
+          optional: true
+
+# Chốt (STOP_AT_INFO_SCREEN == true): xác nhận đang dừng ĐÚNG ở màn "Thông tin đề" - best-effort,
+# KHÔNG throw nếu app lỡ đi thẳng vào Doing (vài nhánh "Làm tiếp" CHƯA chắc chắn luôn qua lại màn
+# Info, xem ghi chú đầu file), để caller tự assert tiếp tuỳ ngữ cảnh case.
+- runFlow:
+    when:
+      true: ${STOP_AT_INFO_SCREEN == 'true'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Bắt đầu làm bài|Tiếp tục làm bài).*"
+          timeout: 20000
+          optional: true

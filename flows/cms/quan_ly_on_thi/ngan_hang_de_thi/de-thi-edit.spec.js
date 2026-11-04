@@ -56,7 +56,7 @@ test.describe.serial("Ngân hàng đề thi - 7. Sửa đề & ảnh hưởng t�
 
     fixtures = await setupDeThiFixtures(page, baseUrl, runId);
     await gotoDeThi(page, baseUrl);
-    await createExam(page, { name: EXAM_WITH_STRUCT, examType: fixtures.examTypeWithSections, duration: 25, grades: ["Lớp 1"] });
+    await createExam(page, { name: EXAM_WITH_STRUCT, examType: fixtures.examTypeWithSections, duration: 25, grades: ["Lớp 1"], scoreTable: fixtures.scoreTable });
     await gotoDeThi(page, baseUrl);
     await openEditDeThi(page, EXAM_WITH_STRUCT);
     await fillSectionDurationInStructure(page, fixtures.sectionA, 10);

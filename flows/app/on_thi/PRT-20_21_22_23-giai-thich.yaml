@@ -1,0 +1,89 @@
+# Nhom "I.4 Giai thich" cua "Chi tiet bai da lam .xlsx" (TC_PRT_ChiTietBaiDaLam_20..23, QA da chay
+# that/Pass 29/10/2026).
+#
+# TAI SU DUNG NHAN THAT DA XAC NHAN cua popup "Giai thich" module Bai tap (KHONG bia text):
+# automation/bai_tap/navigation/homeworkPageObjects.js#reviewDetail.explanationPopup +
+# flows/app/bai_tap/HW-28-xem-giai-thich.yaml (verify that 2026-08-07/2026-08-19, thiet bi
+# 3201d866d40a1681) - title "Parrot giai thich", nhanh DUNG: "Kien thuc"+"Tom lai" (KHONG co "Tai sao
+# sai"), nhanh SAI: "Kien thuc"+"Tai sao sai"+"Goi y" (KHONG co "Tom lai"), dong bang nut "Dong"
+# (KHONG dung hardware back - HW-28 da xac nhan back se thoat LUON ca man xem lai, khong chi dong
+# popup). TC_PRT_ChiTietBaiDaLam_29 trong xlsx khang dinh man On thi "giong voi mo ta man chi tiet bai
+# lam cua module Bai tap" - day la CAN CU de tai dung, nhung CHUA tung chay qua man On thi that (chi
+# moi xac nhan qua man Bai tap) - neu FAIL o day, doi chieu lai bang `maestro hierarchy` truoc khi ket
+# luan loi app (co the On thi dung copy khac).
+#
+# TC_21 (2 cau khac nhau -> noi dung Giai thich khac nhau): KHONG doc duoc NOI DUNG that cua tung
+# nhanh (van ban dai, data-dependent) - chi xac nhan popup mo LAI dung cho cau MOI (khong bi ket noi
+# dung cau truoc) qua 2 anh chup rieng; TAY cho phan doi chieu "noi dung thuc su khac nhau".
+# TC_23 (trang thai loading): phu thuoc thoi diem (transient, vai tram ms) - extendedWaitUntil co the
+# "nuot" mat khung loading truoc khi doc duoc - TAY, QA tu bam Giai thich 1 cau MOI roi quan sat bang
+# mat ngay luc vua mo.
+#
+# QUAN TRONG - chon DUNG card de thay ca 2 nhanh (user xac nhan truc tiep 2026-11-05): card diem 0 la
+# TH CAU CHUA LAM bam nop bai luon (hien mau XAM, Giai thich hien NHU dap an dung - KHONG BAO GIO ra
+# nhanh "Tai sao sai") - dung card do se KHONG BAO GIO thay duoc nhanh SAI that. Phai truyen ${DE_NAME}
+# tro toi 1 de co diem o GIUA (vua co cau dung vua co cau SAI THAT, khong phai chi chua lam) moi chac
+# chan gap ca 2 nhanh khi di qua Cau 1/Cau 2. KHONG dung DE_SCORE_LABEL (vd "Điểm 8") nua - FAIL THAT
+# xac nhan (2026-11-05): nhieu de KHAC NHAU co the cung hien "Điểm 8" cung luc, tap "below: Điểm 8" co
+# the tap NHAM sang de khac - DE_NAME (ten de, duy nhat) on dinh hon.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: PRT-20_21_22_23 Giai thich
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
+      DE_NAME: ${DE_NAME}
+
+# --- TC_20: Cau 1 - bam "Giai thich" -> popup mo dung nhanh (Dung/Sai loai tru lan nhau) ---
+- tapOn: "Câu 1"
+- assertVisible: "Giải thích"
+- tapOn: "Giải thích"
+- extendedWaitUntil:
+    visible: ".*(Parrot giải thích).*"
+    timeout: 10000
+- takeScreenshot: artifacts/PRT-20-giai-thich-popup-cau1
+- runFlow:
+    when:
+      visible: ".*(Tóm lại).*"
+    commands:
+      - assertVisible: "Kiến thức"
+      - assertVisible: "Tóm lại"
+      - assertNotVisible: ".*(Tại sao sai).*"
+- runFlow:
+    when:
+      visible: ".*(Tại sao sai).*"
+    commands:
+      - assertVisible: "Kiến thức"
+      - assertVisible: "Tại sao sai"
+      - assertVisible: "Gợi ý"
+      - assertNotVisible: "Tóm lại"
+
+# --- TC_22: dong bang "Dong" -> ve dung man Chi tiet bai da lam, van dang Cau 1 ---
+- tapOn: "Đóng"
+- assertNotVisible: ".*(Parrot giải thích).*"
+- assertVisible: "Câu 1"
+- assertVisible: "Giải thích"
+- takeScreenshot: artifacts/PRT-22-dong-popup-quay-lai-cau1
+
+# --- TC_21: Cau 2 - popup mo LAI dung cho cau moi (TAY doi chieu noi dung thuc su khac Cau 1) ---
+- tapOn: "Câu 2"
+- tapOn: "Giải thích"
+- extendedWaitUntil:
+    visible: ".*(Parrot giải thích).*"
+    timeout: 10000
+- takeScreenshot: artifacts/PRT-21-giai-thich-popup-cau2-TAY-doi-chieu-khac-cau1
+- tapOn: "Đóng"
+- assertNotVisible: ".*(Parrot giải thích).*"
+
+# --- TC_23: trang thai loading trong popup - TAY ---
+- takeScreenshot: artifacts/PRT-23-loading-popup-TAY-ghi-chu

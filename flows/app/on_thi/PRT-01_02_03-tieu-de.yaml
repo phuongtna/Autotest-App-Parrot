@@ -1,0 +1,55 @@
+# Nhom "I.1 Tieu de" cua "Chi tiet bai da lam .xlsx" (TC_PRT_ChiTietBaiDaLam_1..3, QA da chay that/
+# Pass 29/10/2026 - xlsx chi mo ta hanh vi, KHONG cho resource-id/selector rieng).
+#
+# TAI SU DUNG: ../helpers/open-chi-tiet-bai-da-lam.yaml (dieu huong toi man, dung chung voi
+# chitietbailam.yaml + 5 file PRT-xx con lai).
+#
+# TC_1 (tieu de dung ten de): man duoc chon la "BAT KY" (xem helper, khong hardcode ten) nen KHONG tu
+# doi chieu duoc "dung ten de" neu khong biet truoc - nhan OPTIONAL ${DE_NAME} de assert khop khi
+# caller truyen (cung pattern DE_NAME_x_LAN da dung o CD-09_10_11_12_13_14_15-lich-su-lam-bai.yaml),
+# bo qua khoi do neu khong truyen (van con TC_3 verify duoc khong can DE_NAME).
+#
+# TC_2 (ten dai bi cat "..."): GUI thuan tuy, Maestro khong doc duoc trang thai truncation qua text
+# selector - TAY, chi chup anh cho QA xem bang mat (can 1 de co ten rat dai moi thay ro, data-
+# dependent, khong tu dung len duoc).
+#
+# TC_3 (tap icon Quay lai ve dung man truoc): dung lenh `back` chuan cua Maestro (khong doan
+# resource-id icon) - ve dung "Lich su lam bai"/"Lan N" (helper dang dung o man do ngay truoc khi mo
+# "Xem chi tiet").
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: PRT-01_02_03 Tieu de man Chi tiet bai da lam
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
+      DE_NAME: ${DE_NAME}
+
+# --- TC_1: tieu de dung ten de (CHI assert khi caller truyen DE_NAME) ---
+- runFlow:
+    when:
+      true: ${DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+    commands:
+      - assertVisible:
+          text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+- takeScreenshot: artifacts/PRT-01-tieu-de
+
+# --- TC_2: ten de dai bi cat "..." - TAY ---
+- takeScreenshot: artifacts/PRT-02-tieu-de-dai-TAY-xem-anh
+
+# --- TC_3: tap back -> ve dung man Lich su lam bai ---
+- back
+- extendedWaitUntil:
+    visible:
+      text: ".*(Lịch sử làm bài|Lần \\d+).*"
+    timeout: 15000
+- takeScreenshot: artifacts/PRT-03-quay-lai-dung-man

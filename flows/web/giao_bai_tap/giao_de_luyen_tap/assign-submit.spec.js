@@ -3,11 +3,8 @@ import { loginForPracticeTestSpec } from "../../../../automation/giao_bai_tap/gi
 import {
   gotoPracticeTestList,
   openCreatePracticeTest,
-  openRowEdit,
-  openDeleteDialog,
-  confirmDeleteDialog,
   locateRowViaSearch,
-  rowStillExists,
+  deleteAllMatchingRows,
 } from "../../../../automation/giao_bai_tap/giao_de_luyen_tap/navigation/practiceTestListPageObjects.js";
 import {
   readCreateFormClassOptions,
@@ -44,6 +41,14 @@ import {
  * CÙNG 1 lượt chạy, khiến `locateRowViaSearch` (yêu cầu ĐÚNG 1 kết quả) vỡ ngay cả ở bước cleanup,
  * để sót 1 dòng test thật trên DEV (đã dọn tay ngay khi phát hiện). SUBMIT-04 ở đây dùng "Hạn nộp"
  * +6 ngày (khác SUBMIT-03's +2) để 2 bộ dữ liệu không bao giờ trùng khóa định vị.
+ *
+ * ĐÃ XÁC NHẬN THẬT (2026-11-05): dù đã tách +2/+6 ngày, "Hạn nộp" vẫn tính theo "hôm nay" - chạy
+ * lại suite này CÙNG 1 ngày (vd re-run nhiều lần trong 1 phiên làm việc) tạo dòng TRÙNG khóa định
+ * vị với lượt chạy trước, khiến SUBMIT-04 tự FAIL ngay trong bước verify (locateRowViaSearch tìm
+ * thấy 2 dòng thay vì 1) - đã gặp thật (2 dòng trùng lớp "5F", đã dọn tay). `afterAll` ĐỔI sang
+ * `deleteAllMatchingRows()` (xóa TẤT CẢ dòng khớp, không yêu cầu đúng 1) thay vì
+ * `locateRowViaSearch` + `.catch(() => null)` - cách cũ ÂM THẦM bỏ qua cleanup khi có ≥2 dòng trùng,
+ * khiến dữ liệu rác tích lũy dần qua mỗi lượt chạy lại trong ngày.
  */
 test.describe.serial('"Giao đề luyện tập" (Assign form) > Hủy / Giao đề đã chọn', () => {
   let context;
@@ -56,15 +61,7 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Hủy / Giao đ
 
   test.afterAll(async () => {
     for (const { className, title, dueDateLine } of createdRows) {
-      const stillThere = await rowStillExists(page, { className, title, dueDateLine }).catch(() => false);
-      if (stillThere) {
-        const row = await locateRowViaSearch(page, { className, title, dueDateLine }).catch(() => null);
-        if (row) {
-          await openRowEdit(page, row);
-          const dialog = await openDeleteDialog(page);
-          await confirmDeleteDialog(page, dialog);
-        }
-      }
+      await deleteAllMatchingRows(page, { className, title, dueDateLine });
     }
     await context?.close();
   });

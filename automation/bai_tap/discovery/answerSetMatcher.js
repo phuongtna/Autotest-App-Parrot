@@ -192,7 +192,20 @@ function scoreAgainstTexts(candidates, sourceTexts, { applySharedTokenFilter = t
   const ranked = [...scored].sort((a, b) => b.coverage - a.coverage);
   const [top, runnerUp] = ranked;
   const marginOk = runnerUp ? top.coverage - runnerUp.coverage >= MIN_MARGIN_OVER_RUNNER_UP : true;
-  if (top.tokenCount >= MIN_CONTENT_TOKENS && top.coverage >= MIN_MATCH_COVERAGE && marginOk) {
+  // FIX (2026-11-05, room 578e1589-... lớp 4D, "You hear: ...Go straight and turn right/left..."):
+  // 2 câu con dùng chung đúng 1 answer-set {"left"/"right"/"straight only"/"back"}, câu dẫn đề dài
+  // (6 token nội dung), CHỈ khác nhau đúng 1 từ DUY NHẤT ("right" vs "left" - trùng NGUYÊN VĂN 1
+  // trong các đáp án) - winner đạt coverage=1.0 TUYỆT ĐỐI (EXACT, mọi token của CHÍNH nó đều khớp,
+  // tức có bằng chứng ĐẦY ĐỦ) trong khi runner-up chỉ PARTIAL (thiếu ĐÚNG 1 token - "right"/"left"
+  // của chính nó KHÔNG xuất hiện, bằng chứng PHỦ ĐỊNH rõ ràng, không phải "ít trùng hơn" ngẫu
+  // nhiên) - nhưng margin số học (1.0-0.833=0.167) < MIN_MARGIN_OVER_RUNNER_UP vì 5/6 token còn lại
+  // là boilerplate dùng chung giữa 2 câu, pha loãng margin. Khi winner EXACT (coverage=1.0, tất cả
+  // bằng chứng nó cần đều có) VÀ runner-up KHÔNG EXACT (thiếu ít nhất 1 bằng chứng CỦA CHÍNH NÓ) ->
+  // đủ tin cậy để chọn dù margin số học mỏng, vì đây là bằng chứng PHỦ ĐỊNH thật (not "trùng ngẫu
+  // nhiên ít hơn") - khác hẳn case cả 2 cùng PARTIAL/cùng EXACT (fixture [C3]/[G], vẫn đúng AMBIGUOUS
+  // vì KHÔNG có bên nào đạt bằng chứng đầy đủ hơn bên kia).
+  const strongExactWinner = top.tier === "EXACT" && (!runnerUp || runnerUp.tier !== "EXACT");
+  if (top.tokenCount >= MIN_CONTENT_TOKENS && top.coverage >= MIN_MATCH_COVERAGE && (marginOk || strongExactWinner)) {
     return { status: "MATCHED", winner: top.question, scores: ranked };
   }
   const reasonCode = top.coverage < MIN_MATCH_COVERAGE ? "NO_CANDIDATE_MEETS_THRESHOLD" : "INSUFFICIENT_MARGIN_OVER_RUNNER_UP";

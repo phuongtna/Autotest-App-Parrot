@@ -1646,3 +1646,85 @@ THẬT=6 (6/10, 122.92s, khớp range [6,7]); CTA "Tiếp theo" bấm OK, điề
 Report: `automation/output/resume_ngoc_4d_room51b4451d_report.json`.
 
 - Test Case: N/A
+
+## Case: GBT round 3 (profile Ngoc, lớp 4D), 2026-11-05
+
+**Yêu cầu:** "chạy lại 1 vòng" (tiếp tục chuỗi GBT với profile Ngoc/4D, không nêu lại score range -
+dùng default của script 3-4 lần đầu, 6-7 làm lại). Profile "Ngoc" (Pro, 4D) vẫn active.
+
+Script chính giao THẬT room `578e1589-7138-4e20-ba6a-2a7d9aa38508` ("You hear these sentences.
+Choose the correct meaning or direction (A, B, C or D).", Unit 17: In the city, due 12/11/2026, 10
+scored items), mở bài vào màn Doing OK, nhưng FAIL NGAY câu 1/10 vì AMBIGUOUS_MATCH THẬT (0/10 câu
+đã trả lời - an toàn): 2 câu con dùng CHUNG đúng 1 answer-set {"left"/"right"/"straight only"/"back"}
+("You hear: \"Go straight and turn right/left.\" What direction should you turn?") CHỈ khác nhau
+đúng 1 từ ("right" vs "left", trùng nguyên văn 1 đáp án). Đây là bug THỨ 2 trong CÙNG buổi với
+[[project_answersetmatcher_pronoun_subject_bug_2026_11_04]] nhưng khác cơ chế: câu dẫn đề DÀI (6
+token nội dung, không phải chỉ 1-2 như case he/she/they), nên dù bản vá hôm trước (tắt
+`buildSharedAnswerTokenSet()` filter cho scoring theo cửa sổ hẹp) đã cho winner đạt coverage=1.0
+TUYỆT ĐỐI (EXACT) trong khi runner-up chỉ 0.833 (PARTIAL, thiếu đúng từ "left"/"right" của chính
+nó) - margin số học (0.167) vẫn < ngưỡng MIN_MARGIN_OVER_RUNNER_UP=0.25 vì 5/6 token còn lại là
+boilerplate dùng chung giữa 2 câu, pha loãng margin.
+
+**Fix thêm (cùng file `answerSetMatcher.js`):** thêm luật "winner EXACT + runner-up KHÔNG EXACT"
+(`strongExactWinner`) được chấp nhận MATCHED dù margin số học mỏng hơn ngưỡng thường - vì đây là
+bằng chứng PHỦ ĐỊNH thật (runner-up thiếu hẳn 1 token của chính nó), khác hẳn "trùng ngẫu nhiên ít
+hơn". Verify không phá fixture cũ (đặc biệt [C3]/[G] - cả 2 trường hợp cùng PARTIAL hoặc cùng EXACT
+nên luật mới không kích hoạt, vẫn đúng AMBIGUOUS). Thêm fixture [P] (data thật room này) ->
+`node automation/bai_tap/discovery/answerSetMatcher.fixtureTest.mjs` 44/44 PASS. Viết script resume
+riêng (`automation/_scratch_resume_ngoc_4d_room578e1589.mjs`, không re-run script chính) - câu 1
+MATCH đúng ngay sau fix, chạy hết 10/10 câu bình thường.
+
+**Kết quả cuối:** lần đầu TARGET=4 ĐIỂM THẬT=4 (4/10, 121.14s, khớp range [3,4]); làm lại qua
+notification-fallback (list-locate PROGRESS_STALLED, fallback PASS ngay, 12 phút sau khi giao)
+TARGET=6 ĐIỂM THẬT=6 (6/10, 119.75s, khớp range [6,7]); CTA "Tiếp theo" bấm OK, điều hướng đúng.
+OVERALL: PASS. Report: `automation/output/resume_ngoc_4d_room578e1589_report.json`.
+
+- Test Case: N/A
+
+## Case: GBT round 4 (profile Ngoc, lớp 4D), 2026-11-05
+
+**Yêu cầu:** "chạy thử lại 1 vòng" (tiếp tục chuỗi, default range 3-4/6-7). Trước khi chạy, phát hiện
+device đang kẹt giữa 1 bài KHÁC ("You hear these sentences. Choose the correct meaning or number...")
+do CTA "Tiếp theo" ở cuối round 3 tự động chain sang bài Doing tiếp theo (hành vi SẢN PHẨM đã biết,
+[[project_hw29_general_remaining_exercises_run]], không phải bug) - đóng bài đó (tap exercise_close_
+button, qua 1 bước trung gian vô tình mở nhầm bảng "Thông báo" rồi back ra) để về lại homework_screen
+sạch trước khi giao bài mới.
+
+Script chính giao THẬT room `4fb6e7d4-10fb-41b5-9cbc-c83430fb9f52` ("Choose the correct preposition
+or quantifier.", Unit 4: My birthday party, Grammar, due 12/11/2026, 10 scored items). Chạy TRƠN TRU
+hoàn toàn - KHÔNG hit bug/flakiness nào lần này (matcher fix từ 2 case trước vẫn đứng vững, locate
+list "Làm lại" lại PROGRESS_STALLED như thường lệ nhưng fallback thông báo PASS ngay).
+
+**Kết quả cuối:** lần đầu TARGET=3 ĐIỂM THẬT=3 (3/10, 123.42s, khớp range [3,4]); làm lại qua
+notification-fallback TARGET=6 ĐIỂM THẬT=6 (6/10, 123.86s, khớp range [6,7]); CTA "Tiếp theo" bấm OK,
+điều hướng đúng. OVERALL: PASS (chạy thẳng 1 lượt, không cần recovery script).
+
+- Test Case: N/A
+
+## Case: GBT round 5 (profile Ngoc, lớp 4D), 2026-11-05
+
+**Yêu cầu:** "chạy lại 1 vòng" (tiếp tục chuỗi, default range 3-4/6-7). Script chính giao THẬT room
+`db31a2a0-96e9-4cca-bfdb-a06e4b61dd25` ("Choose the best words to complete the sentences.", Unit 20:
+At summer camp, VOCABULARY, due 12/11/2026, 10 scored items; targetScore lần 1=3, Làm lại=6), mở bài
+vào màn Doing, trả lời THẬT câu 1/10 (SAI, theo đúng plan) - rồi bị host/session restart KILL giữa
+chừng (scratchpad + tiến trình nền biến mất, CÙNG lớp sự cố với round 2 ngày 2026-11-04) ngay sau đó.
+
+**Recovery:** KHÔNG re-run script chính (sẽ giao thêm 1 room thật thứ 2). Viết script resume mới
+(`automation/_scratch_resume_ngoc_4d_round5_room_db31a2a0.mjs`) với 2 điểm khác các bản trước:
+1. Tái tạo scoring plan bằng `resolveScoringPlanForCandidate(..., {mode:"target", targetScoreEnv:3})`
+   (KHÔNG `mode:"range"` - "range" sẽ random LẠI target, có thể lệch với câu 1 đã trả lời thật trước
+   khi crash). `buildScoringPlan()` là hàm thuần/deterministic theo `questions`+target nên tái tạo
+   ra ĐÚNG HỆT `correctIndices` của plan gốc.
+2. Vòng lặp trả lời mới (`answerRemainingUntilResult`) KHÔNG đếm cứng 10 câu - dừng khi THẬT SỰ thấy
+   màn Kết quả (vì chỉ còn 9/10 câu sẽ hiển thị lại trong tiến trình này, câu 1 đã xong ở tiến trình
+   cũ và sẽ không hiện lại).
+Chạy lại: xác nhận vẫn ở màn Doing (câu 2/10, "Mai is ___ a story about a brave girl."), trả lời
+tiếp 9 câu còn lại, dừng đúng lúc màn Kết quả xuất hiện, ĐIỂM THẬT khớp target 100% - xác nhận giả
+thuyết tái tạo plan deterministic là ĐÚNG.
+
+**Kết quả cuối:** lần đầu (7 câu trả lời trong tiến trình resume + 1 câu đã làm trước) TARGET=3 ĐIỂM
+THẬT=3 (3/10, 97.77s phần resume); làm lại qua notification-fallback (list-locate PROGRESS_STALLED
+như thường lệ) TARGET=6 ĐIỂM THẬT=6 (6/10, 128.68s); CTA "Tiếp theo" bấm OK, điều hướng đúng.
+OVERALL: PASS. Report: `automation/output/resume_ngoc_4d_round5_room_db31a2a0_report.json`.
+
+- Test Case: N/A

@@ -4,10 +4,9 @@ import {
   gotoPracticeTestList,
   openCreatePracticeTest,
   openRowEdit,
-  openDeleteDialog,
-  confirmDeleteDialog,
   locateRowViaSearch,
   rowStillExists,
+  deleteAllMatchingRows,
   practiceTestListPageObjects as po,
 } from "../../../../automation/giao_bai_tap/giao_de_luyen_tap/navigation/practiceTestListPageObjects.js";
 import {
@@ -38,10 +37,10 @@ import {
  * `afterAll`. CHỦ ĐỘNG bị loại khỏi `playwright.giao-de-luyen-tap.config.js` qua `testIgnore` - phải
  * chạy bằng `playwright.giao-de-luyen-tap-destructive.config.js`. KHÔNG đưa vào CI/full-suite. ***
  *
- * ASSIGN-EDIT-02/05 ([BUG] theo đúng tag trong spec gốc): ĐÃ XÁC NHẬN THẬT bug này - "Danh sách đề
- * luyện tập" ở màn Chỉnh sửa LUÔN hiển thị ĐÚNG 1 dòng (đề đã giao gốc, checkbox disabled) BẤT KỂ
- * đang bấm loại kỳ thi nào. Test PASS nghĩa là "đã tái hiện đúng bug đã biết", KHÔNG phải "tính
- * năng hoạt động đúng".
+ * ASSIGN-EDIT-02/05: bug cũ ("Danh sách đề luyện tập" ở màn Chỉnh sửa đứng yên 1 đề gốc bất kể đổi
+ * loại kỳ thi) ĐÃ ĐƯỢC FIX - xác nhận lại thật trên staging (2026-11-05): đổi loại kỳ thi cập nhật
+ * đúng danh sách. Test khẳng định hành vi ĐÚNG hiện tại (list phải đổi theo loại kỳ thi), FAIL nếu
+ * bug tái xuất hiện.
  *
  * 3 lỗi thật đã sửa khi viết bản `*.mjs` gốc:
  *   1. Đọc trạng thái `checked` của checkbox lớp NGAY sau `openRowEdit()` luôn trả về `false` dù là
@@ -67,16 +66,10 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Chỉnh sửa �
   });
 
   test.afterAll(async () => {
+    // Dùng `deleteAllMatchingRows` thay vì `locateRowViaSearch` + `.catch` (ÂM THẦM bỏ qua cleanup
+    // khi có ≥2 dòng trùng khóa định vị do chạy lại suite cùng ngày - xem docblock assign-submit.spec.js).
     if (created && className && itemTitle && dueDateLine) {
-      const stillThere = await rowStillExists(page, { className, title: itemTitle, dueDateLine }).catch(() => false);
-      if (stillThere) {
-        const row = await locateRowViaSearch(page, { className, title: itemTitle, dueDateLine }).catch(() => null);
-        if (row) {
-          await openRowEdit(page, row);
-          const dialog = await openDeleteDialog(page);
-          await confirmDeleteDialog(page, dialog);
-        }
-      }
+      await deleteAllMatchingRows(page, { className, title: itemTitle, dueDateLine });
     }
     await context?.close();
   });
@@ -144,7 +137,7 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Chỉnh sửa �
     expect(await isClassCheckboxDisabled(page, className)).toBe(true);
   });
 
-  test('ASSIGN-EDIT-02_05: [BUG] "Danh sách đề luyện tập" ở màn Chỉnh sửa đứng yên 1 đề gốc dù đổi loại kỳ thi', async () => {
+  test('ASSIGN-EDIT-02_05: đổi loại kỳ thi cập nhật đúng "Danh sách đề luyện tập", không đứng yên ở đề gốc', async () => {
     const types = await readExamTypes(page);
     const originalActiveType = types.find((t) => t.active)?.name;
     const otherType = types.find((t) => t.name !== originalActiveType);
@@ -158,8 +151,8 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Chỉnh sửa �
 
     expect(
       stillShowsOnlyOriginal,
-      `Bấm sang loại kỳ thi "${otherType.name}" cho danh sách ${itemsAfterSwitch.length} đề thay vì đứng yên ở đề gốc "${itemTitle}" - có thể bug ĐÃ ĐƯỢC FIX, cần xác nhận lại với team dev.`,
-    ).toBe(true);
+      `Đổi sang loại kỳ thi "${otherType.name}" nhưng vẫn đứng yên ở đề gốc "${itemTitle}" - bug cũ đã tái xuất hiện.`,
+    ).toBe(false);
   });
 
   test('ASSIGN-EDIT-06: bấm "Hủy" không lưu thay đổi', async () => {

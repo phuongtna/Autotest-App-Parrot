@@ -4,13 +4,17 @@ import {
   gotoPracticeTestList,
   openCreatePracticeTest,
   openRowEdit,
+  openRowReport,
   openDeleteDialog,
   confirmDeleteDialog,
   cancelDeleteDialog,
   locateRowViaSearch,
   rowStillExists,
+  deleteAllMatchingRows,
+  searchByItemName,
   practiceTestListPageObjects as po,
 } from "../../../../automation/giao_bai_tap/giao_de_luyen_tap/navigation/practiceTestListPageObjects.js";
+import { listCompletedStudents } from "../../../../automation/giao_bai_tap/navigation/teacherReportPageObjects.js";
 import {
   readCreateFormClassOptions,
   toggleClassCheckbox,
@@ -38,7 +42,16 @@ import {
  * `openDeleteDialog`/`confirmDeleteDialog`/`cancelDeleteDialog` để verify lại dưới ID case MỚI
  * (ASSIGN-DELETE-*) theo đúng bộ spec hiện tại, không copy-paste lại cơ chế.
  *
- * ASSIGN-DELETE-04/05 SKIP có chủ đích - xem trong test.
+ * ASSIGN-DELETE-04: ĐÃ XÁC NHẬN THẬT trên staging (2026-11-05) - dùng lại dòng THẬT có sẵn (lớp
+ * "5X-RKLRejoin2", đề "Đề kiểm tra giữa kỳ 1 - Khối 6", 1/3 HS "Đã hoàn thành" với điểm, xem "Báo
+ * cáo lớp") thay vì tự tạo (đề tự tạo luôn 0 HS làm, không dựng được trạng thái này qua UI GV
+ * thuần). Dòng do người dùng chỉ định, KHÔNG phải dữ liệu tự sinh - xóa THẬT, không cleanup lại.
+ *
+ * ASSIGN-DELETE-05 [N/A] (2026-11-05, đã xác nhận với người yêu cầu test): trạng thái "làm dở, chưa
+ * nộp bài" KHÔNG TỒN TẠI như 1 trạng thái riêng biệt của sản phẩm - "Báo cáo lớp" (Web GV) chỉ có
+ * NHỊ PHÂN "Đã hoàn thành" / "Chưa nộp bài" (đã xác nhận thật qua DOM dump report thật), không có
+ * khái niệm "đang làm, chưa nộp" nằm giữa 2 trạng thái đó. Case này SKIP VĨNH VIỄN (N/A), không
+ * phải giới hạn tạm thời của automation.
  */
 test.describe.serial('"Giao đề luyện tập" (Assign form) > Xóa đề luyện tập đã giao', () => {
   let context;
@@ -52,16 +65,10 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Xóa đề luy�
   });
 
   test.afterAll(async () => {
+    // Dùng `deleteAllMatchingRows` thay vì `locateRowViaSearch` + `.catch` (ÂM THẦM bỏ qua cleanup
+    // khi có ≥2 dòng trùng khóa định vị do chạy lại suite cùng ngày - xem docblock assign-submit.spec.js).
     if (created && !deletedForReal && className && itemTitle && dueDateLine) {
-      const stillThere = await rowStillExists(page, { className, title: itemTitle, dueDateLine }).catch(() => false);
-      if (stillThere) {
-        const row = await locateRowViaSearch(page, { className, title: itemTitle, dueDateLine }).catch(() => null);
-        if (row) {
-          await openRowEdit(page, row);
-          const dialog = await openDeleteDialog(page);
-          await confirmDeleteDialog(page, dialog);
-        }
-      }
+      await deleteAllMatchingRows(page, { className, title: itemTitle, dueDateLine });
     }
     await context?.close();
   });
@@ -138,12 +145,35 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Xóa đề luy�
     // CHƯA kiểm tra phía app học sinh - ngoài phạm vi spec Web GV thuần.
   });
 
-  test.skip('ASSIGN-DELETE-04: [CẦN XÁC NHẬN] xóa đề luyện tập đã có học sinh làm bài và có điểm', () => {
-    // Dòng test tự tạo luôn 0 HS làm. Ngoài phạm vi spec Web GV thuần (cần tự động hóa phía app để
-    // tạo trạng thái này), giống lý do SKIP của ASSIGN-EDIT-07.
+  test('ASSIGN-DELETE-04: [CẦN XÁC NHẬN] xóa đề luyện tập đã có học sinh làm bài và có điểm', async () => {
+    const targetClassName = "5X-RKLRejoin2";
+    const targetTitle = "Đề kiểm tra giữa kỳ 1 - Khối 6";
+
+    await gotoPracticeTestList(page);
+    await searchByItemName(page, targetTitle);
+    const row = page.locator("table tbody tr", { hasText: targetClassName }).filter({ hasText: targetTitle });
+    test.skip((await row.count()) !== 1, `Không tìm thấy đúng 1 dòng thật lớp "${targetClassName}" + đề "${targetTitle}" - dữ liệu có thể đã đổi/bị xóa.`);
+    const deleteDueDateLine = (await row.locator("td").nth(2).innerText()).trim().split("\n")[0];
+
+    // Xác nhận lại tiền điều kiện thật ngay trước khi xóa: vẫn còn ≥1 HS "Đã hoàn thành" (đã nộp,
+    // có điểm) - tránh xóa nhầm nếu dữ liệu đã đổi so với lúc khảo sát.
+    await openRowReport(page, row);
+    await page.getByText(/Đã hoàn thành/).first().waitFor({ timeout: 15000 });
+    const completed = await listCompletedStudents(page);
+    test.skip(completed.length === 0, `Dòng "${targetTitle}" (lớp "${targetClassName}") không còn HS nào "Đã hoàn thành" - tiền điều kiện không còn đúng.`);
+
+    const editRow = await locateRowViaSearch(page, { className: targetClassName, title: targetTitle, dueDateLine: deleteDueDateLine });
+    await openRowEdit(page, editRow);
+    const dialog = await openDeleteDialog(page);
+    await confirmDeleteDialog(page, dialog);
+
+    const stillThere = await rowStillExists(page, { className: targetClassName, title: targetTitle, dueDateLine: deleteDueDateLine });
+    expect(stillThere, 'Sau khi xác nhận Xóa đề ĐÃ CÓ HS làm bài/có điểm, dòng đề VẪN CÒN trong "Danh sách đề luyện tập đã giao".').toBe(false);
   });
 
-  test.skip('ASSIGN-DELETE-05: [CẦN XÁC NHẬN] xóa đề luyện tập đang có học sinh làm dở, chưa nộp bài', () => {
-    // Cùng lý do SKIP với ASSIGN-DELETE-04.
+  test.skip('ASSIGN-DELETE-05: [N/A] xóa đề luyện tập đang có học sinh làm dở, chưa nộp bài', () => {
+    // Đã xác nhận với người yêu cầu test: sản phẩm KHÔNG có trạng thái "làm dở, chưa nộp" riêng
+    // biệt - chỉ có "Đã hoàn thành"/"Chưa nộp bài" (xem docblock đầu file). SKIP vĩnh viễn, không
+    // phải giới hạn automation.
   });
 });

@@ -1,0 +1,176 @@
+# Helper: TU dashboard DA LOGIN -> "Bao cao" > "On thi" > sub-tab ${ON_THI_TAB} -> tim 1 bai BAT KY
+# da hoan thanh -> "Xem bai da lam" -> "Lich su lam bai" (tap "Xem tat ca" neu co) -> "Xem chi tiet"
+# -> dung o man "Chi tiet bai da lam" (luon mo san o Cau 1).
+#
+# TACH RA (2026-11-05) tu flows/app/on_thi/chitietbailam.yaml - 1 file do truoc kia tu lam het tu
+# dau den cuoi; nay nhieu file PRT-xx (tung nhom TC cua "Chi tiet bai da lam .xlsx") can CHUNG 1
+# diem vao nay, tach ra tranh lap code dieu huong 6 lan.
+#
+# GIA DINH CAN XAC MINH (xem chitietbailam.yaml): "Xem tat ca" la buoc OPTIONAL theo SO LUOT da nop
+# (>=3), KHONG phai rule rieng theo tab nguon de - khong tim thay bang chung nao cho rule phan biet
+# theo tab trong spec-chi-tiet-de.json/CD-09..15/CD-35..41.
+#
+# Tham so: PHONE, OTP KHONG can o day (da login truoc do, giong quy uoc open-tab-on-thi.yaml/
+# open-de.yaml). ON_THI_TAB (optional, "De thay co giao" mac dinh - xem open-tab-on-thi.yaml).
+# DE_NAME (optional, vd "Đề luyện tập Unit 2") - CHON DUNG card theo TEN DE thay vi card BAT KY dau
+# tien cuon toi. CAN THIET cho cac TC can hon hop dung/sai (mau Chip, mau dap an, nhanh popup Giai
+# thich) - user xac nhan truc tiep (2026-11-05): card diem 0 la TH CAU CHUA LAM bam nop bai (hien mau
+# XAM + Giai thich hien NHU dap an dung, khong co nhanh "Tai sao sai") - KHONG dung duoc cho cac TC
+# can nhanh SAI thuc su, phai chon 1 de co diem o giua (vua co cau dung vua co cau sai that).
+#
+# SUA (2026-11-05, FAIL THAT xac nhan): ban dau dung tham so DE_SCORE_LABEL (vd "Điểm 8") de chon
+# card - KHONG ON DINH vi nhieu de KHAC NHAU co the cung hien thi 1 diem so giong het nhau tai cung
+# thoi diem (xac nhan that: "Xem bài đã làm" below "Điểm 8" co luc tap NHAM sang 1 de khac cung dang
+# co diem cao nhat = 8 luc do, khong phai de dinh nham). Doi sang DE_NAME (ten de - duy nhat, cung
+# pattern DE_NAME da dung o CD-09..15/OT-17) de chon card ON DINH hon.
+#
+# SUA THEM (2026-11-05, FAIL THAT xac nhan 2 lan o cac file PRT-24..28/PRT-29..31 goi helper nay LAN
+# 2 NGAY SAU KHI vua o man "Chi tiet bai da lam"/"Lich su lam bai" - man con, KHONG co bottom-tab):
+# open-tab-on-thi.yaml ben trong chi biet tap `tab_report` KHI DUNG O DASHBOARD ROOT - goi tu man con
+# se FAIL "Element not found: tab_report". THEM buoc "back lien tuc toi khi thay lai man danh sach
+# HOAC dashboard root" o DAU helper nay (khong dem cung so lan - stack sau 1 lan mo "Xem bai da lam"
+# la 3 tang: danh sach -> Thong tin de -> Lich su lam bai, co the sau hon neu da mo tiep "Xem chi
+# tiet") - giup MOI lan goi helper nay deu AN TOAN du dang dung o man nao, khong can file goi tu nho
+# tu them back o giua cac lan goi lien tiep.
+#
+# SUA THEM (2026-11-05, user xac nhan truc tiep): "Kho de Parrot" KHONG co link "Xem bai da lam" nhu
+# "De thay co giao" - FAIL THAT xac nhan qua chay device that (scrollUntilVisible "Xem bai da lam" 60s
+# khong tim thay du co nhieu card "Da hoan thanh" that). Card Kho de Parrot dung badge "Da hoan thanh"
+# + nhan "Diem so: X" (co dau hai cham, khac "Diem X" cua De thay co giao) - phai TAP THANG VAO BAI
+# (card/ten de) de mo man "Thong tin de" truoc (user xac nhan: "bên kho đề parrot cần phải ấn vào bài
+# sẽ vào màn thông tin đề"), roi tu man do moi tiep tuc toi Lich su lam bai (qua "Xem tat ca" neu co).
+# CHUA XAC MINH man "Thong tin de" (truong hop <3 luot, chi hien preview 2 dong, KHONG qua "Xem tat
+# ca") co hien "Xem chi tiet" tung dong giong het man Lich su lam bai day du hay khong - neu buoc cuoi
+# FAIL o nhanh Kho de Parrot, day la cho dau tien can doi chieu lai bang `maestro hierarchy` that.
+appId: ${APP_ID}
+---
+- repeat:
+    while:
+      notVisible:
+        text: ".*(Đề thầy cô giao|Kho đề Parrot|Vui học|Bài tập|Báo cáo).*"
+    times: 8
+    commands:
+      - back
+      - waitForAnimationToEnd:
+          timeout: 1000
+
+- runFlow:
+    file: open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
+- assertVisible: "Đề thầy cô giao"
+- assertVisible: "Kho đề Parrot"
+
+# --- "Kho đề Parrot": KHONG co "Xem bài đã làm" - phai tap THANG vao bai (card/ten de) de mo
+# "Thông tin đề" truoc ---
+- runFlow:
+    when:
+      true: ${ON_THI_TAB == 'Kho đề Parrot'}
+    commands:
+      - runFlow:
+          when:
+            true: ${DE_NAME == null || DE_NAME == 'undefined' || DE_NAME == ''}
+          commands:
+            - scrollUntilVisible:
+                element:
+                  text: "Đã hoàn thành"
+                direction: DOWN
+                timeout: 60000
+                speed: 70
+            - takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-01-card-hoan-thanh
+            - tapOn:
+                text: "Đã hoàn thành"
+                index: 0
+      - runFlow:
+          when:
+            true: ${DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+          commands:
+            - scrollUntilVisible:
+                element:
+                  text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                direction: DOWN
+                timeout: 60000
+                speed: 70
+            - takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-01-card-hoan-thanh
+            - tapOn:
+                text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Thời lượng tối đa|Tổng số câu|Bắt đầu làm bài|Tiếp tục làm bài).*"
+          timeout: 15000
+      - runFlow:
+          when:
+            visible: "Xem tất cả"
+          commands:
+            - tapOn: "Xem tất cả"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Lịch sử làm bài|Lần 1).*"
+          timeout: 15000
+
+# --- "Đề thầy cô giao" (mac dinh): "Xem bài đã làm" mo THANG man Lich su lam bai day du ---
+- runFlow:
+    when:
+      true: ${ON_THI_TAB != 'Kho đề Parrot'}
+    commands:
+      - runFlow:
+          when:
+            true: ${DE_NAME == null || DE_NAME == 'undefined' || DE_NAME == ''}
+          commands:
+            - scrollUntilVisible:
+                element:
+                  text: ".*(Xem bài đã làm).*"
+                direction: DOWN
+                timeout: 60000
+                speed: 70
+      - runFlow:
+          when:
+            true: ${DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+          commands:
+            - scrollUntilVisible:
+                element:
+                  text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                direction: DOWN
+                timeout: 60000
+                speed: 70
+      - assertVisible:
+          text: "Điểm.*"
+      - takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-01-card-hoan-thanh
+      - runFlow:
+          when:
+            true: ${DE_NAME == null || DE_NAME == 'undefined' || DE_NAME == ''}
+          commands:
+            - tapOn:
+                text: ".*(Xem bài đã làm).*"
+      - runFlow:
+          when:
+            true: ${DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+          commands:
+            - tapOn:
+                text: ".*(Xem bài đã làm).*"
+                below:
+                  text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                index: 0
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Lịch sử làm bài|Lần 1).*"
+          timeout: 15000
+      - runFlow:
+          when:
+            visible: "Xem tất cả"
+          commands:
+            - tapOn: "Xem tất cả"
+            - extendedWaitUntil:
+                visible: "Lần 1"
+                timeout: 15000
+
+- takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-02-lich-su-lam-bai
+
+- tapOn:
+    text: "Xem chi tiết"
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible:
+    text: ".*(Câu 1).*"
+- takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-03-da-vao-man

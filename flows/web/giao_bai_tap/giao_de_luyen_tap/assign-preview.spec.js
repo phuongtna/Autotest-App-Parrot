@@ -22,9 +22,10 @@ import {
  * chạy trực tiếp trước khi chuyển sang `.spec.js`.
  *
  * Dùng loại kỳ thi/đề có nhiều section, nhiều câu hỏi nhất tìm được thật trên tài khoản DEV để có
- * đủ dữ liệu test PREVIEW-02/03/05. ASSIGN-PREVIEW-03 ("mỗi câu hỏi hiển thị đủ 4 đáp án") CHỈ
- * spot-check 1 câu thuộc khối câu hỏi trắc nghiệm chuẩn (border rounded-xl), không áp đặt "luôn
- * đúng 4 đáp án" lên MỌI dạng câu hỏi trong đề (đề thật có nhiều dạng khác nhau).
+ * đủ dữ liệu test PREVIEW-02/03/05. ASSIGN-PREVIEW-03 CHỈ spot-check 1 câu thuộc khối câu hỏi
+ * trắc nghiệm chuẩn (border rounded-xl) - câu đầu tiên lấy ngẫu nhiên theo pool đề, có thể là dạng
+ * 2 đáp án (đúng/sai) hoặc 4 đáp án (trắc nghiệm) nên CHỈ kiểm tra số đáp án ≥2 + đúng 1 đáp án
+ * đúng, không áp đặt số lượng đáp án cố định.
  *
  * CHỈ ĐỌC - không bấm "Giao đề đã chọn", không tạo dữ liệu thật trên DEV.
  */
@@ -82,12 +83,13 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Popup xem chi t
     expect(sumFromSections, `Tổng câu hỏi cộng dồn theo section (${sumFromSections}) không khớp header (${headerTotal}) - sections: ${JSON.stringify(sections)}.`).toBe(headerTotal);
   });
 
-  test("ASSIGN-PREVIEW-03: nội dung câu hỏi đầu tiên hiển thị đủ đề bài, 4 đáp án, đáp án đúng", async () => {
+  test("ASSIGN-PREVIEW-03: nội dung câu hỏi đầu tiên hiển thị đủ đề bài, đáp án, đáp án đúng", async () => {
     const firstQuestionCard = dialog.locator(".border.rounded-xl.p-6.bg-white").first();
     test.skip((await firstQuestionCard.count()) === 0, "Không tìm thấy khối câu hỏi trắc nghiệm chuẩn để spot-check.");
     const promptText = await firstQuestionCard.locator("h3, h6").first().innerText().catch(() => "");
     expect(promptText.trim()).toBeTruthy();
-    await expect(firstQuestionCard.locator("[aria-disabled]")).toHaveCount(4);
+    const optionCount = await firstQuestionCard.locator("[aria-disabled]").count();
+    expect(optionCount, "Câu hỏi không có đáp án nào để chọn (aria-disabled).").toBeGreaterThanOrEqual(2);
     await expect(firstQuestionCard.locator(`[class*="${afpo.correctAnswerClassMarker}"]`)).toHaveCount(1);
   });
 

@@ -508,6 +508,26 @@ async function main() {
     report('[O3] chọn đúng o2 ("What\'s he doing?")', rO2.status === "MATCHED" && rO2.question.id === "o2_683723a0", JSON.stringify(rO2.status));
   }
 
+  console.log('=== [P] regression THẬT 2026-11-05 (room 578e1589-7138-4e20-ba6a-2a7d9aa38508, lớp 4D, "You hear these sentences. Choose the correct meaning or direction (A, B, C or D)." Unit 17) - 2 câu con dùng CHUNG đúng 1 answer-set {"left"/"right"/"straight only"/"back"}, câu dẫn đề dài (6 token nội dung) CHỈ khác nhau đúng 1 từ ("turn right" vs "turn left") - từ phân biệt đó TRÙNG NGUYÊN VĂN 1 đáp án nên: (a) cửa sổ hẹp margin số học chỉ 0.167 (<0.25, 5/6 token còn lại dùng chung pha loãng margin dù winner coverage=1.0 EXACT tuyệt đối) VÀ (b) full-page fallback bị buildSharedAnswerTokenSet() xoá mất từ phân biệt đó ở CẢ 2 candidate luôn - trước fix cả 2 đường đều AMBIGUOUS sai ===');
+  {
+    const bank2 = ["left", "right", "straight only", "back"];
+    const p1 = q("p1_8aa25fdd", { answers: bank2, correctAnswer: "right", question: 'You hear: "Go straight and turn right." What direction should you turn?' });
+    const p2 = q("p2_d389c28d", { answers: bank2, correctAnswer: "left", question: 'You hear: "Go straight and turn left." What direction should you turn?' });
+    const pool2 = [p2, p1]; // thứ tự xáo trộn.
+
+    const textsP1 = ['You hear: "Go straight and turn right." What direction should you turn?', ...bank2];
+    const rP1 = await findMatchingQuestion(staticBridge(textsP1), pool2, undefined, 1, null);
+    report(
+      '[P1] chọn đúng p1 ("turn right") dù margin số học mỏng (winner EXACT/coverage=1.0, runner-up chỉ PARTIAL/coverage=0.833 - đủ tin cậy dù margin<0.25)',
+      rP1.status === "MATCHED" && rP1.question.id === "p1_8aa25fdd",
+      JSON.stringify(rP1.status),
+    );
+
+    const textsP2 = ['You hear: "Go straight and turn left." What direction should you turn?', ...bank2];
+    const rP2 = await findMatchingQuestion(staticBridge(textsP2), pool2, undefined, 1, null);
+    report('[P2] chọn đúng p2 ("turn left")', rP2.status === "MATCHED" && rP2.question.id === "p2_d389c28d", JSON.stringify(rP2.status));
+  }
+
   console.log(`\n${passes} passed, ${failures} failed.`);
   if (failures > 0) process.exitCode = 1;
 }

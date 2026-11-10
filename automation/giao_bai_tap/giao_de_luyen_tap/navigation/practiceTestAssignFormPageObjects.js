@@ -49,10 +49,12 @@
  *     - placeholder "Kho đề hiện chưa có đề bạn cần" (đã xác nhận thật tổ hợp lớp "5D"/"10D"/"11A2"/
  *     "11H" + loại kỳ thi "QA test" trên tài khoản DEV dùng chung = N=0, dùng tổ hợp này cho
  *     EXAMTYPE-06 thay vì đoán). Mỗi dòng đề: `button[role="checkbox"][id^="lesson-item-"]` + div
- *     tiêu đề (sibling ngay sau) + 2 span "N Câu hỏi"/"N phút" + button "Xem chi tiết" - CHƯA thấy
- *     badge "Pro" ở BẤT KỲ đề nào trong toàn bộ pool tài khoản DEV hiện có (đã quét hết 7 lớp x 8
- *     loại kỳ thi) - ASSIGN-LIST-03 không có dữ liệu thật để verify, phải SKIP cho tới khi có đề Pro
- *     thật trên môi trường test.
+ *     tiêu đề (sibling ngay sau) + 2 span "N Câu hỏi"/"N phút" + button "Xem chi tiết" - badge "Pro"
+ *     ĐÃ XÁC NHẬN THẬT trên staging (2026-11-05, lớp "5D" + loại kỳ thi "Kỳ thi đánh giá năng lực
+ *     tiếng Anh" + đề "Đề ôn luyện kỹ năng Nói"): icon `<svg class="lucide-crown">` (màu cam
+ *     `#FE9B02`, bọc trong `div.rounded-full.bg-orange-2`) đặt ngay trước badge "N Câu hỏi" - KHÔNG
+ *     phải text "Pro". `listExerciseItems()` trả thêm field `pro` (boolean) đọc qua
+ *     `row.locator("svg.lucide-crown").count() > 0`.
  *   - Popup "Xem chi tiết" (`role="dialog"`): title = tên đề, 2 badge đầu "N câu hỏi"/"N phút", nội
  *     dung nhóm theo `<h4>Section N: tên</h4>` + "N câu hỏi", mỗi câu là 1 khối "Câu N" + đề bài +
  *     các option `aria-disabled="true"` (READ-ONLY xác nhận thật - không có cách tương tác chọn đáp
@@ -291,6 +293,7 @@ export async function listExerciseItems(page) {
       title: (await card.innerText()).trim().split("\n")[0],
       checked: (await checkbox.getAttribute("aria-checked")) === "true",
       disabled: await checkbox.isDisabled(),
+      pro: (await row.locator("svg.lucide-crown").count()) > 0,
       index: i,
       checkbox,
       row,
@@ -300,14 +303,22 @@ export async function listExerciseItems(page) {
 }
 
 export async function toggleExerciseItemByIndex(page, index, { expectChecked } = {}) {
-  const checkbox = exerciseItemCheckboxes(page).nth(index);
+  // ĐÃ XÁC NHẬN THẬT (2026-11-05, staging): danh sách đề SẮP XẾP LẠI ngay sau khi tích 1 đề (đề vừa
+  // tích nhảy lên đầu danh sách) - định vị LẠI checkbox theo `index` DOM ở mỗi lần thử (như code cũ)
+  // có thể trúng nhầm 1 đề KHÁC đã bị đẩy vào đúng vị trí đó sau khi danh sách đổi thứ tự, khiến hàm
+  // tích nhầm liên tiếp nhiều đề khác nhau thay vì đề mục tiêu (gặp thật ở ASSIGN-PREVIEW-06, dùng
+  // index không phải 0). Đọc `id` ổn định của checkbox tại `index` NGAY TỪ ĐẦU (trước khi bấm lần
+  // nào), rồi luôn định vị lại theo `id` đó cho mọi lần bấm/đọc tiếp theo - không phụ thuộc thứ tự
+  // DOM có đổi hay không.
+  const id = await exerciseItemCheckboxes(page).nth(index).getAttribute("id");
+  const checkbox = page.locator(`button[role="checkbox"][id="${id}"]`);
   for (let attempt = 1; attempt <= 3; attempt++) {
     await checkbox.click();
     await page.waitForTimeout(300);
     const checked = (await checkbox.getAttribute("aria-checked")) === "true";
     if (expectChecked === undefined || checked === expectChecked) return checked;
   }
-  throw new AssignFormAssertionError(`Đã bấm checkbox đề index=${index} 3 lần nhưng không đạt trạng thái mong đợi (expectChecked=${expectChecked}).`);
+  throw new AssignFormAssertionError(`Đã bấm checkbox đề id="${id}" (ban đầu ở index=${index}) 3 lần nhưng không đạt trạng thái mong đợi (expectChecked=${expectChecked}).`);
 }
 
 /** Mở popup "Xem chi tiết" của 1 đề theo index trong danh sách đang hiển thị - trả về locator

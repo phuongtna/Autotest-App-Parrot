@@ -3,11 +3,8 @@ import { loginForPracticeTestSpec } from "../../../../automation/giao_bai_tap/gi
 import {
   gotoPracticeTestList,
   openCreatePracticeTest,
-  openRowEdit,
-  openDeleteDialog,
-  confirmDeleteDialog,
   locateRowViaSearch,
-  rowStillExists,
+  deleteAllMatchingRows,
 } from "../../../../automation/giao_bai_tap/giao_de_luyen_tap/navigation/practiceTestListPageObjects.js";
 import {
   readCreateFormClassOptions,
@@ -51,16 +48,11 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Acceptance Crit
   });
 
   test.afterAll(async () => {
+    // Dùng `deleteAllMatchingRows` (xóa TẤT CẢ dòng khớp) thay vì `locateRowViaSearch` + `.catch`
+    // (ÂM THẦM bỏ qua cleanup khi có ≥2 dòng trùng khóa định vị do chạy lại suite cùng ngày - xem
+    // docblock assign-submit.spec.js).
     for (const { className, title, dueDateLine } of createdRows) {
-      const stillThere = await rowStillExists(page, { className, title, dueDateLine }).catch(() => false);
-      if (stillThere) {
-        const row = await locateRowViaSearch(page, { className, title, dueDateLine }).catch(() => null);
-        if (row) {
-          await openRowEdit(page, row);
-          const dialog = await openDeleteDialog(page);
-          await confirmDeleteDialog(page, dialog);
-        }
-      }
+      await deleteAllMatchingRows(page, { className, title, dueDateLine });
     }
     await context?.close();
   });
@@ -113,16 +105,30 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Acceptance Crit
     }
   });
 
-  test.skip("AC-02: HS vào lớp SAU khi GV đã giao đề → tự động được gán đề còn hạn", () => {
-    // Cần thao tác thêm HS vào lớp + quan sát danh sách bài phía app - vượt phạm vi spec Web GV thuần.
+  test.skip("AC-02: [ĐÃ XÁC NHẬN THẬT - PASS, chưa tự động hóa] HS vào lớp SAU khi GV đã giao đề → tự động được gán đề còn hạn", () => {
+    // ĐÃ XÁC NHẬN THẬT (2026-11-05, thao tác thủ công, lớp "5D" trên staging): lớp có 6 đề luyện
+    // tập đã giao, 5 đề còn hạn (06/11) + 1 đề quá hạn ("Đề thi Reading", hạn 04/11). Duyệt 1 HS
+    // mới vào lớp -> Web GV: sĩ số track của CẢ 5 đề còn hạn tăng từ 4 -> 5 (HS mới ĐƯỢC gán vào
+    // tất cả). App (ảnh chụp màn hình thật của chính HS đó, tab "Ôn thi" > "Đề thầy cô giao"): hiện
+    // ĐÚNG "5 đề". KẾT LUẬN: PASS thật.
   });
 
-  test.skip("AC-03: HS vào lớp sau khi đề ĐÃ quá hạn → KHÔNG được gán đề đó", () => {
-    // Cùng lý do SKIP với AC-02 - cần thao tác phía app.
+  test.skip("AC-03: [ĐÃ XÁC NHẬN THẬT - PASS, chưa tự động hóa] HS vào lớp sau khi đề ĐÃ quá hạn → KHÔNG được gán đề đó", () => {
+    // ĐÃ XÁC NHẬN THẬT cùng lượt với AC-02 (xem ghi chú trên): đề quá hạn "Đề thi Reading" (lớp
+    // "5D", hạn 04/11) sĩ số track VẪN GIỮ NGUYÊN 4 sau khi duyệt HS mới (không tăng lên 5 như 5
+    // đề còn hạn kia) - HS mới KHÔNG được gán đề quá hạn. Khớp đúng app chỉ hiện "5 đề" (thiếu đúng
+    // đề quá hạn này trong tổng 6 đề của lớp). KẾT LUẬN: PASS thật.
   });
 
-  test.skip('AC-04: [CẦN XÁC NHẬN] HS rời lớp trước khi đề hết hạn — đề có bị thu hồi khỏi HS đó không', () => {
-    // Cần thao tác HS rời lớp + quan sát danh sách bài phía app - vượt phạm vi spec Web GV thuần.
+  test.skip('AC-04: [ĐÃ XÁC NHẬN THẬT - PASS, chưa tự động hóa] HS rời lớp trước khi đề hết hạn — đề có bị thu hồi khỏi HS đó không', () => {
+    // ĐÃ XÁC NHẬN THẬT ĐỦ 2 PHÍA (2026-11-05, thao tác thủ công, lớp "5X-RKLRejoin2", đề "Đề kiểm
+    // tra giữa kỳ 1 - Khối 6 sửa 12", HS "QA Auto Child 20260918_132120"):
+    //   - Web GV: giao đề cho lớp 3 HS, sau khi rời 1 HS khỏi lớp, "Báo cáo lớp" của đề đó chỉ còn
+    //     track 2/2 HS - HS đã rời KHÔNG còn xuất hiện ở cả 2 nhóm "Chưa nộp bài"/"Đã hoàn thành".
+    //   - App (ảnh chụp màn hình thật, tab "Ôn thi" > "Đề thầy cô giao" của chính HS đó): "0 đề" -
+    //     "Chưa có đề ôn thi nào được giao" - đề ĐÃ bị thu hồi hoàn toàn khỏi app của HS.
+    // KẾT LUẬN: PASS thật - đề bị thu hồi đúng khi HS rời lớp. SKIP ở đây vì đây là xác nhận THỦ
+    // CÔNG 1 lần (cần Maestro/app automation + API rời lớp thật để tự động hóa lặp lại được).
   });
 
   test.skip('AC-05: thông báo "giao đề" có mốc kích hoạt đã qua → không gửi bù', () => {

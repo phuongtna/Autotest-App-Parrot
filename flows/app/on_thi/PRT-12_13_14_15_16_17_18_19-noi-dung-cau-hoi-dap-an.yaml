@@ -1,0 +1,53 @@
+# Nhom "I.3 Noi dung cau hoi va dap an" cua "Chi tiet bai da lam .xlsx"
+# (TC_PRT_ChiTietBaiDaLam_12..19, QA da chay that/Pass 29/10/2026).
+#
+# Hau het nhom nay la TAY vi phu thuoc NOI DUNG DE CU THE (data-dependent, khong biet truoc de nao
+# duoc chon - xem helper "BAT KY") hoac doc MAU SAC (gioi han da ghi nhan nhieu lan trong repo:
+# homeworkPageObjects.js#reviewDetail, OT-15) hoac trang thai AUDIO/VIDEO (khong co selector xac nhan
+# that cho nut Play tren man nay - KHONG doan id de tranh tap nham).
+#
+# TC_12 (du noi dung cau hoi+dap an): chi assert CAU TRUC (Chip + nut Giai thich/Tiep theo) co mat -
+# TAY cho phan "dung noi dung dung dap an theo de that".
+# TC_13/14/15 (mau do/xanh theo dung/sai/chua chon): TAY (mau). TC_15 (cau KHONG tra loi) rieng co the
+# dung card diem 0 - user xac nhan truc tiep (2026-11-05): card diem 0 la TH CAU CHUA LAM bam nop bai
+# luon, dung dap an hien van to XANH, KHONG dap an nao to DO - dung khop mo ta TC_15. TC_13/14 (co cau
+# SAI THAT, to DO) thi PHAI dung 1 de co diem o GIUA (qua ${DE_NAME}) - card diem 0 KHONG co cau sai
+# that nao de doi chieu TC_14. KHONG dung DE_SCORE_LABEL (vd "Điểm 8") - FAIL THAT xac nhan
+# (2026-11-05): nhieu de KHAC NHAU co the cung hien "Điểm 8" cung luc, co the tap NHAM sang de khac -
+# DE_NAME (ten de, duy nhat) on dinh hon.
+# TC_16 (khong cho chon lai dap an): KHONG co selector chung cho "1 dap an" (text dap an la du lieu de
+# cu the, tap nham co the trung "Giai thich"/"Tiep theo") - TAY, chi chup anh de QA tu tap thu.
+# TC_17/18 (audio/video khong tu dong phat): TAY (doc trang thai Play/Pause can id xac nhan, chua co).
+# TC_19 (bam Play nghe lai): TAY, cung ly do TC_17/18.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: PRT-12_13_14_15_16_17_18_19 Noi dung cau hoi va dap an
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
+      DE_NAME: ${DE_NAME}
+
+# --- TC_12: cau truc co mat (Chip + Giai thich + Tiep theo/Xem xong) - TAY phan doi chieu noi dung ---
+- assertVisible: "Giải thích"
+- assertVisible:
+    text: ".*(Tiếp theo|Xem xong).*"
+- takeScreenshot: artifacts/PRT-12-noi-dung-cau-hoi-TAY-doi-chieu-de-that
+
+# --- TC_13/14/15: mau dap an dung/sai/chua chon - TAY ---
+- takeScreenshot: artifacts/PRT-13-14-15-mau-dap-an-TAY-xem-anh
+
+# --- TC_16: dap an khong cho chon lai - TAY ---
+- takeScreenshot: artifacts/PRT-16-dap-an-khong-cho-chon-lai-TAY
+
+# --- TC_17/18/19: audio/video khong tu dong phat + bam Play - TAY ---
+- takeScreenshot: artifacts/PRT-17-18-19-audio-video-khong-tu-dong-phat-TAY

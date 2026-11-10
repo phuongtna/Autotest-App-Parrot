@@ -1,0 +1,35 @@
+# Chi tiet bai da lam - mo qua "Bao cao" > "On thi" -> 1 bai BAT KY da hoan thanh -> Lich su lam bai
+# -> "Xem chi tiet" -> quan sat man "Chi tiet bai da lam" (danh sach Chips cau hoi).
+#
+# NGHIEP VU (theo yeu cau): 1. Mo trang bao cao -> 2. Chon tab On thi -> 3. Kiem tra danh sach de
+# thay co giao/Kho de Parrot hien thi -> 4. Chon 1 bai da hien thi badge hoan thanh (diem bat ky,
+# KHONG hardcode ten de - xem memory feedback_never_hardcode_score_or_exercise) -> 5. Mo Lich su lam
+# bai -> 6. Xem chi tiet 1 luot -> 7. Quan sat man Chi tiet bai da lam.
+#
+# VERIFIED THAT TREN THIET BI (2026-11-05, device 3201d866d40a1681, app com.inet.parrotedu) - PASS
+# toan bo, xem artifacts/chi-tiet-bai-da-lam-nav-03-da-vao-man.png (man "Chi tiet bai da lam" that,
+# vd de "Dề thi Reading", Chips Cau 1-5, nut "Giai thich"/"Tiep theo").
+#
+# TACH (2026-11-05) toan bo logic dieu huong (buoc 1-6) sang
+# ../helpers/open-chi-tiet-bai-da-lam.yaml de cac file PRT-xx (tung nhom TC cua xlsx "Chi tiet bai da
+# lam .xlsx") dung CHUNG, khong lap code - xem docblock file do de biet day du nguon tham chieu
+# (open-tab-on-thi.yaml, OT-14_17, CD-09..15, xemchitietbailam.mjs).
+#
+# Tham so (deu OPTIONAL): PHONE, OTP, ON_THI_TAB ("De thay co giao" mac dinh hoac "Kho de Parrot").
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: Chi tiet bai da lam qua Bao cao - On thi
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
+      DE_NAME: ${DE_NAME}

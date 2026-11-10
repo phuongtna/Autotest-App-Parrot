@@ -1,0 +1,106 @@
+# Nhom "I.5 Dieu huong Cau tiep / Xem xong" cua "Chi tiet bai da lam .xlsx"
+# (TC_PRT_ChiTietBaiDaLam_24..28, QA da chay that/Pass 29/10/2026).
+#
+# TC_24 (tap "Tiep theo" sang cau ke): KHONG con dung nhan tien do "N/M" lam proxy - FAIL THAT xac
+# nhan (2026-11-05, xem PRT-04_05_06_07_08_09_10_11-chips-cau-hoi.yaml cung ngay): nhan "N/M" CHI xuat
+# hien o dang cau Reading/dien-tu-nhieu-cho-trong (thuc ra la "blank N/M trong 1 cau", khong phai "cau
+# N/tong so cau de") - dang cau khac khong co. Khong co tin hieu text nao khac de xac nhan chuyen cau
+# (`selected` cua Chip LUON "false" ca khi active, xac nhan that qua hierarchy) - TAY, chi tap + chup
+# anh. TC_25/26/27/28 KHONG bi anh huong (dung nhan nut "Tiếp theo"/"Xem xong" doi ten, la tin hieu
+# that/on dinh, khong lien quan "N/M").
+#
+# TC_25 dung `repeat: while: visible: "Tiếp theo"` (cu phap da xac nhan qua `maestro check-syntax`,
+# Maestro 2.8.0) de bam toi khi gap cau cuoi - KHONG hard-code so cau, dung `times: 80` lam ngan sach
+# an toan (de qua khong co that nhieu cau se dung som vi dieu kien `while` false).
+#
+# TC_27 (chon TRUC TIEP Chip cau cuoi, khong di tuan tu): can biet DUNG so cau cuoi ("Cau N") - KHONG
+# doc duoc tong so cau qua text selector thuan mot cach dang tin cay trong 1 file .yaml (doc dung can
+# MaestroMcpBridge, xem gioi han da ghi nhan trong automation/bai_tap/xemchitietbailam.mjs) - nhan
+# tham so OPTIONAL ${TONG_SO_CAU}, bo qua khoi nay neu khong truyen (cung pattern DE_NAME_x_LAN da
+# dung o CD-09_10_11_12_13_14_15-lich-su-lam-bai.yaml).
+#
+# TC_28 (roi cau cuoi ve cau khac -> nut doi lai "Tiep theo"): KHONG can biet Tong so cau - chon "Cau
+# 1" (chac chan khong phai cau cuoi voi moi de >= 2 cau) la du, tu dong hoa duoc hoan toan.
+#
+# FAIL THAT xac nhan (2026-11-05, 2 lan sua lien tiep - xem lich su chi tiet trong
+# ../helpers/open-chi-tiet-bai-da-lam.yaml): goi lai helper do NGAY SAU TC_26 (dang o man con, khong
+# phai dashboard root) lam open-tab-on-thi.yaml ben trong FAIL "Element not found: tab_report". DA SUA
+# TAN GOC trong chinh helper (tu dong `back` lien tuc truoc khi dieu huong, bat ke dang dung o man
+# nao) - file nay KHONG can tu them buoc "back ve danh sach" nua truoc khi goi lai helper cho
+# TC_27/TC_28.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: PRT-24_25_26_27_28 Dieu huong Tiep theo - Xem xong
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# --- TC_24: tap "Tiep theo" o Cau 1 (khong phai cau cuoi) -> sang dung Cau 2 - TAY xem anh ---
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
+      DE_NAME: ${DE_NAME}
+- tapOn: "Tiếp theo"
+- takeScreenshot: artifacts/PRT-24-tiep-theo-sang-cau-ke-TAY-xem-anh
+
+# --- TC_25/26: bam "Tiep theo" lien tiep toi cau cuoi -> nut doi thanh "Xem xong" -> bam "Xem xong"
+# -> ve dung man Lich su lam bai ---
+- repeat:
+    while:
+      visible: "Tiếp theo"
+    times: 80
+    commands:
+      - tapOn: "Tiếp theo"
+- assertVisible: "Xem xong"
+- takeScreenshot: artifacts/PRT-25-cau-cuoi-doi-nhan-xem-xong
+- tapOn: "Xem xong"
+- extendedWaitUntil:
+    visible:
+      text: ".*(Lịch sử làm bài|Lần \\d+).*"
+    timeout: 15000
+- takeScreenshot: artifacts/PRT-26-xem-xong-ve-lich-su-lam-bai
+
+# --- TC_27: chon TRUC TIEP Chip cau cuoi (khong di tuan tu) -> nut van dung thanh "Xem xong"
+# (OPTIONAL - can ${TONG_SO_CAU}) ---
+- runFlow:
+    when:
+      true: ${TONG_SO_CAU != null && TONG_SO_CAU != 'undefined' && TONG_SO_CAU != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME}
+      - scrollUntilVisible:
+          element:
+            text: "Câu ${TONG_SO_CAU}"
+          direction: RIGHT
+          timeout: 15000
+      - tapOn: "Câu ${TONG_SO_CAU}"
+      - assertVisible: "Xem xong"
+      - takeScreenshot: artifacts/PRT-27-chon-truc-tiep-chip-cau-cuoi
+
+# --- TC_28: dang o cau cuoi ("Xem xong") -> chon Chip "Cau 1" -> nut phai doi lai thanh "Tiep theo" ---
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
+      DE_NAME: ${DE_NAME}
+- repeat:
+    while:
+      visible: "Tiếp theo"
+    times: 80
+    commands:
+      - tapOn: "Tiếp theo"
+- assertVisible: "Xem xong"
+- tapOn: "Câu 1"
+- assertVisible: "Tiếp theo"
+- assertNotVisible: "Xem xong"
+- takeScreenshot: artifacts/PRT-28-roi-cau-cuoi-doi-lai-tiep-theo

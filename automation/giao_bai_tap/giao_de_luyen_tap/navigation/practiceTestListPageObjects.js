@@ -64,10 +64,19 @@ export {
 
 export class PracticeTestNavigationError extends Error {}
 
-/** Tài khoản GV + môi trường DUY NHẤT đã xác nhận thật có tính năng này (xem docblock đầu file) -
- * TÁI SỬ DỤNG nguyên cặp config có sẵn (KHÔNG thêm biến .env mới) vì đúng là 1 tài khoản, chỉ khác
- * mục đích dùng trước đây (automation/bao_cao_speaking/). */
+/** Tài khoản GV + môi trường đã xác nhận thật có tính năng này (xem docblock đầu file, viết lúc
+ * tính năng CHỈ có trên DEV). Xác nhận lại 2026-11-05: tính năng ĐÃ có trên staging với tài khoản
+ * GV mặc định (TEACHER_USERNAME/PASSWORD) - set `PRACTICE_TEST_ENV=staging` để chạy suite này trên
+ * staging thay vì DEV (mặc định vẫn "dev", không đổi hành vi các lần chạy trước). */
 export function resolvePracticeTestDevCredentials() {
+  const env = (process.env.PRACTICE_TEST_ENV || "dev").trim().toLowerCase();
+  if (env === "staging") {
+    return {
+      baseUrl: resolveTeacherPortalBaseUrl("staging"),
+      username: config.teacherUsername,
+      password: config.teacherPassword,
+    };
+  }
   return {
     baseUrl: resolveTeacherPortalBaseUrl("dev"),
     username: config.teacherUsernameSpeakingReport,
@@ -258,4 +267,43 @@ export async function rowStillExists(page, { className, title, dueDateLine }) {
     if (err instanceof AssignedRowNotFoundError) return false;
     throw err;
   }
+}
+
+/** Xóa TẤT CẢ dòng khớp className+title+dueDateLine - dùng cho cleanup ở `afterAll` thay vì
+ * `locateRowViaSearch` (yêu cầu ĐÚNG 1 dòng, throw nếu ≥2).
+ *
+ * ĐÃ XÁC NHẬN THẬT (2026-11-05, staging): "Hạn nộp" của các spec ghi dữ liệu thật thường tính theo
+ * "hôm nay + N ngày" (không random) - chạy lại CÙNG 1 suite trong CÙNG 1 ngày tạo ra dòng TRÙNG
+ * khóa định vị với lượt chạy trước, khiến `locateRowViaSearch` ở `afterAll` throw ngay cả khi chỉ
+ * dùng để cleanup - cách cũ (`.catch(() => null)` nuốt lỗi) ÂM THẦM bỏ qua cleanup, để sót dữ liệu
+ * test thật (gặp thật: ASSIGN-SUBMIT-04 để sót 2 dòng trùng lớp "5F", xem docblock
+ * assign-submit.spec.js). Hàm này lặp xóa từng dòng cho tới khi hết dòng khớp, không yêu cầu đúng 1
+ * - an toàn cả khi có 0, 1, hay nhiều dòng trùng.
+ *
+ * ĐÃ XÁC NHẬN THẬT (2026-11-05, dọn tay 2 dòng trùng lớp "5F"): search NGAY SAU 1 lần xóa đôi khi
+ * trả về 0 dòng dù còn ≥1 dòng trùng khác (cùng độ trễ propagate/index ngắn phía backend đã ghi ở
+ * `locateRowViaSearch`) - PHẢI chờ ngắn + kiểm tra lại 1 lần trước khi kết luận hết dòng, nếu không
+ * sẽ dừng vòng lặp quá sớm, để sót dòng thật. */
+export async function deleteAllMatchingRows(page, { className, title, dueDateLine }, { maxIterations = 10 } = {}) {
+  let deletedCount = 0;
+  for (let i = 0; i < maxIterations; i++) {
+    await gotoPracticeTestList(page);
+    await searchByItemName(page, title);
+    const row = page
+      .locator("table tbody tr", { hasText: className })
+      .filter({ hasText: title })
+      .filter({ hasText: dueDateLine });
+    let count = await row.count();
+    if (count === 0) {
+      await page.waitForTimeout(1500);
+      await searchByItemName(page, title);
+      count = await row.count();
+      if (count === 0) break;
+    }
+    await openRowEdit(page, row.first());
+    const dialog = await openDeleteDialog(page);
+    await confirmDeleteDialog(page, dialog);
+    deletedCount++;
+  }
+  return deletedCount;
 }

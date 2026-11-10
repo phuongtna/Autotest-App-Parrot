@@ -1,0 +1,74 @@
+# Nhom "I.2 Chips cau hoi" cua "Chi tiet bai da lam .xlsx" (TC_PRT_ChiTietBaiDaLam_4..11, QA da chay
+# that/Pass 29/10/2026).
+#
+# TAI SU DUNG: ../helpers/open-chi-tiet-bai-da-lam.yaml (man luon mo san o Cau 1).
+#
+# TC_4 (du so luong Chips = tong so cau): Maestro khong dem duoc so phan tu qua text selector thuan -
+# chi assert CO Chip "Câu 1"; TAY cho phan "dung dem = Tong so cau" (xem TC_5/11 ben duoi ly do KHONG
+# con dung nhan "N/M" nua - nhan do khong phai tin hieu chung cho moi dang cau).
+# TC_6/7/8/9 (mau Chip theo trang thai dung/sai/chua tra loi/active): CUNG gioi han da ghi nhan o
+# homeworkPageObjects.js#reviewDetail + OT-15 - Maestro KHONG doc duoc mau qua text selector -> TAY,
+# chi chup anh. De anh chup thay DU ca 3 mau (dung/sai/chua tra loi), truyen ${DE_NAME} tro toi 1 de
+# co diem o GIUA - user xac nhan truc tiep (2026-11-05): card diem 0 la TH CAU CHUA LAM bam nop bai
+# luon (CHI co mau XAM, khong co cau sai THAT nao de thay mau do) - khong du de QA doi chieu TC_6/7.
+# KHONG dung DE_SCORE_LABEL (vd "Điểm 8") - FAIL THAT xac nhan (2026-11-05): nhieu de KHAC NHAU co the
+# cung hien "Điểm 8" cung luc, co the tap NHAM sang de khac - DE_NAME (ten de, duy nhat) on dinh hon.
+# TC_5/11 (tap Chip khac / tap "Tiep theo" chuyen dung cau): KHONG con dung nhan tien do "N/M" lam
+# proxy nua - FAIL THAT xac nhan (2026-11-05, de "Điểm 8"/"Đề kiểm tra giữa kỳ 1 - Khối 6", dang cau
+# "sap xep tu thanh cau"): nhan "N/M" CHI xuat hien o dang cau Reading/dien-tu-nhieu-cho-trong (noi no
+# thuc ra la "blank N/M trong CHINH 1 cau", KHONG PHAI "cau N/tong so cau de") - dang cau khac (sap
+# xep tu, chon 1 dap an...) KHONG CO nhan nay. Khong co tin hieu text nao khac doc duoc de xac nhan
+# chuyen cau (`selected` attribute cua Chip LUON "false" ca khi dang active - xac nhan that qua
+# `maestro hierarchy`, trung gioi han da ghi nhan o homeworkPageObjects.js#reviewDetail) - TAY, chi
+# tap + chup anh cho QA xem bang mat Chip/noi dung da doi.
+# `assertVisible "Câu 1"` dung sau khi mo man van DUNG (Chip "Câu 1" luon ton tai, khong phu thuoc
+# dang cau) - chi rieng phan "N/M" la SAI, da bo.
+# TC_10 (vuot ngang danh sach Chips): toa do % dua tren anh chup that hom nay (dai Chips nam ~10% tu
+# tren xuong) - CHUA xac nhan ty le nay dung tren moi thiet bi/do phan giai khac, co the can dieu
+# chinh.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: PRT-04_05_06_07_08_09_10_11 Chips cau hoi
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: ${ON_THI_TAB}
+      DE_NAME: ${DE_NAME}
+
+# --- TC_4: co Chip "Câu 1" - TAY phan dem dung so luong ---
+- assertVisible:
+    text: ".*(Câu 1).*"
+- takeScreenshot: artifacts/PRT-04-chips-cau-hoi-TAY-dem-so-luong
+
+# --- TC_5: tap Chip "Cau 2" - TAY xac nhan noi dung/active doi dung qua anh chup ---
+- tapOn: "Câu 2"
+- takeScreenshot: artifacts/PRT-05-chon-chip-cau-khac-TAY-xem-anh
+
+# --- TC_6/7/8/9: mau sac/active cua Chip - TAY ---
+- takeScreenshot: artifacts/PRT-06-07-08-09-mau-sac-active-chip-TAY-xem-anh
+
+# --- TC_10: vuot ngang dai Chips (gan dinh man, ~10% chieu cao) ---
+- swipe:
+    start: "90%, 10%"
+    end: "10%, 10%"
+    duration: 400
+- takeScreenshot: artifacts/PRT-10-cuon-ngang-chips-sang-trai
+- swipe:
+    start: "10%, 10%"
+    end: "90%, 10%"
+    duration: 400
+- takeScreenshot: artifacts/PRT-10-cuon-ngang-chips-sang-phai
+
+# --- TC_11: tap "Tiep theo" - TAY xac nhan Chip tu dong cuon/active dung qua anh chup ---
+- tapOn: "Câu 1"
+- tapOn: "Tiếp theo"
+- takeScreenshot: artifacts/PRT-11-tiep-theo-tu-dong-cuon-chip-TAY-xem-active

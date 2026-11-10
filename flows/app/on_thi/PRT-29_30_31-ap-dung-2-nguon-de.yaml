@@ -1,0 +1,47 @@
+# Nhom "I.6 Ap dung cho de giao vien giao va Kho Parrot" cua "Chi tiet bai da lam .xlsx"
+# (TC_PRT_ChiTietBaiDaLam_29..31, QA da chay that/Pass 29/10/2026).
+#
+# RAT DATA-DEPENDENT: can CA 2 tab "De thay co giao" VA "Kho de Parrot" deu da co >= 1 de nop bai
+# (helper se FAIL o scrollUntilVisible neu 1 trong 2 tab chua co du lieu) - khac voi cac file PRT-xx
+# khac (chi can 1 tab bat ky co du lieu).
+#
+# TC_31 (nhat quan giao dien/hanh vi giua 2 nguon): Maestro khong doi chieu duoc 2 anh chup voi nhau -
+# chi tu dong hoa duoc phan "ca 2 nguon deu co du cung 1 tap hop control" (TC_29/30 ben duoi); phan
+# con lai (mau sac/layout CHI TIET giong het nhau) la TAY, QA doi chieu truc tiep 2 anh
+# PRT-29-.../PRT-30-... bang mat.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: PRT-29_30_31 Ap dung cho De thay co giao va Kho de Parrot
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# --- TC_29: nguon De thay co giao ---
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: "Đề thầy cô giao"
+- assertVisible: "Câu 1"
+- assertVisible: "Giải thích"
+- assertVisible:
+    text: ".*(Tiếp theo|Xem xong).*"
+- takeScreenshot: artifacts/PRT-29-chi-tiet-bai-da-lam-de-thay-co-giao
+
+# --- TC_30: nguon Kho de Parrot ---
+- runFlow:
+    file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+    env:
+      ON_THI_TAB: "Kho đề Parrot"
+- assertVisible: "Câu 1"
+- assertVisible: "Giải thích"
+- assertVisible:
+    text: ".*(Tiếp theo|Xem xong).*"
+- takeScreenshot: artifacts/PRT-30-chi-tiet-bai-da-lam-kho-de-parrot
+
+# --- TC_31: xem Ghi chu dau file - phan TAY doi chieu anh PRT-29/PRT-30 ---

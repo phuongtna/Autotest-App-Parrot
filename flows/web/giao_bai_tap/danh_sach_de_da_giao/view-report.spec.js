@@ -2,13 +2,17 @@ import { test, expect } from "../../../../automation/giao_bai_tap/playwrightTest
 import { loginForPracticeTestSpec } from "../../../../automation/giao_bai_tap/giao_de_luyen_tap/navigation/practiceTestSpecSetup.js";
 import { widenDateRangeFilter, openRowReport } from "../../../../automation/giao_bai_tap/navigation/teacherAssignedListPageObjects.js";
 import { gotoPracticeTestList, realDataRows } from "../../../../automation/giao_bai_tap/giao_de_luyen_tap/navigation/practiceTestListPageObjects.js";
+import { listCompletedStudents } from "../../../../automation/giao_bai_tap/navigation/teacherReportPageObjects.js";
 
 /**
  * Playwright Test THẬT cho nhóm "7. Hành động Xem báo cáo" (ACTION-01..04, TESTCASES.xlsx tab
  * "Giao đề luyện tập") - chuyển thể 1:1 từ runtime/viewReportFlow.js (ĐÃ XÁC NHẬN THẬT PASS). CHỈ
  * ĐỌC (điều hướng xem report, không sửa/xóa dữ liệu).
  *
- * ACTION-04 SKIP - GIỮ NGUYÊN "Pending" như bản test tay gốc (cần ground-truth ngoài UI).
+ * ACTION-04 (2026-11-05): HẾT "Pending" - ground-truth = chính "x/y" của dòng trên danh sách (x =
+ * số HS đã làm): card "Đã hoàn thành" phải có ĐÚNG x người (cross-check listCompletedStudents()
+ * trả về x phần tử, tái sử dụng nguyên của teacherReportPageObjects.js) + card "Chưa nộp bài" đúng
+ * (y-x), giống cơ chế ACTION-03 đã dùng cho trường hợp 0/y.
  */
 const REPORT_BREADCRUMB = "Báo cáo chi tiết đề luyện tập";
 
@@ -96,6 +100,25 @@ test.describe.serial('"Giao đề luyện tập" > Hành động Xem báo cáo (
   });
 
   test('ACTION-04: "Xem báo cáo" hoạt động đúng với dòng đã có HS làm bài', async () => {
-    test.skip(true, 'App chưa có để check được (cần ground-truth ngoài UI về HS nào thật sự đã nộp) - giữ nguyên "Pending" như test tay gốc.');
+    await gotoPracticeTestList(page);
+    await widenDateRangeFilter(page);
+    const done = await findRowAcrossPages(page, (r) => {
+      const m = /^(\d+)\/(\d+)$/.exec(r.doneCountText);
+      return m && Number(m[1]) > 0;
+    });
+    test.skip(!done, 'Không có dòng nào đã có HS làm bài trong dữ liệu thật hiện tại (quét hết mọi trang).');
+    const row = realDataRows(page).nth(done.i);
+    await openRowReport(page, row);
+    await assertReportMatchesRow(page, { className: done.className, title: done.title });
+
+    const [doneCount, totalCount] = done.doneCountText.split("/").map(Number);
+    await expect(page.getByText(`Đã hoàn thành (${doneCount})`, { exact: true })).toBeVisible();
+    await expect(page.getByText(`Chưa nộp bài (${totalCount - doneCount})`, { exact: true })).toBeVisible();
+
+    const students = await listCompletedStudents(page);
+    expect(
+      students.length,
+      `"${done.title}" (lớp "${done.className}") - danh sách "x/y"="${done.doneCountText}" nhưng card "Đã hoàn thành" chỉ liệt kê ${students.length} HS: ${JSON.stringify(students)}.`,
+    ).toBe(doneCount);
   });
 });

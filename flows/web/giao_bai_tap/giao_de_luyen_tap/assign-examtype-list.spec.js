@@ -26,8 +26,9 @@ import {
  * (UNION) đề của mọi chip đang active. Mọi phép so sánh số lượng/nội dung THEO TỪNG loại kỳ thi ở
  * file này dùng `selectOnlyExamType()` để CÔ LẬP đúng 1 chip.
  *
- * ASSIGN-LIST-03 (badge "Pro") SKIP - đã quét toàn bộ 7 lớp × 8 loại kỳ thi trên tài khoản DEV,
- * KHÔNG có đề nào mang badge Pro để verify thật.
+ * ASSIGN-LIST-03 (icon Pro): ĐÃ XÁC NHẬN THẬT trên staging (2026-11-05) - quét động qua các lớp/
+ * loại kỳ thi để tìm đề Pro (icon `svg.lucide-crown`, xem docblock practiceTestAssignFormPageObjects.js),
+ * không hardcode lớp/loại cụ thể vì pool đề có thể đổi.
  *
  * CHỈ ĐỌC - không bấm "Giao đề đã chọn", không tạo dữ liệu thật trên DEV.
  */
@@ -166,7 +167,37 @@ test.describe.serial('"Giao đề luyện tập" (Assign form) > Chọn loại k
   });
 
   test('ASSIGN-LIST-03: icon Pro hiển thị đúng với đề thuộc gói Pro', async () => {
-    test.skip(true, 'Đã quét toàn bộ 7 lớp × 8 loại kỳ thi trên DEV - không có đề Pro nào để verify thật.');
+    // Quét động qua các lớp/loại kỳ thi để tìm 1 đề Pro thật (KHÔNG hardcode lớp/loại cụ thể - dữ
+    // liệu pool có thể đổi) - ĐÃ XÁC NHẬN THẬT trên staging (2026-11-05): đề Pro mang icon
+    // `svg.lucide-crown` (xem docblock practiceTestAssignFormPageObjects.js), KHÔNG phải text "Pro".
+    let proItems = null;
+    let proClass = null;
+    for (const cls of classNames) {
+      await toggleClassCheckbox(page, cls, { expectChecked: true });
+      for (const t of await readExamTypes(page)) {
+        await selectOnlyExamType(page, t.name);
+        const items = await listExerciseItems(page);
+        if (items.some((it) => it.pro)) {
+          proItems = items;
+          proClass = cls;
+          break;
+        }
+      }
+      if (proItems) break;
+      await toggleClassCheckbox(page, cls, { expectChecked: false });
+    }
+    test.skip(!proItems, "Không tìm thấy đề Pro nào trong pool hiện có để verify thật.");
+
+    for (const item of proItems) {
+      await expect(item.row.locator("svg.lucide-crown")).toHaveCount(item.pro ? 1 : 0);
+    }
+
+    // khôi phục lớp A + loại kỳ thi A cho các test ASSIGN-LIST-04..07 phía sau.
+    if (proClass !== classNames[0]) {
+      await toggleClassCheckbox(page, proClass, { expectChecked: false });
+      await toggleClassCheckbox(page, classNames[0], { expectChecked: true });
+    }
+    await selectOnlyExamType(page, highType);
   });
 
   let twoItemExamType;

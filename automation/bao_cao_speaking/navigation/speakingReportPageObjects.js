@@ -86,9 +86,11 @@ export const po = {
   completedHeading: (count) => `Đã hoàn thành (${count})`,
   allSubmittedMessage: "Tất cả học sinh đã nộp bài!",
 
-  // Khối "Phân tích lỗi sai" + badge câu đang chọn, vd "CÂU 8".
+  // Khối "Phân tích lỗi sai" + badge câu đang chọn - DOM text thật là "Câu N" (class CSS
+  // "uppercase" chỉ đổi hiển thị thành "CÂU N", không đổi textContent) - ĐÃ XÁC NHẬN THẬT
+  // (2026-11-11, chạy live bao-cao-lop.spec.js, strict-mode violation lộ ra textContent thật).
   errorAnalysisHeading: "Phân tích lỗi sai",
-  currentQuestionBadge: (n) => `CÂU ${n}`,
+  currentQuestionBadge: (n) => `Câu ${n}`,
 
   // ĐÃ XÁC NHẬN THẬT (2026-09-11, getComputedStyle qua mock Tầng 2) - màu badge % trên thẻ HS:
   // Đúng = xanh lá, Sai = đỏ/cam (TC_053).

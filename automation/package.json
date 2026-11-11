@@ -42,6 +42,7 @@
     "test-goi-dich-vu-pw": "playwright test",
     "test-bao-cao-hoc-tap-pw": "playwright test --config=playwright.report.config.js",
     "test-speaking-report-pw": "playwright test --config=playwright.speaking-report.config.js",
+    "test-bao-cao-lop-pw": "playwright test --config=playwright.bao-cao-lop.config.js",
     "test-them-bai-thuc-hanh-pw": "playwright test --config=playwright.them-bai-thuc-hanh.config.js",
     "test-quan-ly-section-pw": "playwright test --config=playwright.quan-ly-section.config.js",
     "cleanup-quan-ly-section": "node quan_ly_section/cleanupCli.js",

@@ -1,0 +1,198 @@
+# LB-21..31 - Nhom "CTA cuoi man + 3 popup rieng cua On thi" (Tiep theo/Chuyen phan/Nop bai,
+# popup Chuyen phan/Nop bai/Thoat), chuyen the tu TC_PAR_OnThiLamBai_21..31 (Ôn thi.xlsx).
+#
+# TAI SU DUNG TOI DA (toan bo id/text da CONFIRMED that trong
+# automation/on_thi/navigation/onThiPageObjects.js#doing, khong doan moi):
+#   ctaNext/ctaSwitchSection/ctaSubmitAtLastQuestion, exitIconId, exitConfirmPopup,
+#   submitConfirmPopup, switchSectionConfirmPopup, toolbarSubmitButton.
+#   ../helpers/open-de.yaml, ../helpers/launch-keep-session.yaml,
+#   ../helpers/advance-onthi-questions.yaml (di toi dung cau CAN TEST, KHONG tu xac nhan popup -
+#   AUTO_CONFIRM_SUBMIT mac dinh false de flow nay tu quyet dinh bam gi tiep).
+#
+# Tham so:
+#   PHONE, OTP
+#   DE_NAME_PER_SECTION (bat buoc) - de PER_SECTION >=2 section, section 1 KHONG phai section cuoi.
+#   SECTION_1_QUESTIONS_BEFORE_LAST (bat buoc cho TC_22..26) - so cau can tra loi de DUNG LAI o
+#     CAU CUOI section 1 (= tong so cau section 1 - 1, QA tu tinh truoc tu fixture).
+#   TOTAL_QUESTIONS_BEFORE_LAST (bat buoc cho TC_24/27/28) - so cau can tra loi de DUNG LAI o CAU
+#     CUOI CUNG toan de (= tong so cau ca de - 1).
+#
+# GIOI HAN: TC_31 (het gio toan de du da thoat -> tu dong "Hoan thanh") can CHO THOI GIAN THAT hoac
+# fixture thoi luong rat ngan - XEM file rieng LB-44_45_46-nen-kill-app.yaml (cung co che voi TC_31,
+# gop chung nhom "cho het gio that" o do thay vi lap lai o day).
+#
+# RUI RO CHUA XAC MINH: text "Nộp bài" xuat hien O 3 NOI CUNG LUC o cau cuoi de (nut toolbar goc
+# phai header - LUON hien, nhan CTA footer, va nut xac nhan trong popup) - tapOn theo text thuan co
+# the khop nham phan tu dau tien thay vi dung y (toolbar thay vi footer, hoac nguoc lai). Code JS
+# goc (onThiExamEngine.js#submitViaToolbarButton) cung tap theo text thuan tuong tu, chua thay ghi
+# nhan loi that nao - giu nguyen muc do chat cuoi cua repo, KHONG tu them index/toa do doan truoc
+# khi co bang chung that can thiet.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: LB-21_to_31 CTA va popup chinh
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# ======================================================================================
+# TC_21..26 - can dung o CAU CUOI section 1 (khong phai section cuoi de).
+# ======================================================================================
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: ${SECTION_1_QUESTIONS_BEFORE_LAST}
+      AUTO_CONFIRM_SUBMIT: "false"
+
+# --- TC_22: nhan nut doi thanh "Chuyen phan" ---
+- assertVisible: "Chuyển phần"
+- assertNotVisible: "Tiếp theo"
+- takeScreenshot: artifacts/LB-22-nhan-chuyen-phan
+
+# --- TC_23: bam "Chuyen phan" (section con thoi gian) -> popup xac nhan ---
+- tapOn: "Chuyển phần"
+- extendedWaitUntil:
+    visible: "Bạn muốn chuyển phần khác?"
+    timeout: 10000
+- assertVisible: "Ở lại"
+- assertVisible: "Chuyển phần"
+- takeScreenshot: artifacts/LB-23-popup-xac-nhan-chuyen-phan
+
+# --- TC_25: chon "O lai" -> popup dong, VAN o cau cuoi section 1 ---
+- tapOn: "Ở lại"
+- assertNotVisible: "Bạn muốn chuyển phần khác?"
+- assertVisible: "Chuyển phần"
+- takeScreenshot: artifacts/LB-25-o-lai-van-o-cau-cuoi-section
+
+# --- TC_26: bam lai "Chuyen phan" -> chon "Chuyen phan" -> section 1 bi khoa, sang section 2 ---
+- tapOn: "Chuyển phần"
+- extendedWaitUntil:
+    visible: "Bạn muốn chuyển phần khác?"
+    timeout: 10000
+- tapOn: "Chuyển phần"
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_doing_screen"
+    timeout: 15000
+- takeScreenshot: artifacts/LB-26-da-chuyen-sang-section-2
+
+# ======================================================================================
+# TC_21/24/27/28 - can dung o CAU CUOI CUNG toan de.
+# ======================================================================================
+- runFlow:
+    file: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+
+# --- TC_21: bam "Tiep theo" o cau KHONG phai cau cuoi section -> sang cau ke, KHONG popup ---
+- assertVisible: "Tiếp theo"
+- takeScreenshot: artifacts/LB-21-truoc-khi-bam-tiep-theo
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: "1"
+      AUTO_CONFIRM_SUBMIT: "false"
+- assertNotVisible: "Bạn muốn chuyển phần khác?"
+- assertNotVisible: "Nộp bài ngay?"
+- takeScreenshot: artifacts/LB-21-sang-cau-ke-khong-popup
+
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: ${TOTAL_QUESTIONS_BEFORE_LAST}
+      AUTO_CONFIRM_SUBMIT: "true"
+
+# --- TC_24: nhan nut doi thanh "Nop bai" o cau cuoi cung toan de ---
+- assertVisible: "Nộp bài"
+- assertNotVisible: "Tiếp theo"
+- assertNotVisible: "Chuyển phần"
+- takeScreenshot: artifacts/LB-24-nhan-nop-bai-cau-cuoi-de
+
+# --- TC_27: bam "Nop bai" -> popup -> chon "Lam tiep" -> dong popup, ve dung cau truoc do ---
+- tapOn: "Nộp bài"
+- extendedWaitUntil:
+    visible: "Nộp bài ngay?"
+    timeout: 10000
+- assertVisible: "Làm tiếp"
+- assertVisible: "Nộp bài"
+- takeScreenshot: artifacts/LB-27-popup-xac-nhan-nop-bai
+- tapOn: "Làm tiếp"
+- assertNotVisible: "Nộp bài ngay?"
+- assertVisible: "Nộp bài"
+- takeScreenshot: artifacts/LB-27-lam-tiep-ve-dung-cau-truoc-do
+
+# --- TC_28: bam lai "Nop bai" -> popup -> chon "Nop bai" -> sang man Ket qua ---
+- tapOn: "Nộp bài"
+- extendedWaitUntil:
+    visible: "Nộp bài ngay?"
+    timeout: 10000
+- tapOn: "Nộp bài"
+- extendedWaitUntil:
+    visible: "Kết quả bài thi"
+    timeout: 20000
+- takeScreenshot: artifacts/LB-28-vao-man-ket-qua
+
+# ======================================================================================
+# TC_29/30 - popup "Ngung lam bai?" (icon Thoat) tren 1 luot moi.
+# ======================================================================================
+- runFlow:
+    file: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+
+- tapOn:
+    id: "exam_prep_doing_header_left"
+- extendedWaitUntil:
+    visible: "Ngừng làm bài?"
+    timeout: 10000
+- assertVisible: "Ở lại"
+- assertVisible: "Thoát"
+- takeScreenshot: artifacts/LB-29-popup-xac-nhan-thoat
+
+# --- TC_29: chon "O lai" -> dong popup, van o man Doing dung cau dang lam ---
+- tapOn: "Ở lại"
+- assertNotVisible: "Ngừng làm bài?"
+- assertVisible:
+    id: "exam_prep_doing_screen"
+- takeScreenshot: artifacts/LB-29-o-lai-van-o-cau-dang-lam
+
+# --- TC_30: tra loi 1 cau roi Thoat -> ve danh sach -> de o trang thai "Dang lam do" ---
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: "1"
+      AUTO_CONFIRM_SUBMIT: "false"
+- tapOn:
+    id: "exam_prep_doing_header_left"
+- extendedWaitUntil:
+    visible: "Ngừng làm bài?"
+    timeout: 10000
+- tapOn: "Thoát"
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+- assertVisible: "Tiếp tục làm bài"
+- assertNotVisible: "Bắt đầu làm bài"
+- takeScreenshot: artifacts/LB-30-sau-khi-thoat-trang-thai-dang-lam-do

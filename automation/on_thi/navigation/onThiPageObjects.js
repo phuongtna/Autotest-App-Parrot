@@ -164,8 +164,8 @@ export const onThiPageObjects = {
     // của Ôn thi dùng bộ resource-id RIÊNG `exam_prep_doing_*`, KHÁC HẲN `exercise_*` của Bài tập -
     // XOÁ bỏ mọi "CHƯA XÁC MINH TOẠ ĐỘ" cho 2 icon Thoát/Đánh dấu xem lại vì giờ đã có id thật, tap
     // bằng id thay vì điểm toạ độ đoán. Icon flag quan sát được ở trạng thái CHƯA đánh dấu có id
-    // `exam_prep_flag_off` - CHƯA xác nhận id lúc đã đánh dấu (có thể đổi thành `exam_prep_flag_on`
-    // theo quy ước suffix on/off, CHƯA tự verify, chỉ suy luận hợp lý).
+    // `exam_prep_flag_off`; id lúc ĐÃ đánh dấu là `exam_prep_flag_on` - ĐÃ XÁC NHẬN THẬT (2026-11-14,
+    // qua `maestro hierarchy` thật, đề "Đề luyện tập Unit 2: Health...") - đúng suy luận suffix on/off.
     screenId: "exam_prep_doing_screen",
     exitIconId: "exam_prep_doing_header_left",
     toolbarSubmitButtonId: "exam_prep_doing_submit_top",

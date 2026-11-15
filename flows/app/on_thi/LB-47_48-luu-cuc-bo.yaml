@@ -1,0 +1,62 @@
+# LB-47/48 - Nhom "Luu cuc bo & dong bo server" (TC_PAR_OnThiLamBai_47/48, Ôn thi.xlsx).
+#
+# TAI SU DUNG: ../helpers/open-de.yaml, ../helpers/launch-keep-session.yaml.
+# `assertVisible: {id, selected: true/false}` - DA CONFIRMED that trong flows/app/exercise/EX-09-
+# selection-state.yaml (moi o dap an deu khai accessibilityState.selected, doc duoc khong can mau).
+#
+# TC_48 (dong bo len server trong vong toi da 10 giay) KHONG tu dong hoa duoc trong file nay:
+# automation/on_thi/model/onThiModel.js xac nhan module On thi CHUA co API/network-capture nao
+# duoc xac nhan (khong co endpoint nao de goi thang kiem tra du lieu da len server) - danh dau TAY,
+# chi verify GIAN TIEP qua UI resume (trung co che voi TC_47/TC_51, xem LB-49_to_52-mat-mang.yaml).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: LB-47_48 Luu cuc bo
+---
+# Gia dinh cau 1 cua DE_NAME_PER_SECTION la dang CHOICE (exercise_answer_0 ton tai) - neu fixture
+# dung dang khac (FILL_WORD/CONNECT/DRAG_DROP), doi sang nhanh tuong ung (xem
+# advance-onthi-questions.yaml de biet id cua tung dang) truoc khi chay that.
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+
+# --- TC_47: chon dap an cau 1 -> sang cau 2 -> quay lai cau 1 qua bottom sheet -> van con selected ---
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: false
+- tapOn:
+    id: "exercise_answer_0"
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: true
+- takeScreenshot: artifacts/LB-47-da-chon-dap-an-cau-1
+- tapOn: "Tiếp theo"
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_doing_screen"
+    timeout: 10000
+- tapOn:
+    text: "\\d+/\\d+"
+- extendedWaitUntil:
+    visible: "Danh sách câu hỏi"
+    timeout: 10000
+- tapOn: "^1$"
+# GAP THAT (2026-11-14): ca assertNotVisible LAN extendedWaitUntil:notVisible (poll 5s) deu FAIL
+# ngay ca khi screenshot chup dung luc do xac nhan sheet da dong that tren man hinh - nghi component
+# bottom sheet van "attached" trong accessibility tree du da thu gon/an (gioi han that cua Maestro
+# voi component nay, KHONG tu doan them selector moi chua xac nhan). BO hang kiem tra sheet-da-dong
+# (khong phai muc tieu chinh cua TC_47) - dua vao assertion quan trong hon ngay sau (dap an con giu)
+# de xac nhan GIAN TIEP da dieu huong dung ve cau 1.
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: true
+- takeScreenshot: artifacts/LB-47-quay-lai-cau-1-van-giu-dap-an

@@ -55,3 +55,13 @@ appId: ${APP_ID}
       # (ĐÃ XÁC NHẬN THẬT - nhãn "3 đề"/"4 đề") thêm vào cụm OR cho cả 2 sub-tab.
       text: ".*(Đề thầy cô giao|Kho đề Parrot|\\d+ đề|2 tuần gần nhất|1 tháng gần nhất).*"
     timeout: 30000
+
+# shortcut: nhãn tab ở trên hiện ra NGAY (đã tap sẵn), nên extendedWaitUntil phía trên thường resolve
+# TRƯỚC KHI danh sách thẻ bên dưới kịp render - callers dùng vòng scroll 1 CHIỀU (vd open-de.yaml)
+# có thể bắt đầu swipe đúng lúc danh sách còn rỗng, trôi mất thẻ ĐẦU TIÊN mà không bao giờ quay lại
+# được - GẶP THẬT (2026-11-14, thiết bị 3201d866d40a1681, thẻ đích nằm đúng vị trí đầu danh sách).
+# Thêm 1 khoảng chờ ngắn cho danh sách kịp ổn định trước khi trả quyền điều khiển lại cho caller -
+# khi nào bắt được text rỗng-danh-sách thật (xem CẦN XÁC MINH ở trên) nên nâng cấp thành chờ đúng
+# tín hiệu đó thay vì khoảng chờ cố định này.
+- waitForAnimationToEnd:
+    timeout: 1500

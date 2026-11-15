@@ -1,0 +1,111 @@
+# LB-49..52 - Nhom "Mat mang trong luc lam bai" (TC_PAR_OnThiLamBai_49..52, Ôn thi.xlsx).
+#
+# QUAN TRONG - KHONG CHAY TRUC TIEP FILE NAY bang `maestro test`: Maestro KHONG co lenh bat/tat
+# mang built-in (cung gioi han da ghi nhan o flows/app/roi_khoi_lop/RKL-17-leave-offline-shows-error.yaml).
+# File nay PHAI chay QUA `scripts/run_lb49_52_offline_case.sh` - script do dat 1 background timer
+# (adb shell svc wifi/data disable) KHOP THOI DIEM voi cac buoc cho-toast/cho-mang-lai ben duoi,
+# bang KHONG network se khong bao gio tat/bat dung luc, cac assertion "Mat ket noi"/sau do se SAI
+# (hoac timeout mu) dù app hoat dong dung.
+#
+# RUI RO DA BIET: co che khop thoi diem giua script (dat lich tat/bat mang) va file nay (cho bang
+# extendedWaitUntil 1 text khong bao gio khop + optional:true, idiom da CONFIRMED o CD-21..30.yaml
+# TC_25) chi la BEST-EFFORT theo thoi gian thuc - neu may chay cham (login/mo de lau hon du kien),
+# mang co the chua kip tat luc toast duoc cho - tang OFFLINE_DELAY_MS neu gap FAIL do timing.
+#
+# TC_52 (het gio DUNG LUC dang mat mang -> co mang lai moi tu dong nop, thoi diem nop = luc het
+# gio KHONG PHAI luc co mang lai) CAN FIXTURE RIENG (thoi luong rat ngan) + bien gate rieng - xem
+# khoi cuoi file, mac dinh BO QUA. KHONG verify duoc "dung thoi diem nop" qua UI (khong co timestamp
+# hien thi) - danh dau TAY, chi verify duoc hanh vi "co mang lai thi tu dong nop".
+#
+# Tham so:
+#   APP_ID, PHONE, OTP, DE_NAME_PER_SECTION (bat buoc)
+#   OFFLINE_WAIT_MS (do script truyen vao, optional - mac dinh 25000) - thoi gian cho toast
+#     "Mat ket noi" xuat hien (khop voi thoi diem script tat mang).
+#   RECONNECT_WAIT_MS (do script truyen vao, optional - mac dinh 20000) - thoi gian cho (khi dang
+#     offline) truoc khi script bat mang lai + file nay kiem tra TC_51.
+#   RUN_LB52_TIMEOUT_WHILE_OFFLINE="true" + DE_NAME_SHORT_TIMER_WHOLE_EXAM (GATED, xem khoi cuoi file).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+  - negative
+name: LB-49_to_52 Mat mang trong luc lam bai
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+- takeScreenshot: artifacts/LB-49-dang-lam-bai-mang-on-dinh
+
+# --- TC_49: cho script tat mang (background timer) -> toast "Mat ket noi" xuat hien ---
+- extendedWaitUntil:
+    visible: ".*(Mất kết nối|không có kết nối|lỗi mạng|kiểm tra kết nối).*"
+    timeout: "${OFFLINE_WAIT_MS == null || OFFLINE_WAIT_MS == 'undefined' ? 25000 : OFFLINE_WAIT_MS}"
+- takeScreenshot: artifacts/LB-49-toast-mat-ket-noi
+
+# --- TC_50: van lam bai duoc khi mat mang, dap an van luu cuc bo ---
+- runFlow:
+    when:
+      visible:
+        id: "exercise_answer_0"
+    commands:
+      - tapOn:
+          id: "exercise_answer_0"
+      - assertVisible:
+          id: "exercise_answer_0"
+          selected: true
+- takeScreenshot: artifacts/LB-50-van-chon-dap-an-duoc-khi-mat-mang
+- tapOn: "Tiếp theo"
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_doing_screen"
+    timeout: 10000
+- tapOn:
+    text: "\\d+/\\d+"
+- extendedWaitUntil:
+    visible: "Danh sách câu hỏi"
+    timeout: 10000
+- tapOn: "^1$"
+- assertVisible:
+    id: "exercise_answer_0"
+    selected: true
+- takeScreenshot: artifacts/LB-50-quay-lai-cau-da-lam-khi-mat-mang-van-giu
+
+# --- TC_51 (best-effort, xem gioi han TC_48 o LB-47_48-luu-cuc-bo.yaml): cho script bat mang lai,
+# chi verify KHONG CRASH + dap an van con, KHONG tu verify duoc "da len server" qua API ---
+- extendedWaitUntil:
+    visible: "zzz_cho_script_bat_mang_lai_zzz"
+    timeout: "${RECONNECT_WAIT_MS == null || RECONNECT_WAIT_MS == 'undefined' ? 20000 : RECONNECT_WAIT_MS}"
+    optional: true
+- assertVisible:
+    id: "exam_prep_doing_screen"
+- takeScreenshot: artifacts/LB-51-sau-khi-co-mang-lai-khong-crash
+
+# ======================================================================================
+# TC_52 (GATED, mac dinh BO QUA) - het gio DUNG LUC dang mat mang -> co mang lai moi tu dong nop.
+# Chay QUA BIEN THE RIENG cua script (xem scripts/run_lb49_52_offline_case.sh --lb52), KHONG goi
+# truc tiep khoi nay cung luot voi TC_49..51 o tren (2 kich ban mang/thoi gian khac nhau hoan toan).
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${RUN_LB52_TIMEOUT_WHILE_OFFLINE == 'true'}
+    commands:
+      - runFlow:
+          file: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_SHORT_TIMER_WHOLE_EXAM}
+            ON_THI_TAB: "Đề thầy cô giao"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: "${LB52_TIMEOUT_WAIT_MS == null || LB52_TIMEOUT_WAIT_MS == 'undefined' ? 60000 : LB52_TIMEOUT_WAIT_MS}"
+      - takeScreenshot: artifacts/LB-52-het-gio-luc-mat-mang-co-mang-lai-tu-dong-nop

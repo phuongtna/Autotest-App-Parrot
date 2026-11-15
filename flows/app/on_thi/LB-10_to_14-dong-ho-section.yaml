@@ -1,0 +1,149 @@
+# LB-10..14 - Nhom "Dong ho theo Section" (fixture PER_SECTION), chuyen the tu
+# TC_PAR_OnThiLamBai_10..14 (Ôn thi.xlsx).
+#
+# TAI SU DUNG: ../helpers/open-de.yaml, ../helpers/launch-keep-session.yaml,
+# ../helpers/launch-fresh.yaml, ../helpers/advance-onthi-questions.yaml.
+#
+# GIOI HAN: readTimerBadge() (onThiExamEngine.js) la BEST-EFFORT/chan doan - co the doc nham thoi
+# luong audio player thay vi dong ho de thi that (DA GHI NHAN va cham nay). TC_10/14 duoi day CHI
+# assert DUNG DINH DANG mm:ss gan voi gia tri ky vong (khong ep tuyet doi tung giay, vi co do tre
+# giua luc mo man va luc doc duoc). TC_11/12/13 PHAI CHO THOI GIAN THAT (hoac fixture thoi luong
+# rat ngan) - GATED mac dinh tat, giong co che RUN_TC25_TIMER_PERSISTENCE cua CD-21..30.yaml.
+#
+# Tham so (khong gated, TC_10/14):
+#   PHONE, OTP, DE_NAME_PER_SECTION
+#   SECTION_1_DURATION_MIN (bat buoc TC_10) - thoi luong section 1 (phut).
+#   SECTION_1_QUESTIONS_BEFORE_LAST / SECTION_2_DURATION_MIN (bat buoc TC_14).
+#
+# Tham so (gated):
+#   RUN_LB11_RED_TIMER="true" + DE_NAME_SECTION_UNDER_5MIN (de/section con duoi 5 phut tu dau, hoac
+#     QA tu canh thoi diem chay) - TC_11.
+#   RUN_LB12_AUTO_SWITCH="true" + DE_NAME_SHORT_TIMER_NOT_LAST_SECTION + LB12_TIMEOUT_WAIT_MS
+#     (optional, default 90000) - TC_12.
+#   RUN_LB13_AUTO_SUBMIT="true" + DE_NAME_SHORT_TIMER_LAST_SECTION + LB13_TIMEOUT_WAIT_MS
+#     (optional, default 90000) - TC_13.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: LB-10_to_14 Dong ho theo Section
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+
+# --- TC_10: dong ho khoi tao dung thoi luong section 1 (vd 10 phut -> "10:00") ---
+- runFlow:
+    when:
+      true: ${SECTION_1_DURATION_MIN != null && SECTION_1_DURATION_MIN != 'undefined'}
+    commands:
+      # shortcut: dung \d\d thay vi \d{2} - GAP THAT (2026-11-15): dau ngoac nhon {2} dung SAU
+      # ${VAR} trong cung 1 chuoi khien Maestro crash (JsEvaluationException: dem nham dau ngoac
+      # cua ${...} voi dau ngoac cua regex quantifier). \d\d tuong duong, khong dung ngoac nhon.
+      # GAP THAT (2026-11-15, lan 2): dong ho hien thi co so 0 dem truoc phut 1 chu so (vd "05:00"
+      # khong phai "5:00") - them "0?" optional truoc gia tri phut.
+      # GAP THAT (2026-11-15, lan 3): ~1 phut chi phi xu ly KHONG THE TRANH (login + dieu huong qua
+      # nhieu man) truoc khi assertion nay chay duoc - dong ho DA chay that tu luc bam "Bat dau",
+      # tut tu N xuong N-1 phut la binh thuong, KHONG phai bug. Chap nhan ca N lan N-1 (khong ep dung
+      # tuyet doi dung 1 gia tri) - van du chat de phat hien sai so lon that (vd khoi tao sai hang
+      # chuc phut).
+      - assertVisible:
+          text: "^0?(${SECTION_1_DURATION_MIN}|${SECTION_1_DURATION_MIN - 1}):\\d\\d$"
+- takeScreenshot: artifacts/LB-10-dong-ho-khoi-tao-dung-thoi-luong
+
+# --- TC_14: dong ho RESET dung thoi luong section moi khi chuyen phan (chu dong, khong het gio) ---
+- runFlow:
+    when:
+      true: ${SECTION_1_QUESTIONS_BEFORE_LAST != null && SECTION_1_QUESTIONS_BEFORE_LAST != 'undefined'}
+    commands:
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: ${SECTION_1_QUESTIONS_BEFORE_LAST}
+            AUTO_CONFIRM_SUBMIT: "false"
+      - tapOn: "Chuyển phần"
+      - extendedWaitUntil:
+          visible: "Bạn muốn chuyển phần khác?"
+          timeout: 10000
+      - tapOn: "Chuyển phần"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 15000
+      - runFlow:
+          when:
+            true: ${SECTION_2_DURATION_MIN != null && SECTION_2_DURATION_MIN != 'undefined'}
+          commands:
+            # shortcut: \d\d thay vi \d{2}, "0?" truoc phut, chap nhan ca N lan N-1 - cung ly do o
+            # TC_10 phia tren.
+            - assertVisible:
+                text: "^0?(${SECTION_2_DURATION_MIN}|${SECTION_2_DURATION_MIN - 1}):\\d\\d$"
+      - takeScreenshot: artifacts/LB-14-dong-ho-reset-dung-thoi-luong-section-moi
+
+# ======================================================================================
+# TC_11 (GATED) - dong ho doi mau do khi con duoi 5 phut.
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${RUN_LB11_RED_TIMER == 'true'}
+    commands:
+      - runFlow:
+          file: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_SECTION_UNDER_5MIN}
+            ON_THI_TAB: "Đề thầy cô giao"
+      - takeScreenshot: artifacts/LB-11-dong-ho-duoi-5-phut-doi-chieu-bang-mat
+
+# ======================================================================================
+# TC_12 (GATED) - het gio section KHONG phai section cuoi -> tu dong chuyen section ke, KHONG popup.
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${RUN_LB12_AUTO_SWITCH == 'true'}
+    commands:
+      - runFlow:
+          file: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_SHORT_TIMER_NOT_LAST_SECTION}
+            ON_THI_TAB: "Đề thầy cô giao"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: "${LB12_TIMEOUT_WAIT_MS == null || LB12_TIMEOUT_WAIT_MS == 'undefined' ? 90000 : LB12_TIMEOUT_WAIT_MS}"
+      - assertNotVisible: "Bạn muốn chuyển phần khác?"
+      - takeScreenshot: artifacts/LB-12-het-gio-tu-dong-chuyen-section
+
+# ======================================================================================
+# TC_13 (GATED) - het gio section CUOI CUNG -> tu dong nop bai, KHONG popup.
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${RUN_LB13_AUTO_SUBMIT == 'true'}
+    commands:
+      - runFlow:
+          file: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_SHORT_TIMER_LAST_SECTION}
+            ON_THI_TAB: "Đề thầy cô giao"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: "${LB13_TIMEOUT_WAIT_MS == null || LB13_TIMEOUT_WAIT_MS == 'undefined' ? 90000 : LB13_TIMEOUT_WAIT_MS}"
+      - assertNotVisible: "Nộp bài ngay?"
+      - takeScreenshot: artifacts/LB-13-het-gio-tu-dong-nop-bai

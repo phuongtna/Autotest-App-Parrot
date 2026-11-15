@@ -1,0 +1,125 @@
+# LB-44/45/46 - Nhom "Dong ho khong dung khi thoat/kill app" (TC_PAR_OnThiLamBai_44..46,
+# Ôn thi.xlsx) - TOAN BO can CHO THOI GIAN THAT, GATED mac dinh tat (giong co che
+# RUN_TC25_TIMER_PERSISTENCE cua CD-21..30.yaml).
+#
+# TAI SU DUNG:
+#   - Ky thuat "sleep that" bang extendedWaitUntil 1 text khong bao gio khop + optional:true (DA
+#     CONFIRMED trong CD-21..30.yaml TC_25).
+#   - ../helpers/launch-fresh.yaml (launchApp: {stopApp:true} = KILL process that + mo lai, giu
+#     session) cho TC_45/46 - khac CD-25 (chi dung pressKey Home, KHONG kill that).
+#   - ../helpers/open-de.yaml (STOP_AT_INFO_SCREEN de doc tien do tu man Thong tin de sau khi mo lai).
+#
+# Tham so:
+#   PHONE, OTP
+#   RUN_LB44_TIMER_BACKGROUND="true" + DE_NAME_PER_SECTION + WAIT_BEFORE_EXIT_MS/WAIT_WHILE_EXITED_MS
+#     (optional, mac dinh 60000/90000) - TC_44.
+#   RUN_LB45_KILL_APP_AUTOSUBMIT="true" + DE_NAME_SHORT_TIMER + LB45_TIMEOUT_WAIT_MS (optional,
+#     mac dinh 90000) - TC_45.
+#   RUN_LB46_REOPEN_AT_TIMEOUT="true" + DE_NAME_SHORT_TIMER_INPROGRESS (de DANG lam do, gan het
+#     gio - QA tu dan dung thoi diem truoc khi chay) - TC_46.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: LB-44_45_46 Dong ho nen va kill app
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# ======================================================================================
+# TC_44 (GATED) - thoat qua popup "Ngung lam bai?" -> cho thoi gian that -> vao lai -> dong ho da
+# giam dung bang khoang thoi gian thuc te da troi qua (KHONG dung so phut tuyet doi, chi so sanh
+# TRUOC/SAU qua 2 anh chup - xem gioi han readTimerBadge() o LB-10_to_14).
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${RUN_LB44_TIMER_BACKGROUND == 'true'}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DE_NAME: ${DE_NAME_PER_SECTION}
+            ON_THI_TAB: "Đề thầy cô giao"
+      - takeScreenshot: artifacts/LB-44-dong-ho-truoc-khi-thoat
+      - tapOn:
+          id: "exam_prep_doing_header_left"
+      - extendedWaitUntil:
+          visible: "Ngừng làm bài?"
+          timeout: 10000
+      - tapOn: "Thoát"
+      - extendedWaitUntil:
+          visible: "zzz_cho_du_thoi_gian_thuc_te_troi_qua_zzz"
+          timeout: "${WAIT_WHILE_EXITED_MS == null || WAIT_WHILE_EXITED_MS == 'undefined' ? 90000 : WAIT_WHILE_EXITED_MS}"
+          optional: true
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_PER_SECTION}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - tapOn: "Tiếp tục làm bài"
+      - extendedWaitUntil:
+          visible: "Bài làm chưa hoàn thành"
+          timeout: 10000
+      - tapOn: "Tiếp tục"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 20000
+      - takeScreenshot: artifacts/LB-44-dong-ho-sau-khi-vao-lai-doi-chieu-bang-mat
+
+# ======================================================================================
+# TC_45 (GATED) - kill app that (KHAC Home backgrounding) trong luc dong ho van dem -> qua moc het
+# gio -> mo lai -> de da tu dong nop + tinh diem, chuyen "Hoan thanh" dù app da tat han.
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${RUN_LB45_KILL_APP_AUTOSUBMIT == 'true'}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DE_NAME: ${DE_NAME_SHORT_TIMER}
+            ON_THI_TAB: "Đề thầy cô giao"
+      - takeScreenshot: artifacts/LB-45-truoc-khi-kill-app
+      - runFlow:
+          file: ../helpers/launch-fresh.yaml
+      - extendedWaitUntil:
+          visible: "zzz_cho_qua_moc_het_gio_zzz"
+          timeout: "${LB45_TIMEOUT_WAIT_MS == null || LB45_TIMEOUT_WAIT_MS == 'undefined' ? 90000 : LB45_TIMEOUT_WAIT_MS}"
+          optional: true
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_SHORT_TIMER}
+            ON_THI_TAB: "Đề thầy cô giao"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertNotVisible: "Tiếp tục làm bài"
+      - assertNotVisible: "Bắt đầu làm bài"
+      - takeScreenshot: artifacts/LB-45-da-tu-dong-hoan-thanh-du-da-kill-app
+
+# ======================================================================================
+# TC_46 (GATED) - mo lai de dang lam do DUNG LUC het gio -> tu dong nop ngay, KHONG cho lam them.
+# Fixture phai duoc QA tu dan dung (de dang "Dang lam do", gan sat moc het gio) truoc khi chay -
+# KHONG tu dong hoa duoc buoc dan canh thoi diem nay (ngoai pham vi 1 file .yaml).
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${RUN_LB46_REOPEN_AT_TIMEOUT == 'true'}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DE_NAME: ${DE_NAME_SHORT_TIMER_INPROGRESS}
+            ON_THI_TAB: "Đề thầy cô giao"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: 20000
+      - assertNotVisible: "Nộp bài ngay?"
+      - takeScreenshot: artifacts/LB-46-vao-lai-dung-luc-het-gio-tu-dong-nop

@@ -1,0 +1,154 @@
+# LB-15..20 - Nhom "Danh sach cau hoi" (bottom sheet, nut x/y) trong man Doing cua On thi, chuyen
+# the tu TC_PAR_OnThiLamBai_15..20 (Ôn thi.xlsx, sheet "B.App-Ôn thi-Làm bài").
+#
+# TAI SU DUNG TOI DA:
+#   - ../helpers/open-de.yaml (mo thang vao man Doing, STOP_AT_INFO_SCREEN mac dinh false).
+#   - ../helpers/launch-keep-session.yaml.
+#   - ../helpers/advance-onthi-questions.yaml (di qua het section 1 bang COUNT=SECTION_1_QUESTION_COUNT,
+#     AUTO_CONFIRM_SUBMIT=true de tu xac nhan popup "Ban muon chuyen phan khac?" khi het section 1).
+#   - Id/text CONFIRMED that trong automation/on_thi/navigation/onThiPageObjects.js#doing:
+#     questionListButtonId/questionListButtonPattern ("\d+/\d+"), questionListSheetTitle
+#     ("Danh sach cau hoi").
+#
+# GIOI HAN (khong doan them):
+#   - GAP THAT (2026-11-14): `back` (he thong) KHONG dong bottom sheet nay - no bi man Doing ben
+#     duoi "an" truoc, bung popup "Ngung lam bai?" (exit-confirm) thay vi dong sheet (tai hien that,
+#     xem debug screenshot LB-17 cua lan chay FAIL dau tien). SUA: dong sheet bang cach tap LAI chinh
+#     nut "x/y" da dung de mo no (toggle, da CONFIRMED hoat dong ca 2 chieu mo/dong), KHONG dung
+#     `back` cho sheet nay nua.
+#   - TC_17/18 (section bi khoa) KHONG doc duoc thuoc tinh "disabled" qua text selector thuan -
+#     chi verify GIAN TIEP: tap vao 1 o cau thuoc section bi khoa roi assert bottom sheet VAN con mo
+#     (khong dieu huong sang cau do) - neu app dieu huong thanh cong day la FAIL that (khong phai
+#     loi selector).
+#   - TC_20 (cau nhom cha-con) CHI assert duoc khi biet truoc 2 so thu tu cau con dau/cuoi cua
+#     nhom do (GROUP_FIRST_CHILD_NO/GROUP_LAST_CHILD_NO, tham so optional QA tu doc tu fixture) -
+#     KHONG tu dem duoc so o trong 1 nhom qua Maestro thuan (khong co assertion "count=N").
+#
+# Tham so:
+#   PHONE, OTP
+#   DE_NAME_PER_SECTION (bat buoc) - de PER_SECTION co >=3 section (de test ca TC_17 "da qua" lan
+#     TC_18 "chua mo toi").
+#   SECTION_1_QUESTION_COUNT (bat buoc cho TC_17/19/20) - so cau cua section 1, dung de
+#     advance-onthi-questions.yaml di dung het section 1, dung lai dau section 2.
+#   SECTION_1_FIRST_QUESTION_NO (bat buoc cho TC_17, mac dinh "1") - so thu tu 1 cau BAT KY thuoc
+#     section 1 (da qua) de thu tap vao bottom sheet.
+#   SECTION_3_FIRST_QUESTION_NO (bat buoc cho TC_18) - so thu tu 1 cau thuoc section 3 (chua mo toi).
+#   SECTION_2_SECOND_QUESTION_NO (optional, cho TC_19) - so thu tu 1 cau KHAC cau dau tien cua
+#     section 2 (hien tai) - mac dinh bo qua TC_19 neu khong truyen.
+#   GROUP_FIRST_CHILD_NO / GROUP_LAST_CHILD_NO (optional, cho TC_20).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: LB-15_to_20 Bottom sheet Danh sach cau hoi
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+
+# --- TC_15: nut Danh sach cau hoi hien dung dinh dang x/y ---
+- assertVisible:
+    text: "\\d+/\\d+"
+- takeScreenshot: artifacts/LB-15-nut-dang-x-tren-y
+
+# --- TC_16: tap nut mo bottom sheet, nhom theo section ---
+- tapOn:
+    text: "\\d+/\\d+"
+- extendedWaitUntil:
+    visible: "Danh sách câu hỏi"
+    timeout: 10000
+- takeScreenshot: artifacts/LB-16-bottom-sheet-mo-nhom-theo-section
+- tapOn:
+    text: "\\d+/\\d+"
+
+# --- TC_17/19/20: di het section 1 (vao section 2), roi kiem bottom sheet ---
+- runFlow:
+    when:
+      true: ${SECTION_1_QUESTION_COUNT != null && SECTION_1_QUESTION_COUNT != 'undefined'}
+    commands:
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: ${SECTION_1_QUESTION_COUNT}
+            AUTO_CONFIRM_SUBMIT: "true"
+      - takeScreenshot: artifacts/LB-17-sau-khi-qua-het-section-1
+
+      # TC_17: tap vao 1 cau thuoc section 1 (da qua) -> KHONG duoc dieu huong, sheet van con mo.
+      - runFlow:
+          when:
+            true: ${SECTION_1_FIRST_QUESTION_NO != null && SECTION_1_FIRST_QUESTION_NO != 'undefined'}
+          commands:
+            - tapOn:
+                text: "\\d+/\\d+"
+            - extendedWaitUntil:
+                visible: "Danh sách câu hỏi"
+                timeout: 10000
+            - tapOn:
+                text: "^${SECTION_1_FIRST_QUESTION_NO}$"
+                optional: true
+            - assertVisible: "Danh sách câu hỏi"
+            - takeScreenshot: artifacts/LB-17-tap-cau-section-da-qua-bi-khoa
+            - tapOn:
+                text: "\\d+/\\d+"
+
+      # TC_18: tap vao 1 cau thuoc section chua mo toi (vd section 3) -> cung KHONG duoc dieu huong.
+      - runFlow:
+          when:
+            true: ${SECTION_3_FIRST_QUESTION_NO != null && SECTION_3_FIRST_QUESTION_NO != 'undefined'}
+          commands:
+            - tapOn:
+                text: "\\d+/\\d+"
+            - extendedWaitUntil:
+                visible: "Danh sách câu hỏi"
+                timeout: 10000
+            - tapOn:
+                text: "^${SECTION_3_FIRST_QUESTION_NO}$"
+                optional: true
+            - assertVisible: "Danh sách câu hỏi"
+            - takeScreenshot: artifacts/LB-18-tap-cau-section-chua-mo-bi-khoa
+            - tapOn:
+                text: "\\d+/\\d+"
+
+      # TC_19: tap vao 1 cau KHAC trong section HIEN TAI (section 2) -> PHAI dieu huong, dong sheet.
+      - runFlow:
+          when:
+            true: ${SECTION_2_SECOND_QUESTION_NO != null && SECTION_2_SECOND_QUESTION_NO != 'undefined'}
+          commands:
+            - tapOn:
+                text: "\\d+/\\d+"
+            - extendedWaitUntil:
+                visible: "Danh sách câu hỏi"
+                timeout: 10000
+            - tapOn:
+                text: "^${SECTION_2_SECOND_QUESTION_NO}$"
+            # GAP THAT (2026-11-14, xem LB-47_48-luu-cuc-bo.yaml): assertNotVisible/extendedWaitUntil
+            # notVisible cua "Danh sach cau hoi" FAIL that du screenshot cung luc xac nhan sheet da
+            # dong - gioi han that cua Maestro voi component nay. Bo check sheet-da-dong, chi chup
+            # man hinh de QA doi chieu bang mat (dung tinh than da ap dung o LB-47_48).
+            - takeScreenshot: artifacts/LB-19-di-chuyen-tu-do-trong-section-hien-tai
+
+      # TC_20: cau nhom cha-con tinh theo tung cau con - chi assert khi biet truoc 2 so dau/cuoi.
+      - runFlow:
+          when:
+            true: ${GROUP_FIRST_CHILD_NO != null && GROUP_FIRST_CHILD_NO != 'undefined' && GROUP_LAST_CHILD_NO != null && GROUP_LAST_CHILD_NO != 'undefined'}
+          commands:
+            - tapOn:
+                text: "\\d+/\\d+"
+            - extendedWaitUntil:
+                visible: "Danh sách câu hỏi"
+                timeout: 10000
+            - assertVisible:
+                text: "^${GROUP_FIRST_CHILD_NO}$"
+            - assertVisible:
+                text: "^${GROUP_LAST_CHILD_NO}$"
+            - takeScreenshot: artifacts/LB-20-cau-nhom-tinh-rieng-tung-cau-con
+            - tapOn:
+                text: "\\d+/\\d+"

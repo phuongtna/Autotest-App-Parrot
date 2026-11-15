@@ -1,0 +1,46 @@
+# Helper: di chuyen qua toi da COUNT cau trong man Doing cua ON THI (khung exam_prep_doing_*),
+# KHONG tra loi/chon dap an gi - chi tap thang CTA ngoai (exam_prep_doing_next) de qua cau, vi On
+# thi CHO PHEP bo qua cau chua tra loi (khac Bai tap - xem docblock
+# automation/on_thi/navigation/onThiExamEngine.js diem 4, da ap dung cho nhanh SPEAK tu truoc).
+#
+# DON GIAN HOA (2026-11-15, theo yeu cau tiet kiem thoi gian chay that khi debug tren thiet bi
+# that/dong ho section ngan): BO HET nhanh detect+chon dap an rieng theo tung dang cau (CHOICE/
+# FILL_WORD/CONNECT/DRAG_DROP) ma ban dau COPY tu answer-current-exercise-generic.yaml - khong can
+# thiet cho dung muc dich cua helper nay (chi can "di toi dung vi tri", KHONG co TC nao trong
+# LB-*.yaml kiem tra noi dung/dap an da chon qua helper nay). Tap CTA truc tiep cung nhanh hon va
+# TRANH duoc 1 nguon loi lech-vi-tri da gap that (xem ghi chu TC_14 trong TEST-CASES-lam-bai.md -
+# cac buoc scroll/chon dap an rieng co the gay sai lech thoi gian/vi tri khi ket hop voi dong ho
+# section ngan).
+#
+# Tham so:
+#   COUNT (bat buoc) - so cau toi da can di qua (tran an toan, dung som neu man Doing bien mat truoc).
+#   AUTO_CONFIRM_SUBMIT (optional, mac dinh "false") - "true" de tu bam xac nhan ca 2 popup rieng khi
+#     gap (dung khi muon di xuyen suot toi man Ket qua); mac dinh KHONG tu bam - dung lai NGAY SAU KHI
+#     popup xuat hien de caller tu assert noi dung popup (nhieu TC LB-21..31 can dung dung luc nay).
+appId: ${APP_ID}
+---
+- repeat:
+    while:
+      visible:
+        id: "exam_prep_doing_screen"
+    times: ${COUNT}
+    commands:
+      - tapOn:
+          id: "exam_prep_doing_next"
+          optional: true
+      # 2 popup rieng cua On thi - CHI tu xac nhan khi AUTO_CONFIRM_SUBMIT=true, mac dinh dung lai de
+      # caller tu assert (nhieu case LB-21..31 can dung dung luc popup vua hien).
+      - runFlow:
+          when:
+            true: ${AUTO_CONFIRM_SUBMIT == 'true'}
+          commands:
+            - runFlow:
+                when:
+                  visible: "Bạn muốn chuyển phần khác?"
+                commands:
+                  - tapOn: "Chuyển phần"
+            - runFlow:
+                when:
+                  visible: "Nộp bài ngay?"
+                commands:
+                  - tapOn: "Nộp bài"

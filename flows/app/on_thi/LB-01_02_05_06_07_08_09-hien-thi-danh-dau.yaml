@@ -1,0 +1,156 @@
+# LB-01/02/05/06/07/08/09 - Nhom "Hien thi man Doing + Danh dau xem lai" (fixture PER_SECTION),
+# chuyen the tu TC_PAR_OnThiLamBai_1/2/5/6/7/8/9 (Ôn thi.xlsx).
+#
+# TAI SU DUNG: ../helpers/open-de.yaml, ../helpers/launch-keep-session.yaml,
+# ../helpers/advance-onthi-questions.yaml. Id CONFIRMED: exitIconId, toolbarSubmitButtonId,
+# markForReviewIconId, questionListButtonId/Pattern, ctaButtonId.
+#
+# GIOI HAN (CAN XAC MINH THAT qua maestro hierarchy truoc khi siet chat them - KHONG doan selector
+# moi theo quy uoc chung cua repo):
+#   - Chua co resource-id rieng cho "ten section" hien canh icon Thoat (TC_2) - verify qua TEXT ten
+#     section (tu fixture, SECTION_1_NAME/SECTION_2_NAME), KHONG phai qua id.
+#   - Chua co resource-id cho thanh Tien do (TC_5/6) - KHONG doc duoc % qua selector/text (thanh do
+#     hoa thuan, khong co node text), CHI chup man hinh truoc/sau de doi chieu bang mat - giong dung
+#     gioi han da ghi nhan o OT-15 (mau thanh ti le).
+#   - Mau cam cua icon/o cau da danh dau (TC_7/9) KHONG verify duoc qua text selector - chi chup man
+#     hinh.
+#   - id luc DA danh dau (markForReviewIconId OFF la "exam_prep_flag_off") CHUA xac nhan ("CHƯA xác
+#     nhận id lúc đã đánh dấu" - xem docblock onThiPageObjects.js#doing) - gia dinh suffix doi thanh
+#     "exam_prep_flag_on" nhung tap kiem optional, KHONG throw neu sai.
+#
+# Tham so:
+#   PHONE, OTP
+#   DE_NAME_PER_SECTION (bat buoc)
+#   SECTION_1_NAME / SECTION_2_NAME (bat buoc cho TC_2) - ten that cua 2 section dau tien.
+#   SECTION_1_QUESTIONS_BEFORE_LAST (bat buoc cho TC_2/6) - so cau tra loi de dung o cau CUOI section 1.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: LB-01_02_05_06_07_08_09 Hien thi man Doing va Danh dau xem lai
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DE_NAME: ${DE_NAME_PER_SECTION}
+      ON_THI_TAB: "Đề thầy cô giao"
+
+# --- TC_1: man Doing hien du 8 control ---
+- assertVisible:
+    id: "exam_prep_doing_header_left"
+- assertVisible:
+    id: "exam_prep_doing_submit_top"
+- assertVisible:
+    id: "exam_prep_flag_off"
+- assertVisible:
+    id: "exam_prep_doing_timer"
+- assertVisible:
+    text: "\\d+/\\d+"
+- assertVisible: "Tiếp theo"
+- runFlow:
+    when:
+      true: ${SECTION_1_NAME != null && SECTION_1_NAME != 'undefined'}
+    commands:
+      # GAP THAT (2026-11-14): assertVisible ngay lap tuc FAIL dù hierarchy dump tại đúng thời điểm
+      # đó CÓ chứa text này (bounds hợp lệ, không bị ẩn) - text ten section render CHAM HON 1 nhip
+      # so voi cac control khac (header_left/submit_top/flag/timer/x-y/CTA đều đã visible ngay).
+      # Dùng extendedWaitUntil (chờ ngắn) thay vì assertVisible ngay để không ăn phải race này.
+      - extendedWaitUntil:
+          visible:
+            text: '.*${SECTION_1_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          timeout: 5000
+- takeScreenshot: artifacts/LB-01-man-doing-du-control
+
+# --- TC_5: thanh Tien do 0% ban dau -> tang khi chon dap an (chi chup man hinh doi chieu, xem
+# gioi han dau file) ---
+- takeScreenshot: artifacts/LB-05-tien-do-truoc-khi-chon
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: "1"
+      AUTO_CONFIRM_SUBMIT: "false"
+- takeScreenshot: artifacts/LB-05-tien-do-sau-khi-chon-1-cau
+
+# --- TC_7: bat Danh dau xem lai cho cau hien tai (dang OFF tu TC_1 - tap DUNG 1 LAN de bat,
+# KHONG tap them lan 2 vi icon la nut TOGGLE - tap 2 lan se tu huy chinh thao tac bat) ---
+- tapOn:
+    id: "exam_prep_flag_off"
+- takeScreenshot: artifacts/LB-07-bat-danh-dau-xem-lai
+
+# --- TC_8: tat Danh dau xem lai cho cau da duoc bat o TC_7 - id luc ON CHUA xac nhan (xem gioi
+# han dau file) nen tap DUNG 1 LAN theo alternation off|on (khop id nao dang that su hien) thay vi
+# tap ca 2 id rieng le (se tu huy toggle neu doan dung id ON) ---
+- tapOn:
+    id: "exam_prep_flag_off|exam_prep_flag_on"
+- takeScreenshot: artifacts/LB-08-tat-danh-dau-xem-lai
+
+# --- TC_9: cau da danh dau hien dung mau cam trong bottom sheet (chi chup man hinh, xem gioi han).
+# Dang OFF tu TC_8 - tap DUNG 1 LAN (cung ly do nhu TC_8) de bat lai truoc khi mo bottom sheet ---
+- tapOn:
+    id: "exam_prep_flag_off|exam_prep_flag_on"
+- tapOn:
+    text: "\\d+/\\d+"
+- extendedWaitUntil:
+    visible: "Danh sách câu hỏi"
+    timeout: 10000
+- takeScreenshot: artifacts/LB-09-bottom-sheet-cau-danh-dau-mau-cam
+- back
+
+# ======================================================================================
+# TC_2/6 - can dung o cau CUOI section 1 roi chuyen sang section 2 de doi chieu ten/tien do.
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${SECTION_1_QUESTIONS_BEFORE_LAST != null && SECTION_1_QUESTIONS_BEFORE_LAST != 'undefined'}
+    commands:
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: ${SECTION_1_QUESTIONS_BEFORE_LAST}
+            AUTO_CONFIRM_SUBMIT: "false"
+      # TC_2 (phan 1): dang o cau cuoi section 1, ten section hien dung "section 1".
+      - runFlow:
+          when:
+            true: ${SECTION_1_NAME != null && SECTION_1_NAME != 'undefined'}
+          commands:
+            - extendedWaitUntil:
+                visible:
+                  text: '.*${SECTION_1_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                timeout: 5000
+      - takeScreenshot: artifacts/LB-02-ten-section-1-truoc-khi-chuyen
+
+      # TC_6 (phan 1): tien do section 1 truoc khi chuyen - chup man hinh doi chieu.
+      - takeScreenshot: artifacts/LB-06-tien-do-section-1-truoc-khi-chuyen
+
+      - tapOn: "Chuyển phần"
+      - extendedWaitUntil:
+          visible: "Bạn muốn chuyển phần khác?"
+          timeout: 10000
+      - tapOn: "Chuyển phần"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 15000
+
+      # TC_2 (phan 2): sang section 2, ten section CAP NHAT dung "section 2".
+      - runFlow:
+          when:
+            true: ${SECTION_2_NAME != null && SECTION_2_NAME != 'undefined'}
+          commands:
+            - extendedWaitUntil:
+                visible:
+                  text: '.*${SECTION_2_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                timeout: 5000
+            - assertNotVisible:
+                text: '.*${SECTION_1_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/LB-02-ten-section-2-sau-khi-chuyen
+
+      # TC_6 (phan 2): tien do section 2 CHAY LAI TU DAU (0%), khong lien quan section 1 - chi chup
+      # man hinh doi chieu (khong doc duoc % qua selector, xem gioi han dau file).
+      - takeScreenshot: artifacts/LB-06-tien-do-section-2-chay-lai-tu-dau

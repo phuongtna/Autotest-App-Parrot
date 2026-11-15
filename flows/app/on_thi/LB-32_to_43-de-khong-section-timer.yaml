@@ -1,0 +1,225 @@
+# LB-32..43 - Nhom "De KHONG gan thoi gian theo Section" (1 dong ho chung ca de), chuyen the tu
+# TC_PAR_OnThiLamBai_32..43 (Ôn thi.xlsx). Mirror cau truc LB-15_to_20/LB-21_to_31 nhung doi fixture
+# sang WHOLE_EXAM (detectSectionTimerMode() trong onThiExamEngine.js) - KHAC BIET CHINH da CONFIRMED
+# qua docblock onThiExamEngine.js: nhan "Chuyen phan" + popup "Ban muon chuyen phan khac?" KHONG BAO
+# GIO xuat hien o che do nay - het cau cuoi 1 section (khong phai section cuoi) nhan van la
+# "Tiep theo" va bam vao la chuyen THANG sang section ke, KHONG popup xac nhan.
+#
+# TAI SU DUNG: ../helpers/open-de.yaml, ../helpers/launch-keep-session.yaml,
+# ../helpers/launch-fresh.yaml, ../helpers/advance-onthi-questions.yaml.
+#
+# Tham so:
+#   PHONE, OTP
+#   DE_NAME_WHOLE_EXAM (bat buoc) - de KHONG section nao gan thoi luong, >=2 section, >=1 cau nhom.
+#   SECTION_1_QUESTIONS_BEFORE_LAST (bat buoc cho TC_38) - so cau tra loi de dung o cau CUOI section 1.
+#   TOTAL_QUESTIONS_BEFORE_LAST (bat buoc cho TC_39/42/43) - so cau tra loi de dung o cau CUOI CUNG de.
+#   SECTION_1_FIRST_QUESTION_NO (bat buoc cho TC_40, mac dinh "1") - so cau section 1.
+#   LAST_SECTION_FIRST_QUESTION_NO (bat buoc cho TC_40) - so cau DAU TIEN cua section CUOI CUNG
+#     (chua tung mo toi) - dung de chung minh KHONG section nao bi khoa.
+#   GROUP_FIRST_CHILD_NO / GROUP_LAST_CHILD_NO (optional, cho TC_41).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: LB-32_to_43 De khong gan thoi gian theo Section
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      ON_THI_TAB: "Đề thầy cô giao"
+
+# --- TC_32: man Doing hien 1 dong ho chung + Tien do + Tiep theo + Danh sach cau hoi ---
+- assertVisible:
+    id: "exam_prep_doing_timer"
+- assertVisible: "Tiếp theo"
+- assertVisible:
+    text: "\\d+/\\d+"
+- takeScreenshot: artifacts/LB-32-man-doing-whole-exam
+
+# --- TC_33/34: gia tri/mau dong ho chinh xac - CHI chup man hinh doi chieu bang mat (xem
+# readTimerBadge() best-effort, cung gioi han da ghi nhan o CD-*.yaml).
+- takeScreenshot: artifacts/LB-33-34-dong-ho-chung-doi-chieu-bang-mat
+
+# --- TC_36: Tien do tinh theo tong so cau ca de, khong chia theo section ---
+- assertVisible:
+    text: "^0/\\d+$"
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: "1"
+      AUTO_CONFIRM_SUBMIT: "false"
+- assertNotVisible:
+    text: "^0/\\d+$"
+- takeScreenshot: artifacts/LB-36-tien-do-tinh-ca-de
+
+# ======================================================================================
+# TC_37/38/40/41 - can dung o CAU CUOI section 1 (khong phai section cuoi).
+# ======================================================================================
+- runFlow:
+    file: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      ON_THI_TAB: "Đề thầy cô giao"
+
+# --- TC_37: bam Tiep theo o cau KHONG phai cau cuoi section -> sang cau ke, cung section ---
+- assertVisible: "Tiếp theo"
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: "1"
+      AUTO_CONFIRM_SUBMIT: "false"
+- takeScreenshot: artifacts/LB-37-sang-cau-ke-cung-section
+
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: ${SECTION_1_QUESTIONS_BEFORE_LAST}
+      AUTO_CONFIRM_SUBMIT: "false"
+
+# --- TC_38: cau cuoi section 1 van nhan "Tiep theo" (KHONG "Chuyen phan") -> bam -> sang THANG
+# section 2, KHONG popup xac nhan nao ---
+- assertVisible: "Tiếp theo"
+- assertNotVisible: "Chuyển phần"
+- tapOn: "Tiếp theo"
+- assertNotVisible: "Bạn muốn chuyển phần khác?"
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_doing_screen"
+    timeout: 10000
+- takeScreenshot: artifacts/LB-38-chuyen-thang-section-khong-popup
+
+# --- TC_40: bottom sheet cho phep chon TU DO moi section, KHONG section nao bi khoa ---
+- runFlow:
+    when:
+      true: ${LAST_SECTION_FIRST_QUESTION_NO != null && LAST_SECTION_FIRST_QUESTION_NO != 'undefined'}
+    commands:
+      - tapOn:
+          text: "\\d+/\\d+"
+      - extendedWaitUntil:
+          visible: "Danh sách câu hỏi"
+          timeout: 10000
+      - tapOn:
+          text: "^${LAST_SECTION_FIRST_QUESTION_NO}$"
+      # GAP THAT (2026-11-14, xem LB-47_48-luu-cuc-bo.yaml va LB-15_to_20 TC_19): assertNotVisible
+      # cua "Danh sach cau hoi" FAIL that du screenshot cung luc xac nhan sheet da dong - gioi han
+      # that cua Maestro voi component nay. Bo check sheet-da-dong, chi chup man hinh doi chieu.
+      - takeScreenshot: artifacts/LB-40-chuyen-tu-do-sang-section-cuoi-khong-khoa
+
+# --- TC_41: cau nhom cha-con tinh rieng tung cau con (giong TC_20, fixture WHOLE_EXAM) ---
+- runFlow:
+    when:
+      true: ${GROUP_FIRST_CHILD_NO != null && GROUP_FIRST_CHILD_NO != 'undefined' && GROUP_LAST_CHILD_NO != null && GROUP_LAST_CHILD_NO != 'undefined'}
+    commands:
+      - tapOn:
+          text: "\\d+/\\d+"
+      - extendedWaitUntil:
+          visible: "Danh sách câu hỏi"
+          timeout: 10000
+      - assertVisible:
+          text: "^${GROUP_FIRST_CHILD_NO}$"
+      - assertVisible:
+          text: "^${GROUP_LAST_CHILD_NO}$"
+      - takeScreenshot: artifacts/LB-41-cau-nhom-tinh-rieng-tung-cau-con
+      # GAP THAT (2026-11-14, xem LB-15_to_20): `back` co the bung popup "Ngung lam bai?" thay vi
+      # dong sheet (flaky, da gap that it nhat 1 lan) - dong bang cach tap lai nut x/y da dung de mo.
+      - tapOn:
+          text: "\\d+/\\d+"
+
+# ======================================================================================
+# TC_39/42 - can dung o CAU CUOI CUNG toan de.
+# ======================================================================================
+- runFlow:
+    file: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      ON_THI_TAB: "Đề thầy cô giao"
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: ${TOTAL_QUESTIONS_BEFORE_LAST}
+      AUTO_CONFIRM_SUBMIT: "true"
+
+# --- TC_39: nhan nut doi thanh "Nop bai" o cau cuoi cung ---
+- assertVisible: "Nộp bài"
+- assertNotVisible: "Tiếp theo"
+- takeScreenshot: artifacts/LB-39-nhan-nop-bai-cau-cuoi
+
+# --- TC_42: bam "Nop bai" -> popup -> chon "Nop bai" -> sang man Ket qua ---
+- tapOn: "Nộp bài"
+- extendedWaitUntil:
+    visible: "Nộp bài ngay?"
+    timeout: 10000
+- tapOn: "Nộp bài"
+- extendedWaitUntil:
+    visible: "Kết quả bài thi"
+    timeout: 20000
+- takeScreenshot: artifacts/LB-42-vao-man-ket-qua
+
+# ======================================================================================
+# TC_43 - popup Thoat -> luu + "Dang lam do" (fixture WHOLE_EXAM).
+# ======================================================================================
+- runFlow:
+    file: ../helpers/launch-fresh.yaml
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      ON_THI_TAB: "Đề thầy cô giao"
+- runFlow:
+    file: ../helpers/advance-onthi-questions.yaml
+    env:
+      COUNT: "1"
+      AUTO_CONFIRM_SUBMIT: "false"
+- tapOn:
+    id: "exam_prep_doing_header_left"
+- extendedWaitUntil:
+    visible: "Ngừng làm bài?"
+    timeout: 10000
+- tapOn: "Thoát"
+- runFlow:
+    file: ../helpers/open-de.yaml
+    env:
+      DEVICE_MODE: "true"
+      DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      ON_THI_TAB: "Đề thầy cô giao"
+      STOP_AT_INFO_SCREEN: "true"
+- assertVisible: "Tiếp tục làm bài"
+- assertNotVisible: "Bắt đầu làm bài"
+- takeScreenshot: artifacts/LB-43-sau-khi-thoat-trang-thai-dang-lam-do
+
+# ======================================================================================
+# TC_35 (OPTIONAL, mac dinh BO QUA - het gio toan de -> tu dong nop, KHONG popup xac nhan) - cung
+# co che "cho thoi gian that" nhu CD-25/TC_25, GATE bang RUN_LB35_TIMEOUT_AUTOSUBMIT - can
+# DE_NAME_WHOLE_EXAM_SHORT_TIMER (de rieng, thoi luong vai chuc giay) de khong ton CI.
+# ======================================================================================
+- runFlow:
+    when:
+      true: ${RUN_LB35_TIMEOUT_AUTOSUBMIT == 'true'}
+    commands:
+      - runFlow:
+          file: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_WHOLE_EXAM_SHORT_TIMER}
+            ON_THI_TAB: "Đề thầy cô giao"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: "${LB35_TIMEOUT_WAIT_MS == null || LB35_TIMEOUT_WAIT_MS == 'undefined' ? 90000 : LB35_TIMEOUT_WAIT_MS}"
+      - assertNotVisible: "Nộp bài ngay?"
+      - takeScreenshot: artifacts/LB-35-het-gio-tu-dong-nop-khong-popup

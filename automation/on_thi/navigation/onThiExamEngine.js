@@ -245,6 +245,26 @@ export class OnThiExamEngine {
     await this.bridge.runSteps([{ waitForAnimationToEnd: { timeout: 1000 } }]);
   }
 
+  /**
+   * Tap icon "Đánh dấu xem lại" cho câu hiện tại - TOGGLE (bật nếu đang tắt, tắt nếu đang bật).
+   * Mirror nguyên cấu trúc `tapExitIcon()` (cùng id đã confirmed `markForReviewIconId`), KHÁC
+   * biệt duy nhất: không có popup xác nhận nào sau khi tap (xem TC_7/8 trong
+   * TestCase_PAR-3172_OnThi_LamBai.xlsx - bật/tắt ngay lập tức).
+   *
+   * id lúc ĐÃ đánh dấu là "exam_prep_flag_on" - ĐÃ XÁC NHẬN THẬT (xem docblock
+   * `onThiPageObjects.js#doing.markForReviewIconId`). Tap theo alternation off|on (khớp đúng id
+   * đang thật sự hiển thị) nên không cần biết trước trạng thái hiện tại của câu.
+   */
+  async tapMarkForReviewIcon() {
+    const idOff = po.doing.markForReviewIconId;
+    const idOn = idOff.replace(/_off$/, "_on");
+    const tapIcon = await this.bridge.tap({ id: `${idOff}|${idOn}` });
+    if (!tapIcon.success) {
+      throw new Error(`OnThiExamEngine.tapMarkForReviewIcon: không tap được icon Đánh dấu (id "${idOff}"/"${idOn}"): ${tapIcon.error}`);
+    }
+    await this.bridge.runSteps([{ waitForAnimationToEnd: { timeout: 500 } }]);
+  }
+
   /** Tap nút "Nộp bài" trên TOOLBAR (góc phải header, LUÔN hiển thị) rồi xử lý popup "Nộp bài
    * ngay?" - KHÁC `_advanceAfterAnswer()` bên dưới (nơi "Nộp bài" chỉ xuất hiện NẾU đang ở câu
    * cuối cùng của đề, dùng chung vị trí CTA cuối màn). */

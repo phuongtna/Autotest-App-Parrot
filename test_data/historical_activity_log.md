@@ -1728,3 +1728,124 @@ như thường lệ) TARGET=6 ĐIỂM THẬT=6 (6/10, 128.68s); CTA "Tiếp theo
 OVERALL: PASS. Report: `automation/output/resume_ngoc_4d_round5_room_db31a2a0_report.json`.
 
 - Test Case: N/A
+
+## Case: GBT round 6 (profile mismatch discovered - BLOCKED), 2026-11-14
+
+**Yêu cầu:** "chạy lại 1 vòng GBT. Làm bài với điểm <5 và làm lại với điểm <10 và >6." Tiếp tục
+chuỗi GBT trước đó (round 2-5, profile Ngoc/lớp 4D). Range mô phỏng strict open interval theo quy
+ước epsilon-margin đã dùng: FIRST_SCORE_MIN=0/MAX=4.9 (mô phỏng "<5"), REDO_SCORE_MIN=6.1/MAX=9.9
+(mô phỏng ">6 và <10"). Trước khi chạy: refresh token (CMS_TOKEN/EXAM_COOKIE/TEACHER_ACCESS_TOKEN
+đều EXPIRED sau 9 ngày không chạy - `get_tokens.sh`/`get_teacher_token.sh` không chạy được vì thiếu
+`jq` trên máy này, viết lại logic tương đương bằng Node `fetch` thuần, không sửa 2 script .sh gốc);
+`adb devices` ban đầu báo `unauthorized`, tự khỏi sau `adb kill-server && adb start-server`.
+
+Chạy `e2e-giaobai-range34-lamlai-range67.mjs` (PROFILE_NAME=Ngoc, TARGET_CLASS_NAME=4D, range như
+trên). Script PASS bước prescan + **giao THẬT 1 room mới** qua Web GV: "You hear these sentences.
+Choose the correct meaning or feature (A, B, C or D)." (Unit 13: Appearance, WRITING), lớp 4D
+(class_id `b7cc07f2-43a7-4c8c-a4f1-c17a633f38db`), hạn nộp 21/11/2026, room_id
+`dc54498f-0df1-4405-9052-e05ac9c4bcc8`, 10 scored items, targetScore lần 1=3/Làm lại=8 đã resolve.
+Sau đó BLOCKED ở bước `ensureProfileActive()`: hồ sơ đang active trên device THẬT RA là **"Gia
+Linh" (Pro, lớp 3B)**, không phải "Ngoc"/4D như kỳ vọng từ round 2-5 (profile trên device đã đổi
+trong 9 ngày không chạy) - script đúng theo standing rule
+[[feedback_keep_active_profile_for_giao_bai]], KHÔNG tự chuyển hồ sơ, dừng lại báo rõ mismatch.
+
+**Hệ quả quan trọng:** room `dc54498f-0df1-4405-9052-e05ac9c4bcc8` ở lớp 4D đã được giao THẬT (ghi
+real DB) nhưng CHƯA được làm (0/10, chưa ai mở bài) - vì bước assign luôn xảy ra TRƯỚC bước kiểm tra
+profile active trong script này. KHÔNG re-run script chính với profile hiện tại (sẽ giao thêm 1 room
+thật thứ 2, [[feedback_recover_inplace_not_retry_after_partial_write]]).
+- Result: blocked
+- Test Case: N/A
+
+**User quyết định:** hỏi user 2 lựa chọn (tự chuyển device sang "Ngoc" thủ công, hoặc chạy vòng mới
+cho "Gia Linh"/3B luôn) - user chọn "tự chuyển, chờ thêm". User kiểm tra thủ công báo VẪN "Gia Linh"
+(chưa chuyển) - hỏi lại thì user yêu cầu "có code phần này thì tái sử dụng tự chuyển đi" (tái dùng
+code switch profile có sẵn, KHÔNG làm thủ công nữa). Viết `automation/_scratch_switch_ngoc_round6.mjs`
+COPY NGUYÊN `ensureProProfileActive()` (switch, KHÁC bản verify-only trong script chính) từ
+`automation/bai_tap/pro_lamlai_target_score.mjs` dòng ~528-582, chỉ tham số hoá tên profile. Chạy
+PASS: chuyển "Gia Linh" -> "Ngoc" thành công, verify lại đúng.
+
+**Resume room đã giao (RESUME_ROOM_ID, KHÔNG assign lại):** chạy lại `e2e-giaobai-range34-lamlai-
+range67.mjs` với RESUME_ROOM_ID=dc54498f-..., PROFILE_NAME=Ngoc, range như yêu cầu gốc. PROFILE_CHECK
+PASS ("Ngoc" active xác nhận). **Lần làm đầu PASS**: TARGET=3 ĐIỂM THẬT=3 (3/10, khớp range [0,4.9]
+mô phỏng "<5"), 158.31s (vào Doing -> Kết quả). Sau đó FAIL ở bước [4] tìm lại card "Làm lại":
+list-locate PROGRESS_STALLED sau 2 lượt + fallback thông báo "giao bài" CŨNG fail (tap xong không
+vào được Doing).
+
+**Recovery 2 lượt, phát hiện ROOT CAUSE THẬT (không phải automation bug):**
+1. `_scratch_resume_round6_room_dc54498f.mjs`: điều hướng về "Bài tập" OK, gọi lại
+   `locateCompletedCandidateOrOpenFromNotification()` - hàm này tự nhảy sang tab "Thông báo" để thử
+   fallback, FAIL nốt, và bug ở chỗ KHÔNG điều hướng lại về "Bài tập" khi fail - để device kẹt ở
+   "Thông báo" (toàn thông báo CŨ, không phải list bài tập) - khiến `persistentSwipeLocate()` sau đó
+   luôn thấy 0 card (seenLog toàn rỗng).
+2. `_scratch_resume_round6b_room_dc54498f.mjs`: điều hướng cứng về lại "Bài tập" (bỏ qua hẳn
+   `locateCompletedCandidateOrOpenFromNotification()`), persistent raw-adb-swipe locate PASS sau 21
+   lượt, tap "Làm lại" THÀNH CÔNG... nhưng màn hiện ra KHÔNG phải Doing mà là **bottom sheet "Làm lại
+   bài tập dành cho tài khoản PRO" - "Nâng cấp để con tiếp tục học không giới hạn"** (paywall nâng
+   cấp gói Pro, "1 năm ₫1,949,000"/"6 tháng ₫1,499,000"). Xác nhận qua uiautomator dump:
+   `subscription_badge_expired` text="Hết hạn" cạnh tên "Ngoc" ở header - **gói Pro của profile
+   "Ngoc" đã HẾT HẠN** (không phải lúc round 2-5 chạy, Pro còn hạn khi đó) - tính năng "Làm lại" bị
+   paywall chặn khi tài khoản hết Pro. Đây là **thay đổi state tài khoản THẬT giữa các lần chạy**,
+   KHÔNG phải lỗi logic/locate - đã đóng dialog bằng back (KHÔNG bấm "Nâng cấp ngay"/bất kỳ CTA mua
+   nào), xác nhận quay lại `homework_screen` sạch, KHÔNG có write/mua hàng nào xảy ra.
+
+**Kết quả cuối:** lần làm đầu PASS (TARGET=3 ĐIỂM THẬT=3, khớp "<5"). Làm lại BLOCKED THẬT SỰ (không
+phải flaky) vì gói Pro profile "Ngoc" đã hết hạn - tính năng "Làm lại" yêu cầu Pro. Room
+`dc54498f-0df1-4405-9052-e05ac9c4bcc8` hiện ở trạng thái "đã làm 1 lần, điểm 3/10, còn treo chưa làm
+lại được" cho đến khi gói Pro của "Ngoc" được gia hạn (ngoài khả năng tự xử lý của automation - cần
+người that renew subscription hoặc đổi sang 1 profile Pro còn hạn khác).
+- Result: partial (first attempt PASS, redo BLOCKED - Pro subscription expired)
+- Test Case: N/A
+
+## Case: GBT round 7 (profile Gia Linh, lớp 3B - thay thế round 6 bị BLOCKED), 2026-11-14
+
+**Yêu cầu:** "chạy lại với profile Gia Linh" (user chọn phương án B sau khi round 6 báo BLOCKED vì
+Pro hết hạn trên "Ngoc" - chạy 1 vòng GBT MỚI hoàn toàn cho "Gia Linh"/3B, cùng range gốc <5 / >6-<10).
+
+Chuyển profile "Ngoc" -> "Gia Linh": dùng lại `automation/_scratch_switch_ngoc_round6.mjs` (đã
+tham số hoá qua `TARGET_PROFILE_NAME` env ở round 6) với `TARGET_PROFILE_NAME="Gia Linh"` - script
+launchApp() lại và phát hiện app ĐÃ TỰ reset về "Gia Linh" (không phải "Ngoc" còn lưu từ trước) -
+xác nhận: profile active là session-state TRONG BỘ NHỚ app, KHÔNG persist qua lần `launchApp()` mới
+(cold-start) - mỗi lần app khởi động lại, tự quay về 1 profile mặc định (không nhất thiết là profile
+vừa switch lần cuối).
+
+Chạy `e2e-giaobai-range34-lamlai-range67.mjs` (KHÔNG resume, giao bài MỚI) với PROFILE_NAME="Gia
+Linh", TARGET_CLASS_NAME="3B", TARGET_CLASS_ID=b3336062-cacd-4d1a-a0af-4de44acf33d2,
+FIRST_SCORE_MIN=0/MAX=4.9 (mô phỏng "<5"), REDO_SCORE_MIN=6.1/MAX=9.9 (mô phỏng ">6 và <10"). Giao
+THẬT room "Read each mini dialogue and choose the best answer to the question below it." (Review 4,
+WRITING), hạn nộp 21/11/2026, room_id `9b51bf78-ff6b-4cda-8e10-4ef9a115bf4a`, 10 scored items.
+
+**Kết quả: PASS TRỌN VẸN, không cần recovery.** Lần làm đầu TARGET=2 ĐIỂM THẬT=2 (2/10, khớp
+range [0,4.9]/"<5"), 133.72s. Tìm lại card "Làm lại": list-locate PROGRESS_STALLED sau 6 lượt (như
+thường lệ) nhưng fallback thông báo "giao bài" PASS NGAY (khác hẳn round 6 - "Gia Linh" vẫn còn Pro
+hợp lệ, không bị paywall chặn). Làm lại TARGET=9 ĐIỂM THẬT=9 (9/10, khớp range [6.1,9.9]/">6 và
+<10"), 132.17s. CTA "Tiếp theo" bấm THẬT, điều hướng đúng. Tổng thời gian case 805.9s.
+Report: `automation/output/e2e_giaobai_range34_lamlai_range67_report.json`.
+- Result: success
+- Test Case: N/A
+
+## Case: GBT round 8 (profile Gia Linh, lớp 3B), 2026-11-14
+
+**Yêu cầu:** "chạy lại 1 vòng" (tiếp tục chuỗi, không nêu lại score range - dùng default của script
+3-4 lần đầu, 6-7 làm lại, giữ nguyên profile Gia Linh/3B từ round 7).
+
+Trước khi giao bài mới: CTA "Tiếp theo" ở cuối round 7 tự động chain sang 1 bài KHÁC ("Read the
+passage and decide whether each statement is True (T) or False (F)." câu 1/10, "Ben has three
+goldfish.") - hành vi SẢN PHẨM đã biết ([[project_hw29_general_remaining_exercises_run]]), KHÔNG
+phải bug. `adb exec-out uiautomator dump` báo "could not get idle state" (do màn đang có
+animation/transition) - dùng `screencap` để xem trực tiếp thay vì chờ idle. Tap nhầm toạ độ X đóng
+bài (lệch do scale ảnh) -> vô tình mở bảng "Thông báo" (đúng y hệt sự cố đã ghi nhận ở round 4) - X
+đóng bảng Thông báo ở góc phải, xác nhận quay lại `homework_screen` sạch (tab "Bài tập", profile
+"Gia Linh"/3B) trước khi giao bài mới.
+
+Chạy `e2e-giaobai-range34-lamlai-range67.mjs` (PROFILE_NAME="Gia Linh", TARGET_CLASS_NAME="3B",
+TARGET_CLASS_ID=b3336062-cacd-4d1a-a0af-4de44acf33d2, range mặc định). Giao THẬT room "Choose the
+sentence (A, B, C or D) that is written correctly." (Review 4, WRITING), hạn nộp 21/11/2026,
+room_id `c567335a-d59f-41a5-b5eb-e80d8cd22fbd`, 10 scored items.
+
+**Kết quả: PASS TRỌN VẸN.** Lần làm đầu TARGET=4 ĐIỂM THẬT=4 (4/10, khớp range [3,4]), 146.38s.
+Tìm lại "Làm lại": list-locate PROGRESS_STALLED sau 2 lượt (như thường lệ) nhưng fallback thông báo
+"giao bài" PASS NGAY. Làm lại TARGET=6 ĐIỂM THẬT=6 (6/10, khớp range [6,7]), 140.73s. CTA "Tiếp
+theo" bấm THẬT, điều hướng đúng. Tổng thời gian case 721.1s.
+Report: `automation/output/e2e_giaobai_range34_lamlai_range67_report.json`.
+- Result: success
+- Test Case: N/A

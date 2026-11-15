@@ -66,41 +66,30 @@ appId: ${APP_ID}
       ON_THI_TAB: ${ON_THI_TAB}
 
 #
-# SỬA LẠI HẲN CÁCH CUỘN SAU KHI CHẠY THẬT (2026-11-04, `maestro test` thật - `scrollUntilVisible`
-# FAIL 4/4 lần liên tiếp, kể cả sau 2 lần vá bằng wait/scroll-lại): TÁI SỬ DỤNG đúng kỹ thuật cuối
-# cùng (sau 6 lần sửa) đã ổn định thật cho module Bài tập - xem lịch sử đầy đủ trong docblock
-# `flows/app/helpers/locate-assignment-card.yaml` (file đã deprecated nhưng GIỮ LẠI đúng cho mục
-# đích đối chiếu công thức này). Root cause giống hệt: `scrollUntilVisible` coi Tên đề "đã visible"
-# NGAY KHI nó vừa hé mép dưới màn hình (đúng định nghĩa "visible" của Maestro - có bounds giao màn
-# hình, KHÔNG cần hiện đầy đủ), trong khi nút CTA "Làm bài/Làm tiếp/Làm lại" nằm NGAY SAU title vẫn
-# còn ngoài khung nhìn phía dưới -> dừng cuộn SỚM 1 nhịp, `tapOn...below` ngay sau đó luôn
-# "Element not found" dù title đúng thật đang "visible" theo Maestro. SỬA: bỏ hẳn `scrollUntilVisible`,
-# dùng `repeat.while` + `swipe` thô với ĐIỀU KIỆN DỪNG = ĐÚNG compound selector mà bước `tapOn` cần
-# (CTA below title/due-date), không phải chỉ "title visible" - vòng lặp chỉ dừng khi cả 2 phần tử đã
-# cùng lọt khung nhìn. `waitForAnimationToEnd` sau mỗi swipe để triệt tiêu quán tính trước khi đọc
-# lại hierarchy cho lượt kiểm tra kế - không đọc lúc còn đang trôi. Biên độ/tốc độ swipe + `times`
-# COPY NGUYÊN giá trị cuối cùng đã verify ổn định ở `locate-assignment-card.yaml` (bản sửa lần 5/6),
-# KHÔNG tự chế số mới.
+# ĐỔI LẠI SANG `scrollUntilVisible` (2026-11-14, sau khi tái hiện lỗi thật): bản `repeat.while` +
+# `swipe` tay trước đây (xem lịch sử cũ trong git blame nếu cần đối chiếu) tự chế lại đúng thứ
+# `flows/app/helpers/open-exercise.yaml` (module Bài tập, ĐANG DÙNG THẬT, không phải bản deprecated)
+# đã giải quyết ổn định từ trước bằng `scrollUntilVisible` + `waitToSettleTimeoutMs: 500` + `speed:
+# 70` - commit cũ bỏ qua 2 tham số này khi thử `scrollUntilVisible` nên dính đúng lớp lỗi "dừng cuộn
+# sớm do còn trớn/momentum" mà `open-exercise.yaml` đã tài liệu hoá chi tiết, rồi chuyển hẳn sang
+# vòng lặp tay thay vì thêm đúng 2 tham số đó. GẶP THẬT LẠI với vòng lặp tay (2026-11-14, thiết bị
+# 3201d866d40a1681): khi đề cần tìm nằm NGAY Ở ĐẦU danh sách, swipe đầu tiên của vòng lặp trôi mất
+# đề đó trước khi kịp đọc hierarchy, và vì vòng lặp chỉ cuộn 1 CHIỀU (xuống) nên không bao giờ quay
+# lại được - cuộn hết xuống cuối danh sách mà không tìm thấy. TÁI SỬ DỤNG ĐÚNG công thức Bài tập:
+# scroll TARGET = title (không ghép CTA/due-date vào compound selector của scroll, tránh đúng
+# ambiguity "below" đã ghi nhận ở open-exercise.yaml), CTA/due-date CHỈ dùng để VERIFY/TAP sau khi
+# title đã visible.
 - runFlow:
     when:
       true: ${DE_DUE_DATE_DM != null && DE_DUE_DATE_DM != 'undefined'}
     commands:
-      - repeat:
-          while:
-            notVisible:
-              text: ".*(Làm bài|Làm tiếp|Làm lại).*"
-              below:
-                text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
-                below:
-                  text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-          times: 100
-          commands:
-            - swipe:
-                start: 50%, 85%
-                end: 50%, 35%
-                duration: 600
-            - waitForAnimationToEnd:
-                timeout: 800
+      - scrollUntilVisible:
+          element:
+            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 150000
+          speed: 70
+          waitToSettleTimeoutMs: 500
       - assertVisible:
           text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
           below:
@@ -115,22 +104,16 @@ appId: ${APP_ID}
     when:
       true: ${DE_DUE_DATE_DM == null || DE_DUE_DATE_DM == 'undefined'}
     commands:
-      # Xem ghi chú "SỬA LẠI HẲN CÁCH CUỘN" ở nhánh DE_DUE_DATE_DM phía trên (cùng file) - cùng 1 bug,
-      # cùng 1 cách sửa, chỉ khác điều kiện dừng (không có "Hạn nộp" để neo nên dừng thẳng ở CTA).
-      - repeat:
-          while:
-            notVisible:
-              text: ".*(Làm bài|Làm tiếp|Làm lại).*"
-              below:
-                text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-          times: 100
-          commands:
-            - swipe:
-                start: 50%, 85%
-                end: 50%, 35%
-                duration: 600
-            - waitForAnimationToEnd:
-                timeout: 800
+      # Xem ghi chú "ĐỔI LẠI SANG scrollUntilVisible" ở nhánh DE_DUE_DATE_DM phía trên (cùng file) -
+      # cùng 1 bug, cùng 1 cách sửa, chỉ khác KHÔNG có "Hạn nộp" để verify riêng (dùng chung timeout
+      # ngắn hơn - đề không trùng tên trong trường hợp này không cần duyệt sâu bằng nhánh due-date).
+      - scrollUntilVisible:
+          element:
+            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 90000
+          speed: 70
+          waitToSettleTimeoutMs: 500
       - tapOn:
           text: ".*(Làm bài|Làm tiếp|Làm lại).*"
           below:
@@ -163,6 +146,21 @@ appId: ${APP_ID}
                   visible: "Bắt đầu làm bài?"
                 commands:
                   - tapOn: "Bắt đầu"
+      # GAP THAT (2026-11-15): nhanh tren CHI xu ly nut "Bat dau lam bai" (de moi/chua lam) - de
+      # DANG LAM DO hien nut "Tiep tuc lam bai" thay the, khong duoc xu ly, khien helper dung lai
+      # o man Info thay vi vao Doing. TAI SU DUNG dung pattern da CONFIRMED o
+      # CD-21_22_23_24_25_26_27_28_29_30-bat-dau-tiep-tuc-lam-bai.yaml (TC_27/28): tap "Tiep tuc lam
+      # bai" -> popup "Bai lam chua hoan thanh" -> tap "Tiep tuc" (giu nguyen tien do).
+      - runFlow:
+          when:
+            visible: "Tiếp tục làm bài"
+          commands:
+            - tapOn: "Tiếp tục làm bài"
+            - runFlow:
+                when:
+                  visible: "Bài làm chưa hoàn thành"
+                commands:
+                  - tapOn: "Tiếp tục"
 
 # Consent AI nếu tài khoản chưa đồng ý - CÙNG dialog chung toàn app, không riêng module nào. BỎ QUA
 # khi STOP_AT_INFO_SCREEN=true (dialog này chỉ xuất hiện ở màn Doing, chưa chắc đã gặp ở màn Info).
@@ -200,10 +198,17 @@ appId: ${APP_ID}
             text: ".*(Kiểm tra|Tiếp theo|Tiếp tục|Nhấn để nói|Nhập câu trả lời).*"
           timeout: 90000
           optional: true
+      # shortcut: timeout 10s (truoc la 90s) - GAP THAT (2026-11-15): day la fallback CHI de phat
+      # hien dang CONNECT (buoc tren khong khop vi CONNECT khong render nhan nao luc dau) - voi MOI
+      # dang khac (CHOICE/FILL_WORD/...), buoc tren DA thanh cong nen buoc nay luon FAIL/WARNED, va
+      # vi khong co dieu kien "chi chay neu buoc tren that bai" nen LUON cho du 90s moi bo qua - lam
+      # MOI caller cua open-de.yaml (khong rieng gi LB-*) ton them ~1.5 phut moi lan mo de khong
+      # phai CONNECT. Neu la CONNECT that, element da ton tai ngay khi man hinh render xong (khong
+      # can cho lau) - 10s du du cho truong hop do, len nang neu gap that truong hop CONNECT cham.
       - extendedWaitUntil:
           visible:
             id: "exercise_connect_left_0"
-          timeout: 90000
+          timeout: 10000
           optional: true
 
 # Chốt (STOP_AT_INFO_SCREEN == true): xác nhận đang dừng ĐÚNG ở màn "Thông tin đề" - best-effort,

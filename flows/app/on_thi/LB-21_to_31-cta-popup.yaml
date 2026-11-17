@@ -12,10 +12,19 @@
 # Tham so:
 #   PHONE, OTP
 #   DE_NAME_PER_SECTION (bat buoc) - de PER_SECTION >=2 section, section 1 KHONG phai section cuoi.
+#   DE_DUE_DATE_DM_PER_SECTION (optional, "DD/MM") - truyen khi co >=2 the cung ten (vd da giao lai
+#     nhieu lan) de tranh open-de.yaml khop nham the dau tien tim duoc (xem open-de.yaml). GAP THAT
+#     (2026-11-17): khi co nhieu the trung ten, scrollUntilVisible+tapOn "Below" co the tap nham CTA
+#     cua 1 the KHAC nam ngay duoi the dau tien khop ten - da gap that, vao nham 1 de hoan toan khac.
+#   DE_LIST_TAP_POINT_PER_SECTION (optional, "X%,Y%") - GAP THAT KHAC (2026-11-17, da loai tru HET
+#     nguyen nhan khac - xem open-de.yaml): tapOn theo text/below co the tap NHAM CTA cua 1 the KHAC
+#     ngay ke ben du chi con DUNG 1 the trung ten (vd "Đề thi chung 1 kỹ năng" ngay duoi "Health" trong
+#     danh sach that) - truyen toa do % man hinh (xac nhan that bang screenshot) de tap theo diem thay
+#     vi theo text, bo qua han co che tapOn/below dang loi nay.
 #   SECTION_1_QUESTIONS_BEFORE_LAST (bat buoc cho TC_22..26) - so cau can tra loi de DUNG LAI o
 #     CAU CUOI section 1 (= tong so cau section 1 - 1, QA tu tinh truoc tu fixture).
-#   TOTAL_QUESTIONS_BEFORE_LAST (bat buoc cho TC_24/27/28) - so cau can tra loi de DUNG LAI o CAU
-#     CUOI CUNG toan de (= tong so cau ca de - 1).
+#   (TC_21/24/27/28 KHONG can tham so dem cau nua - dung STOP_BEFORE_LAST cua
+#   advance-onthi-questions.yaml de tu dung dung o cau cuoi cung toan de, xem ghi chu tai cho dung.)
 #
 # GIOI HAN: TC_31 (het gio toan de du da thoat -> tu dong "Hoan thanh") can CHO THOI GIAN THAT hoac
 # fixture thoi luong rat ngan - XEM file rieng LB-44_45_46-nen-kill-app.yaml (cung co che voi TC_31,
@@ -47,6 +56,8 @@ name: LB-21_to_31 CTA va popup chinh
     file: ../helpers/open-de.yaml
     env:
       DE_NAME: ${DE_NAME_PER_SECTION}
+      DE_DUE_DATE_DM: ${DE_DUE_DATE_DM_PER_SECTION}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_PER_SECTION}
       ON_THI_TAB: "Đề thầy cô giao"
 - runFlow:
     file: ../helpers/advance-onthi-questions.yaml
@@ -69,7 +80,16 @@ name: LB-21_to_31 CTA va popup chinh
 - takeScreenshot: artifacts/LB-23-popup-xac-nhan-chuyen-phan
 
 # --- TC_25: chon "O lai" -> popup dong, VAN o cau cuoi section 1 ---
-- tapOn: "Ở lại"
+# GAP THAT (2026-11-17, xac nhan qua commands.json + hierarchy dump that): tapOn theo text "Ở lại"
+# bao "COMPLETED" nhung KHONG dong popup that (lap lai y het tren ca de cu lan de moi sach, loai tru
+# nguyen nhan trang thai/animation). Hierarchy cho thay node text "Ở lại" co clickable="false" - target
+# THAT la 1 ancestor clickable khac, va Maestro tim/tap nham ancestor do (duration bat thuong 2-17s,
+# retry ngam). 1 lenh `adb shell input tap` THU CONG dung toa do TRUNG TAM CUA CHINH TEXT NODE (khong
+# qua buoc tim ancestor) lai dong duoc popup ngay lap tuc - sua bang tapOn theo point (% man hinh,
+# tai dung cong thuc point da dung o cac file khac trong repo) thay vi theo text, bo qua han buoc tim
+# ancestor sai cua Maestro.
+- tapOn:
+    point: "28%,61%"
 - assertNotVisible: "Bạn muốn chuyển phần khác?"
 - assertVisible: "Chuyển phần"
 - takeScreenshot: artifacts/LB-25-o-lai-van-o-cau-cuoi-section
@@ -79,7 +99,11 @@ name: LB-21_to_31 CTA va popup chinh
 - extendedWaitUntil:
     visible: "Bạn muốn chuyển phần khác?"
     timeout: 10000
-- tapOn: "Chuyển phần"
+# "Chuyển phần" trong popup co cung clickable="false" nhu "Ở lại" (xem ghi chu TC_25) - dung point
+# (toa do nut trong popup, khac han toa do nut CTA footer o dong tren) de tranh ca 2 loi: tapOn sai
+# ancestor LAN tapOn nham footer CTA (2 phan tu cung text "Chuyển phần" hien dien cung luc khi popup mo).
+- tapOn:
+    point: "72%,61%"
 - extendedWaitUntil:
     visible:
       id: "exam_prep_doing_screen"
@@ -96,6 +120,8 @@ name: LB-21_to_31 CTA va popup chinh
     env:
       DEVICE_MODE: "true"
       DE_NAME: ${DE_NAME_PER_SECTION}
+      DE_DUE_DATE_DM: ${DE_DUE_DATE_DM_PER_SECTION}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_PER_SECTION}
       ON_THI_TAB: "Đề thầy cô giao"
 
 # --- TC_21: bam "Tiep theo" o cau KHONG phai cau cuoi section -> sang cau ke, KHONG popup ---
@@ -110,11 +136,25 @@ name: LB-21_to_31 CTA va popup chinh
 - assertNotVisible: "Nộp bài ngay?"
 - takeScreenshot: artifacts/LB-21-sang-cau-ke-khong-popup
 
+# GAP THAT (2026-11-17): dem COUNT=TOTAL_QUESTIONS_BEFORE_LAST (gia dinh "1 tap = 1 cau") - DA XAC
+# MINH DUT DIEM phep dem co ban nay THUC RA DUNG (test rieng tung tap mot khop 100%). Doi sang
+# STOP_BEFORE_LAST="true" (vong lap tu dung dung luc gap nhan "Nộp bài", khong can tinh truoc so
+# cau/tap) + toi uu toc do (bo kiem tra popup thua moi lan tap "Tiếp theo").
+#
+# GIOI HAN THAT CUA FIXTURE "Health" (KHONG PHAI LOI CODE, xem ghi chu TC_14 trong
+# TEST-CASES-lam-bai.md): 5/7 section CUOI cua de nay chi dai 1 PHUT/section. Tong do tre thao tac
+# tu dong that (dang nhap, dieu huong, tap+kiem tra) co nguy co vuot qua cac cua so 1-phut nay, khien
+# app TU DONG NOP BAI giua chung (dung co che TC_13 "het gio section cuoi -> tu nop, KHONG popup")
+# TRUOC KHI kip dung o cau cuoi that de TC_24/27/28 assert. Da xac nhan: van bi nop som dù tong thoi
+# gian lam bai luc nop (9-11 phut) con duoi han 15 phut toan de - chac chan la het gio 1 section con,
+# khong phai het gio toan de. TC_24/27/28 hien **Tay/known-limit** voi fixture nay - can fixture khac
+# (section cuoi dai hon, vd >=2-3 phut) de thu tu dong hoa lai, KHONG nen tiep tuc doan them o day.
 - runFlow:
     file: ../helpers/advance-onthi-questions.yaml
     env:
-      COUNT: ${TOTAL_QUESTIONS_BEFORE_LAST}
+      COUNT: "70"
       AUTO_CONFIRM_SUBMIT: "true"
+      STOP_BEFORE_LAST: "true"
 
 # --- TC_24: nhan nut doi thanh "Nop bai" o cau cuoi cung toan de ---
 - assertVisible: "Nộp bài"
@@ -156,6 +196,8 @@ name: LB-21_to_31 CTA va popup chinh
     env:
       DEVICE_MODE: "true"
       DE_NAME: ${DE_NAME_PER_SECTION}
+      DE_DUE_DATE_DM: ${DE_DUE_DATE_DM_PER_SECTION}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_PER_SECTION}
       ON_THI_TAB: "Đề thầy cô giao"
 
 - tapOn:
@@ -191,6 +233,8 @@ name: LB-21_to_31 CTA va popup chinh
     env:
       DEVICE_MODE: "true"
       DE_NAME: ${DE_NAME_PER_SECTION}
+      DE_DUE_DATE_DM: ${DE_DUE_DATE_DM_PER_SECTION}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_PER_SECTION}
       ON_THI_TAB: "Đề thầy cô giao"
       STOP_AT_INFO_SCREEN: "true"
 - assertVisible: "Tiếp tục làm bài"

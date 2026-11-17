@@ -6,10 +6,13 @@ Nguồn: `Ôn thi.xlsx` (sheet "B.App-Ôn thi-Làm bài", `TC_PAR_OnThiLamBai_1.
 riêng cho NỘI DUNG màn Doing (section/đồng hồ/tiến độ/đánh dấu/bottom sheet/popup/mất mạng) - KHÁC
 `TEST-CASES-chi-tiet-de.md` (bộ `TC_1..41`, chỉ tới lúc VÀO màn Doing, không đi sâu bên trong).
 
-**Trạng thái chung: CHƯA chạy qua `maestro test` lần nào.** Phần lớn id/text dùng dưới đây ĐÃ
-CONFIRMED thật qua `maestro hierarchy` (xem `onThiPageObjects.js#doing`, 2026-11-04) - rủi ro còn
-lại chủ yếu ở các selector MỚI (tên section, thanh Tiến độ, id lúc đã Đánh dấu) chưa từng dump
-hierarchy, và ở việc khớp đúng tên/số liệu fixture CMS (`DE_NAME_*`) khi chạy thật lần đầu.
+**Trạng thái chung (cập nhật 2026-11-17): đã chạy `maestro test` thật nhiều lần**, không còn "chưa
+chạy lần nào" như ghi chú gốc bên dưới. Xem cột **Auto** của từng TC để biết PASS thật/FAIL
+thật/chưa chạy tới - đừng tin theo câu mô tả id/text này một mình, ưu tiên các ghi chú "chạy thật"
+cụ thể ở mỗi dòng và các mục "Ghi chú TC_*" bên dưới. Phần lớn id/text dùng dưới đây ĐÃ CONFIRMED
+thật qua `maestro hierarchy` (xem `onThiPageObjects.js#doing`, 2026-11-04) - rủi ro còn lại chủ yếu
+ở các selector MỚI (tên section, thanh Tiến độ, id lúc đã Đánh dấu) chưa từng dump hierarchy, và ở
+việc khớp đúng tên/số liệu fixture CMS (`DE_NAME_*`) khi chạy thật lần đầu.
 
 Cột **Auto** = có file Maestro viết sẵn. **Gated** = có nhưng mặc định BỎ QUA (cần chờ thời gian
 thật/mất mạng, bật bằng biến env riêng). **Tay** = không tự động hoá được (giới hạn kỹ thuật thật,
@@ -39,19 +42,27 @@ không phải chưa viết).
 | 18 | Section chưa mở bị khoá | ✅ (gián tiếp) | cùng file trên |
 | 19 | Di chuyển tự do trong section hiện tại | ✅ | cùng file trên |
 | 20 | Câu nhóm cha-con tính riêng từng câu con | ✅ (cần biết trước 2 số câu con) | cùng file trên |
-| 21 | "Tiếp theo" ở câu giữa section → sang câu kế, không popup | ✅ | `LB-21_to_31-cta-popup.yaml` |
-| 22 | Nhãn đổi "Chuyển phần" ở câu cuối section (không phải cuối đề) | ✅ | cùng file trên |
-| 23 | Bấm "Chuyển phần" (còn giờ) → popup xác nhận | ✅ | cùng file trên |
-| 24 | Nhãn đổi "Nộp bài" ở câu cuối đề | ✅ | cùng file trên |
-| 25 | Popup Chuyển phần - "Ở lại" | ✅ | cùng file trên |
-| 26 | Popup Chuyển phần - "Chuyển phần" | ✅ | cùng file trên |
-| 27 | Popup Nộp bài - "Làm tiếp" | ✅ | cùng file trên |
-| 28 | Popup Nộp bài - "Nộp bài" → màn Kết quả | ✅ | cùng file trên |
+| 21 | "Tiếp theo" ở câu giữa section → sang câu kế, không popup | **✅ chạy thật PASS** | `LB-21_to_31-cta-popup.yaml` |
+| 22 | Nhãn đổi "Chuyển phần" ở câu cuối section (không phải cuối đề) | **✅ chạy thật PASS** | cùng file trên |
+| 23 | Bấm "Chuyển phần" (còn giờ) → popup xác nhận | **✅ chạy thật PASS** | cùng file trên |
+| 24 | Nhãn đổi "Nộp bài" ở câu cuối đề | **Tay/known-limit** (xem ghi chú TC_24/27/28 bên dưới - giới hạn thời gian thật của fixture) | cùng file trên |
+| 25 | Popup Chuyển phần - "Ở lại" | **✅ chạy thật PASS** (cần fix point-tap, xem ghi chú) | cùng file trên |
+| 26 | Popup Chuyển phần - "Chuyển phần" | **✅ chạy thật PASS** (cần fix point-tap, xem ghi chú) | cùng file trên |
+| 27 | Popup Nộp bài - "Làm tiếp" | **Tay/known-limit** (cùng lý do TC_24) | cùng file trên |
+| 28 | Popup Nộp bài - "Nộp bài" → màn Kết quả | **Tay/known-limit** (cùng lý do TC_24) | cùng file trên |
 | 29 | Popup Thoát - "Ở lại làm bài" | ✅ | cùng file trên |
 | 30 | Popup Thoát - "Thoát" → lưu + "Đang làm dở" | ✅ | cùng file trên |
 | 31 | Hết giờ toàn đề dù đã thoát → tự "Hoàn thành" | Gated | `LB-44_45_46-nen-kill-app.yaml` (chung cơ chế với TC_45, xem `RUN_LB45_KILL_APP_AUTOSUBMIT`) |
 
 ## II. Đề không gắn thời gian theo Section (TC_32..43)
+
+**CHƯA CHẠY THẬT ĐƯỢC (2026-11-17):** cột Auto dưới đây vẫn là nhãn LÝ THUYẾT từ lúc viết code, CHƯA
+có lần chạy thật nào thành công cho nhóm này. Đã thử với fixture "Đề thi chung 1 kỹ năng"
+(DE_NAME_WHOLE_EXAM) nhưng bị chặn bởi 1 lỗi thật chưa fix được - xem docblock đầu file
+`LB-32_to_43-de-khong-section-timer.yaml` (nghi do encoding khi truyền tên đề có dấu tiếng Việt qua
+`-e` dòng lệnh, scrollUntilVisible cuộn qua hết danh sách mà không khớp được dù thẻ đang hiện ngay
+đầu danh sách - CHƯA xác minh dứt điểm gốc rễ). Cần điều tra thêm trước khi tin bất kỳ TC nào trong
+nhóm này đã PASS thật.
 
 | TC | Tên case | Auto | File |
 | --- | --- | --- | --- |
@@ -137,6 +148,53 @@ quan sát) - CHƯA XÁC MINH DỨT ĐIỂM qua `maestro hierarchy` thật, tạm
 của user để ưu tiên chạy các case khác trước. CẦN QUAY LẠI điều tra kỹ hơn (chạy từng bước, xem
 hierarchy ngay trước/sau tap CTA cuối cùng của vòng lặp) trước khi tin TC_14/các case khác dùng
 chung tham số `SECTION_1_QUESTIONS_BEFORE_LAST` để dừng ĐÚNG câu cuối section (không phải đi QUA).
+
+**CẬP NHẬT (2026-11-17) - ĐÃ ĐIỀU TRA DỨT ĐIỂM, root cause THẬT (khác hẳn suy đoán ban đầu):**
+dùng `COUNT=TOTAL_QUESTIONS_BEFORE_LAST=58` với `AUTO_CONFIRM_SUBMIT=true` để đi hết đề luôn đưa
+thẳng tới màn **Kết quả bài thi** (đã NỘP) thay vì dừng đúng ở câu cuối (TC_24 cần). Dò từng bước
+bằng `maestro hierarchy`/screenshot thật qua nhiều vòng:
+- Đếm tap-cơ-bản (1 tap = 1 câu) tự nó ĐÚNG hoàn toàn (xác nhận qua test riêng, Câu 1→5 qua 4 tap lẻ
+  khớp 100%) - KHÔNG phải lỗi logic đếm hay câu nhóm cha-con như nghi ngờ ban đầu.
+- Đổi sang chiến lược `STOP_BEFORE_LAST="true"` (vòng lặp tự dừng khi CTA đổi nhãn "Nộp bài", không
+  cần biết trước số tap) - vẫn bị tự nộp sớm. Dò ra: nút "Nộp bài" ở GÓC HEADER (toolbar) LUÔN hiện
+  diện ở MỌI câu (không riêng câu cuối) - điều kiện dừng ban đầu (`notVisible: "Nộp bài"` dạng text
+  trần) sai ngay từ đầu. Sửa bằng combo `id: exam_prep_doing_next, text: "Nộp bài"` (chỉ khớp ĐÚNG
+  nút CTA footer, không lẫn header) - vòng lặp dừng đúng vị trí nhưng VẪN bị tự nộp.
+- **ROOT CAUSE THẬT:** đề "Health" có 7 section, 5 section CUỐI chỉ dài **1 phút/section** (đã xác
+  nhận qua "Cấu trúc đề": Nói phản xạ 123/Viết đoạn văn ngắn/Đọc hiểu đoạn văn sửa/2×AUTO-shared đều
+  1 phút). Tổng thời gian thao tác tự động thật (đăng nhập, điều hướng, mỗi lần tap+kiểm tra popup)
+  tiêu tốn đủ lâu để các section 1-phút này HẾT GIỜ GIỮA CHỪNG trước khi tap kịp hết câu trong đó -
+  app tự động nộp bài theo đúng cơ chế TC_13 ("hết giờ section cuối → tự nộp, KHÔNG popup"), HOÀN
+  TOÀN ngoài tầm kiểm soát của code dù đã tối ưu tốc độ (bỏ bớt kiểm tra popup thừa cho mỗi lần tap
+  "Tiếp theo" thường). Đã xác nhận: ngay cả khi tổng "Thời gian làm bài" lúc nộp chỉ 9:43-11:44 (dưới
+  hạn mức 15 phút toàn đề) vẫn bị nộp sớm - chứng tỏ đây là do HẾT GIỜ 1 SECTION CON, không phải hết
+  giờ toàn đề.
+- **KẾT LUẬN:** đây là GIỚI HẠN THẬT của fixture "Health" (không phải lỗi code) - TC_24/27/28 (cần
+  dừng ở ĐÚNG câu cuối cùng, chưa nộp, để assert nhãn "Nộp bài"/popup) không thể tự động hoá ổn định
+  với fixture này vì tổng độ trễ thao tác thật luôn có nguy cơ vượt quá các cửa sổ 1-phút ở cuối đề.
+  Đánh dấu **Tay/known-limit**. Code `advance-onthi-questions.yaml` đã giữ lại fix `STOP_BEFORE_LAST`
+  (đúng, hữu ích cho fixture có section cuối dài hơn) + tối ưu tốc độ (bỏ kiểm tra popup thừa) - nếu
+  sau này có fixture WHOLE_EXAM/PER_SECTION với section cuối đủ dài (≥2-3 phút), nên thử lại TC_24/27/28
+  với fixture đó thay vì "Health".
+
+### Ghi chú TC_21/22/23/25/26 — sửa được bug tap-nhầm-thẻ-kề-bên trong `open-de.yaml` (2026-11-17)
+
+GẶP THẬT, RẤT DAI DẲNG: `open-de.yaml` dùng `tapOn: text: "(Làm bài|Làm tiếp|Làm lại)", below: title`
+để mở đề "Health" từ danh sách "Đề thầy cô giao" - nhưng liên tục vào NHẦM đề khác ("Đề thi chung 1
+kỹ năng", đứng ngay dưới "Health" trong danh sách thật trên tài khoản 5D) dù đã loại trừ HẾT các khả
+năng: sai profile (đã xác nhận đúng Ngọc/5D), cache cục bộ (đã `pm clear` sạch vẫn gặp), nhiều thẻ
+trùng tên (đã dọn còn ĐÚNG 1 thẻ "Health" vẫn gặp), lỗi encoding (file `commands.json` lưu đúng
+UTF-8), chưa kịp render (screenshot xác nhận nút CTA đúng thẻ đã hiện rõ, không có nút nào khác chen
+vào tầm nhìn), race condition (thêm `waitForAnimationToEnd` không ăn thua). **Tap TAY thủ công đúng
+toạ độ đó luôn vào ĐÚNG đề** - chứng minh đây là lỗi thật trong cơ chế `tapOn...below` của chính
+Maestro khi thực thi (không phải lỗi app/dữ liệu/selector-logic như tưởng). FIX: thêm tham số mới
+`DE_LIST_TAP_POINT` cho `open-de.yaml` (tap theo toạ độ `%` màn hình thay vì theo text/below khi được
+truyền) - `LB-21_to_31-cta-popup.yaml` dùng `DE_LIST_TAP_POINT_PER_SECTION="50%,63%"`. Tương tự, nút
+"Ở lại"/"Chuyển phần" bên TRONG popup "Bạn muốn chuyển phần khác?" cũng gặp đúng lỗi này (node text có
+`clickable="false"`, Maestro tap nhầm ancestor) - sửa bằng `tapOn: point` tương tự ngay trong
+`LB-21_to_31-cta-popup.yaml` (toạ độ `28%,61%` / `72%,61%`). Rủi ro: toạ độ `%` cố định này gắn với
+đúng bố cục thẻ "Health" (tiêu đề 3-4 dòng) tại thời điểm sửa - nếu danh sách đổi thứ tự/thẻ khác dài
+hơn chen vào, có thể cần đo lại toạ độ.
 
 ### Ghi chú TC_12 — xác nhận thật ngoài ý muốn (2026-11-15)
 

@@ -12,35 +12,131 @@
 # cac buoc scroll/chon dap an rieng co the gay sai lech thoi gian/vi tri khi ket hop voi dong ho
 # section ngan).
 #
+# TOI UU TOC DO (2026-11-17, theo yeu cau "rut ngan thoi gian bam Tiep theo"): CHI kiem tra popup
+# "Bạn muốn chuyển phần khác?"/"Nộp bài ngay?" NGAY SAU khi CTA vua tap la "Chuyển phần"/"Nộp bài" -
+# tuyet doi KHONG kiem tra 2 dieu kien nay cho moi lan tap "Tiếp theo" thong thuong (chiem da so cac
+# lan tap trong 1 de 50+ cau) - vi popup CHI co the xuat hien tu 2 CTA do, khong bao gio tu "Tiếp
+# theo". Giam duoc phan lon hierarchy-dump thua trong moi lan lap.
+#
 # Tham so:
-#   COUNT (bat buoc) - so cau toi da can di qua (tran an toan, dung som neu man Doing bien mat truoc).
+#   COUNT (bat buoc) - so cau toi da can di qua (tran an toan, dung som neu man Doing bien mat truoc,
+#     hoac neu STOP_BEFORE_LAST="true" thi la tran an toan de dung lai dung luc gap "Nop bai" - xem duoi).
 #   AUTO_CONFIRM_SUBMIT (optional, mac dinh "false") - "true" de tu bam xac nhan ca 2 popup rieng khi
 #     gap (dung khi muon di xuyen suot toi man Ket qua); mac dinh KHONG tu bam - dung lai NGAY SAU KHI
 #     popup xuat hien de caller tu assert noi dung popup (nhieu TC LB-21..31 can dung dung luc nay).
+#   STOP_BEFORE_LAST (optional, mac dinh "false") - "true" de DUNG LAI dung luc CTA doi nhan thanh
+#     "Nộp bài" (cau cuoi cung toan de), KHONG tap tiep (dung cho TC can DUNG o cau cuoi, CHUA nop).
+#     GAP THAT (2026-11-17): dem COUNT=tong_so_cau-1 gia dinh "1 tap = 1 cau" SAI thuc te (da xac
+#     nhan qua test that, lech ca chuc cau theo 2 huong) - nghi do cau nhom (nhom cha-con, xem
+#     questionModel.js#normalizeQuestions loc node type="GROUP") khien 1 tap CTA co the khong tuong
+#     ung 1-1 voi so "Cau N" hien thi. STOP_BEFORE_LAST tranh han viec doan truoc so tap can thiet -
+#     truyen COUNT du lon (vd 70) lam tran an toan, vong lap tu dung dung luc, KHONG can tinh truoc.
+#     GAP THAT KHAC (2026-11-17, lan 2): KHONG the dung dieu kien "notVisible: Nộp bài" de phat hien
+#     cau cuoi - nut "Nộp bài" o GOC HEADER (toolbar, xem docblock LB-21_to_31-cta-popup.yaml) LUON
+#     hien dien o MOI cau (khong rieng cau cuoi), khien dieu kien nay SAI tu dau, dung vong lap ngay
+#     lap 1 (0 tap). SUA LAN 2 (van sai): doi tap theo "visible: Tiếp theo/Chuyển phần" (khong tap
+#     nua khi ca 2 het) - NHUNG vong lap NGOAI (repeat.while) van tiep tuc chay het COUNT lan KHONG
+#     TAP (no-op) cho den khi COUNT=70 can kiet - MOI lan no-op van ton THOI GIAN THUC (kiem tra 4
+#     dieu kien) - da gap THAT: 70 lan no-op + dang dung o DUNG section cuoi cung (cung co dong ho
+#     rat ngan nhu cac section 1-phut khac) khien section do HET GIO va TU DONG NOP trong luc dang
+#     "cho khong lam gi" - lai bi nop som chinh vi vong lap keo dai qua lau. FIX THAT (lan 3): doi
+#     chinh dieu kien `repeat.while` CHO STOP_BEFORE_LAST, dung DUNG combo id+text tren CHINH nut CTA
+#     (id "exam_prep_doing_next" luon on dinh du doi nhan) de DUNG HAN vong lap NGAY lap tuc khi nhan
+#     doi thanh "Nộp bài" - khong con lap thua lan nao, khong con ton them thoi gian thuc o section
+#     cuoi nua.
 appId: ${APP_ID}
 ---
-- repeat:
-    while:
-      visible:
-        id: "exam_prep_doing_screen"
-    times: ${COUNT}
+- runFlow:
+    when:
+      true: ${STOP_BEFORE_LAST != 'true'}
     commands:
-      - tapOn:
-          id: "exam_prep_doing_next"
-          optional: true
-      # 2 popup rieng cua On thi - CHI tu xac nhan khi AUTO_CONFIRM_SUBMIT=true, mac dinh dung lai de
-      # caller tu assert (nhieu case LB-21..31 can dung dung luc popup vua hien).
-      - runFlow:
-          when:
-            true: ${AUTO_CONFIRM_SUBMIT == 'true'}
+      - repeat:
+          while:
+            visible:
+              id: "exam_prep_doing_screen"
+          times: ${COUNT}
+          commands:
+            # Nhanh "Chuyển phần" - CHI kiem tra popup chuyen-phan ngay sau tap nay.
+            - runFlow:
+                when:
+                  visible: "Chuyển phần"
+                commands:
+                  - tapOn:
+                      id: "exam_prep_doing_next"
+                      optional: true
+                  - runFlow:
+                      when:
+                        true: ${AUTO_CONFIRM_SUBMIT == 'true'}
+                      commands:
+                        - runFlow:
+                            when:
+                              visible: "Bạn muốn chuyển phần khác?"
+                            commands:
+                              - tapOn: "Chuyển phần"
+            # Nhanh "Nộp bài" (dung id+text tren CHINH nut CTA, tranh nham voi "Nộp bài" o header
+            # - xem GAP THAT lan 2 o tren) - CHI kiem tra popup nop-bai ngay sau tap nay.
+            - runFlow:
+                when:
+                  visible:
+                    id: "exam_prep_doing_next"
+                    text: "Nộp bài"
+                commands:
+                  - tapOn:
+                      id: "exam_prep_doing_next"
+                      optional: true
+                  - runFlow:
+                      when:
+                        true: ${AUTO_CONFIRM_SUBMIT == 'true'}
+                      commands:
+                        - runFlow:
+                            when:
+                              visible: "Nộp bài ngay?"
+                            commands:
+                              - tapOn: "Nộp bài"
+            # Nhanh thuong gap nhat - "Tiếp theo" (giua section, KHONG BAO GIO sinh popup) - tap
+            # thang, KHONG kiem tra popup nao ca de tiet kiem thoi gian.
+            - runFlow:
+                when:
+                  visible: "Tiếp theo"
+                commands:
+                  - tapOn:
+                      id: "exam_prep_doing_next"
+                      optional: true
+- runFlow:
+    when:
+      true: ${STOP_BEFORE_LAST == 'true'}
+    commands:
+      # DUNG HAN (khong chi ngung tap) ngay khi nut id=exam_prep_doing_next doi nhan thanh "Nộp
+      # bài" - id+text tren CUNG 1 phan tu nen KHONG bi nham voi nut "Nộp bài" rieng o header (header
+      # la phan tu KHAC, khong co id nay). Trong vong lap nay CTA chi co the la "Tiếp theo" hoac
+      # "Chuyển phần" (while da loai "Nộp bài" ra ngoai), nen KHONG can nhanh xu ly "Nộp bài" nua.
+      - repeat:
+          while:
+            notVisible:
+              id: "exam_prep_doing_next"
+              text: "Nộp bài"
+          times: ${COUNT}
           commands:
             - runFlow:
                 when:
-                  visible: "Bạn muốn chuyển phần khác?"
+                  visible: "Chuyển phần"
                 commands:
-                  - tapOn: "Chuyển phần"
+                  - tapOn:
+                      id: "exam_prep_doing_next"
+                      optional: true
+                  - runFlow:
+                      when:
+                        true: ${AUTO_CONFIRM_SUBMIT == 'true'}
+                      commands:
+                        - runFlow:
+                            when:
+                              visible: "Bạn muốn chuyển phần khác?"
+                            commands:
+                              - tapOn: "Chuyển phần"
             - runFlow:
                 when:
-                  visible: "Nộp bài ngay?"
+                  visible: "Tiếp theo"
                 commands:
-                  - tapOn: "Nộp bài"
+                  - tapOn:
+                      id: "exam_prep_doing_next"
+                      optional: true

@@ -19,6 +19,11 @@
 # DE_DUE_DATE_DM (optional, "DD/MM" - dùng khi DE_NAME có thể trùng ≥2 card), ON_THI_TAB (optional,
 # mặc định "Đề thầy cô giao" - truyền "Kho đề Parrot" để mở đề từ tab kia, xem
 # open-tab-on-thi.yaml - THÊM MỚI 2026-10-30, cùng đợt viết `onThiExamEngine.js`).
+# DE_LIST_TAP_POINT (optional, "X%,Y%" - THÊM MỚI 2026-11-17) - tap theo TOẠ ĐỘ (sau khi đã
+# scrollUntilVisible tới title) thay vì theo text "Làm bài/Làm tiếp/Làm lại" + below - dùng khi gặp
+# GAP THẬT: "below title" có thể tap NHẦM CTA của 1 thẻ KHÁC nằm ngay dưới trong danh sách (đã xác
+# nhận thật, loại trừ hết mọi nguyên nhân khác - xem ghi chú tại chỗ dùng). Mặc định KHÔNG truyền,
+# giữ nguyên hành vi cũ cho mọi caller khác.
 #
 # DEVICE_MODE=true -> bỏ qua launchApp + login (xem open-exercise.yaml để biết lý do đầy đủ).
 #
@@ -94,19 +99,32 @@ appId: ${APP_ID}
           text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
           below:
             text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-      - tapOn:
-          text: ".*(Làm bài|Làm tiếp|Làm lại).*"
-          below:
-            text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
-            below:
-              text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      # GAP THAT (2026-11-17): "tapOn CTA below title" co the tap NHAM the KHAC nam ngay duoi trong
+      # danh sach khi co the trung ten/ke sat - da loai tru HET nguyen nhan khac (profile sai, cache
+      # local kha pm clear, encoding, ambiguity ten du chi con 1 the trung, scroll/render cham, race
+      # condition qua waitForAnimationToEnd) - CHI co tapOn theo POINT (toa do %, xac nhan that bang
+      # screenshot) la tap dung. DE_LIST_TAP_POINT (optional, "X%,Y%") - truyen khi gap dung tinh
+      # huong nay de tap theo toa do thay vi theo text/below, KHONG anh huong caller khac khong truyen.
+      - runFlow:
+          when:
+            true: ${DE_LIST_TAP_POINT != null && DE_LIST_TAP_POINT != 'undefined'}
+          commands:
+            - tapOn:
+                point: ${DE_LIST_TAP_POINT}
+      - runFlow:
+          when:
+            true: ${DE_LIST_TAP_POINT == null || DE_LIST_TAP_POINT == 'undefined'}
+          commands:
+            - tapOn:
+                text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+                below:
+                  text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
+                  below:
+                    text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
 - runFlow:
     when:
       true: ${DE_DUE_DATE_DM == null || DE_DUE_DATE_DM == 'undefined'}
     commands:
-      # Xem ghi chú "ĐỔI LẠI SANG scrollUntilVisible" ở nhánh DE_DUE_DATE_DM phía trên (cùng file) -
-      # cùng 1 bug, cùng 1 cách sửa, chỉ khác KHÔNG có "Hạn nộp" để verify riêng (dùng chung timeout
-      # ngắn hơn - đề không trùng tên trong trường hợp này không cần duyệt sâu bằng nhánh due-date).
       - scrollUntilVisible:
           element:
             text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
@@ -114,10 +132,21 @@ appId: ${APP_ID}
           timeout: 90000
           speed: 70
           waitToSettleTimeoutMs: 500
-      - tapOn:
-          text: ".*(Làm bài|Làm tiếp|Làm lại).*"
-          below:
-            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      # Xem ghi chú GAP THẬT + DE_LIST_TAP_POINT ở nhánh DE_DUE_DATE_DM phía trên, cùng 1 bug.
+      - runFlow:
+          when:
+            true: ${DE_LIST_TAP_POINT != null && DE_LIST_TAP_POINT != 'undefined'}
+          commands:
+            - tapOn:
+                point: ${DE_LIST_TAP_POINT}
+      - runFlow:
+          when:
+            true: ${DE_LIST_TAP_POINT == null || DE_LIST_TAP_POINT == 'undefined'}
+          commands:
+            - tapOn:
+                text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+                below:
+                  text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
 
 # Bottom sheet nâng cấp Pro/Free (spec.json mục "Rule quyền truy cập theo gói"): nếu tài khoản Free
 # bấm vào đề Pro, app KHÔNG vào màn làm bài mà hiện sheet nâng cấp - helper này KHÔNG dismiss sheet

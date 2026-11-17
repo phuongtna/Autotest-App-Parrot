@@ -17,6 +17,15 @@
 #   LAST_SECTION_FIRST_QUESTION_NO (bat buoc cho TC_40) - so cau DAU TIEN cua section CUOI CUNG
 #     (chua tung mo toi) - dung de chung minh KHONG section nao bi khoa.
 #   GROUP_FIRST_CHILD_NO / GROUP_LAST_CHILD_NO (optional, cho TC_41).
+#
+# CHUA CHAY DUOC THAT (2026-11-17) - GAP THAT CHUA FIX: dung fixture "Đề thi chung 1 kỹ năng"
+# (DE_NAME_WHOLE_EXAM truyen qua `-e` dong lenh co dau tieng Viet "kỹ năng") - scrollUntilVisible
+# cuon HET qua toan bo danh sach (xac nhan that qua screenshot: the dang hien NGAY O DAU danh sach)
+# ma KHONG khop duoc, dù "Health" (khong dau) truyen qua `-e` o cac file LB-* khac van hoat dong
+# binh thuong. Nghi do loi encoding khi truyen chuoi co dau tieng Viet qua `-e` dong lenh (CHUA xac
+# minh dut diem goc re - commands.json chi luu lai TEMPLATE JS chua eval, khong thay duoc gia tri
+# cuoi dung de so khop that). CAN DIEU TRA THEM truoc khi tin nhom TC_32..43 chay duoc voi fixture
+# nay - KHONG tu y thu them huong khac (vd DE_LIST_TAP_POINT) khi chua ro goc re.
 appId: ${APP_ID}
 tags:
   - regression
@@ -146,11 +155,15 @@ name: LB-32_to_43 De khong gan thoi gian theo Section
       DEVICE_MODE: "true"
       DE_NAME: ${DE_NAME_WHOLE_EXAM}
       ON_THI_TAB: "Đề thầy cô giao"
+# Dung STOP_BEFORE_LAST (xem ghi chu GAP THAT trong LB-21_to_31-cta-popup.yaml/
+# advance-onthi-questions.yaml, 2026-11-17) thay vi dem cung COUNT=TOTAL_QUESTIONS_BEFORE_LAST -
+# vong lap tu dung dung luc gap nhan "Nộp bài", tranh rui ro doan sai so tap/bi nop som do het gio.
 - runFlow:
     file: ../helpers/advance-onthi-questions.yaml
     env:
-      COUNT: ${TOTAL_QUESTIONS_BEFORE_LAST}
+      COUNT: "25"
       AUTO_CONFIRM_SUBMIT: "true"
+      STOP_BEFORE_LAST: "true"
 
 # --- TC_39: nhan nut doi thanh "Nop bai" o cau cuoi cung ---
 - assertVisible: "Nộp bài"

@@ -17,15 +17,57 @@
 #   LAST_SECTION_FIRST_QUESTION_NO (bat buoc cho TC_40) - so cau DAU TIEN cua section CUOI CUNG
 #     (chua tung mo toi) - dung de chung minh KHONG section nao bi khoa.
 #   GROUP_FIRST_CHILD_NO / GROUP_LAST_CHILD_NO (optional, cho TC_41).
+#   DE_LIST_TAP_POINT_WHOLE_EXAM (optional, "X%,Y%") - xem GAP THAT 2026-11-18 ben duoi, dung khi
+#     danh sach co the trung ten gay tap nham.
 #
-# CHUA CHAY DUOC THAT (2026-11-17) - GAP THAT CHUA FIX: dung fixture "Đề thi chung 1 kỹ năng"
-# (DE_NAME_WHOLE_EXAM truyen qua `-e` dong lenh co dau tieng Viet "kỹ năng") - scrollUntilVisible
-# cuon HET qua toan bo danh sach (xac nhan that qua screenshot: the dang hien NGAY O DAU danh sach)
-# ma KHONG khop duoc, dù "Health" (khong dau) truyen qua `-e` o cac file LB-* khac van hoat dong
-# binh thuong. Nghi do loi encoding khi truyen chuoi co dau tieng Viet qua `-e` dong lenh (CHUA xac
-# minh dut diem goc re - commands.json chi luu lai TEMPLATE JS chua eval, khong thay duoc gia tri
-# cuoi dung de so khop that). CAN DIEU TRA THEM truoc khi tin nhom TC_32..43 chay duoc voi fixture
-# nay - KHONG tu y thu them huong khac (vd DE_LIST_TAP_POINT) khi chua ro goc re.
+# GAP THAT DA XAC MINH DUT DIEM (2026-11-17/18): truyen DE_NAME_WHOLE_EXAM co dau tieng Viet qua
+# `-e` dong lenh khien assertVisible/scrollUntilVisible LUON fail dù the dang hien RO RANG tren man
+# hinh (xac nhan qua test co lap). Chuoi ASCII thuan lay tu CHINH ten de (khong dau) lai KHOP DUNG
+# ngay - CHI AP DUNG CHO GIA TRI TRUYEN QUA `-e` (text viet THANG trong file .yaml van hien dung).
+#
+# GAP THAT KHAC (2026-11-18, cung loai bug da ghi o LB-21_to_31-cta-popup.yaml): danh sach "Đề thầy
+# cô giao" co the co NHIEU the - tapOn "Làm bài" below title/due-date co the tap NHAM sang CTA cua 1
+# the HOAN TOAN khac nam duoi trong danh sach do co che "below" cua Maestro khong bat buoc ke sat.
+# FIX: dung DE_LIST_TAP_POINT_WHOLE_EXAM (tap theo toa do % thay vi text/below) - da verify "50%,58%"
+# tap DUNG the dau tien khi danh sach chua cuon (the moi giao/due gan nhat luon noi len dau danh
+# sach "2 tuần gần nhất"). LUON giao lai 1 ban fixture MOI (xem automation/_scratch_reassign_1_ky_nang.mjs
+# lam mau) NGAY TRUOC khi chay file nay.
+#
+# GAP THAT #3 - QUAN TRONG NHAT (2026-11-18): 2 fixture dung thu dau tien ("Đề thi chung 1 kỹ năng"
+# VA ban dau cua "Đề kiểm tra cuối kỳ 1") deu THUC CHAT la PER_SECTION (moi dong "Cau truc de" co kem
+# "N phut" -> dung theo detectSectionTimerMode() trong onThiExamEngine.js), KHONG phai WHOLE_EXAM -
+# xac nhan that qua live device: tai cau cuoi section 1 hien dung nut "Chuyển phần" + popup "Bạn
+# muốn chuyển phần khác?" (hanh vi PER_SECTION, giong TC_22, KHONG phai TC_38). Da nho sua truc tiep
+# tren Web de "Đề kiểm tra cuối kỳ 1" KHONG con gan phut rieng tung section (Cau truc de chi con ten
+# section, khong co "N phut" kem theo) - DUNG WHOLE_EXAM that, xac nhan lai qua live device: cau cuoi
+# section 1 nhan "Tiếp theo" (KHONG "Chuyển phần"), KHONG popup. LUU Y: sua noi dung de tren Web
+# KHONG tu dong cap nhat cac ban DA GIAO o "Đề thầy cô giao" - PHAI giao lai 1 ban MOI moi lay dung
+# cau truc da sua (khac "Kho đề Parrot" - ben do tu cap nhat nhung CHI cho luot MOI, luot dang lam
+# do van giu du lieu cu).
+#
+# GAP THAT #4 (2026-11-18): dong ho de tinh theo THOI GIAN THUC ke tu luc bam "Bắt đầu làm bài" LAN
+# DAU, ke ca khi dong/mo lai app hay dung han `maestro test` giua chung - moi lan do/xem man hinh (ke
+# ca CHI xem, neu lo KHONG dung STOP_AT_INFO_SCREEN) deu VO TINH bam bat dau va tieu hao ngan sach
+# thoi gian cua CHINH fixture do. "Đề kiểm tra cuối kỳ 1" tong 10 phut - LUON giao lai 1 ban HOAN
+# TOAN MOI (chua tung mo) NGAY TRUOC khi chay that, KHONG dung ban da tung xem/do truoc do.
+#
+# GAP THAT #5 (2026-11-18, DA SUA LAI SAU KHI HIEU DUNG): cau hoi dang NHOM (1 bai doc + nhieu cau
+# con True/False, section "Nói phản xạ 123" nhung noi dung la doc hieu - ten section hien thi KHONG
+# khop noi dung, co the la nham lan fixture/CMS, KHONG anh huong logic test) - MOI CAU CON duoc tinh
+# la 1 "cau" RIENG trong he thong (xac nhan that qua bottom sheet: tap thang so "9" tu sheet ra DUNG
+# "Câu 9, 1/10"; so "10" la "Câu 10, 2/10"; ...; cau 9..18 tuong ung child 1/10..10/10) - KHONG phai
+# "1 cau cha phan trang noi bo" nhu hieu lam ban dau. Vi vay GROUP_FIRST_CHILD_NO="9"/
+# GROUP_LAST_CHILD_NO="18" (= dung LAST_SECTION_FIRST_QUESTION_NO toi cau cuoi de, vi nhom nay chiem
+# TRON VEN section cuoi) DA VERIFY PASS THAT (ca 2 so hien dung la 2 entry rieng, tap duoc, trong
+# bottom sheet). Rieng tong so LAN TAP can de di het de van LON HON "tong so cau" hien thi do CTA
+# "Tiếp theo" phai tap rieng cho TUNG child (18 cau nhung can >=60 lan tap neu tinh ca thao tac mo
+# dau) - da nang COUNT an toan cho vong lap STOP_BEFORE_LAST tu 25 len 60 (van giu nguyen, khong anh
+# huong gi den ket luan GROUP_* o tren).
+#
+# Tham so THAT DA VERIFY PASS (2026-11-18): DE_NAME_WHOLE_EXAM="tra" (chuoi con ASCII cua "Đề kiểm
+# tra cuối kỳ 1", ban DA SUA khong gan phut section), DE_LIST_TAP_POINT_WHOLE_EXAM="50%,58%",
+# SECTION_1_QUESTIONS_BEFORE_LAST="7" (section 1 = cau 1-8), LAST_SECTION_FIRST_QUESTION_NO="9"
+# (section cuoi bat dau cau 9), GROUP_FIRST_CHILD_NO="9", GROUP_LAST_CHILD_NO="18".
 appId: ${APP_ID}
 tags:
   - regression
@@ -42,6 +84,7 @@ name: LB-32_to_43 De khong gan thoi gian theo Section
     file: ../helpers/open-de.yaml
     env:
       DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_WHOLE_EXAM}
       ON_THI_TAB: "Đề thầy cô giao"
 
 # --- TC_32: man Doing hien 1 dong ho chung + Tien do + Tiep theo + Danh sach cau hoi ---
@@ -57,15 +100,12 @@ name: LB-32_to_43 De khong gan thoi gian theo Section
 - takeScreenshot: artifacts/LB-33-34-dong-ho-chung-doi-chieu-bang-mat
 
 # --- TC_36: Tien do tinh theo tong so cau ca de, khong chia theo section ---
-- assertVisible:
-    text: "^0/\\d+$"
-- runFlow:
-    file: ../helpers/advance-onthi-questions.yaml
-    env:
-      COUNT: "1"
-      AUTO_CONFIRM_SUBMIT: "false"
-- assertNotVisible:
-    text: "^0/\\d+$"
+# GAP THAT (2026-11-18): assertNotVisible "^0/\d+$" sau khi di chuyen 1 cau SAI thuc te - vi
+# advance-onthi-questions.yaml (ban don gian hoa 2026-11-15) chi di chuyen, KHONG tra loi cau nao,
+# nen tu so tien do (so cau DA TRA LOI) khong tang - day la hanh vi DUNG cua helper, khong phai loi.
+# Chi con xac nhan duoc phan "mau so/dinh dang 1 bo dem duy nhat cho CA DE" (khong chia rieng theo
+# section) qua 1 lan assert o tren - phan "tu so tang khi tra loi" KHONG tu dong hoa duoc nua voi
+# helper hien tai (can helper THAT SU tra loi moi kiem tra lai duoc).
 - takeScreenshot: artifacts/LB-36-tien-do-tinh-ca-de
 
 # ======================================================================================
@@ -78,6 +118,7 @@ name: LB-32_to_43 De khong gan thoi gian theo Section
     env:
       DEVICE_MODE: "true"
       DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_WHOLE_EXAM}
       ON_THI_TAB: "Đề thầy cô giao"
 
 # --- TC_37: bam Tiep theo o cau KHONG phai cau cuoi section -> sang cau ke, cung section ---
@@ -154,14 +195,19 @@ name: LB-32_to_43 De khong gan thoi gian theo Section
     env:
       DEVICE_MODE: "true"
       DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_WHOLE_EXAM}
       ON_THI_TAB: "Đề thầy cô giao"
 # Dung STOP_BEFORE_LAST (xem ghi chu GAP THAT trong LB-21_to_31-cta-popup.yaml/
 # advance-onthi-questions.yaml, 2026-11-17) thay vi dem cung COUNT=TOTAL_QUESTIONS_BEFORE_LAST -
 # vong lap tu dung dung luc gap nhan "Nộp bài", tranh rui ro doan sai so tap/bi nop som do het gio.
+# COUNT="60" (2026-11-18, tang tu 25): fixture "Đề kiểm tra cuối kỳ 1" co 1 cau NHOM (vd group doc
+# hieu doan van voi nhieu cau con True/False) - moi cau con tinh 1 tap rieng (xem "Câu N, x/y" o
+# header) nen tong so tap can de het 18 "cau" (theo nghia dinh dang x/y) lon hon nhieu 18 - 25 KHONG
+# du, da gap that (dung lai o giua chung, "Nộp bài" header luon hien dien nen khong dung nham).
 - runFlow:
     file: ../helpers/advance-onthi-questions.yaml
     env:
-      COUNT: "25"
+      COUNT: "60"
       AUTO_CONFIRM_SUBMIT: "true"
       STOP_BEFORE_LAST: "true"
 
@@ -191,6 +237,7 @@ name: LB-32_to_43 De khong gan thoi gian theo Section
     env:
       DEVICE_MODE: "true"
       DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_WHOLE_EXAM}
       ON_THI_TAB: "Đề thầy cô giao"
 - runFlow:
     file: ../helpers/advance-onthi-questions.yaml
@@ -208,6 +255,7 @@ name: LB-32_to_43 De khong gan thoi gian theo Section
     env:
       DEVICE_MODE: "true"
       DE_NAME: ${DE_NAME_WHOLE_EXAM}
+      DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT_WHOLE_EXAM}
       ON_THI_TAB: "Đề thầy cô giao"
       STOP_AT_INFO_SCREEN: "true"
 - assertVisible: "Tiếp tục làm bài"

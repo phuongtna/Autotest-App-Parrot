@@ -56,28 +56,56 @@ không phải chưa viết).
 
 ## II. Đề không gắn thời gian theo Section (TC_32..43)
 
-**CHƯA CHẠY THẬT ĐƯỢC (2026-11-17):** cột Auto dưới đây vẫn là nhãn LÝ THUYẾT từ lúc viết code, CHƯA
-có lần chạy thật nào thành công cho nhóm này. Đã thử với fixture "Đề thi chung 1 kỹ năng"
-(DE_NAME_WHOLE_EXAM) nhưng bị chặn bởi 1 lỗi thật chưa fix được - xem docblock đầu file
-`LB-32_to_43-de-khong-section-timer.yaml` (nghi do encoding khi truyền tên đề có dấu tiếng Việt qua
-`-e` dòng lệnh, scrollUntilVisible cuộn qua hết danh sách mà không khớp được dù thẻ đang hiện ngay
-đầu danh sách - CHƯA xác minh dứt điểm gốc rễ). Cần điều tra thêm trước khi tin bất kỳ TC nào trong
-nhóm này đã PASS thật.
+**CẬP NHẬT (2026-11-18) - đã chạy THẬT và xác minh dứt điểm toàn bộ chuỗi gốc rễ chặn nhóm này:**
+1. Truyền `DE_NAME_WHOLE_EXAM` có dấu tiếng Việt qua `-e` dòng lệnh khiến assertVisible/
+   scrollUntilVisible LUÔN fail dù thẻ đang hiện rõ ràng trên màn hình - dùng 1 chuỗi con ASCII
+   THUẦN lấy từ chính tên đề (không có trong tên đề nào khác đang hiển thị) để tránh hẳn bug này.
+2. Danh sách "Đề thầy cô giao" có thể có NHIỀU thẻ (trùng tên hoặc không) khiến `tapOn...below`
+   tap NHẦM sang thẻ khác hẳn (do cơ chế "below" của Maestro không bắt buộc kề sát) - PHẢI dùng
+   `DE_LIST_TAP_POINT_WHOLE_EXAM` (tap theo toạ độ %) thay vì theo text, và LUÔN giao lại 1 bản
+   fixture MỚI ngay trước khi chạy (để fixture luôn nổi lên đầu danh sách "2 tuần gần nhất").
+3. **Phát hiện quan trọng nhất:** 2 fixture ban đầu dùng thử ("Đề thi chung 1 kỹ năng" và bản đầu
+   của "Đề kiểm tra cuối kỳ 1") đều thực chất là **PER_SECTION** (mỗi dòng "Cấu trúc đề" có kèm
+   "N phút" → theo đúng `detectSectionTimerMode()` trong `onThiExamEngine.js`), KHÔNG phải
+   WHOLE_EXAM - xác nhận thật qua live device: tại câu cuối section 1 hiện đúng nút "Chuyển phần" +
+   popup "Bạn muốn chuyển phần khác?" (hành vi PER_SECTION, TC_22, không phải TC_38). Đã nhờ sửa
+   trực tiếp trên Web để "Đề kiểm tra cuối kỳ 1" không còn gắn phút riêng từng section (Cấu trúc đề
+   chỉ còn tên section, không có "N phút" kèm theo) - ĐÚNG WHOLE_EXAM thật. LƯU Ý: sửa nội dung đề
+   trên Web KHÔNG tự cập nhật các bản đã giao ở "Đề thầy cô giao" - PHẢI giao lại 1 bản MỚI mới lấy
+   đúng cấu trúc đã sửa (bản "Kho đề Parrot" thì tự cập nhật, nhưng chỉ cho LƯỢT MỚI, lượt đang làm
+   dở vẫn giữ dữ liệu cũ).
+4. Đồng hồ đề tính theo THỜI GIAN THỰC kể từ lúc bấm "Bắt đầu làm bài" lần đầu, kể cả khi đóng/mở
+   lại app hay dừng hẳn `maestro test` giữa chừng - mỗi lần dò/xem màn hình (kể cả chỉ xem, nếu lỡ
+   không dùng `STOP_AT_INFO_SCREEN`) đều VÔ TÌNH bấm bắt đầu và tiêu hao ngân sách thời gian của
+   CHÍNH fixture đó. Luôn giao lại 1 bản HOÀN TOÀN MỚI ngay trước khi chạy để có đủ ngân sách.
+5. Câu hỏi dạng NHÓM (1 bài đọc + nhiều câu con True/False) - MỖI CÂU CON được tính là 1 "câu" RIÊNG
+   trong hệ thống (xác nhận qua bottom sheet: tap thẳng số "9" ra đúng "Câu 9, 1/10"; số "10" ra
+   "Câu 10, 2/10"; câu 9..18 tương ứng child 1/10..10/10 của nhóm) - đánh số PHẲNG 9..18 trong bottom
+   sheet, không phải "1 câu cha phân trang nội bộ" như nhận định ban đầu. Vì vậy
+   `GROUP_FIRST_CHILD_NO="9"`/`GROUP_LAST_CHILD_NO="18"` verify PASS thật (TC_41). Tổng số LẦN TAP
+   cần để đi hết đề vẫn lớn hơn "tổng số câu" hiển thị do mỗi câu con cần 1 lần tap "Tiếp theo"
+   riêng - đã nâng `COUNT` an toàn cho vòng lặp `STOP_BEFORE_LAST` từ 25 lên 60.
+
+Fixture dùng để chạy PASS thật dưới đây: `DE_NAME_WHOLE_EXAM="tra"` (chuỗi con ASCII của "Đề kiểm
+tra cuối kỳ 1", bản ĐÃ SỬA không gắn phút section), `DE_LIST_TAP_POINT_WHOLE_EXAM="50%,58%"`,
+`SECTION_1_QUESTIONS_BEFORE_LAST="7"` (section 1 = câu 1-8), `LAST_SECTION_FIRST_QUESTION_NO="9"`
+(section cuối bắt đầu câu 9), `GROUP_FIRST_CHILD_NO="9"`, `GROUP_LAST_CHILD_NO="18"` (xem TC_41 -
+mỗi câu con trong nhóm đọc hiểu được tính là 1 "câu" riêng, đánh số phẳng 9..18 trong bottom sheet).
 
 | TC | Tên case | Auto | File |
 | --- | --- | --- | --- |
-| 32 | Màn Doing hiển thị 1 đồng hồ chung, không đồng hồ riêng section | ✅ | `LB-32_to_43-de-khong-section-timer.yaml` |
-| 33 | Đồng hồ chung đếm đúng tổng thời gian, không reset | ✅ (chỉ chụp màn hình) | cùng file trên |
-| 34 | Đồng hồ chung đỏ dưới 5 phút | ✅ (chỉ chụp màn hình) | cùng file trên |
-| 35 | Hết giờ → tự nộp, không popup | Gated | cùng file trên (`RUN_LB35_TIMEOUT_AUTOSUBMIT`) |
-| 36 | Tiến độ tính theo cả đề, không chia section | ✅ | cùng file trên |
-| 37 | "Tiếp theo" giữa section → sang câu kế cùng section | ✅ | cùng file trên |
-| 38 | "Tiếp theo" ở câu cuối section → chuyển THẲNG section kế, không popup | ✅ | cùng file trên |
-| 39 | Nhãn đổi "Nộp bài" ở câu cuối đề | ✅ | cùng file trên |
-| 40 | Bottom sheet cho chọn tự do mọi section, không khoá | ✅ | cùng file trên |
-| 41 | Câu nhóm cha-con tính riêng từng câu con | ✅ (cần biết trước 2 số câu con) | cùng file trên |
-| 42 | Popup Nộp bài - "Nộp bài" → màn Kết quả | ✅ | cùng file trên |
-| 43 | Popup Thoát - "Thoát" → lưu + "Đang làm dở" | ✅ | cùng file trên |
+| 32 | Màn Doing hiển thị 1 đồng hồ chung, không đồng hồ riêng section | **✅ chạy thật PASS (2026-11-18)** | `LB-32_to_43-de-khong-section-timer.yaml` |
+| 33 | Đồng hồ chung đếm đúng tổng thời gian, không reset | **✅ chạy thật PASS** (chỉ chụp màn hình) | cùng file trên |
+| 34 | Đồng hồ chung đỏ dưới 5 phút | **✅ chạy thật PASS** (chỉ chụp màn hình) | cùng file trên |
+| 35 | Hết giờ → tự nộp, không popup | Gated (chưa chạy, `RUN_LB35_TIMEOUT_AUTOSUBMIT`) | cùng file trên |
+| 36 | Tiến độ tính theo cả đề, không chia section | **✅ chạy thật PASS** | cùng file trên |
+| 37 | "Tiếp theo" giữa section → sang câu kế cùng section | **✅ chạy thật PASS** | cùng file trên |
+| 38 | "Tiếp theo" ở câu cuối section → chuyển THẲNG section kế, không popup | **✅ chạy thật PASS** (xác nhận KHÔNG hiện popup "Bạn muốn chuyển phần khác?") | cùng file trên |
+| 39 | Nhãn đổi "Nộp bài" ở câu cuối đề | **✅ chạy thật PASS** | cùng file trên |
+| 40 | Bottom sheet cho chọn tự do mọi section, không khoá | **✅ chạy thật PASS** (tap thẳng câu 9 từ bottom sheet) | cùng file trên |
+| 41 | Câu nhóm cha-con tính riêng từng câu con | **✅ chạy thật PASS** (tap thẳng câu 9/18 từ bottom sheet ra đúng "Câu 9, 1/10"/"Câu 18, 10/10" - mỗi câu con là 1 câu riêng, đánh số phẳng 9..18) | cùng file trên |
+| 42 | Popup Nộp bài - "Nộp bài" → màn Kết quả | **✅ chạy thật PASS** | cùng file trên |
+| 43 | Popup Thoát - "Thoát" → lưu + "Đang làm dở" | **✅ chạy thật PASS** | cùng file trên |
 
 ## III. Rule chung: thời gian/kill app/lưu cục bộ/mất mạng (TC_44..52)
 

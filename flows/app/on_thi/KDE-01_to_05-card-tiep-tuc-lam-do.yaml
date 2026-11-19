@@ -1,0 +1,78 @@
+# KDE-01_to_05 — Card "Tiếp tục bài đang làm dở" (màn Danh sách đề, tab "Kho đề Parrot")
+#
+# Nguồn: "Ôn thi-Kho đề.xlsx" (TC_PAR_DSDE_1..5, Jira PAR-3170) - QA ĐÃ CHẠY THẬT và Pass (ảnh chụp
+# prnt.sc đính kèm xlsx gốc).
+#
+# TÁI SỬ DỤNG `../helpers/open-tab-on-thi.yaml` (ON_THI_TAB="Kho đề Parrot", đã hỗ trợ sẵn sub-tab
+# này từ trước - xem docblock file đó).
+#
+# Tham số (TẤT CẢ OPTIONAL, mỗi khối chỉ chạy khi đủ tham số tương ứng - cùng kỹ thuật "guarded
+# block" đã dùng ở `CD-35_36_37_38_39_40_41-dong-nhat-2-nguon-de.yaml`):
+#   PHONE, OTP
+#   DE_NAME_LAM_DO — TC_1/TC_4: tên 1 đề đang làm dở (chưa nộp, còn thời gian). Nếu KHÔNG truyền,
+#     TC_2 tự chạy (coi như tài khoản hiện KHÔNG có đề nào đang làm dở).
+#   DE_NAME_LAM_DO_2 — TC_3: tên đề BẮT ĐẦU LÀM SAU DE_NAME_LAM_DO (gần nhất) - cần QA tự dàn dựng
+#     2 phiên làm dở đồng thời trước khi chạy khối này.
+#
+# KHÔNG tự động hoá TC_5 (card tự ẩn sau khi hệ thống tự động nộp do hết giờ) - cùng lý do đã ghi
+# nhận ở TEST-CASES.md Ghi chú #3/OT-33 của tab "Đề thầy cô giao": không thực tế chờ hết timer thật
+# trong 1 lượt chạy CI, cần 1 đề test có thời lượng rất ngắn (vài chục giây) do QA tự tạo trên CMS.
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT bằng Maestro (copy text đã QA xác nhận thật qua thao tác tay, xem
+# automation/on_thi/navigation/onThiPageObjects.js#khoDeParrot).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: KDE-01_to_05 Card Tiep tuc bai dang lam do
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: "Kho đề Parrot"
+
+# --- TC_1/TC_4: có đúng 1 đề đang làm dở -> card hiện đúng tên đề + nút "Tiếp tục" đưa vào đúng đề ---
+- runFlow:
+    when:
+      true: ${DE_NAME_LAM_DO != null && DE_NAME_LAM_DO != 'undefined' && DE_NAME_LAM_DO != ''}
+    commands:
+      - assertVisible: "Tiếp tục bài đang làm dở"
+      - assertVisible:
+          text: '.*${DE_NAME_LAM_DO.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          below: "Tiếp tục bài đang làm dở"
+      - takeScreenshot: artifacts/KDE-01-04-continue-card-hien-thi
+      - tapOn:
+          text: "Tiếp tục"
+          below: "Tiếp tục bài đang làm dở"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Thời lượng tối đa|Tổng số câu|Tiếp tục làm bài|Nộp bài).*"
+          timeout: 15000
+      - takeScreenshot: artifacts/KDE-04-tap-tiep-tuc-vao-dung-de
+
+# --- TC_2: KHÔNG có đề nào đang làm dở -> KHÔNG hiển thị card (mặc định khi không truyền tham số) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_LAM_DO == null || DE_NAME_LAM_DO == 'undefined' || DE_NAME_LAM_DO == ''}
+    commands:
+      - assertNotVisible: "Tiếp tục bài đang làm dở"
+      - takeScreenshot: artifacts/KDE-02-khong-hien-thi-continue-card
+
+# --- TC_3: 2 đề đang làm dở đồng thời -> card chỉ hiện đề BẮT ĐẦU GẦN NHẤT ---
+- runFlow:
+    when:
+      true: ${DE_NAME_LAM_DO_2 != null && DE_NAME_LAM_DO_2 != 'undefined' && DE_NAME_LAM_DO_2 != '' && DE_NAME_LAM_DO != null && DE_NAME_LAM_DO != 'undefined' && DE_NAME_LAM_DO != ''}
+    commands:
+      - assertVisible:
+          text: '.*${DE_NAME_LAM_DO_2.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          below: "Tiếp tục bài đang làm dở"
+      - assertNotVisible:
+          text: '.*${DE_NAME_LAM_DO.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          below: "Tiếp tục bài đang làm dở"
+      - takeScreenshot: artifacts/KDE-03-chi-hien-de-gan-nhat

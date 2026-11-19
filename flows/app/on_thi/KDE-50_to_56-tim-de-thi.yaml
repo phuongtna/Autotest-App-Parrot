@@ -1,0 +1,171 @@
+# KDE-50_to_56 — Bottom sheet "Tìm đề thi" (màn Danh sách đề, tab "Kho đề Parrot")
+#
+# Nguồn: "Ôn thi-Kho đề.xlsx" (TC_PAR_DSDE_50..56, Jira PAR-3170) - QA ĐÃ CHẠY THẬT và Pass.
+#
+# TÁI SỬ DỤNG `../helpers/open-kho-de-parrot-search-sheet.yaml`.
+#
+# SỬA LẠI SAU KHI CHẠY THẬT (2026-11-19, FAIL THẬT 2 lần, thiết bị 3201d866d40a1681): bản đầu dùng
+# `eraseText: 30` để xóa nội dung ô tìm kiếm trước khi gõ từ khóa mới (TC_51/TC_55) - KHÔNG hoạt
+# động trên EditText này (xác nhận qua `maestro hierarchy`: field GIỮ NGUYÊN nội dung cũ sau
+# `eraseText`, không báo lỗi gì). Hệ quả: `inputText` kế tiếp bị NỐI VÀO cuối text cũ (vd
+# "zzzkhongtontaReading") thay vì thay thế, khiến tìm kiếm ra "0 kết quả" (không khớp đề nào) VÀ
+# đóng hẳn sheet khi bấm Enter lần 2 liên tiếp trên 1 kết quả rỗng - trông giống lỗi app nhưng THỰC
+# RA là lỗi chọn sai lệnh test. Đổi sang tap đúng nút xóa thật của app
+# (`id: exam_prep_search_clear`, ĐÃ XÁC NHẬN THẬT qua hierarchy - đúng CHÍNH nút mà TC_55 cần test,
+# không phải giải pháp né tránh nữa) - sau khi đổi, toàn bộ chuỗi TC_51 -> 55 -> 56 chạy đúng, xác
+# nhận PASS thật.
+#
+# TC_53/54 KHÔNG cần dữ liệu đặc biệt (từ khóa vô nghĩa / ô trống) - LUÔN chạy được, không guarded.
+#
+# ĐÃ XÁC NHẬN THẬT thêm (cùng lượt chạy): số lượng kết quả dùng resource-id riêng
+# `exam_prep_search_count` (text "N kết quả"), nút đóng sheet dùng resource-id
+# `exam_prep_search_close` (accessibilityText "Đóng") - TC_52 dùng nút này để đóng sheet Tìm trước
+# khi mở lại sheet Lọc để trả bộ lọc về mặc định.
+#
+# Tham số (OPTIONAL, trừ TC_53/54):
+#   PHONE, OTP
+#   SEARCH_KEYWORD, SEARCH_RESULT_DE_NAME, SEARCH_RESULT_SUBTEXT — TC_51/55/56: 1 từ khóa khớp
+#     ĐÚNG 1 đề công khai (vd keyword "Reading", tên đề "Đề thi Reading", subtext "5 phút - 10 câu" -
+#     ĐÃ XÁC NHẬN THẬT khớp 1 đề có sẵn trên tài khoản PHONE mặc định lúc viết file này).
+#   EXAM_TYPE_FILTER_UNRELATED, SEARCH_KEYWORD_52, SEARCH_RESULT_DE_NAME_52 — TC_52: áp dụng 1 Loại
+#     kỳ thi KHÔNG khớp đề đích trước, rồi tìm kiếm vẫn phải ra đúng kết quả (phạm vi tìm kiếm =
+#     toàn bộ tab, không bị giới hạn bởi bộ lọc danh sách).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: KDE-50_to_56 Bottom sheet Tim de thi
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: "Kho đề Parrot"
+
+# --- TC_50: tap icon Tìm kiếm mở đúng sheet, placeholder đúng ---
+- runFlow: ../helpers/open-kho-de-parrot-search-sheet.yaml
+- assertVisible:
+    id: "exam_prep_search_sheet"
+- assertVisible: "Nhập tên đề thi"
+- takeScreenshot: artifacts/KDE-50-mo-sheet-tim-de-thi
+
+# --- TC_54: ô tìm kiếm không bắt buộc, bấm Enter khi trống không báo lỗi ---
+# LƯU Ý (2026-11-19, quan sát thật KHÔNG ỔN ĐỊNH qua nhiều lượt chạy): bấm Enter khi ô tìm kiếm
+# đang TRỐNG có lúc đóng hẳn sheet (không chỉ "không báo lỗi" như spec mô tả) - assertVisible dùng
+# `id: exam_prep_search_sheet` (KHÔNG dùng text "Tìm đề thi" - text đó CŨNG là accessibilityText của
+# icon Tìm kiếm ở màn danh sách, khớp giả ngay cả khi sheet đã đóng, từng gây 1 lượt PASS SAI) để
+# báo đúng kết quả thật của case này.
+- tapOn:
+    id: "exam_prep_search_input"
+- pressKey: "Enter"
+- assertNotVisible: ".*(bắt buộc|Vui lòng nhập).*"
+- assertVisible:
+    id: "exam_prep_search_sheet"
+- takeScreenshot: artifacts/KDE-54-enter-khi-trong-khong-loi
+
+# --- TC_53: từ khóa không khớp đề nào -> "Không tìm thấy đề phù hợp" ---
+# Chủ động tap lại ô nhập (KHÔNG giả định sheet/focus còn nguyên từ TC_54 - xem lưu ý trên, nếu sheet
+# đã bị đóng ở bước trước, lỗi sẽ hiện RÕ ngay tại đây thay vì trôi xuống làm case này FAIL SAI).
+- tapOn:
+    id: "exam_prep_search_input"
+- inputText: "zzzkhongtonta"
+- pressKey: "Enter"
+- extendedWaitUntil:
+    visible: "Không tìm thấy đề phù hợp"
+    timeout: 10000
+- takeScreenshot: artifacts/KDE-53-khong-tim-thay-de-phu-hop
+
+# --- TC_51: tìm theo từ khóa khớp đúng 1 đề -> "1 kết quả" + tên đề + subtext ---
+- runFlow:
+    when:
+      true: ${SEARCH_KEYWORD != null && SEARCH_KEYWORD != 'undefined' && SEARCH_KEYWORD != ''}
+    commands:
+      - tapOn:
+          id: "exam_prep_search_clear"
+      - inputText: ${SEARCH_KEYWORD}
+      - pressKey: "Enter"
+      - extendedWaitUntil:
+          visible: "1 kết quả"
+          timeout: 10000
+      - assertVisible:
+          text: '.*${SEARCH_RESULT_DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - runFlow:
+          when:
+            true: ${SEARCH_RESULT_SUBTEXT != null && SEARCH_RESULT_SUBTEXT != 'undefined' && SEARCH_RESULT_SUBTEXT != ''}
+          commands:
+            - assertVisible:
+                text: ${SEARCH_RESULT_SUBTEXT}
+                below: '.*${SEARCH_RESULT_DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/KDE-51-tim-kiem-co-ket-qua
+
+      # --- TC_55: bấm nút xóa nội dung ô tìm kiếm -> trống, kết quả biến mất, trở về hướng dẫn ban đầu ---
+      - tapOn:
+          id: "exam_prep_search_clear"
+      - assertNotVisible: "1 kết quả"
+      - assertVisible: "Nhập tên đề thi"
+      - takeScreenshot: artifacts/KDE-55-xoa-noi-dung-tim-kiem
+
+      # --- TC_56: bấm chọn dòng kết quả -> chuyển đúng sang màn Thông tin đề ---
+      - inputText: ${SEARCH_KEYWORD}
+      - pressKey: "Enter"
+      - extendedWaitUntil:
+          visible: "1 kết quả"
+          timeout: 10000
+      - tapOn:
+          text: '.*${SEARCH_RESULT_DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Thời lượng tối đa|Tổng số câu|Bắt đầu làm bài|Tiếp tục làm bài).*"
+          timeout: 15000
+      - takeScreenshot: artifacts/KDE-56-chon-ket-qua-vao-thong-tin-de
+      # TC_56 đã điều hướng sang màn "Thông tin đề" - quay lại màn Danh sách đề trước khi TC_52 cần
+      # dùng icon Lọc/Tìm kiếm (2 icon đó chỉ có ở màn Danh sách đề). `back` từ màn Thông tin đề chỉ
+      # trả về ĐÚNG sheet "Tìm đề thi" vẫn đang mở (KHÔNG về thẳng màn Danh sách đề) - xác nhận thật
+      # qua `maestro hierarchy` - cần đóng thêm sheet này bằng nút "Đóng".
+      - back
+      - tapOn:
+          id: "exam_prep_search_close"
+          optional: true
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_filter_trigger"
+          timeout: 15000
+
+# --- TC_52: tìm kiếm trên TOÀN BỘ tab, không áp dụng bộ lọc danh sách đang chọn ---
+- runFlow:
+    when:
+      true: ${EXAM_TYPE_FILTER_UNRELATED != null && EXAM_TYPE_FILTER_UNRELATED != 'undefined' && EXAM_TYPE_FILTER_UNRELATED != '' && SEARCH_KEYWORD_52 != null && SEARCH_KEYWORD_52 != 'undefined' && SEARCH_KEYWORD_52 != ''}
+    commands:
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_FILTER_UNRELATED}
+      - tapOn:
+          id: "exam_prep_filter_confirm"
+      - runFlow: ../helpers/open-kho-de-parrot-search-sheet.yaml
+      - inputText: ${SEARCH_KEYWORD_52}
+      - pressKey: "Enter"
+      - extendedWaitUntil:
+          visible: "1 kết quả"
+          timeout: 10000
+      - assertVisible:
+          text: '.*${SEARCH_RESULT_DE_NAME_52.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/KDE-52-tim-kiem-khong-bi-gioi-han-boi-filter
+      # Trả bộ lọc Loại kỳ thi về mặc định trước khi kết thúc flow (đã đổi khác mặc định ở đầu khối)
+      - tapOn:
+          id: "exam_prep_search_close"
+          optional: true
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_all"
+      - tapOn:
+          id: "exam_prep_filter_confirm"

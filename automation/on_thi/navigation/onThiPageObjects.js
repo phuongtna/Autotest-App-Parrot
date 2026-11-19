@@ -236,4 +236,114 @@ export const onThiPageObjects = {
     chooseAnotherButton: "Chọn đề khác",
     retryButton: "Làm lại",
   },
+
+  /**
+   * Màn Danh sách đề - tab "Kho đề Parrot" (RIÊNG, khác hẳn `list` ở trên vốn mô tả tab "Đề thầy cô
+   * giao" - không dùng chung dropdown "2 tuần/1 tháng gần nhất", card không có CTA "Làm bài/Làm
+   * tiếp" ngay trên danh sách, phải tap thẳng vào card để mở "Thông tin đề" - xem memory
+   * `project_on_thi_kho_de_parrot_vs_de_thay_co_giao_navigation`).
+   *
+   * NGUỒN: "Ôn thi-Kho đề.xlsx" (TC_PAR_DSDE_1..56, Jira PAR-3170) - QA ĐÃ CHẠY THẬT và Pass trên
+   * thiết bị thật (kèm ảnh chụp prnt.sc), nên MỌI chuỗi text dưới đây là NGUYÊN VĂN COPY ĐÃ XÁC
+   * NHẬN THẬT (không suy đoán) - CÙNG MỨC ĐỘ TIN CẬY với `examInfo` (phần có ghi "THÊM MỚI
+   * 2026-11-04"). KHÁC với mức tin cậy đó: TOÀN BỘ selector/cơ chế TAP các control dưới đây (đặc
+   * biệt 2 icon Lọc/Tìm kiếm - không có text, chỉ có icon) CHƯA từng chạy qua `maestro
+   * test`/MaestroBridge/`maestro hierarchy` thật lần nào - PHẢI đối chiếu lại trước khi tin tưởng
+   * 1 lượt FAIL ở bước tap icon là lỗi app thật.
+   */
+  khoDeParrot: {
+    list: {
+      // Card đặc biệt ở đầu danh sách khi có đúng 1 đề đang làm dở gần nhất (TC_1..5).
+      continueCard: {
+        title: "Tiếp tục bài đang làm dở",
+        continueButton: "Tiếp tục",
+      },
+      // Label "N đề" cạnh 2 icon Lọc/Tìm kiếm (TC_6..8) - CÙNG pattern `list.countLabelPattern` ở
+      // trên, tách field riêng cho rõ ràng vì 2 tab dùng UI khác nhau dù chung định dạng text.
+      countLabelPattern: "\\d+ đề",
+      // Mỗi Card đề (TC_9..24): badge Loại kỳ thi, badge "Pro" (optional), Tên đề, "N phút", "N
+      // câu", nhãn trạng thái (optional: "Đang làm dở" | "Đã hoàn thành" kèm "Điểm số: N").
+      proBadge: "Pro",
+      durationPattern: "\\d+ phút",
+      totalQuestionsPattern: "\\d+ câu",
+      statusInProgress: "Đang làm dở",
+      statusCompleted: "Đã hoàn thành",
+      scoreLabelPattern: "Điểm số: [\\d.]+",
+      // ĐÃ XÁC NHẬN THẬT qua `maestro hierarchy` (2026-11-19, thiết bị 3201d866d40a1681) - 2 icon
+      // dùng resource-id riêng, accessibilityText là NGUYÊN VĂN TIÊU ĐỀ sheet tương ứng (không phải
+      // tên ngắn "Lọc"/"Tìm kiếm" như đoán ban đầu - đoán ban đầu SAI, đã FAIL thật 1 lần trước khi
+      // sửa).
+      filterIconId: "exam_prep_filter_trigger",
+      searchIconId: "exam_prep_search_trigger",
+      // Mỗi Card đề dùng resource-id riêng `exam_prep_catalog_<uuid>` (không đoán được, đổi theo
+      // từng bản ghi đề). SỬA LẠI (2026-11-19, dump `maestro hierarchy` đầy đủ hơn lần đầu): claim
+      // cũ "badge Loại kỳ thi KHÔNG xuất hiện như text riêng" SAI - badge "Loại kỳ thi" (vd "Kỳ thi
+      // đánh giá năng lực tiếng Anh") LÀ 1 text node RIÊNG, hiển thị THẬT trên mọi card quan sát
+      // được (xem ảnh chụp `KDE-50-mo-sheet-tim-de-thi`/screenshot thật) - lần đọc đầu chỉ lọc nhầm
+      // qua danh sách accessibilityText gộp của node cha, bỏ sót node con riêng này.
+      // "N phút - M câu" vẫn là 1 CHUỖI GỘP DUY NHẤT (không phải 2 badge tách rời). SỬA LẠI THÊM
+      // (FAIL THẬT xác nhận ở KDE-09_to_16 TC_10): claim cũ "assertion tách riêng vẫn khớp được vì
+      // Maestro match theo substring" SAI - Maestro match `text` theo FULL text của node (anchored),
+      // không phải substring, nên assert riêng "2 phút" trên node có full text "2 phút - 20 câu"
+      // luôn FAIL. `durationPattern`/`totalQuestionsPattern` dưới đây CHỈ dùng được khi tự ghép
+      // thành 1 regex đủ "${N} phút - ${M} câu" (hoặc dùng `.*` bao quanh), KHÔNG dùng riêng lẻ.
+    },
+    // Bottom sheet "Lọc đề thi" (TC_33..49) - RIÊNG, khác hẳn `filterSheet` ở trên (dropdown "Xem đề
+    // theo" của tab Đề thầy cô giao) - sheet này có 2 TAB con (Loại kỳ thi/Lớp), không phải dropdown.
+    khoDeFilterSheet: {
+      title: "Lọc đề thi",
+      tabExamType: "Loại kỳ thi",
+      tabClass: "Lớp",
+      optionAllExamTypes: "Tất cả kỳ thi",
+      optionAllClasses: "Tất cả các lớp",
+      confirmButton: "Xác nhận",
+      // ĐÃ XÁC NHẬN THẬT qua `maestro hierarchy` (2026-11-19, thiết bị 3201d866d40a1681, tài khoản
+      // PHONE/profile "Gia Linh" lớp 5) - toàn bộ checkbox KHÔNG đọc được trạng thái tick qua
+      // `selected` (SAI, đã FAIL thật) - phải dùng `checked` + chọn ĐÚNG node bằng `id` (text/
+      // accessibilityText trùng tên hiển thị match CẢ node checkbox LẪN 1 TextView nhãn con không
+      // mang trạng thái, gây đọc nhầm nếu chỉ lọc bằng text). Mẫu dùng ĐÃ XÁC NHẬN tap/assert đúng:
+      //   { id: "exam_prep_filter_option_examTypes_.*", text: "<tên kỳ thi>", checked: true/false }
+      //   { id: "exam_prep_filter_option_grades_<N>", checked: true/false }  (N = số, "all" cho
+      //     "Tất cả các lớp" - id Lớp DỰ ĐOÁN ĐƯỢC theo số, KHÁC id Loại kỳ thi dùng UUID ngẫu nhiên
+      //     không suy ra được từ tên hiển thị).
+      tabExamTypeId: "exam_prep_filter_tab_examTypes",
+      tabClassId: "exam_prep_filter_tab_grades",
+      optionAllExamTypesId: "exam_prep_filter_option_examTypes_all",
+      optionExamTypeIdPattern: "exam_prep_filter_option_examTypes_.*",
+      optionAllClassesId: "exam_prep_filter_option_grades_all",
+      // id Lớp cụ thể = "exam_prep_filter_option_grades_" + số (vd Lớp 5 -> "..._grades_5").
+      optionClassIdPrefix: "exam_prep_filter_option_grades_",
+      confirmButtonId: "exam_prep_filter_confirm",
+      // CHƯA XÁC NHẬN ĐƯỢC (TC_45): đã tick 2 khối (Lớp 4 + Lớp 5) RỒI BẤM "Xác nhận" RỒI mở lại
+      // sheet - tên tab "Lớp" vẫn hiển thị NGUYÊN VĂN "Lớp" (KHÔNG có hậu tố "(2)" nào ở bất kỳ node
+      // text nào xung quanh, đối chiếu toàn bộ `maestro hierarchy` lúc đó) - khác kỳ vọng BA note
+      // "Lớp (N)". CẦN BÁO LẠI PM/dev xác nhận đây là feature chưa làm hay badge hiển thị ở vị trí
+      // khác - KHÔNG xoá case TC_45 khỏi bộ test (giữ lại để phát hiện lại khi feature được thêm).
+      classTabCountPattern: "Lớp \\(\\d+\\)",
+      // PHÁT HIỆN THẬT khác với kỳ vọng TC_34/35 (2026-11-19): có 1 badge số (text "1") xuất hiện ở
+      // góc trên-phải màn danh sách (gần icon Lọc) NGAY CẢ KHI chưa từng đổi bộ lọc (đúng trạng thái
+      // mặc định "Tất cả kỳ thi" + khối lớp theo profile, xác nhận qua lượt `maestro hierarchy` đầu
+      // tiên của phiên làm việc, TRƯỚC khi đụng vào bất kỳ control nào) - khác thẳng kỳ vọng TC_35
+      // ("không hiển thị badge khi ở mặc định"). Sau khi đổi thêm vài lựa chọn, số badge đổi thành
+      // "3" - CHƯA xác định được công thức đếm thật (có thể badge này KHÔNG LIÊN QUAN đến bộ lọc Lọc
+      // đề thi, mà là 1 chỉ số khác của màn - CẦN hỏi lại PM/dev trước khi coi TC_34/35 là Pass hay
+      // Fail thật). TẠM giữ case ở mức "chỉ chụp màn hình", KHÔNG assert cứng theo đúng kỳ vọng gốc.
+    },
+    // Bottom sheet "Tìm đề thi" (TC_50..56).
+    khoDeSearchSheet: {
+      title: "Tìm đề thi",
+      inputPlaceholder: "Nhập tên đề thi",
+      noResultText: "Không tìm thấy đề phù hợp",
+      resultCountPattern: "\\d+ kết quả",
+      // ĐÃ XÁC NHẬN THẬT qua `maestro hierarchy` (2026-11-19). `clearButtonId` là nút "x" THẬT của
+      // app (TC_55) - `eraseText` (lệnh Maestro) FAIL THẬT trên EditText này (không xóa được nội
+      // dung, text cũ bị giữ nguyên và ký tự mới gõ thêm bị NỐI VÀO cuối) - PHẢI tap đúng nút này,
+      // không dùng `eraseText`.
+      sheetId: "exam_prep_search_sheet",
+      inputId: "exam_prep_search_input",
+      clearButtonId: "exam_prep_search_clear",
+      closeButtonId: "exam_prep_search_close",
+      resultCountId: "exam_prep_search_count",
+    },
+  },
 };

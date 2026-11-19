@@ -1,0 +1,25 @@
+# Helper: TẠI màn Danh sách đề (tab "Kho đề Parrot", đã mở sẵn - xem open-tab-on-thi.yaml) - tap
+# icon Tìm kiếm để mở bottom sheet "Tìm đề thi", chờ sheet render xong (ô nhập + placeholder "Nhập
+# tên đề thi"). IDEMPOTENT - bỏ qua bước tap nếu sheet đã đang mở sẵn (tránh tap nhầm TOGGLE ĐÓNG
+# lại icon bị sheet che khuất phía sau).
+#
+# Tiền đề: đang đứng ở màn Danh sách đề, tab "Kho đề Parrot".
+# Kết thúc: sheet "Tìm đề thi" đang mở (ô tìm kiếm GIỮ NGUYÊN nội dung cũ nếu sheet đã mở sẵn từ
+# trước, chỉ trống khi đây là lần mở đầu tiên).
+#
+# ĐÃ VERIFY THẬT qua `maestro hierarchy` (2026-11-19, thiết bị 3201d866d40a1681) - icon Tìm kiếm
+# dùng resource-id `exam_prep_search_trigger`, sheet dùng resource-id `exam_prep_search_sheet`
+# (xem onThiPageObjects.js#khoDeParrot.khoDeSearchSheet).
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      notVisible:
+        id: "exam_prep_search_sheet"
+    commands:
+      - tapOn:
+          id: "exam_prep_search_trigger"
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_search_sheet"
+    timeout: 10000

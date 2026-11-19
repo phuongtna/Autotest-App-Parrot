@@ -1,0 +1,146 @@
+# KDE-17_to_24 — Rule trạng thái đề (Đang làm dở/Đã hoàn thành) & hiển thị Điểm số trên Card (màn
+# Danh sách đề, tab "Kho đề Parrot")
+#
+# Nguồn: "Ôn thi-Kho đề.xlsx" (TC_PAR_DSDE_17..24, Jira PAR-3170) - QA ĐÃ CHẠY THẬT và Pass.
+#
+# KHÔNG tự động hoá TC_20/TC_24 (chuyển trạng thái/điểm số NGAY SAU KHI hệ thống tự động nộp do hết
+# giờ) - không thực tế chờ hết timer thật trong 1 lượt CI, cần 1 đề test có thời lượng rất ngắn (vài
+# chục giây) do QA tự tạo trên CMS trước, CÙNG giới hạn đã ghi nhận ở OT-33 (tab Đề thầy cô giao).
+#
+# TC_18/TC_23 CHUNG 1 precondition (đề đã hoàn thành 1 lần, đang Làm lại dở dang lần 2) nên gộp
+# chung 1 khối assertion (trạng thái "Đang làm dở" ưu tiên hơn + KHÔNG hiển thị dòng Điểm số).
+#
+# Tham số (TẤT CẢ OPTIONAL):
+#   PHONE, OTP
+#   DE_NAME_COMPLETED_ONLY — TC_17: đã hoàn thành 1 lần, không có phiên làm dở nào khác.
+#   DE_NAME_RETRY_IN_PROGRESS — TC_18/TC_23: đã hoàn thành 1 lần TRƯỚC ĐÓ, hiện đang Làm lại dở dang
+#     (chưa nộp lần 2).
+#   DE_NAME_NEVER_DONE — TC_19: chưa từng làm lần nào.
+#   DE_NAME_SCORE_CHECK, EXPECTED_SCORE — TC_21: đã hoàn thành 1 lần với điểm biết trước (vd "6.5").
+#   DE_NAME_MULTI_ATTEMPT, EXPECTED_HIGHEST_SCORE — TC_22: đã hoàn thành ≥2 lần, biết trước điểm
+#     CAO NHẤT (không phải điểm lần gần nhất) trong các lần đã làm.
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT bằng Maestro.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: KDE-17_to_24 Rule trang thai de va diem so
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: "Kho đề Parrot"
+
+# --- TC_17: hoàn thành, không phiên dở -> "Đã hoàn thành" ---
+- runFlow:
+    when:
+      true: ${DE_NAME_COMPLETED_ONLY != null && DE_NAME_COMPLETED_ONLY != 'undefined' && DE_NAME_COMPLETED_ONLY != ''}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: '.*${DE_NAME_COMPLETED_ONLY.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 60000
+          speed: 70
+          waitToSettleTimeoutMs: 500
+      - assertVisible:
+          text: "Đã hoàn thành"
+          below:
+            text: '.*${DE_NAME_COMPLETED_ONLY.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/KDE-17-da-hoan-thanh
+
+# --- TC_18/TC_23: từng hoàn thành + đang Làm lại dở dang -> "Đang làm dở" (ưu tiên), KHÔNG hiển thị
+# dòng Điểm số của lần trước ---
+- runFlow:
+    when:
+      true: ${DE_NAME_RETRY_IN_PROGRESS != null && DE_NAME_RETRY_IN_PROGRESS != 'undefined' && DE_NAME_RETRY_IN_PROGRESS != ''}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: '.*${DE_NAME_RETRY_IN_PROGRESS.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 60000
+          speed: 70
+          waitToSettleTimeoutMs: 500
+      - assertVisible:
+          text: "Đang làm dở"
+          below:
+            text: '.*${DE_NAME_RETRY_IN_PROGRESS.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - assertNotVisible:
+          text: "Đã hoàn thành"
+          below:
+            text: '.*${DE_NAME_RETRY_IN_PROGRESS.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - assertNotVisible:
+          text: "Điểm số:.*"
+          below:
+            text: '.*${DE_NAME_RETRY_IN_PROGRESS.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/KDE-18-23-dang-lam-do-uu-tien
+
+# --- TC_19: chưa từng làm -> không hiển thị trạng thái nào ---
+- runFlow:
+    when:
+      true: ${DE_NAME_NEVER_DONE != null && DE_NAME_NEVER_DONE != 'undefined' && DE_NAME_NEVER_DONE != ''}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: '.*${DE_NAME_NEVER_DONE.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 60000
+          speed: 70
+          waitToSettleTimeoutMs: 500
+      - assertNotVisible:
+          text: ".*(Đang làm dở|Đã hoàn thành).*"
+          below:
+            text: '.*${DE_NAME_NEVER_DONE.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/KDE-19-chua-tung-lam-khong-trang-thai
+
+# --- TC_21: hoàn thành 1 lần -> "Điểm số: X" đúng điểm đã làm ---
+- runFlow:
+    when:
+      true: ${DE_NAME_SCORE_CHECK != null && DE_NAME_SCORE_CHECK != 'undefined' && DE_NAME_SCORE_CHECK != ''}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: '.*${DE_NAME_SCORE_CHECK.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 60000
+          speed: 70
+          waitToSettleTimeoutMs: 500
+      - assertVisible:
+          text: "Đã hoàn thành"
+          below:
+            text: '.*${DE_NAME_SCORE_CHECK.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - runFlow:
+          when:
+            true: ${EXPECTED_SCORE != null && EXPECTED_SCORE != 'undefined' && EXPECTED_SCORE != ''}
+          commands:
+            - assertVisible:
+                text: "Điểm số: ${EXPECTED_SCORE}"
+                below:
+                  text: '.*${DE_NAME_SCORE_CHECK.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/KDE-21-diem-so-hien-thi-dung
+
+# --- TC_22: hoàn thành nhiều lần -> hiển thị điểm CAO NHẤT, không phải điểm lần gần nhất ---
+- runFlow:
+    when:
+      true: ${DE_NAME_MULTI_ATTEMPT != null && DE_NAME_MULTI_ATTEMPT != 'undefined' && DE_NAME_MULTI_ATTEMPT != '' && EXPECTED_HIGHEST_SCORE != null && EXPECTED_HIGHEST_SCORE != 'undefined' && EXPECTED_HIGHEST_SCORE != ''}
+    commands:
+      - scrollUntilVisible:
+          element:
+            text: '.*${DE_NAME_MULTI_ATTEMPT.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+          direction: DOWN
+          timeout: 60000
+          speed: 70
+          waitToSettleTimeoutMs: 500
+      - assertVisible:
+          text: "Điểm số: ${EXPECTED_HIGHEST_SCORE}"
+          below:
+            text: '.*${DE_NAME_MULTI_ATTEMPT.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - takeScreenshot: artifacts/KDE-22-diem-cao-nhat

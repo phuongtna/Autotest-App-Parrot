@@ -1,0 +1,234 @@
+# KDE-25_to_32 — Rule phân quyền truy cập theo gói (Free/Pro/Dùng thử) trên đề Kho đề Parrot
+#
+# Nguồn: "Ôn thi-Kho đề.xlsx" (TC_PAR_DSDE_25..32, Jira PAR-3170) - QA ĐÃ CHẠY THẬT và Pass.
+#
+# TÁI SỬ DỤNG `../helpers/ensure-profile-active.yaml` (PROFILE_BASIC_NAME="Gia Linh"=Free,
+# PROFILE_PRO_NAME="Ngoc"=Pro - cùng 1 tài khoản PHONE, xem test_data/accounts.env) +
+# `../helpers/open-de.yaml` (ON_THI_TAB="Kho đề Parrot") + `../helpers/answer-current-exercise-generic.yaml`
+# + `../helpers/answer-and-wait-result.yaml` (CÙNG CÁCH `OT-34_35-qua-han-nop-flow.yaml` hoàn thành
+# 1 lượt làm bài đầy đủ) - không viết lại cơ chế trả lời câu hỏi.
+#
+# CHỈ VERIFY PHẦN "có bị chặn vào làm/dùng tính năng hay không" (đủ cho mục đích rule phân quyền) -
+# KHÔNG verify sâu "AI giải thích/Làm lại hoạt động ĐÚNG NỘI DUNG" cho TC_29/30 (quá rộng, thuộc
+# phạm vi các bộ TC khác của màn Kết quả/Chi tiết bài đã làm).
+#
+# KHÔNG có tài khoản "Dùng thử" (Trial) hay tài khoản "đã hết hạn Pro" nào trong
+# `test_data/accounts.env` tại thời điểm viết file này -> TC_30/31/32 để OPTIONAL hoàn toàn (guarded
+# theo PHONE_TRIAL/PHONE_EXPIRED_PRO, KHÔNG chạy nếu không truyền) - QA cần tạo tài khoản tương ứng
+# rồi truyền tham số khi có.
+#
+# Tham số (TẤT CẢ OPTIONAL):
+#   PHONE, OTP (tài khoản 2 hồ sơ Free/Pro hiện có, mặc định dùng test_data/accounts.env nếu không
+#     truyền - xem run_tests.sh)
+#   DE_NAME_FREE — TC_25: đề Free, CHƯA từng làm bằng hồ sơ Free.
+#   DE_NAME_FREE_COMPLETED — TC_26/TC_27: đề Free ĐÃ hoàn thành 1 lần bằng hồ sơ Free (dùng để test
+#     chặn "Làm lại" ở màn Thông tin đề + chặn AI giải thích ở màn Chi tiết bài đã làm).
+#   DE_NAME_PRO — TC_28/TC_29: đề được gắn Pro trên CMS.
+#   PHONE_TRIAL, OTP_TRIAL, DE_NAME_PRO_TRIAL — TC_30 (optional, cần tài khoản Dùng thử thật).
+#   PHONE_EXPIRED_PRO, OTP_EXPIRED_PRO, DE_NAME_PRO_EXPIRED, EXPECTED_SCORE_EXPIRED — TC_31/32
+#     (optional, cần tài khoản đã hết hạn Pro/Dùng thử, đã có lịch sử làm 1 đề Pro từ trước).
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT bằng Maestro - đặc biệt nút "Giải thích" (TC_27/32) tái sử dụng
+# đúng text đã verify thật ở module Bài tập (`automation/bai_tap/navigation/homeworkPageObjects.js
+# #explanationButton`), CHƯA xác nhận module Ôn thi/Kho đề Parrot dùng chung đúng text này.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: KDE-25_to_32 Rule phan quyen truy cap theo goi
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+
+# --- TC_25: Free làm được đề Free bình thường (không bị chặn/không hiện bottom sheet nâng cấp) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_FREE != null && DE_NAME_FREE != 'undefined' && DE_NAME_FREE != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/ensure-profile-active.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            TARGET_PROFILE_NAME: ${PROFILE_BASIC_NAME}
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_FREE}
+            ON_THI_TAB: "Kho đề Parrot"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertNotVisible: ".*(Nâng cấp).*"
+      - tapOn: "Bắt đầu làm bài"
+      - runFlow:
+          when:
+            visible: "Bắt đầu làm bài?"
+          commands:
+            - tapOn: "Bắt đầu"
+      - assertNotVisible: ".*(Nâng cấp).*"
+      - extendedWaitUntil:
+          visible:
+            text: ".*(Kiểm tra|Tiếp theo|Tiếp tục|Nhấn để nói|Nhập câu trả lời).*"
+          timeout: 20000
+      - takeScreenshot: artifacts/KDE-25-free-lam-duoc-de-free
+
+# --- TC_26: Free bị chặn "Làm lại" trên đề Free đã hoàn thành ---
+- runFlow:
+    when:
+      true: ${DE_NAME_FREE_COMPLETED != null && DE_NAME_FREE_COMPLETED != 'undefined' && DE_NAME_FREE_COMPLETED != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/ensure-profile-active.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            TARGET_PROFILE_NAME: ${PROFILE_BASIC_NAME}
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_FREE_COMPLETED}
+            ON_THI_TAB: "Kho đề Parrot"
+            STOP_AT_INFO_SCREEN: "true"
+      - runFlow:
+          when:
+            visible: "Làm lại"
+          commands:
+            - tapOn: "Làm lại"
+            - extendedWaitUntil:
+                visible: ".*(Nâng cấp).*"
+                timeout: 10000
+            - assertVisible: ".*(Nâng cấp).*"
+      - takeScreenshot: artifacts/KDE-26-free-bi-chan-lam-lai
+
+# --- TC_27: Free bị chặn AI giải thích trên đề Free đã hoàn thành ---
+- runFlow:
+    when:
+      true: ${DE_NAME_FREE_COMPLETED != null && DE_NAME_FREE_COMPLETED != 'undefined' && DE_NAME_FREE_COMPLETED != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/ensure-profile-active.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            TARGET_PROFILE_NAME: ${PROFILE_BASIC_NAME}
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: "Kho đề Parrot"
+            DE_NAME: ${DE_NAME_FREE_COMPLETED}
+      - runFlow:
+          when:
+            visible: "Giải thích"
+          commands:
+            - tapOn: "Giải thích"
+            - extendedWaitUntil:
+                visible: ".*(Nâng cấp).*"
+                timeout: 10000
+            - assertVisible: ".*(Nâng cấp).*"
+      - takeScreenshot: artifacts/KDE-27-free-bi-chan-giai-thich
+
+# --- TC_28: Free xem được Thông tin đề Pro, nhưng bấm "Bắt đầu làm bài" bị chặn ---
+- runFlow:
+    when:
+      true: ${DE_NAME_PRO != null && DE_NAME_PRO != 'undefined' && DE_NAME_PRO != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/ensure-profile-active.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            TARGET_PROFILE_NAME: ${PROFILE_BASIC_NAME}
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_PRO}
+            ON_THI_TAB: "Kho đề Parrot"
+            STOP_AT_INFO_SCREEN: "true"
+      - assertVisible: "Thời lượng tối đa"
+      - assertVisible: "Tổng số câu"
+      - takeScreenshot: artifacts/KDE-28-free-xem-duoc-thong-tin-de-pro
+      - tapOn: "Bắt đầu làm bài"
+      - extendedWaitUntil:
+          visible: ".*(Nâng cấp).*"
+          timeout: 10000
+      - assertVisible: ".*(Nâng cấp).*"
+      - takeScreenshot: artifacts/KDE-28-free-bi-chan-bat-dau-de-pro
+
+# --- TC_29: Pro làm Pro không giới hạn (vào làm + nộp bình thường, Làm lại/Xem lại không bị chặn) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_PRO != null && DE_NAME_PRO != 'undefined' && DE_NAME_PRO != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/ensure-profile-active.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+            TARGET_PROFILE_NAME: ${PROFILE_PRO_NAME}
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_PRO}
+            ON_THI_TAB: "Kho đề Parrot"
+      - assertNotVisible: ".*(Nâng cấp).*"
+      - runFlow: ../helpers/answer-current-exercise-generic.yaml
+      - runFlow: ../helpers/answer-and-wait-result.yaml
+      - assertNotVisible: ".*(Nâng cấp).*"
+      - assertVisible: "Làm lại"
+      - assertVisible: "Xem lại bài đã làm"
+      - takeScreenshot: artifacts/KDE-29-pro-khong-gioi-han
+
+# --- TC_30: Dùng thử làm Pro như Pro (OPTIONAL - cần tài khoản Dùng thử thật, xem docblock) ---
+- runFlow:
+    when:
+      true: ${PHONE_TRIAL != null && PHONE_TRIAL != 'undefined' && PHONE_TRIAL != '' && DE_NAME_PRO_TRIAL != null && DE_NAME_PRO_TRIAL != 'undefined' && DE_NAME_PRO_TRIAL != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            PHONE: ${PHONE_TRIAL}
+            OTP: ${OTP_TRIAL}
+            DE_NAME: ${DE_NAME_PRO_TRIAL}
+            ON_THI_TAB: "Kho đề Parrot"
+      - assertNotVisible: ".*(Nâng cấp).*"
+      - runFlow: ../helpers/answer-current-exercise-generic.yaml
+      - runFlow: ../helpers/answer-and-wait-result.yaml
+      - assertNotVisible: ".*(Nâng cấp).*"
+      - takeScreenshot: artifacts/KDE-30-dung-thu-nhu-pro
+
+# --- TC_31/32: tài khoản đã hết hạn Pro/Dùng thử (OPTIONAL - cần tài khoản thật, xem docblock) ---
+- runFlow:
+    when:
+      true: ${PHONE_EXPIRED_PRO != null && PHONE_EXPIRED_PRO != 'undefined' && PHONE_EXPIRED_PRO != '' && DE_NAME_PRO_EXPIRED != null && DE_NAME_PRO_EXPIRED != 'undefined' && DE_NAME_PRO_EXPIRED != ''}
+    commands:
+      - runFlow: ../helpers/launch-keep-session.yaml
+      - runFlow:
+          file: ../helpers/login.yaml
+          env:
+            PHONE: ${PHONE_EXPIRED_PRO}
+            OTP: ${OTP_EXPIRED_PRO}
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: "Kho đề Parrot"
+            DE_NAME: ${DE_NAME_PRO_EXPIRED}
+      # TC_31: vẫn xem được điểm số + đáp án đúng/sai
+      - runFlow:
+          when:
+            true: ${EXPECTED_SCORE_EXPIRED != null && EXPECTED_SCORE_EXPIRED != 'undefined' && EXPECTED_SCORE_EXPIRED != ''}
+          commands:
+            - assertVisible: "Điểm.*${EXPECTED_SCORE_EXPIRED}.*"
+      - takeScreenshot: artifacts/KDE-31-het-han-van-xem-duoc-ket-qua
+      # TC_32: AI giải thích bị chặn
+      - runFlow:
+          when:
+            visible: "Giải thích"
+          commands:
+            - tapOn: "Giải thích"
+            - extendedWaitUntil:
+                visible: ".*(Nâng cấp).*"
+                timeout: 10000
+            - assertVisible: ".*(Nâng cấp).*"
+      - takeScreenshot: artifacts/KDE-32-het-han-bi-chan-giai-thich

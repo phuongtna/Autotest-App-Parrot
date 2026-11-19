@@ -1,0 +1,178 @@
+# KDE-33_to_41 — Bottom sheet "Lọc đề thi": mở sheet, badge số lượng trên icon Lọc, tab "Loại kỳ
+# thi" (màn Danh sách đề, tab "Kho đề Parrot")
+#
+# Nguồn: "Ôn thi-Kho đề.xlsx" (TC_PAR_DSDE_33..41, Jira PAR-3170) - QA ĐÃ CHẠY THẬT và Pass.
+#
+# TÁI SỬ DỤNG `../helpers/open-kho-de-parrot-filter-sheet.yaml`.
+#
+# ĐÃ CHẠY THẬT và SỬA LẠI (2026-11-19, thiết bị 3201d866d40a1681, tài khoản PHONE mặc định/profile
+# "Gia Linh" lớp 5): bản đầu dùng `selected:` kết hợp `text` - FAIL THẬT ("Assertion is false")
+# vì `text`/accessibilityText "Tất cả kỳ thi" khớp CẢ node checkbox (có trạng thái đúng) LẪN 1
+# TextView nhãn con (luôn `selected:false`, không mang trạng thái) - Maestro đọc nhầm sang node sau.
+# Đổi sang `checked:` (ĐÚNG thuộc tính phản ánh tick/bỏ-tick của checkbox, xác nhận qua
+# `maestro hierarchy` thật) KẾT HỢP `id` để loại trừ nhãn con (nhãn con resource-id rỗng, không khớp
+# pattern `id` bên dưới) - xem `onThiPageObjects.js#khoDeParrot.khoDeFilterSheet` để biết đầy đủ
+# resource-id thật đã xác nhận (`exam_prep_filter_tab_examTypes`,
+# `exam_prep_filter_option_examTypes_all`, `exam_prep_filter_option_examTypes_<uuid>` cho từng kỳ
+# thi cụ thể - UUID không đoán được, phải định vị bằng `id` regex + `text`=tên hiển thị).
+#
+# TC_34/35 (badge số lượng): quan sát thật 1 badge số xuất hiện gần góc tab khi đổi filter khác mặc
+# định (giá trị quan sát được KHÔNG khớp đơn giản "số checkbox đang chọn cụ thể", xem ghi chú tại
+# `onThiPageObjects.js`) - chỉ verify YẾU (có/không có text số, KHÔNG assert đúng SỐ).
+#
+# Tham số (TẤT CẢ OPTIONAL, mỗi khối chỉ chạy khi đủ tham số):
+#   PHONE, OTP
+#   EXAM_TYPE_LIST — TC_36: thứ tự Loại kỳ thi THẬT trên CMS hiện tại, phân tách bằng dấu phẩy
+#     (vd "Thi học kỳ,Thi vào 10,Thi đại học,IELTS,Cambridge") - KHÔNG hardcode mặc định (dữ liệu
+#     CMS có thể đổi khác lúc chạy thật, xem memory feedback_never_hardcode_score_or_exercise).
+#   EXAM_TYPE_SAMPLE, EXAM_TYPE_SAMPLE_2 — TC_38..41: 2 Loại kỳ thi CÓ THẬT trên CMS hiện tại (vd
+#     "Kỳ thi đánh giá năng lực tiếng Anh") - dùng xuyên suốt 1 chuỗi thao tác liên tiếp
+#     (TC_38 -> 39 -> 40 -> 41).
+#   EXAM_TYPE_WITH_BADGE, CLASS_WITH_BADGE — TC_34: 1 cặp Loại kỳ thi + Lớp (số, vd "4") CÓ THẬT để
+#     áp dụng (khác mặc định) trước khi quan sát badge.
+#
+# KẾT THÚC: luôn trả bộ lọc về mặc định ("Tất cả kỳ thi") trước khi flow kết thúc nếu khối TC_38..41
+# đã chạy - tránh để lại trạng thái filter đã đổi cho lần chạy sau/tài khoản dùng chung.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: KDE-33_to_41 Bottom sheet Loc de thi va tab Loai ky thi
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: "Kho đề Parrot"
+
+# --- TC_33: tap icon Lọc mở đúng bottom sheet "Lọc đề thi" với 2 tab ---
+- runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+- assertVisible: "Lọc đề thi"
+- assertVisible: "Loại kỳ thi"
+- assertVisible: "Lớp"
+- takeScreenshot: artifacts/KDE-33-mo-sheet-loc-de-thi
+
+# --- TC_37: mặc định "Tất cả kỳ thi" đang được tick khi chưa từng chỉnh sửa ---
+- tapOn:
+    id: "exam_prep_filter_tab_examTypes"
+- assertVisible:
+    id: "exam_prep_filter_option_examTypes_all"
+    checked: true
+- takeScreenshot: artifacts/KDE-37-mac-dinh-tat-ca-ky-thi
+
+# --- TC_36: thứ tự checkbox đúng thứ tự tạo trên CMS ---
+- runFlow:
+    when:
+      true: ${EXAM_TYPE_LIST != null && EXAM_TYPE_LIST != 'undefined' && EXAM_TYPE_LIST != ''}
+    commands:
+      - assertVisible:
+          text: ${EXAM_TYPE_LIST.split(',')[0].trim()}
+          below: "Tất cả kỳ thi"
+      - takeScreenshot: artifacts/KDE-36-thu-tu-loai-ky-thi
+
+# --- TC_38/39/40/41: tick/bỏ tick qua lại giữa "Tất cả kỳ thi" và các kỳ thi cụ thể ---
+- runFlow:
+    when:
+      true: ${EXAM_TYPE_SAMPLE != null && EXAM_TYPE_SAMPLE != 'undefined' && EXAM_TYPE_SAMPLE != '' && EXAM_TYPE_SAMPLE_2 != null && EXAM_TYPE_SAMPLE_2 != 'undefined' && EXAM_TYPE_SAMPLE_2 != ''}
+    commands:
+      # TC_38: tick 1 kỳ thi cụ thể -> tự hủy tick "Tất cả kỳ thi"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE}
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE}
+          checked: true
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_all"
+          checked: false
+      - takeScreenshot: artifacts/KDE-38-tick-1-ky-thi-tu-huy-tat-ca
+
+      # TC_39: cho phép chọn nhiều kỳ thi cụ thể cùng lúc
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE_2}
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE}
+          checked: true
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE_2}
+          checked: true
+      - takeScreenshot: artifacts/KDE-39-chon-nhieu-ky-thi
+
+      # TC_40: tick lại "Tất cả kỳ thi" -> hủy tick các lựa chọn cụ thể
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_all"
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_all"
+          checked: true
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE}
+          checked: false
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE_2}
+          checked: false
+      - takeScreenshot: artifacts/KDE-40-tick-lai-tat-ca-huy-cu-the
+
+      # TC_41: bỏ tick hết các kỳ thi cụ thể MÀ KHÔNG tick lại "Tất cả" -> hệ thống tự tick lại
+      # "Tất cả kỳ thi" (tick lại TẠM 1 kỳ thi cụ thể trước để tạo state "Tất cả" đang false)
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE}
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_all"
+          checked: false
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE}
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE}
+          checked: false
+      - assertVisible:
+          id: "exam_prep_filter_option_examTypes_all"
+          checked: true
+      - takeScreenshot: artifacts/KDE-41-bo-tick-het-tu-tick-lai-tat-ca
+
+# --- TC_34/35: badge số lượng trên icon Lọc (YẾU - chỉ chụp màn hình, xem docblock) ---
+- tapOn:
+    id: "exam_prep_filter_confirm"
+- runFlow:
+    when:
+      true: ${EXAM_TYPE_WITH_BADGE != null && EXAM_TYPE_WITH_BADGE != 'undefined' && EXAM_TYPE_WITH_BADGE != '' && CLASS_WITH_BADGE != null && CLASS_WITH_BADGE != 'undefined' && CLASS_WITH_BADGE != ''}
+    commands:
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_WITH_BADGE}
+      - tapOn:
+          id: "exam_prep_filter_tab_grades"
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_WITH_BADGE}"
+      - tapOn:
+          id: "exam_prep_filter_confirm"
+      - takeScreenshot: artifacts/KDE-34-badge-so-luong-bo-loc
+      # Trả về mặc định trước khi kết thúc khối (xem docblock "KẾT THÚC")
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_all"
+      - tapOn:
+          id: "exam_prep_filter_tab_grades"
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_WITH_BADGE}"
+      - tapOn:
+          id: "exam_prep_filter_confirm"
+- takeScreenshot: artifacts/KDE-35-mac-dinh-khong-co-badge

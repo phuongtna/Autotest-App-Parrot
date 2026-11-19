@@ -1,0 +1,27 @@
+# Helper: TẠI màn Danh sách đề (tab "Kho đề Parrot", đã mở sẵn - xem open-tab-on-thi.yaml) - tap
+# icon Lọc để mở bottom sheet "Lọc đề thi", chờ sheet render xong (2 tab "Loại kỳ thi"/"Lớp" +
+# nút "Xác nhận"). IDEMPOTENT - bỏ qua bước tap nếu sheet đã đang mở sẵn (tránh tap nhầm TOGGLE ĐÓNG
+# lại icon bị sheet che khuất phía sau).
+#
+# Tiền đề: đang đứng ở màn Danh sách đề, tab "Kho đề Parrot".
+# Kết thúc: sheet "Lọc đề thi" đang mở, mặc định ở tab vừa chọn gần nhất (hoặc tab đầu tiên nếu mới
+# mở lần đầu trong phiên).
+#
+# ĐÃ VERIFY THẬT qua `maestro hierarchy` (2026-11-19, thiết bị 3201d866d40a1681) - icon Lọc dùng
+# resource-id `exam_prep_filter_trigger`, sheet dùng resource-id `exam_prep_filter_sheet`
+# (xem onThiPageObjects.js#khoDeParrot.khoDeFilterSheet). SỬA LẠI SAU KHI CHẠY THẬT: bản đầu đoán
+# tap theo text "Lọc" - FAIL THẬT ("Element not found: Text matching regex: Lọc") vì icon không có
+# text hiển thị, accessibilityText thật là "Lọc đề thi" (trùng tiêu đề sheet), không phải tên ngắn.
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      notVisible:
+        id: "exam_prep_filter_sheet"
+    commands:
+      - tapOn:
+          id: "exam_prep_filter_trigger"
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_filter_sheet"
+    timeout: 10000

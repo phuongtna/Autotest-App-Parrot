@@ -1,0 +1,108 @@
+# KDE-06_to_08 — Label "N đề" (màn Danh sách đề, tab "Kho đề Parrot")
+#
+# Nguồn: "Ôn thi-Kho đề.xlsx" (TC_PAR_DSDE_6..8, Jira PAR-3170) - QA ĐÃ CHẠY THẬT và Pass.
+#
+# TÁI SỬ DỤNG `../helpers/open-tab-on-thi.yaml` + `../helpers/open-kho-de-parrot-filter-sheet.yaml`
+# (chỉ dùng thao tác CHỌN TAB "Loại kỳ thi" + tick 1 checkbox + "Xác nhận" ở MỨC TỐI THIỂU cần cho
+# 2 case này - bộ TC đầy đủ cho chính bottom sheet Lọc xem
+# `KDE-33_to_41-mo-sheet-tab-loai-ky-thi.yaml`/`KDE-42_to_49-tab-lop-xac-nhan.yaml`).
+#
+# ĐÃ CHẠY THẬT và SỬA LẠI (2026-11-19) - dùng selector `id` đã xác nhận thật qua `maestro hierarchy`
+# (xem onThiPageObjects.js#khoDeParrot.khoDeFilterSheet) thay vì tap theo text như bản đầu - cùng
+# lý do đã sửa ở `KDE-33_to_41-mo-sheet-tab-loai-ky-thi.yaml`. Mỗi khối TC_7/TC_8 tự trả bộ lọc về
+# mặc định ("Tất cả kỳ thi") trước khi kết thúc.
+#
+# Tham số (TẤT CẢ OPTIONAL):
+#   PHONE, OTP
+#   EXPECTED_COUNT_DEFAULT — TC_6: số đề kỳ vọng ở bộ lọc mặc định (vd "6"). Không truyền -> chỉ
+#     assert ĐÚNG ĐỊNH DẠNG "N đề" (không tự verify đúng số, cùng giới hạn đã ghi nhận ở OT-02 vì
+#     module Ôn thi chưa có network-capture API nào được xác nhận).
+#   EXAM_TYPE_WITH_MATCH, EXPECTED_COUNT_AFTER_FILTER — TC_7: 1 Loại kỳ thi CÓ khớp ít nhất 1 đề
+#     (vd "Kỳ thi đánh giá năng lực tiếng Anh") + số đề kỳ vọng sau khi lọc.
+#   EXAM_TYPE_NO_MATCH — TC_8: 1 Loại kỳ thi KHÔNG khớp đề nào cho khối lớp hiện tại.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: KDE-06_to_08 Label so luong de
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: "Kho đề Parrot"
+
+# --- TC_6: label đúng định dạng "N đề" ở bộ lọc mặc định ---
+- assertVisible:
+    text: "\\d+ đề"
+- runFlow:
+    when:
+      true: ${EXPECTED_COUNT_DEFAULT != null && EXPECTED_COUNT_DEFAULT != 'undefined' && EXPECTED_COUNT_DEFAULT != ''}
+    commands:
+      - assertVisible:
+          text: "${EXPECTED_COUNT_DEFAULT} đề"
+- takeScreenshot: artifacts/KDE-06-label-mac-dinh
+
+# --- TC_7: chọn 1 Loại kỳ thi CÓ khớp -> label cập nhật ngay ---
+- runFlow:
+    when:
+      true: ${EXAM_TYPE_WITH_MATCH != null && EXAM_TYPE_WITH_MATCH != 'undefined' && EXAM_TYPE_WITH_MATCH != ''}
+    commands:
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_WITH_MATCH}
+      - tapOn:
+          id: "exam_prep_filter_confirm"
+      - extendedWaitUntil:
+          visible:
+            text: "\\d+ đề"
+          timeout: 10000
+      - runFlow:
+          when:
+            true: ${EXPECTED_COUNT_AFTER_FILTER != null && EXPECTED_COUNT_AFTER_FILTER != 'undefined' && EXPECTED_COUNT_AFTER_FILTER != ''}
+          commands:
+            - assertVisible:
+                text: "${EXPECTED_COUNT_AFTER_FILTER} đề"
+      - takeScreenshot: artifacts/KDE-07-label-cap-nhat-sau-loc
+      # Trả bộ lọc về mặc định
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_all"
+      - tapOn:
+          id: "exam_prep_filter_confirm"
+
+# --- TC_8: chọn 1 Loại kỳ thi KHÔNG khớp đề nào -> "0 đề", danh sách trống ---
+- runFlow:
+    when:
+      true: ${EXAM_TYPE_NO_MATCH != null && EXAM_TYPE_NO_MATCH != 'undefined' && EXAM_TYPE_NO_MATCH != ''}
+    commands:
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_NO_MATCH}
+      - tapOn:
+          id: "exam_prep_filter_confirm"
+      - extendedWaitUntil:
+          visible: "0 đề"
+          timeout: 10000
+      - takeScreenshot: artifacts/KDE-08-label-0-de
+      # Trả bộ lọc về mặc định
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_all"
+      - tapOn:
+          id: "exam_prep_filter_confirm"

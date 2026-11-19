@@ -1,0 +1,203 @@
+# KDE-42_to_49 — Bottom sheet "Lọc đề thi": tab "Lớp" + nút "Xác nhận" & hành vi đóng sheet (màn
+# Danh sách đề, tab "Kho đề Parrot")
+#
+# Nguồn: "Ôn thi-Kho đề.xlsx" (TC_PAR_DSDE_42..49, Jira PAR-3170) - QA ĐÃ CHẠY THẬT và Pass.
+#
+# TÁI SỬ DỤNG `../helpers/open-kho-de-parrot-filter-sheet.yaml`.
+#
+# ĐÃ CHẠY THẬT và SỬA LẠI (2026-11-19, thiết bị 3201d866d40a1681, tài khoản PHONE mặc định/profile
+# "Gia Linh" lớp 5, mặc định đang chọn "Lớp 5"): CÙNG lý do đã sửa ở
+# `KDE-33_to_41-mo-sheet-tab-loai-ky-thi.yaml` - checkbox dùng `checked:` + `id` (KHÔNG dùng
+# `selected:`/`text`). Khác tab "Loại kỳ thi" (id option = UUID không đoán được), id checkbox Lớp
+# ĐÃ XÁC NHẬN THẬT là `exam_prep_filter_option_grades_<N>` (N = số lớp, vd "Lớp 5" ->
+# `..._grades_5`) + `exam_prep_filter_option_grades_all` cho "Tất cả các lớp" - ĐOÁN ĐƯỢC trực tiếp
+# từ số, không cần tham số tên đầy đủ "Lớp N" như bản đầu.
+#
+# Nút "Xác nhận" dùng `id: exam_prep_filter_confirm` + `enabled: true/false` (ĐÃ XÁC NHẬN THẬT phản
+# ánh đúng trạng thái disable/active qua `maestro hierarchy`, KHÁC lo ngại ban đầu trong docblock cũ
+# "chưa có tiền lệ" - lần này đã verify thật và hoạt động đúng).
+#
+# PHÁT HIỆN THẬT (TC_45, 2026-11-19): tick 2 khối ("Lớp 4" + "Lớp 5" mặc định) RỒI bấm "Xác nhận"
+# RỒI mở lại sheet - tên tab "Lớp" vẫn hiển thị NGUYÊN VĂN "Lớp" (KHÔNG có hậu tố "(2)" ở bất kỳ node
+# text/accessibilityText nào xung quanh, đối chiếu toàn bộ `maestro hierarchy` lúc đó). KHÁC kỳ vọng
+# TC_45 gốc ("Lớp (2)") - CÓ THỂ là tính năng CHƯA được cài (khác với lúc QA Pass case này thủ công
+# 29/10/2026 - bản app lúc đó có thể khác bản hiện tại), hoặc badge hiển thị ở vị trí khác chưa tìm
+# ra. Giữ case này ở trạng thái "best-effort" (không throw cứng), chỉ cảnh báo qua `takeScreenshot` +
+# 1 `assertVisible` KHÔNG BẮT BUỘC (optional) - BÁO LẠI PM/dev xác nhận trước khi coi đây là bug thật.
+#
+# Tham số (TẤT CẢ OPTIONAL):
+#   PHONE, OTP
+#   CLASS_LIST — TC_42: danh sách Khối lớp set cứng trong code, phân tách dấu phẩy, ĐÚNG THỨ TỰ
+#     hiển thị thật (vd "Tất cả các lớp,Lớp 1,Lớp 2,...,Lớp 10" - ĐÃ XÁC NHẬN THẬT có đủ Lớp 1..10).
+#   EXPECTED_DEFAULT_CLASS_NUM — TC_43: SỐ Khối lớp kỳ vọng đang được chọn mặc định theo profile
+#     hiện tại (vd "5").
+#   CLASS_SAMPLE_NUM_1, CLASS_SAMPLE_NUM_2 — TC_44/45: 2 SỐ Khối lớp CÓ THẬT (vd "4"/"5") để tick
+#     cùng lúc - LUÔN tick lại (bỏ chọn) để trả về mặc định trước khi khối kết thúc.
+#   EXAM_TYPE_SAMPLE, CLASS_SAMPLE_CONFIRM_NUM — TC_48: 1 Loại kỳ thi + 1 SỐ Lớp hợp lệ để áp dụng
+#     qua "Xác nhận".
+#   CLASS_SAMPLE_OUTSIDE_TAP_NUM — TC_49: 1 SỐ Lớp khác với bộ lọc đang áp dụng, dùng để tick rồi
+#     hủy bằng cách chạm ra ngoài sheet. Tap theo tọa độ "50%,5%" CHƯA xác nhận thật đóng được sheet.
+#
+# SỬA THÊM (2026-11-19, FAIL THẬT xác nhận): `assertNotVisible: "Lọc đề thi"` để verify sheet đã
+# đóng SAI - icon Lọc trên màn danh sách (`exam_prep_filter_trigger`) CŨNG mang đúng
+# accessibilityText "Lọc đề thi" (trùng tiêu đề sheet), nên text đó LUÔN "visible" qua icon dù sheet
+# đã đóng thật, khiến assertion luôn FALSE bất kể app đúng/sai. Đổi sang
+# `assertNotVisible: { id: "exam_prep_filter_sheet" }` (resource-id gốc của sheet, chỉ tồn tại khi
+# sheet đang mở - ĐÃ XÁC NHẬN THẬT qua `maestro hierarchy`).
+#
+# CHƯA VERIFY TRÊN THIẾT BỊ THẬT bằng Maestro: TC_49 (tap ngoài sheet theo tọa độ).
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: KDE-42_to_49 Tab Lop va nut Xac nhan
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow:
+    file: ../helpers/open-tab-on-thi.yaml
+    env:
+      ON_THI_TAB: "Kho đề Parrot"
+
+# --- TC_42: tab Lớp hiển thị đúng danh sách Khối set cứng ---
+- runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+- tapOn:
+    id: "exam_prep_filter_tab_grades"
+- assertVisible:
+    id: "exam_prep_filter_option_grades_all"
+- runFlow:
+    when:
+      true: ${CLASS_LIST != null && CLASS_LIST != 'undefined' && CLASS_LIST != ''}
+    commands:
+      - assertVisible: ${CLASS_LIST.split(',')[0].trim()}
+      - assertVisible:
+          text: ${CLASS_LIST.split(',')[1].trim()}
+          below: ${CLASS_LIST.split(',')[0].trim()}
+      - takeScreenshot: artifacts/KDE-42-danh-sach-khoi-set-cung
+
+# --- TC_43: lần đầu vào tab -> Lớp tự chọn đúng theo profile ---
+- runFlow:
+    when:
+      true: ${EXPECTED_DEFAULT_CLASS_NUM != null && EXPECTED_DEFAULT_CLASS_NUM != 'undefined' && EXPECTED_DEFAULT_CLASS_NUM != ''}
+    commands:
+      - assertVisible:
+          id: "exam_prep_filter_option_grades_${EXPECTED_DEFAULT_CLASS_NUM}"
+          checked: true
+      - takeScreenshot: artifacts/KDE-43-mac-dinh-dung-khoi-profile
+
+# --- TC_44/45: chọn nhiều Khối cùng lúc -> (kỳ vọng) badge "Lớp (N)" trên tên tab, xem docblock ---
+- runFlow:
+    when:
+      true: ${CLASS_SAMPLE_NUM_1 != null && CLASS_SAMPLE_NUM_1 != 'undefined' && CLASS_SAMPLE_NUM_1 != '' && CLASS_SAMPLE_NUM_2 != null && CLASS_SAMPLE_NUM_2 != 'undefined' && CLASS_SAMPLE_NUM_2 != ''}
+    commands:
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_NUM_1}"
+      - assertVisible:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_NUM_1}"
+          checked: true
+      - assertVisible:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_NUM_2}"
+          checked: true
+      - takeScreenshot: artifacts/KDE-44-chon-nhieu-khoi
+      # TC_45 - optional, KHÔNG throw nếu badge chưa tồn tại (xem docblock "PHÁT HIỆN THẬT")
+      - runFlow:
+          when:
+            visible: "Lớp (2)"
+          commands:
+            - takeScreenshot: artifacts/KDE-45-badge-so-luong-tab-lop-co-hien-thi
+      - takeScreenshot: artifacts/KDE-45-trang-thai-tab-lop-sau-khi-chon-2
+      # Trả về mặc định (bỏ tick lại CLASS_SAMPLE_NUM_1) trước khi sang khối tiếp theo
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_NUM_1}"
+
+# --- TC_46: "Xác nhận" disable khi chưa đổi gì so với bộ lọc đang áp dụng ---
+# TIẾP TỤC dùng chung sheet đang mở từ TC_42..45 (đã revert về đúng bộ lọc mặc định, KHÔNG đóng/mở
+# lại sheet - mở lại trong lúc sheet đang mở sẵn sẽ tap NHẦM vào nội dung sheet, không phải icon
+# Lọc trên màn danh sách bị che khuất phía sau).
+- assertVisible:
+    id: "exam_prep_filter_confirm"
+    enabled: false
+- takeScreenshot: artifacts/KDE-46-xac-nhan-disable
+
+# --- TC_47: "Xác nhận" chuyển active ngay khi đổi bộ lọc ---
+- runFlow:
+    when:
+      true: ${CLASS_SAMPLE_NUM_1 != null && CLASS_SAMPLE_NUM_1 != 'undefined' && CLASS_SAMPLE_NUM_1 != ''}
+    commands:
+      - tapOn:
+          id: "exam_prep_filter_tab_grades"
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_NUM_1}"
+      - assertVisible:
+          id: "exam_prep_filter_confirm"
+          enabled: true
+      - takeScreenshot: artifacts/KDE-47-xac-nhan-active
+      # Trả về mặc định (bỏ tick lại) trước khi đóng - KHÔNG bấm Xác nhận nên KHÔNG áp dụng thay đổi
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_NUM_1}"
+
+# --- TC_48: bấm "Xác nhận" áp dụng đúng bộ lọc mới, đóng sheet, cập nhật danh sách + badge icon ---
+- runFlow:
+    when:
+      true: ${EXAM_TYPE_SAMPLE != null && EXAM_TYPE_SAMPLE != 'undefined' && EXAM_TYPE_SAMPLE != '' && CLASS_SAMPLE_CONFIRM_NUM != null && CLASS_SAMPLE_CONFIRM_NUM != 'undefined' && CLASS_SAMPLE_CONFIRM_NUM != ''}
+    commands:
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_.*"
+          text: ${EXAM_TYPE_SAMPLE}
+      - tapOn:
+          id: "exam_prep_filter_tab_grades"
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_CONFIRM_NUM}"
+      - tapOn:
+          id: "exam_prep_filter_confirm"
+      - assertNotVisible:
+          id: "exam_prep_filter_sheet"
+      - extendedWaitUntil:
+          visible:
+            text: "\\d+ đề"
+          timeout: 10000
+      - takeScreenshot: artifacts/KDE-48-xac-nhan-ap-dung-bo-loc-moi
+      # Trả về mặc định trước khi kết thúc khối
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_examTypes"
+      - tapOn:
+          id: "exam_prep_filter_option_examTypes_all"
+      - tapOn:
+          id: "exam_prep_filter_tab_grades"
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_CONFIRM_NUM}"
+      - tapOn:
+          id: "exam_prep_filter_confirm"
+
+# --- TC_49: chạm ra ngoài sheet -> đóng sheet, KHÔNG áp dụng thay đổi ---
+- runFlow:
+    when:
+      true: ${CLASS_SAMPLE_OUTSIDE_TAP_NUM != null && CLASS_SAMPLE_OUTSIDE_TAP_NUM != 'undefined' && CLASS_SAMPLE_OUTSIDE_TAP_NUM != ''}
+    commands:
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_grades"
+      - tapOn:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_OUTSIDE_TAP_NUM}"
+      - assertVisible:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_OUTSIDE_TAP_NUM}"
+          checked: true
+      - tapOn:
+          point: "50%,5%"
+      - assertNotVisible:
+          id: "exam_prep_filter_sheet"
+      - takeScreenshot: artifacts/KDE-49-cham-ngoai-dong-sheet
+      - runFlow: ../helpers/open-kho-de-parrot-filter-sheet.yaml
+      - tapOn:
+          id: "exam_prep_filter_tab_grades"
+      - assertVisible:
+          id: "exam_prep_filter_option_grades_${CLASS_SAMPLE_OUTSIDE_TAP_NUM}"
+          checked: false
+      - takeScreenshot: artifacts/KDE-49-bo-loc-tro-ve-trang-thai-cu

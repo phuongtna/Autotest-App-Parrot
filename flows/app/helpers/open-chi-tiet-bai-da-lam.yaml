@@ -10,6 +10,21 @@
 # (>=3), KHONG phai rule rieng theo tab nguon de - khong tim thay bang chung nao cho rule phan biet
 # theo tab trong spec-chi-tiet-de.json/CD-09..15/CD-35..41.
 #
+# THEM MOI (2026-11-21, phuc vu onthilichsulambai.yaml - "On thi-Lich su lam bai.xlsx"):
+# STOP_AT_HISTORY_SCREEN (optional, mac dinh "false") - truyen "true" de DUNG LAI dung tai man
+# "Lich su lam bai" (ngay sau screenshot ...-nav-02-lich-su-lam-bai ben duoi), KHONG tu tap "Xem chi
+# tiet" nhu hanh vi mac dinh - cung idiom STOP_AT_INFO_SCREEN da dung o open-de.yaml.
+#
+# THEM MOI (2026-11-21, FAIL THAT xac nhan qua chay device that): tai khoan test co the co >=2 the
+# card KHAC NHAU cung trung ten hien trong cung tab (vd 1 de da hoan thanh + 1 de CHUA nop cung ten
+# "Đề thi chung 1 kỹ năng") - regex DE_NAME thuan tuy khop NHAM sang card khac, keo theo tapOn "Xem
+# bai da lam below DE_NAME" tap luon sang "Xem bai da lam" cua CARD KE TIEP (khac han de dinh mo).
+# DE_NAME_INDEX (optional, mac dinh 0) - truyen so thu tu (0-based) de chon DUNG card khi co nhieu
+# card trung ten (vd DE_NAME_INDEX=1 neu card muon mo la ban khop THU 2 cua DE_NAME trong cay UI).
+# KHONG tu doan duoc gia tri nay - caller phai tu doi chieu qua maestro hierarchy/screenshot that de
+# biet dung thu tu, giong tinh than DE_DUE_DATE_DM cua automation/on_thi/discovery/findDeThi.js (co
+# che tuong tu o tang Node, khac tang Maestro YAML thuan cua helper nay).
+#
 # Tham so: PHONE, OTP KHONG can o day (da login truoc do, giong quy uoc open-tab-on-thi.yaml/
 # open-de.yaml). ON_THI_TAB (optional, "De thay co giao" mac dinh - xem open-tab-on-thi.yaml).
 # DE_NAME (optional, vd "Đề luyện tập Unit 2") - CHON DUNG card theo TEN DE thay vi card BAT KY dau
@@ -88,12 +103,14 @@ appId: ${APP_ID}
             - scrollUntilVisible:
                 element:
                   text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                  index: "${DE_NAME_INDEX == null || DE_NAME_INDEX == 'undefined' || DE_NAME_INDEX == '' ? 0 : DE_NAME_INDEX}"
                 direction: DOWN
                 timeout: 60000
                 speed: 70
             - takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-01-card-hoan-thanh
             - tapOn:
                 text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                index: "${DE_NAME_INDEX == null || DE_NAME_INDEX == 'undefined' || DE_NAME_INDEX == '' ? 0 : DE_NAME_INDEX}"
       - extendedWaitUntil:
           visible:
             text: ".*(Thời lượng tối đa|Tổng số câu|Bắt đầu làm bài|Tiếp tục làm bài).*"
@@ -130,9 +147,11 @@ appId: ${APP_ID}
             - scrollUntilVisible:
                 element:
                   text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                  index: "${DE_NAME_INDEX == null || DE_NAME_INDEX == 'undefined' || DE_NAME_INDEX == '' ? 0 : DE_NAME_INDEX}"
                 direction: DOWN
                 timeout: 60000
                 speed: 70
+                centerElement: true
       - assertVisible:
           text: "Điểm.*"
       - takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-01-card-hoan-thanh
@@ -146,10 +165,16 @@ appId: ${APP_ID}
           when:
             true: ${DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
           commands:
+            # SUA (2026-11-21, FAIL THAT xac nhan qua chay device that): scrollUntilVisible o tren
+            # (khong co centerElement) chi dam bao DE_NAME hien thi O MEP MAN HINH, khien "Xem bai da
+            # lam" NAM NGAY DUOI no bi cuon ra ngoai khung hinh, tapOn "below" FAIL "Element not
+            # found". THEM centerElement:true o scrollUntilVisible phia tren de noi dung quanh diem
+            # match (ca tren lan duoi) con du nam trong khung hinh truoc khi tap.
             - tapOn:
                 text: ".*(Xem bài đã làm).*"
                 below:
                   text: '.*${DE_NAME.replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                  index: "${DE_NAME_INDEX == null || DE_NAME_INDEX == 'undefined' || DE_NAME_INDEX == '' ? 0 : DE_NAME_INDEX}"
                 index: 0
       - extendedWaitUntil:
           visible:
@@ -166,11 +191,15 @@ appId: ${APP_ID}
 
 - takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-02-lich-su-lam-bai
 
-- tapOn:
-    text: "Xem chi tiết"
-    index: 0
-- waitForAnimationToEnd:
-    timeout: 2000
-- assertVisible:
-    text: ".*(Câu 1).*"
-- takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-03-da-vao-man
+- runFlow:
+    when:
+      true: ${STOP_AT_HISTORY_SCREEN != 'true'}
+    commands:
+      - tapOn:
+          text: "Xem chi tiết"
+          index: 0
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - assertVisible:
+          text: ".*(Câu 1).*"
+      - takeScreenshot: artifacts/chi-tiet-bai-da-lam-nav-03-da-vao-man

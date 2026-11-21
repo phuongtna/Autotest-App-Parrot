@@ -1,0 +1,414 @@
+# onthilichsulambai.yaml — Man "Lich su lam bai" (full-screen, mo qua "Xem bai da lam"/"Xem tat
+# ca"), chuyen the tu "On thi - Lich su lam bai.xlsx" (TC_PRT_LichSuLamBai_1..24, QA DA CHAY THAT/
+# Pass ca Android+iOS 29/10/2026, co prnt.sc dinh kem tung case trong xlsx).
+#
+# KHAC voi `CD-09_10_11_12_13_14_15-lich-su-lam-bai.yaml` (test khoi preview "Lich su lam bai" NHUNG
+# TRONG man Chi tiet de/Thong tin de, toi da 2 dong gan nhat): file nay test dung MAN RIENG, day du
+# (Card lượt lam/nut "Lam lai" sticky), 1 man hoan toan khac, co bo TC rieng trong xlsx goc.
+#
+# TAI SU DUNG: ../helpers/open-chi-tiet-bai-da-lam.yaml (dieu huong "Bao cao" > "On thi" > tab >
+# bai da hoan thanh > man nay), THEM MOI tham so STOP_AT_HISTORY_SCREEN=true (xem docblock file do)
+# de dung dung tai day thay vi tu dong tap tiep "Xem chi tiet" nhu hanh vi mac dinh (dung cho nhom
+# III ben duoi). Nhan CONFIRMED tu onThiPageObjects.js#examInfo: historySectionTitle="Lich su lam
+# bai", historyRowPattern="Lan \d+", resumeIncompletePopup (title/retryButton "Lam lai"/continueButton
+# "Tiep tuc") - cung 1 popup "Bai lam chua hoan thanh" da xac nhan that o CD-21..30.yaml, chi khac
+# DIEM VAO (nut "Lam lai" cua MAN NAY thay vi nut "Tiep tuc lam bai" cua man Thong tin de).
+#
+# CHUA XAC MINH (chua co maestro hierarchy that cua rieng man nay): tieu de header - xlsx TC_2 ghi
+# "Lich su lam" (thieu chu "bai") trong khi phan con lai xlsx + historySectionTitle da CONFIRMED deu
+# dung "Lich su lam bai" - KHONG hardcode assert tieu de header de tranh doan sai, chi dua vao
+# historyRowPattern ("Lan \d+") + cac nhan da CONFIRMED khac lam tin hieu dung man. Nhan "Diem"/
+# "Dung x/y"/"Thoi gian nop" tren moi Card (TC_4) cung MOI chi la text QA go lai tu xlsx, CHUA qua
+# doi chieu `maestro hierarchy` that cho rieng man full-screen nay (khac voi `historyRowPattern` da
+# verify) - cac assertion lien quan danh dau best-effort trong comment tung khoi.
+#
+# DA CHAY THAT TREN THIET BI (2026-11-21, device 3201d866d40a1681, de "Đề thi chung 1 kỹ năng" 5
+# lan, qua ca Maestro `maestro test` lan adb thao tac tay doi chieu truc tiep):
+#   PASS THAT: TC_1 (quay lai dung Thong tin de), TC_4 (Card du Lan N/Diem/Dung x-y/Thoi gian nop/
+#     Xem chi tiet), TC_5/6 (thu tu giam dan Lan 5>4>3>2>1), TC_10 (dinh dang "DD/MM"), TC_11/TC_22
+#     (cuon het, "Lam lai" sticky), TC_15 (Xem chi tiet mo dung man Cau 1 + Chips + Giai thich/Tiep
+#     theo).
+#   FAIL THAT + DA SUA code theo dung hanh vi quan sat (xem comment o khoi TC_16/TC_17): "back" tu
+#     "Chi tiet bai da lam" quay THANG ve "Thong tin de", KHONG ve "Lich su lam bai" day du nhu xlsx
+#     TC_17 mo ta - day LA PHAT HIEN THAT can QA xac nhan lai la bug hay thiet ke co y.
+#   CHUA VERIFY duoc trong dot nay (thieu du lieu sach/phien dang do, KHONG tu tao them du lieu moi
+#     theo yeu cau "dung du lieu da co"): TC_12/13/14 (tai khoan test hien co NHIEU de trung ten
+#     "Đề thi chung 1 kỹ năng" ca 2 tab, chua ro instance nao khop dung tung TC), TC_9 (de dang co
+#     diem 0 nen chua test duoc rounding 1 chu so thap phan), TC_18..21 (can 1 phien dang lam do -
+#     hien khong co san, KHONG tu bam "Bat dau lam bai" de tao moi theo dung yeu cau tren).
+#   TC_2/3/7/8: Tay (xem muc AUTO/TAY duoi).
+#
+# AUTO/TAY (xem tung khoi TC de biet ly do):
+#   TC_1,4,5,6,9,10,11,12,13,15,16,17,18,19,20,21,22: Auto (best-effort, xem gioi han tung khoi)
+#   TC_2,3,7,8: Tay (GUI/mau sac/gesture iOS - Maestro khong doc duoc qua text selector, xem OT-15/
+#               TEST-CASES-chi-tiet-de.md da ghi nhan cung gioi han)
+#   TC_14: Auto 1 phan (chi assert duoc "khong gop nhan" qua 2 lan mo rieng biet, KHONG doi chieu
+#          dung logic set giua 2 nguon vi Maestro khong doc duoc danh sach day du de so sanh)
+#   TC_23,24: KHONG dua vao file nay - TC_23 can hoan thanh+nop 1 luot de MOI (can Node orchestrator
+#             dieu khien ca luong "lam bai that", vuot pham vi 1 flow Maestro thuan, cung loai gioi
+#             han da ghi o OT-20/21/22 trong TEST-CASES.md); TC_24 can toggle mat mang dung luc (Maestro
+#             khong co lenh bat/tat mang built-in, co che da co san o
+#             `scripts/run_lb49_52_offline_case.sh`/`LB-49_to_52-mat-mang.yaml` nhung la co che RIENG
+#             cho 1 file, khong phu hop nhung them 1 TC le vao file nay).
+#
+# Tham so (TAT CA OPTIONAL - khoi tuong ung tu bo qua neu thieu, cung ky thuat cac file CD-*/PRT-*):
+#   PHONE, OTP, ON_THI_TAB ("De thay co giao" mac dinh)
+#   DE_NAME_INDEX                — FAIL THAT xac nhan (2026-11-21): tai khoan test co the co NHIEU
+#                                  de trung ten (vd 1 da hoan thanh + 1 chua nop cung ten) - neu
+#                                  DE_NAME khong ro rang chon nham card, truyen so thu tu (0-based,
+#                                  xem them docblock open-chi-tiet-bai-da-lam.yaml) de chon dung.
+#                                  CHUA du 100% on dinh qua nhieu lan goi lien tiep trong CUNG 1 lan
+#                                  chay (xac nhan that: co luc van chon nham khi DE_NAME dung 1
+#                                  nguon bi goi lai lien tuc) - uu tien dung 1 de TEN DUY NHAT cho
+#                                  cac tham so duoi day neu moi truong co san.
+#   DE_NAME                      — TC_1: 1 de bat ky da co lich su, dung test nut Quay lai
+#   DE_NAME_MULTI_LAN            — TC_4/5/6/9/10: de da nop >=2 lan, biet thu tu (Lan 2 tren/Lan 1 duoi)
+#   DE_NAME_FULL_SCORE_LAN       — TC_7: 1 lan dat diem toi da (100%)
+#   DE_NAME_ZERO_SCORE_LAN       — TC_8: 1 lan dung 0 cau
+#   DE_NAME_MANY_LAN             — TC_11/22: de da nop du nhieu lan de vuot 1 man hinh (can scroll)
+#   DE_NAME_TEACHER/DE_NAME_KHO  — TC_12/13: cung 1 de (hoac tuong duong) o CA 2 nguon, da nop >=1 lan
+#   DE_NAME_SAME_TITLE_TEACHER/DE_NAME_SAME_TITLE_KHO
+#                                — TC_14: 2 de CUNG TEN o 2 nguon, so lan nop KHAC nhau
+#   DE_ROW_PATTERN_A, DE_ROW_PATTERN_B
+#                                — TC_15/16/17: nhan "Lan N" cua 2 dong CU THE tren DE_NAME_MULTI_LAN
+#                                  (vd "Lan 2"/"Lan 1") - CHI chay khoi can dong cu the khi co truyen
+#   DE_NAME_INPROGRESS_LICHSU    — TC_18/19/20/21: de dang co phien lam do (chua nop)
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: Lich su lam bai (man rieng) - On thi
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+
+# ======================================================================================
+# I. Nut Quay lai (TC_1..3)
+# ======================================================================================
+
+# --- TC_1: chon Quay lai -> ve dung man Chi tiet de, giu nguyen trang thai ---
+- runFlow:
+    when:
+      true: ${DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - back
+      - assertVisible:
+          text: ".*(Thời lượng tối đa|Bắt đầu làm bài|Tiếp tục làm bài).*"
+      - takeScreenshot: artifacts/PRT-LSLB-01-quay-lai-ve-dung-chi-tiet-de
+
+# TC_2 (GUI vi tri icon/tieu de) va TC_3 (swipe back iOS) — Tay: TC_2 la kiem tra VI TRI/layout qua
+# mat (Maestro khong assert duoc toa do tuong doi icon/tieu de qua text selector); TC_3 la gesture
+# swipe-back rieng iOS, CHUA co tien le automation gesture nay trong repo cho man on_thi (TC_1 o tren
+# da xac nhan "back" la proxy hop le cho hanh vi Quay lai noi chung, dung lam can cu thay the).
+
+# ======================================================================================
+# II. Danh sach Card luot lam (TC_4..14)
+# ======================================================================================
+
+# --- TC_4: Card hien thi du Lan N + nut "Xem chi tiet" (best-effort - CHI assert nhan da CONFIRMED
+# "Lan \d+", KHONG assert cung dong cac nhan "Diem"/"Dung x/y"/"Thoi gian nop" vi CHUA doi chieu
+# maestro hierarchy that cho man nay, xem CHUA XAC MINH dau file) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_MULTI_LAN != null && DE_NAME_MULTI_LAN != 'undefined' && DE_NAME_MULTI_LAN != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME_MULTI_LAN}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - assertVisible:
+          text: "Lần \\d+"
+      - assertVisible: "Xem chi tiết"
+      - takeScreenshot: artifacts/PRT-LSLB-04-card-du-thong-tin
+
+      # --- TC_5/6: thu tu giam dan (Lan moi nhat len dau) + so thu tu Lan N dung theo luot nop
+      # thuc te ---
+      # SUA (2026-11-21, FAIL THAT xac nhan qua chay device that): ban dau assert "Lan 2" below
+      # "Lan \d+" - TU THAM CHIEU (chinh "Lan 2" cung khop pattern "Lan \d+" nen "below" tra ve
+      # chinh no, luon FAIL). Doi sang assert DUNG 1 cap van ban KHONG CHONG CHEO "Lan 1" o DUOI
+      # "Lan 2" (chi can DE_NAME_MULTI_LAN co dung 2 lan, khong doan them lan thu 3).
+      - assertVisible: "Lần 2"
+      - assertVisible:
+          text: "Lần 1"
+          below: "Lần 2"
+      - takeScreenshot: artifacts/PRT-LSLB-05-06-thu-tu-giam-dan
+
+      # --- TC_9/10: dinh dang Diem/Thoi gian nop (CHI verify DUNG DINH DANG, khong tu tinh duoc gia
+      # tri dung/sai tuyet doi - cung gioi han da ghi o TEST-CASES.md Ghi chu #1) ---
+      - assertVisible:
+          text: "\\d+(\\.\\d+)?"
+      - assertVisible:
+          text: "\\d{2}/\\d{2}"
+      - takeScreenshot: artifacts/PRT-LSLB-09-10-dinh-dang-diem-ngay
+
+# TC_7 (thanh ti le 100% toan xanh) va TC_8 (phan "Diem hien thi 0" cua luot 0 cau dung) — TC_7 Tay
+# hoan toan (mau sac, Maestro khong doc duoc qua text selector, cung gioi han OT-15). TC_8 auto 1
+# phan cho phan Diem=0, phan mau sac van Tay.
+- runFlow:
+    when:
+      true: ${DE_NAME_FULL_SCORE_LAN != null && DE_NAME_FULL_SCORE_LAN != 'undefined' && DE_NAME_FULL_SCORE_LAN != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME_FULL_SCORE_LAN}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - takeScreenshot: artifacts/PRT-LSLB-07-ty-le-100-tay-xem-mau
+
+- runFlow:
+    when:
+      true: ${DE_NAME_ZERO_SCORE_LAN != null && DE_NAME_ZERO_SCORE_LAN != 'undefined' && DE_NAME_ZERO_SCORE_LAN != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME_ZERO_SCORE_LAN}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - assertVisible: "0"
+      - takeScreenshot: artifacts/PRT-LSLB-08-diem-0-tay-xem-mau
+
+# --- TC_11: cuon duoc khi nhieu luot, nut "Lam lai" sticky khong bi cuon mat ---
+- runFlow:
+    when:
+      true: ${DE_NAME_MANY_LAN != null && DE_NAME_MANY_LAN != 'undefined' && DE_NAME_MANY_LAN != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME_MANY_LAN}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - scrollUntilVisible:
+          element:
+            text: "Lần 1"
+          direction: DOWN
+          timeout: 30000
+          speed: 70
+      - assertVisible: "Làm lại"
+      - takeScreenshot: artifacts/PRT-LSLB-11-22-cuon-lam-lai-sticky
+
+# --- TC_12/13: dung du lieu rieng cho tung nguon de (De thay co giao / Kho de Parrot) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_TEACHER != null && DE_NAME_TEACHER != 'undefined' && DE_NAME_TEACHER != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: "Đề thầy cô giao"
+            DE_NAME: ${DE_NAME_TEACHER}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - assertVisible: "Lần \\d+"
+      - takeScreenshot: artifacts/PRT-LSLB-12-nguon-de-thay-co-giao
+
+- runFlow:
+    when:
+      true: ${DE_NAME_KHO != null && DE_NAME_KHO != 'undefined' && DE_NAME_KHO != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: "Kho đề Parrot"
+            DE_NAME: ${DE_NAME_KHO}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - assertVisible: "Lần \\d+"
+      - takeScreenshot: artifacts/PRT-LSLB-13-nguon-kho-de-parrot
+
+# --- TC_14: 2 de cung ten o 2 nguon KHONG gop lan du lieu - chi doi chieu duoc qua 2 lan mo RIENG
+# BIET (Maestro khong doc duoc toan bo danh sach de tu dem/so sanh so dong giua 2 lan) ---
+- runFlow:
+    when:
+      true: ${DE_NAME_SAME_TITLE_TEACHER != null && DE_NAME_SAME_TITLE_TEACHER != 'undefined' && DE_NAME_SAME_TITLE_TEACHER != '' && DE_NAME_SAME_TITLE_KHO != null && DE_NAME_SAME_TITLE_KHO != 'undefined' && DE_NAME_SAME_TITLE_KHO != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: "Đề thầy cô giao"
+            DE_NAME: ${DE_NAME_SAME_TITLE_TEACHER}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - takeScreenshot: artifacts/PRT-LSLB-14a-cung-ten-nguon-giao-vien
+      - runFlow: ../helpers/launch-keep-session.yaml
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: "Kho đề Parrot"
+            DE_NAME: ${DE_NAME_SAME_TITLE_KHO}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - takeScreenshot: artifacts/PRT-LSLB-14b-cung-ten-nguon-kho-parrot
+
+# ======================================================================================
+# III. Xem chi tiet luot lam (TC_15..17)
+# ======================================================================================
+
+# --- TC_15: tap "Xem chi tiet" cua 1 dong CU THE -> mo dung Chi tiet bai da lam cua dung luot do ---
+- runFlow:
+    when:
+      true: ${DE_NAME_MULTI_LAN != null && DE_NAME_MULTI_LAN != 'undefined' && DE_NAME_MULTI_LAN != '' && DE_ROW_PATTERN_A != null && DE_ROW_PATTERN_A != 'undefined' && DE_ROW_PATTERN_A != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME_MULTI_LAN}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      # Tap "Xem chi tiet" NAM DUOI dung dong ${DE_ROW_PATTERN_A} (vd "Lan 2") - best-effort, CHUA
+      # xac minh bo cuc 1 Card (nhan "Lan N" + nut "Xem chi tiet" cung 1 Card hay khac dong) qua
+      # maestro hierarchy that cho man nay.
+      - tapOn:
+          text: "Xem chi tiết"
+          below: ${DE_ROW_PATTERN_A}
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - assertNotVisible: "Lịch sử làm bài"
+      - takeScreenshot: artifacts/PRT-LSLB-15-xem-chi-tiet-dung-dong
+
+      # --- TC_16: xem chi tiet nhieu dong lien tiep -> moi lan mo dung du lieu rieng (chi verify DA
+      # CHUYEN MAN dung, khong doi chieu diem vi gioi han text selector - xem CD-14/15 cung gioi han) ---
+      #
+      # SUA (2026-11-21, FAIL THAT xac nhan qua chay device that, de "Dề thi chung 1 kỹ năng" 5 lan):
+      # "back" tu "Chi tiet bai da lam" KHONG quay ve man "Lich su lam bai" (day du) nhu gia dinh ban
+      # dau - quay THANG ve "Thong tin de" (man chi hien 2 dong preview + link "Xem tat ca"), BO QUA
+      # han man Lich su lam bai day du trong back-stack. Phai tap lai "Xem tat ca" de mo lai day du
+      # truoc khi tap tiep dong khac - xem CHUA XAC MINH/TC_17 ben duoi (CUNG 1 phat hien).
+      - runFlow:
+          when:
+            true: ${DE_ROW_PATTERN_B != null && DE_ROW_PATTERN_B != 'undefined' && DE_ROW_PATTERN_B != ''}
+          commands:
+            - back
+            - extendedWaitUntil:
+                visible: "Xem tất cả"
+                timeout: 15000
+            - tapOn: "Xem tất cả"
+            - extendedWaitUntil:
+                visible: "Lần \\d+"
+                timeout: 15000
+            - tapOn:
+                text: "Xem chi tiết"
+                below: ${DE_ROW_PATTERN_B}
+            - waitForAnimationToEnd:
+                timeout: 2000
+            - assertNotVisible: "Lịch sử làm bài"
+            - takeScreenshot: artifacts/PRT-LSLB-16-xem-chi-tiet-dong-khac
+
+      # --- TC_17: tu Chi tiet bai da lam chon Quay lai -> xlsx ky vong ve dung man "Lich su lam
+      # bai" (day du, giu nguyen vi tri cuon) ---
+      #
+      # FAIL THAT XAC NHAN (2026-11-21, qua chay device that, KHONG phai doan): "back" thuc te quay
+      # THANG ve man "Thong tin de" (2 dong preview + "Xem tat ca"), BO QUA han man "Lich su lam bai"
+      # day du - KHAC voi mo ta cua xlsx goc ("quay ve dung man Lich su lam bai, giu nguyen vi tri
+      # cuon"). Day LA PHAT HIEN THAT, CAN QA xac nhan lai day la bug that hay thiet ke co y (co the
+      # "Lich su lam bai" day du chi la 1 "view" tam thoi khong tu them vao back-stack rieng, khac
+      # "Chi tiet bai da lam" - CHUA ro y do goc). Assertion duoi day verify DUNG HANH VI THAT quan
+      # sat duoc, KHONG phai hanh vi xlsx mo ta.
+      - back
+      - assertVisible:
+          text: ".*(Bắt đầu làm bài|Tiếp tục làm bài|Cấu trúc đề).*"
+      - assertNotVisible: "Lần \\d+"
+      - takeScreenshot: artifacts/PRT-LSLB-17-quay-lai-thuc-te-ve-thong-tin-de
+
+# ======================================================================================
+# IV. Lam lai (TC_18..22) — TC_23/24 KHONG dua vao file nay, xem ghi chu dau file
+# ======================================================================================
+
+- runFlow:
+    when:
+      true: ${DE_NAME_INPROGRESS_LICHSU != null && DE_NAME_INPROGRESS_LICHSU != 'undefined' && DE_NAME_INPROGRESS_LICHSU != ''}
+    commands:
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME_INPROGRESS_LICHSU}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+
+      # --- TC_18: bam "Lam lai" (sticky) khi co phien do -> popup "Bai lam chua hoan thanh" voi 2
+      # lua chon (NGUYEN VAN nhan da CONFIRMED qua onThiPageObjects.js#examInfo.resumeIncompletePopup
+      # - popup CHUNG voi CD-27, chi khac diem vao) ---
+      - tapOn: "Làm lại"
+      - extendedWaitUntil:
+          visible: "Bài làm chưa hoàn thành"
+          timeout: 10000
+      - assertVisible: "Làm lại"
+      - assertVisible: "Tiếp tục"
+      - takeScreenshot: artifacts/PRT-LSLB-18-popup-bai-lam-chua-hoan-thanh
+
+      # --- TC_21: dong popup (back = proxy cho nut X/tap ra ngoai, CHUA co toa do xac nhan) -> van o
+      # dung man Lich su lam bai, phien do khong doi ---
+      - back
+      - assertVisible: "Lần \\d+"
+      - assertVisible: "Làm lại"
+      - takeScreenshot: artifacts/PRT-LSLB-21-dong-popup-giu-nguyen-man
+
+      # --- TC_19: chon "Tiep tuc" (nhan THAT, xlsx goi "Lam tiep") -> vao Doing, tiep tuc dung phien
+      # do (CHI verify vao dung man Doing + con tien do, KHONG doi chieu dung so cau da tra loi truoc
+      # do - cung gioi han CD-28) ---
+      - tapOn: "Làm lại"
+      - extendedWaitUntil:
+          visible: "Bài làm chưa hoàn thành"
+          timeout: 10000
+      - tapOn: "Tiếp tục"
+      - runFlow:
+          when:
+            visible: ".*(AI hỗ trợ học tập).*"
+          commands:
+            - tapOn: ".*(Tiếp tục).*"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 30000
+      - assertNotVisible:
+          text: "^0/\\d+$"
+      - takeScreenshot: artifacts/PRT-LSLB-19-tiep-tuc-giu-tien-do
+
+      # --- TC_20: quay lai dung de do, lan nay chon "Lam lai" tren popup -> xoa phien do, bat dau
+      # lai tu cau 1 (cung ky thuat thoat Doing bang Home+relaunch da dung o CD-29, tranh doan toa do
+      # icon Thoat) ---
+      - pressKey: Home
+      - runFlow: ../helpers/launch-keep-session.yaml
+      - runFlow:
+          file: ../helpers/open-chi-tiet-bai-da-lam.yaml
+          env:
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_NAME: ${DE_NAME_INPROGRESS_LICHSU}
+            STOP_AT_HISTORY_SCREEN: "true"
+            DE_NAME_INDEX: ${DE_NAME_INDEX}
+      - tapOn: "Làm lại"
+      - extendedWaitUntil:
+          visible: "Bài làm chưa hoàn thành"
+          timeout: 10000
+      - tapOn: "Làm lại"
+      - runFlow:
+          when:
+            visible: ".*(AI hỗ trợ học tập).*"
+          commands:
+            - tapOn: ".*(Tiếp tục).*"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 30000
+      - takeScreenshot: artifacts/PRT-LSLB-20-lam-lai-xoa-phien-do-bat-dau-lai

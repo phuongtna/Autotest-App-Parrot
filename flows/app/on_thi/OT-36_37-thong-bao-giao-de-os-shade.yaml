@@ -1,0 +1,79 @@
+# OT-36/OT-37 — BỔ SUNG (không thay thế) `OT-36_37-thong-bao-giao-de.yaml` (case đó CHỈ verify
+# thông báo BÊN TRONG app qua icon chuông): case này verify NỬA OS-level - thông báo "giao đề" phải
+# tự nổi lên Android notification shade THẬT khi user KHÔNG ở trong app, tap → app foreground + điều
+# hướng đúng. TÁI SỬ DỤNG NGUYÊN khung đã verify thật ở
+# `flows/app/thong_bao/TB-07-thong-bao-hoan-thanh-bai-tap-os-shade.yaml` (cùng kỹ thuật Maestro
+# thuần mở shade: `pressKey: Home` rồi `swipe` 50%,0% -> 50%,75%, xem docblock file đó để biết đầy
+# đủ bằng chứng cơ chế này hoạt động trên Android/Maestro).
+#
+# KHÁC TB-07 (kiến trúc 2 thiết bị, vì trigger "hoàn thành bài tập" làm được ngay trong app ở thiết
+# bị B): trigger ở đây ("giáo viên giao đề mới") là hành động phía Web GV/CMS, KHÔNG cần thiết bị
+# thứ 2 - 1 thiết bị (đang đứng NGOÀI app) là đủ, miễn giáo viên đã giao đề THẬT cho lớp của HS đang
+# test TRƯỚC khi chạy file này (xem PRECONDITION bên dưới).
+#
+# *** Regex nội dung ĐÃ XÁC NHẬN THẬT (2026-11-22, xem docblock `OT-36_37-thong-bao-giao-de.yaml`
+# để đọc đầy đủ 3 mẫu thật + bằng chứng) - giống HỆT TB-01 ("giao bài"/"bài tập mới"/"nhận được bài
+# tập"), KHÔNG phải "giao đề" như bản DRAFT trước đây.
+#
+# *** GAP THẬT CHƯA XỬ LÝ (phát hiện 2026-11-22, cùng lượt verify trên): khi ≥3 thông báo "Silent
+# notifications" (kênh `assignment_reminders`/`fcm_fallback_notification_channel`) cộng dồn, OS gộp
+# chúng lại thành 1 group thu gọn (chỉ hiện app name, cần bấm nút "Expand" - resource-id
+# `android:id/expand_button`, content-desc "Expand" - mới lộ ra từng item/text riêng để
+# `extendedWaitUntil`/`tapOn` theo text khớp được). File này CHƯA tự động bấm "Expand" đó - nếu
+# notification đang ở trạng thái gộp, bước `extendedWaitUntil` bên dưới sẽ timeout dù notification
+# THẬT SỰ đã tồn tại (đã tái hiện thật khi mò tay: `uiautomator dump` cho thấy rõ group có
+# `expand_button` nhưng không có text con). Cần thêm bước tapOn id "expand_button" (optional, best-
+# effort) TRƯỚC `extendedWaitUntil` nếu muốn xử lý triệt để case ≥3 thông báo cộng dồn - CHƯA làm ở
+# đây vì chưa verify tọa độ/selector đủ ổn định qua nhiều lượt thật, giữ Auto=❌ cho riêng biến thể
+# OS-shade này (khác bản in-app cùng cặp, đã ✅) cho tới khi xử lý xong gap này.
+#
+# PRECONDITION bắt buộc trước khi chạy file này:
+#   - Thiết bị chạy file này KHÔNG được tự mở app (file này CỐ Ý KHÔNG gọi
+#     `launch-keep-session.yaml`/`login.yaml`, giống TB-07) - app phải đã login SẴN từ 1 lượt trước
+#     đó (session/profile vẫn còn), rồi mới chạy file này để đưa app ra ngoài foreground.
+#   - Giáo viên đã giao 1 đề MỚI THẬT cho lớp của profile đang login (qua Web GV/CMS - xem
+#     `automation/_scratch_reassign_on_thi_health.mjs` cho ví dụ thật đã dùng, staging, lớp 5D) NGAY
+#     TRƯỚC khi chạy (trong vòng ~1-2 phút, để notification chưa bị đẩy khỏi đầu shade bởi thông báo
+#     mới hơn, và trước khi bị gộp nhóm bởi GAP ở trên).
+#
+# Chạy (KHÔNG truyền PHONE/OTP - không launchApp/login, giống TB-07):
+#   maestro test flows/app/on_thi/OT-36_37-thong-bao-giao-de-os-shade.yaml \
+#     -e APP_ID=com.inet.parrotedu --device <UDID thiết bị>
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: OT-36_37 - Thong bao giao de tren Android notification shade (OS-level)
+---
+# Đảm bảo/duy trì trạng thái NGOÀI app - KHÔNG launchApp, KHÔNG login (giống TB-07).
+- pressKey: Home
+
+# --- Mở THẬT Android notification shade + chờ notification "giao bài mới" (regex CONFIRMED THẬT,
+# xem cảnh báo GAP "Silent notifications" gộp nhóm ở docblock - KHÔNG xử lý tự động ở đây) ---
+- swipe:
+    start: 50%, 0%
+    end: 50%, 75%
+- extendedWaitUntil:
+    visible:
+      text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng|gửi bài tập).*"
+    timeout: 90000
+- takeScreenshot: OT-36-android-notification-shade
+
+# --- Tap vào notification trong shade THẬT ---
+- tapOn:
+    text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng|gửi bài tập).*"
+    index: 0
+
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+# --- Xác nhận app foreground + điều hướng ĐÚNG: màn "Thông tin đề" (marker CONFIRMED, cùng
+# exam_prep_detail_name dùng ở OT-37 app-side) ---
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_detail_name"
+    timeout: 30000
+- takeScreenshot: OT-37-after-tap-destination

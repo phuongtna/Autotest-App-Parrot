@@ -123,8 +123,49 @@ viên Ẩn giữa chừng dù Web vẫn đang hiển thị" — case OT-21 bên 
 
 | ID | TC Excel | Tên case | Auto | Tay | File |
 | --- | --- | --- | --- | --- | --- |
-| OT-36 | _36 | HS nhận thông báo trong app khi được giao đề mới | ❌ | ✔ | cần copy thật nội dung thông báo "giao đề" trước (khác hẳn "giao bài tập" của TB-01) — xem Ghi chú #6 |
-| OT-37 | _37 | Tap thông báo → vào thẳng Chi tiết đề | ❌ | ✔ | cùng lý do Ghi chú #6; khung reuse `flows/app/thong_bao/TB-05-...yaml` đã viết sẵn pattern, chỉ cần đổi regex nội dung |
+| OT-36 | _36 | HS nhận thông báo trong app khi được giao đề mới | ✅ | | `OT-36_37-thong-bao-giao-de.yaml` (reuse khung TB-01, regex đã CONFIRMED THẬT) — xem "Lượt chạy thật 2026-11-22" bên dưới |
+| OT-37 | _37 | Tap thông báo → vào thẳng Chi tiết đề | ✅ | | cùng file trên (phần tap→điều hướng, marker `exam_prep_detail_name`) — **CONFIRMED THẬT** |
+
+#### Lượt chạy thật (2026-11-22, thiết bị `3201d866d40a1681`, profile "QA Auto Child ..." môi trường staging)
+
+**Lượt 1 (precondition ban đầu KHÔNG đáp ứng)**: chạy `OT-36_37-thong-bao-giao-de-os-shade.yaml` khi
+chưa có đề mới nào vừa giao — **FAILED** ở bước detect (regex "giao đề/đề mới/..." KHÔNG khớp), vì
+2 notification có sẵn trong shade lúc đó là **nhóm "quá hạn"/"hết hạn nộp"** (nhắc nhở, giống vai trò
+TB-02/TB-03), không phải "giao đề mới" (vai trò TB-01). Nguyên văn 2 item đó:
+
+- `cô Phương nhắc nhở: QA Auto Child 20260908_105954 chưa nộp bài "Đề luyện tập Unit 2: Health - Listening and Speaking Practice, Pronunciation, Vocabulary and Grammar" và đã quá hạn.`
+- `QA Auto Child 20260908_152446 lưu ý: bài "Đề luyện tập Unit 2: Health - Listening and Speaking Practice, Pronunciation, Vocabulary and Grammar" của cô Phương đã hết hạn nộp.`
+
+(Lưu ý: chữ Việt bị hiển thị lỗi "??" trên console Windows lúc chạy maestro CLI — CHỈ là lỗi hiển
+thị console đã biết, KHÔNG phải lỗi so khớp thật: đối chiếu trực tiếp `uiautomator dump`/hierarchy
+JSON thì UTF-8 vẫn đúng/nguyên vẹn.) Tap thử (ad-hoc) vào 1 trong 2 item "quá hạn" này → app mở lên,
+điều hướng tới ĐÚNG màn `exam_prep_detail_screen`/`exam_prep_detail_name` ("Thông tin đề") — lần đầu
+CONFIRMED marker landing đúng, nhưng chưa phải đúng loại trigger OT-36 cần.
+
+**Lượt 2 (tạo precondition thật)**: dùng `automation/_scratch_reassign_on_thi_health.mjs` (script có
+sẵn trong repo, Playwright) giao lại đề "Đề luyện tập Unit 2: Health - ..." cho lớp **5D** qua Web GV
+**staging** — PASS. Theo phản hồi thật của user ("phải thoát app thì mới nhận được thông báo"): phải
+`force-stop` app (không chỉ bấm Home) để push thật được xử lý/hiển thị. Sau đó mở lại icon chuông
+trong app (đáng tin cậy hơn hẳn mò OS shade bằng tay - xem GAP ghi trong
+`OT-36_37-thong-bao-giao-de-os-shade.yaml` về việc ≥3 thông báo bị Android gộp nhóm "Silent
+notifications", cần bấm "Expand" mới đọc được text, file OS-shade CHƯA xử lý gap này) - đọc được
+NGUYÊN VĂN 3 mẫu thật cho CHÍNH lượt giao đề vừa rồi (cùng room, "11 phút trước"):
+
+- `QA Auto Child 20260918_132120 ơi, cô Phương vừa giao bài "Đề luyện tập Unit 2: Health - Listening and Speaking Practice, Pronunciation, Vocabulary and Grammar". Hạn nộp: 24/11/2026. Đừng quên hoàn thành nhé!`
+- `Cô Phương nhắc Ngoc kiểm tra bài tập mới "Đề luyện tập Unit 2: Health - Listening and Speaking Practice, Pronunciation, Vocabulary and Grammar". Hạn nộp: 24/11/2026.`
+- `Gia Linh nhận được bài tập "Đề luyện tập Unit 2: Health - Listening and Speaking Practice, Pronunciation, Vocabulary and Grammar" từ cô Phương. Hạn nộp: 24/11/2026. Chúc con học tốt!`
+
+**Phát hiện quan trọng**: cả 3 mẫu đều dùng NGUYÊN VĂN cụm động từ "giao bài"/"bài tập mới"/"nhận
+được bài tập" — Y HỆT bộ mẫu "Nhóm 1 - Giáo viên giao bài tập mới" của module Bài tập (xem
+`flows/app/thong_bao/TEST-CASES.md`), KHÔNG dùng từ "đề" trong cụm động từ (chữ "đề" chỉ nằm trong
+tên đề được trích dẫn). Giả định ban đầu (quy ước riêng "giao đề"/"đề mới" cho Ôn thi) là SAI — đã
+sửa lại regex trong cả 2 file `.yaml` thành ĐÚNG Y HỆT regex TB-01. Tap thử item #1 ("vừa giao
+bài...") → điều hướng ĐÚNG vào màn "Thông tin đề" (title bar hiện đúng chữ "Thông tin đề", marker
+`exam_prep_detail_name` visible, hiển thị đúng đề "Đề luyện tập Unit 2: Health...") - **CONFIRMED
+THẬT 100%** cho đúng loại trigger OT-36 cần, không phải suy luận từ loại trigger khác nữa. Cả
+OT-36 và OT-37 (bản in-app, `OT-36_37-thong-bao-giao-de.yaml`) đổi Auto sang ✅. Bản OS-shade
+(`OT-36_37-thong-bao-giao-de-os-shade.yaml`) giữ ❌ riêng vì còn 1 gap thật chưa xử lý (gộp nhóm
+"Silent notifications" khi ≥3 thông báo, xem docblock file đó).
 
 ### 2. HS vào lớp sau khi giáo viên đã giao đề
 
@@ -170,10 +211,14 @@ viên Ẩn giữa chừng dù Web vẫn đang hiển thị" — case OT-21 bên 
    THỂ HIỆN QUA việc card nằm ở nhóm "đã nộp" (khối điểm) hay "chưa nộp" (CTA Làm bài/Làm tiếp), đúng
    như cách UI của module Bài tập thể hiện. **CẦN XÁC MINH lại với BA/ảnh thật** nếu có 1 badge/nhãn
    text riêng biệt mà spec chưa nói tới.
-6. Nội dung thông báo "giao đề" (OT-36/37) chưa có — xem
-   `flows/app/thong_bao/TEST-CASES.md` mục "QUY TẮC NỘI DUNG THÔNG BÁO CHÍNH THỨC" để biết format
-   chung cách nhóm thông báo khác đã capture (vd nhóm 1 "giao bài tập" ở TB-01) — on_thi cần 1 lượt
-   giao đề thật rồi mở app xem nguyên văn nội dung thông báo trước khi viết regex matcher.
+6. ~~Nội dung thông báo "giao đề" (OT-36/37) chưa có~~ — **ĐÃ GIẢI QUYẾT (2026-11-22)**: thông báo
+   "giao đề mới" của Ôn thi dùng NGUYÊN VĂN cùng bộ mẫu "Nhóm 1 - Giáo viên giao bài tập mới" của
+   module Bài tập (xem `flows/app/thong_bao/TEST-CASES.md` mục "QUY TẮC NỘI DUNG THÔNG BÁO CHÍNH
+   THỨC") — vẫn nói "giao bài"/"bài tập mới", KHÔNG dùng từ "đề" (giả định ban đầu ở đây là SAI). Xem
+   3 mẫu thật + bằng chứng đầy đủ ở mục VI.1 "Lượt chạy thật 2026-11-22" phía trên. Cả `OT-36_37-
+   thong-bao-giao-de.yaml` (in-app) và `OT-36_37-thong-bao-giao-de-os-shade.yaml` (OS-level) đã cập
+   nhật đúng regex CONFIRMED THẬT; bản in-app đã ✅, bản OS-shade còn 1 gap riêng (gộp nhóm "Silent
+   notifications" khi ≥3 thông báo) nên vẫn giữ ❌.
 7. OT-38/39/40 cần kịch bản "HS vào lớp sau khi đã giao đề" — có thể dựng NGƯỢC lại cơ chế đã có ở
    module `flows/app/roi_khoi_lop/` (rời lớp): tạo 1 hồ sơ đã rời lớp X (orphaned, xem memory
    `feedback_reuse_orphaned_profile_for_join_class`) rồi cho giáo viên giao đề cho lớp X TRƯỚC, sau

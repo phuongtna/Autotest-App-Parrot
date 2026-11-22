@@ -1849,3 +1849,80 @@ theo" bấm THẬT, điều hướng đúng. Tổng thời gian case 721.1s.
 Report: `automation/output/e2e_giaobai_range34_lamlai_range67_report.json`.
 - Result: success
 - Test Case: N/A
+
+## Case: GBT round 9 (profile Ngoc, lớp 4D), 2026-11-21
+
+**Yêu cầu:** "chạy lại 1 vòng" (tiếp tục chuỗi, range mặc định 3-4/6-7, profile theo device đang
+active). 7 ngày trôi qua từ round 8 - token CMS/EXAM/TEACHER lại EXPIRED (refresh lại, tái dùng
+nguyên script Node đã viết ở round 6, không viết lại). `adb force-stop` + relaunch app trước khi
+kiểm tra (theo [[feedback_reuse_scroll_mechanism]] - đảm bảo state sạch) - phát hiện device đang
+active profile **"Ngoc" (4D), gói Pro ĐÃ ĐƯỢC GIA HẠN** (hiện "Pro", không còn "Hết hạn" như round
+6) - không cần switch profile/can thiệp gì thêm.
+
+Chạy `e2e-giaobai-range34-lamlai-range67.mjs` (PROFILE_NAME=Ngoc, TARGET_CLASS_NAME=4D, range mặc
+định). Giao THẬT room "Choose the correct question word or preposition of time." (Unit 7: Our
+timetables, Grammar), hạn nộp 28/11/2026, room_id `89cea2f7-068e-4b1b-93d2-802543850668`, 10 scored
+items.
+
+**Kết quả: PASS TRỌN VẸN.** Lần làm đầu TARGET=3 ĐIỂM THẬT=3 (3/10, khớp range [3,4]), 126.17s.
+Tìm lại "Làm lại": list-locate PROGRESS_STALLED sau 2 lượt (như thường lệ) nhưng fallback thông báo
+"giao bài" PASS NGAY. Làm lại TARGET=7 ĐIỂM THẬT=7 (7/10, khớp range [6,7]), 124.64s. CTA "Tiếp
+theo" bấm THẬT, điều hướng đúng. Tổng thời gian case 1218.9s.
+Report: `automation/output/e2e_giaobai_range34_lamlai_range67_report.json`.
+
+**Lưu ý còn treo (chưa xử lý trong case này):** room round 6 `dc54498f-0df1-4405-9052-e05ac9c4bcc8`
+(lớp 4D, profile Ngoc) vẫn ở trạng thái đã làm 1 lần (3/10), chưa "Làm lại" - nay Pro đã gia hạn nên
+CÓ THỂ resume được, nhưng case này không được yêu cầu xử lý nó nên bỏ qua, chỉ giao bài MỚI.
+- Result: success
+- Test Case: N/A
+
+## Case: GBT round 10 (profile Ngoc, lớp 4D), 2026-11-21
+
+**Yêu cầu:** "chạy lại lần nữa" (tiếp tục chuỗi, range mặc định 3-4/6-7). CTA "Tiếp theo" cuối round
+9 tự chain sang bài khác ("G4-U3-Lesson 2: Read and tick True or F..." - DRAG_DROP câu 5/5) - hành
+vi sản phẩm đã biết ([[project_hw29_general_remaining_exercises_run]]). Tap X đóng bài lại trúng
+nhầm nút chuông thông báo (y hệt sự cố round 8) - đóng bảng "Thông báo" ngay sau, xác nhận về lại
+`homework_screen` sạch (Ngoc/4D, Pro) trước khi giao bài mới.
+
+Chạy `e2e-giaobai-range34-lamlai-range67.mjs` (PROFILE_NAME=Ngoc, TARGET_CLASS_NAME=4D, range mặc
+định). Giao THẬT room "Choose the best answer (A, B, C or D) to complete each sentence." (Review 4,
+Vocabulary), hạn nộp 28/11/2026, room_id `37997949-c199-4855-aa4a-937cd2e00911`, 10 scored items.
+
+**Kết quả: PASS TRỌN VẸN.** Lần làm đầu TARGET=3 ĐIỂM THẬT=3 (3/10, khớp range [3,4]), 125.40s.
+`scrollToTop()` báo không xác nhận về đỉnh (không tìm thấy "2 tuần gần nhất"/"1 tháng gần nhất") -
+vẫn tiếp tục tìm từ vị trí hiện tại bình thường (không phải lỗi chặn). Tìm lại "Làm lại": list-locate
+PROGRESS_STALLED sau 2 lượt (như thường lệ) nhưng fallback thông báo "giao bài" PASS NGAY. Làm lại
+TARGET=7 ĐIỂM THẬT=7 (7/10, khớp range [6,7]), 131.43s. CTA "Tiếp theo" bấm THẬT, điều hướng đúng.
+Tổng thời gian case 979.5s.
+Report: `automation/output/e2e_giaobai_range34_lamlai_range67_report.json`.
+
+**Lưu ý còn treo:** room round 6 `dc54498f-0df1-4405-9052-e05ac9c4bcc8` (4D, Ngoc) vẫn chưa "Làm
+lại" - chưa được yêu cầu xử lý.
+- Result: success
+- Test Case: N/A
+
+## Case: GBT round 11 (profile Ngoc, lớp 4D), 2026-11-21
+
+**Yêu cầu:** "chạy lại 1 vòng" (tiếp tục chuỗi, range mặc định). CTA cuối round 10 lại tự chain sang
+ĐÚNG bài leftover "G4-U3-Lesson 2" DRAG_DROP 5/5 y hệt round 10 (item đứng yên trong queue, không
+tự rớt - DRAG_DROP không tự trả lời được qua automation). Xác nhận thêm 1 lần nữa: tap X đóng bài
+NHẤT QUÁN nhảy sang màn "Thông báo" thay vì "Bài tập" (2/2 lần quan sát, round 8 + round 11 - có vẻ
+là hành vi điều hướng thật của app sau khi đóng bài từ 1 "Tiếp theo"-chain, không phải mis-tap) - X
+đóng "Thông báo" đưa về đúng `homework_screen` cả 2 lần. Quy trình dọn dẹp 2 bước (đóng bài -> đóng
+Thông báo) giờ xem là pattern ổn định, không cần điều tra thêm.
+
+Chạy `e2e-giaobai-range34-lamlai-range67.mjs` (PROFILE_NAME=Ngoc, TARGET_CLASS_NAME=4D, range mặc
+định). Giao THẬT room "You hear these sentences. Choose the correct meaning or price (A, B, C or
+D)." (Unit 18: At the shopping centre, WRITING), hạn nộp 28/11/2026, room_id
+`b47db03b-0491-471f-9c27-80c49461a1d6`, 10 scored items.
+
+**Kết quả: PASS TRỌN VẸN.** Lần đầu TARGET=4 ĐIỂM THẬT=4 (4/10, khớp [3,4]), 128.80s. `scrollToTop()`
+lại báo không xác nhận về đỉnh (như round 10) - không chặn, vẫn tìm tiếp bình thường. Tìm lại "Làm
+lại": PROGRESS_STALLED sau 2 lượt, fallback thông báo PASS NGAY. Làm lại TARGET=6 ĐIỂM THẬT=6 (6/10,
+khớp [6,7]), 126.86s. CTA "Tiếp theo" bấm THẬT, điều hướng đúng. Tổng thời gian case 1038.6s.
+Report: `automation/output/e2e_giaobai_range34_lamlai_range67_report.json`.
+
+**Lưu ý còn treo:** room round 6 `dc54498f-...` (4D, Ngoc) vẫn chưa "Làm lại" - chưa được yêu cầu
+xử lý.
+- Result: success
+- Test Case: N/A

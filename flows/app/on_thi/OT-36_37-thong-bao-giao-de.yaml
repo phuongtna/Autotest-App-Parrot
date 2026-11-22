@@ -1,0 +1,75 @@
+# OT-36/OT-37 — "Rule thông báo giao đề" (flows/app/on_thi/TEST-CASES.md mục VI.1), NỬA APP-SIDE
+# (icon chuông nội bộ app) - TÁI SỬ DỤNG NGUYÊN khung đã verify thật ở module "Bài tập"
+# (flows/app/thong_bao/TB-01-thong-bao-giao-bai-ngay.yaml cho phần DETECT + TB-05-thong-bao-hoan-
+# thanh-bai-tap.yaml cho phần TAP->ĐIỀU HƯỚNG, xem docblock 2 file đó để biết lý do kỹ thuật đầy đủ:
+# scrollUntilVisible không assertVisible tĩnh, consent "AI hỗ trợ học tập" xử lý best-effort, cùng
+# cặp launch-keep-session.yaml + login.yaml thay vì subflows/launch_app.yaml).
+#
+# OT-36: HS nhận thông báo TRONG APP khi được giáo viên giao đề mới - mở icon chuông
+# (`../helpers/open-notification.yaml`), tìm 1 item mang NGỮ NGHĨA "giao bài mới".
+# OT-37: Tap thông báo đó → vào THẲNG màn "Thông tin đề"/Chi tiết đề (khác bài tập - landing của Ôn
+# thi KHÔNG phải màn làm bài ngay, mà dừng ở màn trung gian "Thông tin đề" trước, xem
+# `../helpers/open-de.yaml` docblock mục "MÀN 'Thông tin đề' TRUNG GIAN") - marker CONFIRMED
+# `exam_prep_detail_name` (xem `automation/on_thi/navigation/onThiPageObjects.js#examInfo.nameId`).
+#
+# *** ĐÃ XÁC NHẬN THẬT (2026-11-22, thiết bị 3201d866d40a1681, staging, giao đề "Đề luyện tập Unit
+# 2: Health..." cho lớp 5D qua `automation/_scratch_reassign_on_thi_health.mjs`): thông báo "giao
+# đề mới" của Ôn thi dùng NGUYÊN VĂN cùng bộ mẫu câu "Nhóm 1 - Giáo viên giao bài tập mới" của module
+# Bài tập (xem flows/app/thong_bao/TEST-CASES.md) - vẫn nói "giao bài"/"bài tập mới"/"nhận được bài
+# tập", KHÔNG dùng từ "đề" (chữ "đề" chỉ xuất hiện BÊN TRONG tên đề được trích dẫn trong ngoặc kép,
+# không phải trong cụm động từ). 3 mẫu thật quan sát được (cùng 1 lượt giao đề, ~11 phút trước):
+#   - `QA Auto Child 20260918_132120 ơi, cô Phương vừa giao bài "Đề luyện tập Unit 2: Health - ...". Hạn nộp: 24/11/2026. Đừng quên hoàn thành nhé!`
+#   - `Cô Phương nhắc Ngoc kiểm tra bài tập mới "Đề luyện tập Unit 2: Health - ...". Hạn nộp: 24/11/2026.`
+#   - `Gia Linh nhận được bài tập "Đề luyện tập Unit 2: Health - ..." từ cô Phương. Hạn nộp: 24/11/2026. Chúc con học tốt!`
+# => regex bên dưới ĐỔI LẠI giống HỆT TB-01 (không còn DRAFT "đề"-hoá sai như bản trước) - đã verify
+# khớp cả 3 mẫu trên. Tap thử item #1 CŨNG đã xác nhận thật điều hướng đúng vào màn "Thông tin đề"
+# (tiêu đề "Đề luyện tập Unit 2: Health...", marker `exam_prep_detail_name` visible).
+#
+# Tham số: PHONE, OTP.
+# PRECONDITION: tài khoản/profile đang login phải có ≥1 đề MỚI vừa được giáo viên giao (qua Web
+# GV/CMS) hiển thị trong icon chuông - KHÔNG tự động giao đề trong file này. Để tự tạo precondition
+# này trên staging, xem `automation/_scratch_reassign_on_thi_health.mjs` (ví dụ thật đã dùng).
+#
+# Chạy:
+#   maestro test flows/app/on_thi/OT-36_37-thong-bao-giao-de.yaml -e APP_ID=com.inet.parrotedu \
+#     -e PHONE=<test_data/accounts.env PHONE> -e OTP=<...OTP>
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: OT-36_37 - Thong bao giao de trong icon chuong + tap dieu huong Thong tin de
+---
+- runFlow: ../helpers/launch-keep-session.yaml
+- runFlow:
+    file: ../helpers/login.yaml
+    env:
+      PHONE: ${PHONE}
+      OTP: ${OTP}
+- runFlow: ../helpers/open-notification.yaml
+
+# OT-36: tồn tại ≥1 item mang ngữ nghĩa "giao bài mới" (regex CONFIRMED THẬT - xem docblock).
+- scrollUntilVisible:
+    element:
+      text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng|gửi bài tập).*"
+    direction: DOWN
+    timeout: 30000
+    speed: 60
+    waitToSettleTimeoutMs: 500
+- takeScreenshot: OT-36-notification-matched
+
+# OT-37: tap item đó → phải vào THẲNG màn "Thông tin đề" (marker CONFIRMED exam_prep_detail_name).
+- tapOn:
+    text: ".*(giao bài|bài tập mới|nhận được bài tập|đã giao cho|đã sẵn sàng|gửi bài tập).*"
+    index: 0
+
+- runFlow:
+    when:
+      visible: ".*(AI hỗ trợ học tập).*"
+    commands:
+      - tapOn: ".*(Tiếp tục).*"
+
+- extendedWaitUntil:
+    visible:
+      id: "exam_prep_detail_name"
+    timeout: 15000
+- takeScreenshot: OT-37-chi-tiet-de-destination

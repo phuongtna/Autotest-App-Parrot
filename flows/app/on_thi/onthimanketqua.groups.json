@@ -1,0 +1,12 @@
+{
+  "description": "Manifest cac nhom doc lap trong onthimanketqua.yaml - dung boi automation/on_thi/runtime/runOnThiYamlSafeMultiGroup.mjs. Moi nhom: launch (fresh/keep) + login + tim-tap de qua Node (openDeThiSafe.mjs), roi goi `maestro test onthimanketqua.yaml -e GROUP_ID=<id> -e PRE_OPENED_BY_NODE=true` CHI cho dung nhom do.",
+  "flowFile": "onthimanketqua.yaml",
+  "groups": [
+    { "id": "I", "nameVar": "DE_NAME", "launchMode": "fresh" },
+    { "id": "II", "nameVar": "DE_NAME_MULTI_SKILL", "launchMode": "fresh", "optional": true },
+    { "id": "III", "nameVar": "DE_NAME", "launchMode": "fresh" },
+    { "id": "IV", "nameVar": "DE_NAME", "launchMode": "fresh" },
+    { "id": "V", "nameVar": "DE_NAME", "launchMode": "fresh" },
+    { "id": "VI", "nameVar": "DE_NAME", "launchMode": "fresh" }
+  ]
+}

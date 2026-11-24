@@ -1,0 +1,437 @@
+# onthimanketqua.yaml — Man "Ket qua bai thi" (hien ra ngay sau khi nop 1 de On thi), chuyen the tu
+# file dinh kem "Ôn thi-Kết quả.xlsx" (TC_PAR_OnThiKetQua_1..25, sheet "App-Ônthi-Kết quả", Jira
+# PAR-3173, QA DA CHAY THAT tren PC Chrome/Safari va Pass 23/25 - TC_23 "Pending" vi theo ghi chu
+# cua chinh QA trong file "hiện tại chỉ đang có duy nhất 1 thang điểm là 10, chưa có cấu hình thang
+# điểm khác" nen KHONG the test).
+#
+# NGUON SELECTOR: TOAN BO nhan text dung ben duoi lay NGUYEN VAN tu
+# automation/on_thi/navigation/onThiPageObjects.js#resultScreen (ghi chu "ĐÃ QUAN SÁT THẬT
+# 2026-10-30") - KHONG tu dat ten field/nhan moi. Luong nop bai de vao dung man nay (mo de ->
+# advance-onthi-questions.yaml AUTO_CONFIRM_SUBMIT=true -> hien "Kết quả bài thi") da CONFIRMED THAT
+# truoc do o `flows/app/on_thi/LB-32_to_43-de-khong-section-timer.yaml` TC_42 (dong `tapOn "Nộp bài"`
+# -> popup "Nộp bài ngay?" -> `extendedWaitUntil visible "Kết quả bài thi"`), file nay TAI SU DUNG Y
+# HET cap helper do, khong viet lai.
+#
+# TAI SU DUNG: ../helpers/launch-fresh.yaml, ../helpers/launch-keep-session.yaml, ../helpers/login.yaml,
+# ../helpers/open-de.yaml (mo 1 de moi, di thang toi man Doing), ../helpers/advance-onthi-questions.yaml
+# (COUNT lon + AUTO_CONFIRM_SUBMIT=true de luot qua het cau roi tu nop bai), ../helpers/onthi-select-period-filter.yaml
+# (TC_14 - doi bo loc "Thời gian giao đề").
+#
+# CHAY DE CO TEN TIENG VIET CO DAU (THEM MOI 2026-11-24): goi THANG `maestro test` file nay se dinh
+# dung loi encoding "${DE_NAME}" da biet (xem memory `maestro-vietnamese-encoding-bug`). Dung
+# `node automation/on_thi/runtime/runOnThiYamlSafeMultiGroup.mjs onthimanketqua.yaml` thay the - script
+# do doc `onthimanketqua.groups.json` (manifest 6 nhom), voi MOI nhom: dung Node
+# (`openDeThiSafe.mjs`, immune loi encoding) de launch+login+tim+mo dung de, roi moi goi 1 lan
+# `maestro test` RIENG cho dung nhom do (GROUP_ID=<id> PRE_OPENED_BY_NODE=true) - xem docblock 2 file
+# do de biet co che day du.
+#
+# QUAN TRONG - KHAC `onthilichsulambai.yaml`: FILE NAY CHUA TUNG CHAY QUA `maestro test` tren thiet
+# bi that (moi luong o day la MOI, ghep tu cac helper/selector DA CONFIRMED rieng le, nhung CHUOI
+# GHEP trong CHINH file nay thi chua). Can QA/dev chay that 1 lan truoc khi tin tuong 1 luot FAIL la
+# loi app that chu khong phai sai selector/luong.
+#
+# `advance-onthi-questions.yaml` BO QUA (khong chon dap an) moi cau - luon ra ket qua "0/y cau dung",
+# nen cac khoi ben duoi CHI verify DUNG DINH DANG hien thi (Diem/So cau dung/Thoi gian/Ket qua theo
+# ky nang), KHONG verify GIA TRI diem khac 0 cu the - muon kiem soat dung/sai tung cau phai dung Node
+# engine `automation/on_thi/navigation/onThiExamEngine.js#runFullAttempt` (wantCorrect/questionModels),
+# vuot pham vi 1 file Maestro thuan (cung ly do `onthilichsulambai.yaml` loai TC_23/24 cua no).
+#
+# icon "Đóng" (goc tren man Kết quả) CHUA co resource-id/toa do xac nhan that (khong co text rieng de
+# lam selector) - TAM DUNG action `back` lam PROXY, cung tien le da dung o
+# `CD-01_02_03_04-back-button-preserve-state.yaml`/`onthilichsulambai.yaml` TC_1 (ca 2 deu dan toi
+# cung 1 gioi han: chua phan biet duoc "tap dung icon" voi "back he thong", nhung xlsx goc TC_13 (tap
+# icon) va TC_14/bo sung (nut back he thong) tu xac nhan 2 hanh vi phai TUONG DUONG nen dung chung 1
+# action la chap nhan duoc).
+#
+# KHONG DUA VAO FILE NAY (xem ly do tung TC):
+#   TC_2  — Diem dung dinh dang quy doi "Phổ thông" (gia tri CU THE, vd 32 cau dung = 8 diem) - can
+#           kiem soat DUNG so cau tra loi dung, xem gioi han AUTO_CONFIRM_SUBMIT o tren.
+#   TC_4  — So cau dung khi lam dung TOAN BO de - cung ly do TC_2 (can tra loi dung that, khong chi bo qua).
+#   TC_7  — Thoi gian hien thi dung khi nop "gan nhu ngay lap tuc" (<1 giay) - phu thuoc do tre
+#           thiet bi/mang THAT luc chay, Maestro khong dieu khien duoc moc <1s on dinh.
+#   TC_21 — Khong ap dung tru 50% diem nhu bai tap thuong - can doi chieu CHEO voi co che cua module
+#           Bai tap (homeworkExamEngine.js), vuot pham vi 1 man Ket qua On thi thuan tuy.
+#   TC_22 — Moi cau chi tra loi 1 lan - la hanh vi cua MAN LAM BAI (Doing), khong phai man Ket quả,
+#           da thuoc pham vi `advance-onthi-questions.yaml`/`onThiExamEngine.js`, khong lap lai o day.
+#   TC_23 — Diem theo Dang quy doi KHAC "Phổ thông" - chinh QA xac nhan "Pending" trong xlsx goc vi
+#           CMS hien chi co 1 thang diem (10), chua co du lieu de test.
+#   TC_24/25 — Noi dung de duoc sua tren CMS giua 2 luot lam - can thao tac SONG SONG tren CMS (sua de)
+#           xen giua 2 lan nop bai tren app, vuot pham vi 1 file Maestro thuan (can Node orchestrator
+#           dieu khien ca CMS lan app, cung tinh than onthilichsulambai.yaml loai TC_23/24 cua no).
+#
+# AUTO (best-effort, dinh dang/control hien dien - xem gioi han tung khoi):
+#   TC_1,3,5,6,13,14(mot phan),15,16,17,18,19,20
+# TAY/KHONG DUA VAO: TC_2,4,7,21,22,23,24,25 (xem chi tiet o tren)
+#
+# Tham so (TAT CA OPTIONAL tru PHONE/OTP/DE_NAME, cung ky thuat cac file CD-*/LB-*/onthilichsulambai.yaml):
+#   PHONE, OTP
+#   ON_THI_TAB                  — mac dinh "Đề thầy cô giao" (TC_13..20 chi test tab nay, xem gioi han
+#                                  o khoi TC_14 duoi - "Kho đề Parrot" dung co che loc khac, chua lam).
+#   DE_NAME                     — 1 de bat ky da giao/co san trong tab tren, dung cho TC_1,3,5,6,13,
+#                                  14,15,16,17,18,19,20 (moi khoi tu nop lai 1 luot MOI, dung lai duoc
+#                                  cung 1 de nhieu lan).
+#   DE_LIST_TAP_POINT           — xem GAP THAT trong ../helpers/open-de.yaml, truyen khi danh sach co
+#                                  the trung ten gay tap nham.
+#   TOTAL_QUESTIONS_SAFETY      — tran an toan so lan tap toi da de luot het cau (mac dinh "60" neu
+#                                  khong truyen, cung gia tri da dung that o LB-32_to_43).
+#   FILTER_RANGE_LABEL          — TC_14/20: truyen "1 tháng gần nhất" (hoac "2 tuần gần nhất") de kiem
+#                                  tra bo loc "Thời gian giao đề" duoc giu nguyen sau khi Đóng/Chọn đề
+#                                  khác - bo qua kiem tra nay neu khong truyen (van test duoc dung MAN
+#                                  DICH, chi khong test rieng phan bo loc).
+#   DE_NAME_MULTI_SKILL         — TC_8..12 (nhom "Kết quả theo kỹ năng"): 1 de co >=2 ky nang/section
+#                                  khac nhau (vd 1 section Nghe + 1 section Đọc) - bo qua ca nhom neu
+#                                  khong truyen.
+#   GROUP_ID                    — THEM MOI 2026-11-24 (phuc vu kien truc multi-group, xem
+#                                  onthimanketqua.groups.json/runOnThiYamlSafeMultiGroup.mjs). KHONG
+#                                  truyen (mac dinh) -> CHAY HET ca 6 nhom nhu truoc gio, dung khi goi
+#                                  truc tiep `maestro test onthimanketqua.yaml` (DE_NAME phai la ASCII
+#                                  de khong dinh loi encoding da biet). Truyen "I"/"II"/"III"/"IV"/"V"/
+#                                  "VI" -> CHI nhom do chay, cac nhom khac tu SKIPPED - dung khi mo
+#                                  de bang Node (findDeThi, xem PRE_OPENED_BY_NODE) de ne loi encoding.
+#   PRE_OPENED_BY_NODE          — THEM MOI 2026-11-24 - "true" de bo qua TOAN BO buoc
+#                                  launch-keep-session/login/launch-fresh/mo de bang ${DE_NAME} (lam
+#                                  boi script Node TRUOC do), file chi con lam PHAN NGHIEP VU cua
+#                                  dung 1 nhom (xem GROUP_ID). Mac dinh "false" - KHONG doi hanh vi cu.
+appId: ${APP_ID}
+tags:
+  - regression
+  - data-dependent
+name: On thi - Man Ket qua bai thi
+---
+- runFlow:
+    when:
+      true: ${PRE_OPENED_BY_NODE != 'true'}
+    commands:
+      - runFlow: ../helpers/launch-keep-session.yaml
+      - runFlow:
+          file: ../helpers/login.yaml
+          env:
+            PHONE: ${PHONE}
+            OTP: ${OTP}
+
+# ======================================================================================
+# I. Hien thi thong tin ket qua (TC_1, TC_3, TC_5, TC_6) - TC_2/TC_4/TC_7 KHONG dua vao, xem dau file.
+# ======================================================================================
+
+- runFlow:
+    when:
+      true: ${(GROUP_ID == null || GROUP_ID == 'I') && DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+    commands:
+      - runFlow:
+          when:
+            true: ${PRE_OPENED_BY_NODE != 'true'}
+          commands:
+            - runFlow: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME}
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT}
+            PRE_OPENED_BY_NODE: ${PRE_OPENED_BY_NODE}
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: "${TOTAL_QUESTIONS_SAFETY == null || TOTAL_QUESTIONS_SAFETY == 'undefined' || TOTAL_QUESTIONS_SAFETY == '' ? '60' : TOTAL_QUESTIONS_SAFETY}"
+            AUTO_CONFIRM_SUBMIT: "true"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: 20000
+
+      # --- TC_1: man Ket qua hien day du Diem/So cau dung/Thoi gian/Ket qua theo ky nang/3 nut hanh dong ---
+      - assertVisible: "Điểm của bạn"
+      - assertVisible: "Số câu đúng"
+      - assertVisible: "Thời gian làm bài"
+      - assertVisible: "Kết quả theo kỹ năng"
+      - assertVisible: "Xem lại bài đã làm"
+      - assertVisible: "Làm lại"
+      - assertVisible: "Chọn đề khác"
+      - takeScreenshot: artifacts/KQ-01-man-ket-qua-du-thong-tin
+
+      # --- TC_3/TC_5: So cau dung dung dinh dang "x/y" - advance-onthi-questions.yaml bo qua het cau
+      # nen luon ra "0/y" (bao phu luon truong hop TC_5 "lam sai toan bo") ---
+      - assertVisible:
+          text: "\\d+/\\d+"
+      - takeScreenshot: artifacts/KQ-03-05-so-cau-dung-dinh-dang
+
+      # --- TC_6: Thoi gian lam bai dung dinh dang mm:ss (CHI verify dinh dang, khong verify gia tri
+      # tuyet doi - cung gioi han da ghi o onthilichsulambai.yaml TC_9/10) ---
+      - assertVisible:
+          text: "\\d{1,3}:\\d{2}"
+      - takeScreenshot: artifacts/KQ-06-thoi-gian-dinh-dang
+
+# ======================================================================================
+# II. Ket qua theo ky nang (TC_8..12) - CHI chay khi co DE_NAME_MULTI_SKILL (de >=2 ky nang/section).
+# ======================================================================================
+
+- runFlow:
+    when:
+      true: ${(GROUP_ID == null || GROUP_ID == 'II') && DE_NAME_MULTI_SKILL != null && DE_NAME_MULTI_SKILL != 'undefined' && DE_NAME_MULTI_SKILL != ''}
+    commands:
+      - runFlow:
+          when:
+            true: ${PRE_OPENED_BY_NODE != 'true'}
+          commands:
+            - runFlow: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME_MULTI_SKILL}
+            ON_THI_TAB: ${ON_THI_TAB}
+            PRE_OPENED_BY_NODE: ${PRE_OPENED_BY_NODE}
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: "${TOTAL_QUESTIONS_SAFETY == null || TOTAL_QUESTIONS_SAFETY == 'undefined' || TOTAL_QUESTIONS_SAFETY == '' ? '60' : TOTAL_QUESTIONS_SAFETY}"
+            AUTO_CONFIRM_SUBMIT: "true"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: 20000
+
+      # --- TC_8/TC_10/TC_11/TC_12: khoi "Kết quả theo kỹ năng" hien dien, co it nhat 1 dong dang
+      # "x/y" ngay sau tieu de (so dong/thu tu/dong 0-cau-dung CU THE phai doi chieu bang
+      # `maestro hierarchy` that theo dung cau truc DE_NAME_MULTI_SKILL - KHONG doan truoc o day, xem
+      # han che tai `onThiExamEngine.js#readExamResult` ve cach doc tung dong ky nang) ---
+      - assertVisible: "Kết quả theo kỹ năng"
+      - assertVisible:
+          text: "\\d+/\\d+"
+          below: "Kết quả theo kỹ năng"
+      - takeScreenshot: artifacts/KQ-08-12-ket-qua-theo-ky-nang
+
+      # TC_9 (gop 2 section cung 1 ky nang thanh 1 dong duy nhat): CHUA the tu dong dem "dung 1 dong"
+      # bang assertVisible don thuan (Maestro khong dem so node trung text) - can doi chieu that qua
+      # `maestro hierarchy`/screenshot (xem cung gioi han da ghi o onthilichsulambai.yaml TC_14).
+
+# ======================================================================================
+# III. Nut/icon Đóng (TC_13, TC_14) - xem proxy `back` o dau file.
+# ======================================================================================
+
+- runFlow:
+    when:
+      true: ${(GROUP_ID == null || GROUP_ID == 'III') && DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+    commands:
+      - runFlow:
+          when:
+            true: ${PRE_OPENED_BY_NODE != 'true'}
+          commands:
+            - runFlow: ../helpers/launch-fresh.yaml
+      # FAIL THAT XAC NHAN (2026-11-24, thiet bi 3201d866d40a1681): goi `open-tab-on-thi.yaml` THU
+      # CONG o day RoI goi tiep `open-de.yaml` (file do lai TU goi lai `open-tab-on-thi.yaml` 1 lan
+      # NUA, kem "Repeat 5 times: swipe DOWN" cho DEVICE_MODE=true) khien 1 trong 5 cu swipe do TAP
+      # NHAM vao Card de dang hien san man danh sach, nhay thang vao "Thong tin de" ngoai y muon,
+      # lam buoc tap sub-tab phia sau FAIL vi da doi man. CHI goi `open-tab-on-thi.yaml` thu cong khi
+      # THAT SU can thiet lap bo loc truoc (FILTER_RANGE_LABEL co truyen) - neu khong, bo qua buoc
+      # nay va de `open-de.yaml` tu dieu huong 1 LAN DUY NHAT (dung cach da chay PASS that o Nhom I).
+      - runFlow:
+          when:
+            true: ${PRE_OPENED_BY_NODE != 'true' && FILTER_RANGE_LABEL != null && FILTER_RANGE_LABEL != 'undefined' && FILTER_RANGE_LABEL != '' && ON_THI_TAB != 'Kho đề Parrot'}
+          commands:
+            # TC_14 (mot phan) - chi test duoc voi tab "Đề thầy cô giao" (dropdown "Thời gian giao đề"
+            # da CONFIRMED qua CD-01_02_03_04.yaml) - "Kho đề Parrot" dung bottom sheet loc khac, CHUA
+            # lam o file nay. Ca khoi nay BO QUA khi PRE_OPENED_BY_NODE=true (Node da dieu huong qua
+            # man danh sach, khong con o do de mo dropdown loc nay nua).
+            - runFlow:
+                file: ../helpers/open-tab-on-thi.yaml
+                env:
+                  ON_THI_TAB: ${ON_THI_TAB}
+            - tapOn:
+                text: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
+            - runFlow:
+                file: ../helpers/onthi-select-period-filter.yaml
+                env:
+                  RANGE_LABEL: ${FILTER_RANGE_LABEL}
+            - assertVisible:
+                text: ".*(${FILTER_RANGE_LABEL}).*"
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME}
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT}
+            PRE_OPENED_BY_NODE: ${PRE_OPENED_BY_NODE}
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: "${TOTAL_QUESTIONS_SAFETY == null || TOTAL_QUESTIONS_SAFETY == 'undefined' || TOTAL_QUESTIONS_SAFETY == '' ? '60' : TOTAL_QUESTIONS_SAFETY}"
+            AUTO_CONFIRM_SUBMIT: "true"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: 20000
+
+      # --- TC_13/TC_14: bam Đóng (proxy `back`) -> ve dung man Danh sach de, KHONG quay lai man Lam
+      # bai vua nop - KY VONG theo xlsx goc, CHUA tung chay that cho DUNG chuoi nop-bai-moi trong file
+      # nay (xem GAP THAT tuong tu da gap o onthilichsulambai.yaml TC_16/17 - back co the bo qua man
+      # trung gian khac voi ky vong, can doi chieu lai bang device that) ---
+      - back
+      - assertVisible:
+          text: ".*(Đề thầy cô giao|Kho đề Parrot).*"
+      - runFlow:
+          when:
+            true: ${FILTER_RANGE_LABEL != null && FILTER_RANGE_LABEL != 'undefined' && FILTER_RANGE_LABEL != '' && ON_THI_TAB != 'Kho đề Parrot'}
+          commands:
+            - assertVisible:
+                text: ".*(${FILTER_RANGE_LABEL}).*"
+      - takeScreenshot: artifacts/KQ-13-14-dong-ve-danh-sach
+
+# ======================================================================================
+# IV. Nut "Xem lại bài đã làm" (TC_15, TC_16)
+# ======================================================================================
+
+- runFlow:
+    when:
+      true: ${(GROUP_ID == null || GROUP_ID == 'IV') && DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+    commands:
+      - runFlow:
+          when:
+            true: ${PRE_OPENED_BY_NODE != 'true'}
+          commands:
+            - runFlow: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME}
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT}
+            PRE_OPENED_BY_NODE: ${PRE_OPENED_BY_NODE}
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: "${TOTAL_QUESTIONS_SAFETY == null || TOTAL_QUESTIONS_SAFETY == 'undefined' || TOTAL_QUESTIONS_SAFETY == '' ? '60' : TOTAL_QUESTIONS_SAFETY}"
+            AUTO_CONFIRM_SUBMIT: "true"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: 20000
+
+      # --- TC_15: "Xem lại bài đã làm" mo dung man Chi tiet bai da lam cua luot vua nop ---
+      - tapOn: "Xem lại bài đã làm"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - assertVisible:
+          text: ".*(Câu 1).*"
+      - takeScreenshot: artifacts/KQ-15-xem-lai-bai-da-lam
+
+      # --- TC_16: tu Chi tiet bai da lam, back -> xlsx goc KY VONG ve dung man Ket qua vua mo truoc
+      # do, NHUNG FAIL THAT XAC NHAN (2026-11-24, thiet bi 3201d866d40a1681, qua `maestro test` that,
+      # KHONG phai doan): "back" nhay THANG ve man "Danh sach de" (bo qua ca man Ket qua), CUNG LOAI
+      # GAP voi onthilichsulambai.yaml TC_16/17 ("back" tu man con bo qua man trung gian trong back-
+      # stack). Day LA PHAT HIEN THAT, CAN QA/dev xac nhan lai la bug hay thiet ke co y - assertion
+      # duoi day verify DUNG HANH VI THAT da quan sat, KHONG phai hanh vi xlsx mo ta.
+      - back
+      - assertVisible:
+          text: ".*(Đề thầy cô giao|Kho đề Parrot).*"
+      - assertNotVisible: "Kết quả bài thi"
+      - takeScreenshot: artifacts/KQ-16-back-thuc-te-ve-danh-sach
+
+# ======================================================================================
+# V. Nut "Làm lại" (TC_17, TC_18)
+# ======================================================================================
+
+- runFlow:
+    when:
+      true: ${(GROUP_ID == null || GROUP_ID == 'V') && DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+    commands:
+      - runFlow:
+          when:
+            true: ${PRE_OPENED_BY_NODE != 'true'}
+          commands:
+            - runFlow: ../helpers/launch-fresh.yaml
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME}
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT}
+            PRE_OPENED_BY_NODE: ${PRE_OPENED_BY_NODE}
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: "${TOTAL_QUESTIONS_SAFETY == null || TOTAL_QUESTIONS_SAFETY == 'undefined' || TOTAL_QUESTIONS_SAFETY == '' ? '60' : TOTAL_QUESTIONS_SAFETY}"
+            AUTO_CONFIRM_SUBMIT: "true"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: 20000
+
+      # --- TC_17/TC_18: "Làm lại" -> vao man Lam bai MOI, bat dau lai tu dau (dong ho ve 00:0x - CHI
+      # verify DANG hien dien + dinh dang, khong khang dinh dung "00:00" tuyet doi vi do tre render -
+      # cung tinh than best-effort da dung o onthilichsulambai.yaml TC_19) ---
+      - tapOn: "Làm lại"
+      - runFlow:
+          when:
+            visible: ".*(AI hỗ trợ học tập).*"
+          commands:
+            - tapOn: ".*(Tiếp tục).*"
+      - extendedWaitUntil:
+          visible:
+            id: "exam_prep_doing_screen"
+          timeout: 30000
+      - assertVisible:
+          id: "exam_prep_doing_timer"
+          text: "00:0\\d"
+      - takeScreenshot: artifacts/KQ-17-18-lam-lai-bat-dau-moi
+
+# ======================================================================================
+# VI. Nut "Chọn đề khác" (TC_19, TC_20)
+# ======================================================================================
+
+- runFlow:
+    when:
+      true: ${(GROUP_ID == null || GROUP_ID == 'VI') && DE_NAME != null && DE_NAME != 'undefined' && DE_NAME != ''}
+    commands:
+      - runFlow:
+          when:
+            true: ${PRE_OPENED_BY_NODE != 'true'}
+          commands:
+            - runFlow: ../helpers/launch-fresh.yaml
+      # Xem ghi chu FAIL THAT (2026-11-24) o khoi Nhom III phia tren - cung ly do, chi goi
+      # `open-tab-on-thi.yaml` thu cong khi THAT SU can bo loc, tranh goi long 2 lan. Ca khoi nay BO
+      # QUA khi PRE_OPENED_BY_NODE=true (Node da dieu huong qua man danh sach).
+      - runFlow:
+          when:
+            true: ${PRE_OPENED_BY_NODE != 'true' && FILTER_RANGE_LABEL != null && FILTER_RANGE_LABEL != 'undefined' && FILTER_RANGE_LABEL != '' && ON_THI_TAB != 'Kho đề Parrot'}
+          commands:
+            - runFlow:
+                file: ../helpers/open-tab-on-thi.yaml
+                env:
+                  ON_THI_TAB: ${ON_THI_TAB}
+            - tapOn:
+                text: ".*(2 tuần gần nhất|1 tháng gần nhất).*"
+            - runFlow:
+                file: ../helpers/onthi-select-period-filter.yaml
+                env:
+                  RANGE_LABEL: ${FILTER_RANGE_LABEL}
+            - assertVisible:
+                text: ".*(${FILTER_RANGE_LABEL}).*"
+      - runFlow:
+          file: ../helpers/open-de.yaml
+          env:
+            DEVICE_MODE: "true"
+            DE_NAME: ${DE_NAME}
+            ON_THI_TAB: ${ON_THI_TAB}
+            DE_LIST_TAP_POINT: ${DE_LIST_TAP_POINT}
+            PRE_OPENED_BY_NODE: ${PRE_OPENED_BY_NODE}
+      - runFlow:
+          file: ../helpers/advance-onthi-questions.yaml
+          env:
+            COUNT: "${TOTAL_QUESTIONS_SAFETY == null || TOTAL_QUESTIONS_SAFETY == 'undefined' || TOTAL_QUESTIONS_SAFETY == '' ? '60' : TOTAL_QUESTIONS_SAFETY}"
+            AUTO_CONFIRM_SUBMIT: "true"
+      - extendedWaitUntil:
+          visible: "Kết quả bài thi"
+          timeout: 20000
+
+      # --- TC_19/TC_20: "Chọn đề khác" -> ve dung man Danh sach de, giu nguyen bo loc (nhan that, co
+      # text rieng - KHONG can proxy nhu nut Đóng) ---
+      - tapOn: "Chọn đề khác"
+      - assertVisible:
+          text: ".*(Đề thầy cô giao|Kho đề Parrot).*"
+      - runFlow:
+          when:
+            true: ${FILTER_RANGE_LABEL != null && FILTER_RANGE_LABEL != 'undefined' && FILTER_RANGE_LABEL != '' && ON_THI_TAB != 'Kho đề Parrot'}
+          commands:
+            - assertVisible:
+                text: ".*(${FILTER_RANGE_LABEL}).*"
+      - takeScreenshot: artifacts/KQ-19-20-chon-de-khac

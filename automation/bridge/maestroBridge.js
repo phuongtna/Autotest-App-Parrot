@@ -97,12 +97,32 @@ export class MaestroBridge {
    * như cũ nếu thật sự fail cả 2 lượt): nếu lượt gọi KHÔNG reinstall thất bại, retry ĐÚNG 1 lần CÓ
    * reinstall (buộc sửa driver nếu đó là nguyên nhân) trước khi kết luận fail thật.
    */
+  /**
+   * SỬA (2026-11-24, FAIL THAT XAC NHAN qua phien viet openDeThiSafe.mjs): output `maestro
+   * hierarchy` (và console output `maestro test` nói chung) bị HỎNG ký tự tiếng Việt có dấu THẬT
+   * SỰ Ở TẦNG BYTE trên máy Windows này (không phải hiển thị terminal - xác nhận qua `xxd` trên
+   * file dump), khiến `findDeThi()`/mọi code Node đọc `bridge.hierarchy()` nhận về text "???" dù
+   * app hiển thị ĐÚNG - gốc rễ là charset mặc định JVM dùng cho STDOUT trên máy này KHÔNG PHẢI
+   * UTF-8. ĐÃ XÁC NHẬN THẬT: set `JAVA_TOOL_OPTIONS=-Dstdout.encoding=UTF-8
+   * -Dstderr.encoding=UTF-8` khi spawn tiến trình `maestro` SỬA ĐÚNG lỗi này (dump lại hierarchy
+   * sau khi set, `grep "kỹ năng"` khớp đúng, card parser trả về ĐÚNG 2/2 card thay vì 0) - KHÁC
+   * với `-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8` đã thử trước đó (xem memory
+   * `maestro-vietnamese-encoding-bug`) và KHÔNG sửa được lỗi RIÊNG của việc Maestro thay thế biến
+   * `${...}` (biến `${DE_NAME}` có dấu vẫn hỏng dù có cờ này - đó là lỗi KHÁC, ở tầng parser YAML
+   * nội bộ của Maestro, không phải stdout encoding - `findDeThi()` né được lỗi đó vì không dùng
+   * `${...}`). KHÔNG đổi hành vi cho text thuần ASCII (chỉ thêm biến môi trường cho tiến trình
+   * con, không đổi args/stdout contract).
+   */
   _execMaestro(args) {
+    const env = {
+      ...process.env,
+      JAVA_TOOL_OPTIONS: `${process.env.JAVA_TOOL_OPTIONS ?? ""} -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -Dfile.encoding=UTF-8`.trim(),
+    };
     try {
-      return execCliSync("maestro", [...args, "--no-reinstall-driver"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+      return execCliSync("maestro", [...args, "--no-reinstall-driver"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, env });
     } catch (err) {
       try {
-        return execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+        return execCliSync("maestro", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, env });
       } catch {
         throw this._augmentMaestroError(err); // Báo lỗi gốc (lượt nhanh) - lượt reinstall chỉ để tự hồi phục, không che lỗi thật.
       }

@@ -27,6 +27,16 @@
 #
 # DEVICE_MODE=true -> bỏ qua launchApp + login (xem open-exercise.yaml để biết lý do đầy đủ).
 #
+# PRE_OPENED_BY_NODE=true (optional, mặc định "false" - THÊM MỚI 2026-11-24, xem
+# automation/on_thi/runtime/openDeThiSafe.mjs): BỎ QUA TOÀN BỘ đoạn login/mở tab/scrollUntilVisible+
+# tapOn theo `${DE_NAME}` bên dưới (đoạn DUY NHẤT dùng biến tiếng Việt có dấu qua `${...}` của
+# Maestro - CHỊU lỗi encoding đã biết trên máy Windows này, xem memory
+# `maestro-vietnamese-encoding-bug`), coi như CALLER (script Node) đã tự điều hướng + tap ĐÚNG card
+# xong trước đó (Node đọc `maestro hierarchy` trực tiếp + tap theo TOẠ ĐỘ nên không qua biến
+# `${...}` của Maestro, miễn nhiễm lỗi) - đi THẲNG vào phần xử lý "Thông tin đề"/"Bắt đầu làm bài"
+# còn lại y hệt cũ. MẶC ĐỊNH "false" - KHÔNG đổi hành vi của bất kỳ caller cũ nào không truyền cờ
+# này (30 file `.yaml` hiện có trong flows/app/on_thi/ vẫn chạy y hệt trước).
+#
 # CHƯA VERIFY HẾT TRÊN THIẾT BỊ THẬT - đã verify nhánh "Làm bài"/"Làm lại" (trên), CHƯA verify
 # nhánh EXERCISE_DUE_DATE_DM (due-date làm anchor lồng 2 cấp) + bottom sheet nâng cấp Pro/Free (xem
 # ghi chú CẦN XÁC MINH ở automation/on_thi/navigation/onThiPageObjects.js).
@@ -43,110 +53,114 @@ appId: ${APP_ID}
 ---
 - runFlow:
     when:
-      true: ${DEVICE_MODE != 'true'}
+      true: ${PRE_OPENED_BY_NODE != 'true'}
     commands:
-      - runFlow: launch-keep-session.yaml
       - runFlow:
-          file: login.yaml
+          when:
+            true: ${DEVICE_MODE != 'true'}
+          commands:
+            - runFlow: launch-keep-session.yaml
+            - runFlow:
+                file: login.yaml
+                env:
+                  PHONE: ${PHONE}
+                  OTP: ${OTP}
+      - runFlow:
+          when:
+            true: ${DEVICE_MODE == 'true'}
+          commands:
+            - tapOn:
+                id: "exercise_close_button"
+                optional: true
+            - tapOn:
+                id: "exercise_show_answer_next_button"
+                optional: true
+            - tapOn:
+                text: ".*(Hoàn thành|Đóng).*"
+                optional: true
+
+      - runFlow:
+          file: open-tab-on-thi.yaml
           env:
-            PHONE: ${PHONE}
-            OTP: ${OTP}
-- runFlow:
-    when:
-      true: ${DEVICE_MODE == 'true'}
-    commands:
-      - tapOn:
-          id: "exercise_close_button"
-          optional: true
-      - tapOn:
-          id: "exercise_show_answer_next_button"
-          optional: true
-      - tapOn:
-          text: ".*(Hoàn thành|Đóng).*"
-          optional: true
+            ON_THI_TAB: ${ON_THI_TAB}
 
-- runFlow:
-    file: open-tab-on-thi.yaml
-    env:
-      ON_THI_TAB: ${ON_THI_TAB}
-
-#
-# ĐỔI LẠI SANG `scrollUntilVisible` (2026-11-14, sau khi tái hiện lỗi thật): bản `repeat.while` +
-# `swipe` tay trước đây (xem lịch sử cũ trong git blame nếu cần đối chiếu) tự chế lại đúng thứ
-# `flows/app/helpers/open-exercise.yaml` (module Bài tập, ĐANG DÙNG THẬT, không phải bản deprecated)
-# đã giải quyết ổn định từ trước bằng `scrollUntilVisible` + `waitToSettleTimeoutMs: 500` + `speed:
-# 70` - commit cũ bỏ qua 2 tham số này khi thử `scrollUntilVisible` nên dính đúng lớp lỗi "dừng cuộn
-# sớm do còn trớn/momentum" mà `open-exercise.yaml` đã tài liệu hoá chi tiết, rồi chuyển hẳn sang
-# vòng lặp tay thay vì thêm đúng 2 tham số đó. GẶP THẬT LẠI với vòng lặp tay (2026-11-14, thiết bị
-# 3201d866d40a1681): khi đề cần tìm nằm NGAY Ở ĐẦU danh sách, swipe đầu tiên của vòng lặp trôi mất
-# đề đó trước khi kịp đọc hierarchy, và vì vòng lặp chỉ cuộn 1 CHIỀU (xuống) nên không bao giờ quay
-# lại được - cuộn hết xuống cuối danh sách mà không tìm thấy. TÁI SỬ DỤNG ĐÚNG công thức Bài tập:
-# scroll TARGET = title (không ghép CTA/due-date vào compound selector của scroll, tránh đúng
-# ambiguity "below" đã ghi nhận ở open-exercise.yaml), CTA/due-date CHỈ dùng để VERIFY/TAP sau khi
-# title đã visible.
-- runFlow:
-    when:
-      true: ${DE_DUE_DATE_DM != null && DE_DUE_DATE_DM != 'undefined'}
-    commands:
-      - scrollUntilVisible:
-          element:
-            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-          direction: DOWN
-          timeout: 150000
-          speed: 70
-          waitToSettleTimeoutMs: 500
-      - assertVisible:
-          text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
-          below:
-            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-      # GAP THAT (2026-11-17): "tapOn CTA below title" co the tap NHAM the KHAC nam ngay duoi trong
-      # danh sach khi co the trung ten/ke sat - da loai tru HET nguyen nhan khac (profile sai, cache
-      # local kha pm clear, encoding, ambiguity ten du chi con 1 the trung, scroll/render cham, race
-      # condition qua waitForAnimationToEnd) - CHI co tapOn theo POINT (toa do %, xac nhan that bang
-      # screenshot) la tap dung. DE_LIST_TAP_POINT (optional, "X%,Y%") - truyen khi gap dung tinh
-      # huong nay de tap theo toa do thay vi theo text/below, KHONG anh huong caller khac khong truyen.
+      #
+      # ĐỔI LẠI SANG `scrollUntilVisible` (2026-11-14, sau khi tái hiện lỗi thật): bản `repeat.while` +
+      # `swipe` tay trước đây (xem lịch sử cũ trong git blame nếu cần đối chiếu) tự chế lại đúng thứ
+      # `flows/app/helpers/open-exercise.yaml` (module Bài tập, ĐANG DÙNG THẬT, không phải bản deprecated)
+      # đã giải quyết ổn định từ trước bằng `scrollUntilVisible` + `waitToSettleTimeoutMs: 500` + `speed:
+      # 70` - commit cũ bỏ qua 2 tham số này khi thử `scrollUntilVisible` nên dính đúng lớp lỗi "dừng cuộn
+      # sớm do còn trớn/momentum" mà `open-exercise.yaml` đã tài liệu hoá chi tiết, rồi chuyển hẳn sang
+      # vòng lặp tay thay vì thêm đúng 2 tham số đó. GẶP THẬT LẠI với vòng lặp tay (2026-11-14, thiết bị
+      # 3201d866d40a1681): khi đề cần tìm nằm NGAY Ở ĐẦU danh sách, swipe đầu tiên của vòng lặp trôi mất
+      # đề đó trước khi kịp đọc hierarchy, và vì vòng lặp chỉ cuộn 1 CHIỀU (xuống) nên không bao giờ quay
+      # lại được - cuộn hết xuống cuối danh sách mà không tìm thấy. TÁI SỬ DỤNG ĐÚNG công thức Bài tập:
+      # scroll TARGET = title (không ghép CTA/due-date vào compound selector của scroll, tránh đúng
+      # ambiguity "below" đã ghi nhận ở open-exercise.yaml), CTA/due-date CHỈ dùng để VERIFY/TAP sau khi
+      # title đã visible.
       - runFlow:
           when:
-            true: ${DE_LIST_TAP_POINT != null && DE_LIST_TAP_POINT != 'undefined'}
+            true: ${DE_DUE_DATE_DM != null && DE_DUE_DATE_DM != 'undefined'}
           commands:
-            - tapOn:
-                point: ${DE_LIST_TAP_POINT}
-      - runFlow:
-          when:
-            true: ${DE_LIST_TAP_POINT == null || DE_LIST_TAP_POINT == 'undefined'}
-          commands:
-            - tapOn:
-                text: ".*(Làm bài|Làm tiếp|Làm lại).*"
-                below:
-                  text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
-                  below:
-                    text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-- runFlow:
-    when:
-      true: ${DE_DUE_DATE_DM == null || DE_DUE_DATE_DM == 'undefined'}
-    commands:
-      - scrollUntilVisible:
-          element:
-            text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
-          direction: DOWN
-          timeout: 90000
-          speed: 70
-          waitToSettleTimeoutMs: 500
-      # Xem ghi chú GAP THẬT + DE_LIST_TAP_POINT ở nhánh DE_DUE_DATE_DM phía trên, cùng 1 bug.
-      - runFlow:
-          when:
-            true: ${DE_LIST_TAP_POINT != null && DE_LIST_TAP_POINT != 'undefined'}
-          commands:
-            - tapOn:
-                point: ${DE_LIST_TAP_POINT}
-      - runFlow:
-          when:
-            true: ${DE_LIST_TAP_POINT == null || DE_LIST_TAP_POINT == 'undefined'}
-          commands:
-            - tapOn:
-                text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+            - scrollUntilVisible:
+                element:
+                  text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                direction: DOWN
+                timeout: 150000
+                speed: 70
+                waitToSettleTimeoutMs: 500
+            - assertVisible:
+                text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
                 below:
                   text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+            # GAP THAT (2026-11-17): "tapOn CTA below title" co the tap NHAM the KHAC nam ngay duoi trong
+            # danh sach khi co the trung ten/ke sat - da loai tru HET nguyen nhan khac (profile sai, cache
+            # local kha pm clear, encoding, ambiguity ten du chi con 1 the trung, scroll/render cham, race
+            # condition qua waitForAnimationToEnd) - CHI co tapOn theo POINT (toa do %, xac nhan that bang
+            # screenshot) la tap dung. DE_LIST_TAP_POINT (optional, "X%,Y%") - truyen khi gap dung tinh
+            # huong nay de tap theo toa do thay vi theo text/below, KHONG anh huong caller khac khong truyen.
+            - runFlow:
+                when:
+                  true: ${DE_LIST_TAP_POINT != null && DE_LIST_TAP_POINT != 'undefined'}
+                commands:
+                  - tapOn:
+                      point: ${DE_LIST_TAP_POINT}
+            - runFlow:
+                when:
+                  true: ${DE_LIST_TAP_POINT == null || DE_LIST_TAP_POINT == 'undefined'}
+                commands:
+                  - tapOn:
+                      text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+                      below:
+                        text: ".*Hạn nộp ${DE_DUE_DATE_DM}.*"
+                        below:
+                          text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+      - runFlow:
+          when:
+            true: ${DE_DUE_DATE_DM == null || DE_DUE_DATE_DM == 'undefined'}
+          commands:
+            - scrollUntilVisible:
+                element:
+                  text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
+                direction: DOWN
+                timeout: 90000
+                speed: 70
+                waitToSettleTimeoutMs: 500
+            # Xem ghi chú GAP THẬT + DE_LIST_TAP_POINT ở nhánh DE_DUE_DATE_DM phía trên, cùng 1 bug.
+            - runFlow:
+                when:
+                  true: ${DE_LIST_TAP_POINT != null && DE_LIST_TAP_POINT != 'undefined'}
+                commands:
+                  - tapOn:
+                      point: ${DE_LIST_TAP_POINT}
+            - runFlow:
+                when:
+                  true: ${DE_LIST_TAP_POINT == null || DE_LIST_TAP_POINT == 'undefined'}
+                commands:
+                  - tapOn:
+                      text: ".*(Làm bài|Làm tiếp|Làm lại).*"
+                      below:
+                        text: '.*${(DE_NAME == null ? "Đề kiểm tra" : DE_NAME).replace(/[.*+?^()|[\]\\]/g, function(m){return "\\" + m})}.*'
 
 # Bottom sheet nâng cấp Pro/Free (spec.json mục "Rule quyền truy cập theo gói"): nếu tài khoản Free
 # bấm vào đề Pro, app KHÔNG vào màn làm bài mà hiện sheet nâng cấp - helper này KHÔNG dismiss sheet

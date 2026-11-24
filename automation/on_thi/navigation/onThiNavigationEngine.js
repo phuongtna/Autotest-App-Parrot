@@ -59,29 +59,41 @@ export class OnThiNavigationEngine {
    * Mở tab "Ôn thi" > 1 trong 2 sub-tab (idempotent - bỏ qua nếu đã ở đó). ĐÃ XÁC NHẬN THẬT
    * (2026-10-30, thao tác tay qua `adb shell input tap` + screenshot, thiết bị 3201d866d40a1681):
    * "Ôn thi" đúng là tên tab điều hướng được trực tiếp bằng text, và 2 nhãn sub-tab
-   * ("Đề thầy cô giao"/"Kho đề Parrot") đều tap được - xoá cảnh báo "CHƯA VERIFY tên tab gốc"
-   * trước đây (xem `onThiPageObjects.js`). CHƯA chạy qua chính đoạn code Maestro này (chưa gọi qua
-   * MaestroBridge thật) - chỉ xác nhận hành vi UI/text thật, không xác nhận cú pháp `runFlow`/
-   * `tapOn` bên dưới.
+   * ("Đề thầy cô giao"/"Kho đề Parrot") đều tap được.
+   *
+   * SỬA LẠI (2026-11-24, phát hiện qua `chạy thử` thật onthimanketqua.yaml): claim cũ "Ôn thi" là
+   * bottom-tab trực tiếp SAI - ĐÃ CONFIRMED THẬT (qua `flows/app/helpers/open-tab-on-thi.yaml`, tự
+   * chạy qua `maestro test` nhiều lần, thiết bị 3201d866d40a1681) rằng "Ôn thi" là 1 ô quick-nav
+   * NẰM BÊN TRONG tab "Báo cáo" (bottom tab thật, resource-id `tab_report`), cần cuộn xuống mới
+   * thấy - bottom tab bar thật chỉ có đúng 4 mục (`tab_happy_learning`/`tab_homework`/`tab_chat`/
+   * `tab_report`). Đồng bộ lại theo ĐÚNG steps đã verify của `open-tab-on-thi.yaml` thay vì
+   * `tapOn: { text: po.bottomTab.onThiLabel }` cũ (sẽ luôn FAIL thật trên app).
    * @param {string} subTabLabel - `po.list.subTabAssignedByTeacher` hoặc `po.list.subTabParrotBank`.
    */
   async _openSubTab(subTabLabel) {
     const steps = [
       {
         runFlow: {
-          when: { notVisible: po.list.subTabAssignedByTeacher },
+          when: { notVisible: { text: `.*(${po.list.subTabAssignedByTeacher}|${po.list.subTabParrotBank}).*` } },
           commands: [
-            { tapOn: { text: po.bottomTab.onThiLabel } },
-            { waitForAnimationToEnd: { timeout: 2000 } },
+            { tapOn: { id: "tab_report" } },
+            { extendedWaitUntil: { visible: { text: ".*(Báo cáo học tập).*" }, timeout: 15000 } },
+            { scrollUntilVisible: { element: { text: "Ôn thi" }, direction: "DOWN", timeout: 20000, speed: 50 } },
+            { tapOn: "Ôn thi" },
             ...this._dismissKnownPopupsSteps(),
           ],
         },
       },
-      { waitForAnimationToEnd: { timeout: 2000 } },
-      { assertVisible: { text: po.screenTitleSelector ?? po.list.screenTitle } },
+      { waitForAnimationToEnd: { timeout: 1500 } },
       // Tap vào ĐÚNG label sub-tab mong muốn - an toàn kể cả khi đã đang chọn sẵn (idempotent,
       // giống cách openHomeworkTab() tap lại label tab dù có thể đã ở đó).
       { tapOn: { text: subTabLabel } },
+      {
+        extendedWaitUntil: {
+          visible: { text: `.*(${po.list.subTabAssignedByTeacher}|${po.list.subTabParrotBank}|\\d+ đề).*` },
+          timeout: 30000,
+        },
+      },
       { waitForAnimationToEnd: { timeout: 1500 } },
     ];
     const result = await this.bridge.runSteps(steps);

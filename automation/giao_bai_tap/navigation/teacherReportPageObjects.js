@@ -49,6 +49,36 @@ export async function listCompletedStudents(page) {
   });
 }
 
+/** Đọc danh sách HS trong card "Chưa nộp bài" của màn "Báo cáo lớp" đang mở, ĐÚNG THỨ TỰ DOM -
+ * dùng để kiểm tra thứ tự sắp xếp (TC_PAR_BaoCaoChiTiet_8). Khác listCompletedStudents() ở trên:
+ * item ở đây KHÔNG phải link (<span> tên, không phải <a href="/result/...">) vì HS chưa nộp bài
+ * không có bài làm để mở chi tiết. */
+export async function listNotSubmittedStudents(page) {
+  return page.evaluate(() => {
+    const heading = Array.from(document.querySelectorAll("h3")).find((h) => /Chưa nộp bài/i.test(h.textContent || ""));
+    if (!heading) return [];
+    const card = heading.parentElement.parentElement;
+    return Array.from(card.querySelectorAll(".overflow-y-auto > div > div")).map((item) => item.children[1]?.textContent.trim() ?? "");
+  });
+}
+
+/** Giống listCompletedStudents() nhưng đọc thêm điểm số hiển thị ngay trên item (<span> con thứ 3,
+ * SAU avatar + tên) - dùng để kiểm tra thứ tự sắp xếp theo điểm (TC_PAR_BaoCaoChiTiet_13/14) và
+ * điểm cao nhất khi làm nhiều lần (TC_PAR_BaoCaoChiTiet_15). ĐÃ XÁC NHẬN THẬT (2026-11-24, DOM
+ * dump thật trên staging): mỗi item có đúng 3 con (avatar, <a> tên, <span> điểm dạng "8.0"). */
+export async function listCompletedStudentsWithScore(page) {
+  return page.evaluate(() => {
+    const heading = Array.from(document.querySelectorAll("h3")).find((h) => /Đã hoàn thành/i.test(h.textContent || ""));
+    if (!heading) return [];
+    const card = heading.parentElement.parentElement;
+    return Array.from(card.querySelectorAll(".overflow-y-auto > div > div")).map((item) => ({
+      name: item.children[1]?.textContent.trim() ?? "",
+      href: item.children[1]?.getAttribute("href") ?? null,
+      score: Number(item.children[2]?.textContent.trim() ?? "NaN"),
+    }));
+  });
+}
+
 /**
  * Đọc 3 ô giá trị (Điểm số/Thời gian nộp/Thời gian làm bài) trên trang "Chi tiết bài làm học
  * sinh" (/teacher/exercise/{id}/result/{studentUserId}) - dùng bởi runtime cross-check giữa App

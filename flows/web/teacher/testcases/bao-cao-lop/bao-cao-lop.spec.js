@@ -31,6 +31,23 @@ import { po as reportPo, getScoreDistributionSum } from "../../../../../automati
  * xuất hiện sớm hơn" khớp đúng 100% - chỉ riêng BƯỚC CHỌN 10/N khi N>10 là chưa tái tạo được qua
  * mock, có thể phụ thuộc 1 nguồn dữ liệu khác (vd cấu trúc đề) ngoài 3 API report-stats đã biết.
  * Xem project_par3169_baocaolop_staging_run.md để không lặp lại các giả thuyết đã thử.
+ *
+ * SỬA (2026-11-24): TC_035 (auto-focus câu sai nhiều nhất) ĐÃ viết được bằng dữ liệu THẬT trên
+ * STAGING (không mock) - xem flows/web/giao_bai_tap/danh_sach_de_da_giao/view-report-error-
+ * analysis.spec.js - PASS thật với room "Đề thi Reading" (lớp "5D", roomId
+ * 1ecd5c8b-4571-4d2c-99ad-415b1a9c70d7). File đó cũng sửa lại hiểu biết SAI ở trên: nhãn "C{n}"
+ * KHÔNG "mock luôn hiện đủ" - câu incorrect_count=0 xen giữa KHÔNG có cột, các cột sau vẫn giữ số
+ * gốc (không dồn lại) - xem docblock + comment TC_035 ở file đó. TC_032 (giới hạn 10 cột khi >10
+ * câu sai) và TC_036 (hoà điểm sai nhiều nhất) VẪN CHƯA viết được: đã dò toàn bộ 7 đề luyện tập có
+ * HS nộp bài của tài khoản GV mặc định trên staging, KHÔNG có đề nào có >10 câu bị làm sai hay có
+ * 2 câu hoà điểm sai cao nhất - cần tài khoản GV khác có nhiều dữ liệu hơn, hoặc chủ động tạo 1 đề
+ * mới đủ điều kiện (không còn read-only, cần hỏi lại trước khi làm).
+ *
+ * SỬA (2026-11-24, tiếp): TC_032 và TC_036 SAU ĐÓ đã viết được - người yêu cầu cung cấp trực tiếp
+ * roomId d469b4ff-a6fa-4bcb-b4d2-3849c9b6ec7f ("Đề thi chung 1 kỹ năng", lớp "5D", giao 08/11/2026,
+ * 4/4 đã nộp), nằm NGOÀI phạm vi 7 đề đã dò ở trên (lý do không xác định được). Đề này có 18/20 câu
+ * bị làm sai (>10) và 4 câu hoà điểm sai cao nhất - PASS thật trên staging, xem cùng file
+ * view-report-error-analysis.spec.js nói trên (block describe thứ 2).
  */
 test.describe("PAR-3169 Báo cáo theo lớp (Đề luyện tập) - mock", () => {
   test.skip(
